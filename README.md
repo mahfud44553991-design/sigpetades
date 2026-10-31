@@ -1,0 +1,1995 @@
+# SIPETADES — SIG Pertanahan & PBB Desa Gedong
+
+Sistem informasi pertanahan dan pajak bumi bangunan untuk tingkat desa: peta
+bidang, Buku C Desa, objek pajak/SPPT, peralihan hak, dan pelaporan sengketa,
+dengan satu basis data sebagai sumber kebenaran.
+
+Ditulis sebagai PHP prosedural tanpa framework, dengan MariaDB sebagai penyimpan
+geometri maupun data tabel. Tidak ada langkah pembangunan (`build`) dan tidak
+ada dependensi Node — yang perlu dipasang hanya PHP, MySQL, dan Apache.
+
+---
+
+## 1. Cara kerja datanya
+
+GeoJSON lapangan **dimuat sekali ke MariaDB**, lalu seluruh halaman dan endpoint
+API hanya membaca tabel. File `.geojson` tidak dibaca ulang setiap permintaan.
+
+```
+blok_peta.geojson ─┐
+bidang_tanah.geojson ├──[ tools/impor.php ]──► MariaDB (EPSG:4326) ──► halaman web + api/*.php
+bidang_lain.geojson ┘                                                      ▲
+_lama/sigtanahdesa.sql ────────────────────────────────────────────────────┘
+files/Data C Desa/*.pdf ──(indeks)──► tabel buku_c ──► dokumen.php (proksi)
+files/master peta/MASTER.dxf ──(batas, gg, nama, nis, nib, daftar, dxf-persil, kuning)──► tabel yang sama
+```
+
+Konsekuensinya: perubahan geometri dilakukan lewat basis data, dan berkas
+GeoJSON hanya perlu diimpor ulang bila data lapangan memang diperbarui.
+
+---
+
+## 2. Kebutuhan
+
+| Bagian | Minimum | Dipakai di sini |
+| --- | --- | --- |
+| PHP | 8.1 + ekstensi `pdo_mysql` | 8.2.12 (XAMPP) |
+| MariaDB | 10.4 (fungsi ruangnya dipakai) | 10.4.32 (XAMPP) |
+| Apache | `mod_rewrite` disarankan aktif | XAMPP |
+
+Perintah geometri yang dipakai: `ST_GeomFromText(wkt, 4326)`, `ST_AsGeoJSON`,
+`ST_AsText`, `ST_X`, `ST_Y`. Urutan koordinat selalu **bujur, lintang** seperti
+GeoJSON. Attribute SRID tidak dipakai karena tidak tersedia di MariaDB 10.4 —
+bila tabel dipindahkan ke server lain, sistem koordinatnya harus diperiksa ulang
+secara manual.
+
+---
+
+## 3. Instalasi
+
+### 3.1 Letakkan berkas
+
+Salin seluruh folder ini ke `htdocs` XAMPP, misalnya
+`D:\xampp\htdocs\sipetades`. Folder `files\`, `storage\`, `app\`, `sql\`,
+`tools\`, dan `_lama\` harus ikut, karena `.htaccess` sudah menutupnya dari
+HTTP.
+
+### 3.2 Buat konfigurasi
+
+```
+copy app\config.example.php app\config.php
+```
+
+Isi kunci `db` pada `app/config.php`. Nilai environment menang atas isi berkas,
+sehingga deployment bisa diubah tanpa menyentuh disk:
+
+```
+SIG_DB_HOST  SIG_DB_PORT  SIG_DB_NAME  SIG_DB_USER  SIG_DB_PASSWORD
+```
+
+`app/config.php` **jangan** ikut dibagikan atau di-commit — isinya kredensial.
+
+### 3.3 Buat basis data
+
+```
+D:\xampp\mysql\bin\mysql.exe -u root < sql\01_skema.sql
+```
+
+`01_skema.sql` membuat database `sipetades_gedong` lalu membangun 17 tabel beserta
+data acuan (dusun, jenis hak, jenis penggunaan, jenis peralihan, setelan desa).
+Akun Super Admin dibuat terpisah sesudahnya — lewat `setup.php` atau
+`02_akun_awal.sql`; lihat 3.5.
+
+> Skema sengaja dibuat sebagai satu berkas utuh dan **jatuh bangun**:
+> `01_skema.sql` mengandung `DROP TABLE` untuk semua tabel aplikasi.
+> Menjalankannya ulang = menghapus seluruh data. Cadangkan dulu
+> (bagian 9) kalau basis datanya sudah dipakai sungguhan.
+
+### 3.4 Impor data lapangan
+
+Dari shell:
+
+```
+D:\xampp\php\php.exe tools\impor.php semua
+```
+
+atau dari browser setelah masuk sebagai Super Admin: **Manajemen akun →
+Pemasangan data** (`pasang.php`). Keduanya memakai `tools/lib-impor.php` yang
+sama, jadi hasilnya identik.
+
+Perintah yang tersedia:
+
+```
+php tools\impor.php semua        blok + bidang + objek pajak + indeks Buku C
+php tools\impor.php blok         hanya blok_peta.geojson
+php tools\impor.php bidang       bidang_tanah.geojson + bidang_lain.geojson
+php tools\impor.php sppt [csv]   CSV SPPT (bawaan: berkas pertama di files\data excel)
+php tools\impor.php sppt-dump    objek pajak dari _lama\sigtanahdesa.sql
+php tools\impor.php buku-c       daftarkan isi folder files\Data C Desa
+php tools\impor.php gg           kumpulkan penanda tanah gang dari MASTER.dxf
+php tools\impor.php gang <berkas>  impor poligon gang menjadi Hak Pakai
+php tools\impor.php gabung <asal> <tujuan>
+                               pindahkan satu blok ke blok lain
+php tools\impor.php batas [blok]
+                               pasang garis luar blok dari MASTER.dxf
+php tools\impor.php kira [blok...]  buat batas dari gabungan bidangnya
+php tools\impor.php pindah <asal> <tujuan>
+                               pindahkan bidang yang di luar batas blok asal
+php tools\impor.php ubah-blok <blok> <kode...>
+                               tentukan blok beberapa bidang tertentu
+php tools\impor.php rapikan <blok...>
+                               potong batas blok sampai ke tepi jalan OSM
+php tools\impor.php duplikat     tandai bidang yang poligonnya kembar (lihat 3.9)
+php tools\impor.php kembar-tepat tandai kembar yang lolos ST_Equals (lihat 3.9)
+php tools\impor.php dxf-persil   pasang persil DXF yang flag-nya tak tertutup (lihat 3.19)
+php tools\impor.php kuning       sejajarkan tepi bidang berpolyline kuning + pasang yang yatim (lihat 3.22)
+php tools\impor.php luas         hitung ulang luas_m2 yang melenceng dari geometri (lihat 3.21)
+php tools\impor.php koreksi-blok pindahkan bidang berblok buatan alat ke garis blok yang menaunginya (lihat 3.21)
+php tools\impor.php taut-blok   tautkan setiap objek pajak ke blok peta dari NOP
+php tools\impor.php nama        ambil nama pemegang dari label peta master (lihat 3.12)
+php tools\impor.php nama-verifikasi
+                               isi nama bidang perlu_verifikasi lintas lapisan (lihat 3.12)
+php tools\impor.php nis         ambil NIS alas hak dari label peta master (lihat 3.13)
+php tools\impor.php kode-nis    ganti kode DXF-... menjadi HM-<nis> (lihat 3.13)
+php tools\impor.php nib         isi bidang.nib dari label lapisan NIB HM (lihat 3.14)
+php tools\impor.php daftar      isi bidang.nomor_daftar dari lapisan 080201 (lihat 3.14)
+php tools\impor.php hak-milik   tetapkan jenis hak Hak Milik bagi bidang perlu_verifikasi (lihat 3.15)
+php tools\impor.php calon <blok> daftar bidang seblok dengan calon NOP terdekat
+php tools\impor.php taut <kode> <nop>
+                               jodohkan satu bidang dengan satu NOP (lihat 3.11)
+```
+
+Tambahkan `--reset` untuk mengosongkan tabel terkait sebelum impor. Perintah
+`semua` — dan `php tools\impor.php` yang **tidak** menyebut perintah, yang berarti
+`semua` — juga berhenti pada mode periksa tanpa `--terapkan`: rantai itu mengimpor ulang
+`blok_peta.geojson` + `bidang_tanah.geojson` + `bidang_lain.geojson`, dan sejak
+[§3.19](#319-persil-dxf-yang-flag-nya-tidak-pernah-ditutup) sumber geometri sejatinya
+MASTER.dxf, jadi menjalankannya menimbun bidang lama di atas data yang benar.
+Perintah
+`gang`, `gabung`, `batas`, `kira`, `pindah`, `ubah-blok`, `rapikan`, `duplikat`,
+`kembar-tepat`, `dxf-persil`, `kuning`, `luas`, `koreksi-blok`, `taut-blok`, `nama`, `nama-verifikasi`,
+`nis`, `kode-nis`, `nib`, `daftar`, `hak-milik` dan `taut`
+hanya memeriksa kecuali ditambah `--terapkan`. Perintah `nis`, `nib`, `daftar` dan
+`hak-milik`
+hanya menyentuh bidang `perlu_verifikasi` kecuali ditambah `--semua`. Perintah `batas` menerima `--tegas`
+untuk memasang satu garis luar tanpa menyisipkan bidang, dan `kira` menerima
+`--tepat` untuk mengikuti gabungan bidang tanpa penyangga sama sekali (lihat 3.8).
+`dxf-persil` menerima `--celah=<meter>` (toleransi ujung poligon terbuka, bawaan 0,01 m), `--minimal=<m²>` (luas terkecil yang dipasang, bawaan 20 m²) dan `--tanpa-blok`
+(pasang juga calon yang tidak menemukan bloknya, dengan `blok_id` kosong — lihat 3.19).
+`kuning` menerima `--tarik=<meter>` (sejauh mana sebuah sudut boleh dipindahkan ke garis
+tetangga, bawaan 0,15 m) dan `--master=<berkas>` — lihat 3.22.
+`luas` menerima `--toleransi=<bagian>` (bawaan 0,05) — lihat 3.21.
+Dijalankan tanpa argumen, `kira` berlaku ke semua blok. Perintah `batas` dan `gg`
+membaca `files\master peta\MASTER.dxf`, kecuali ditambah
+`--master=<berkas>`. Berkas **DWG** bisa dipakai langsung: ia dikonversi dulu
+menjadi `files\master peta\<nama>-dari-dwg.dxf` dengan LibreDWG portabel di
+`tools\vendor\libredwg\` (GPL-3, unduh `libredwg-*-win64.zip` dari
+<https://github.com/LibreDWG/libredwg/releases> lalu isi folder itu). Konversi
+dipakai ulang selama berkas aslinya tidak berubah, dan MASTER.dxf yang lama tidak
+pernah tertimpa.
+
+```
+D:\xampp\php\php.exe tools\impor.php batas --master="files\master peta\MASTER.dwg"
+```
+
+### 3.5 Buat Super Admin pertama
+
+Dua cara, pilih salah satu:
+
+- **Lewat peramban** (disarankan) — buka `http://localhost/sipetades/setup.php`.
+  Halaman ini hanya aktif selama belum ada akun Super Admin; begitu akun pertama
+  dibuat, ia menutup dirinya.
+- **Lewat SQL** — buat hash sendiri lebih dulu, lalu tempel ke `sql/02_akun_awal.sql`:
+
+  ```
+  D:\xampp\php\php.exe -r "echo password_hash('SandiRahasia12345', PASSWORD_DEFAULT);"
+  D:\xampp\mysql\bin\mysql.exe -u root sipetades_gedong < sql\02_akun_awal.sql
+  ```
+
+  Berkas itu tidak berisi sandi apa pun. Selama variabel `@hash` di dalamnya
+  masih kosong, skrip tidak menulis satu baris pun — jadi menjalankannya dua
+  kali, atau sebelum hash diisi, aman. `INSERT ... WHERE NOT EXISTS` juga menjaga
+  agar Super Admin yang sudah ada tidak pernah tertimpa.
+
+Kata sandi minimal 12 karakter dengan huruf dan angka, disimpan sebagai hash
+bcrypt. Tidak ada sandi bawaan di mana pun, jadi tidak ada yang perlu diganti
+buru-buru — tetapi tetap pilih sandi yang tidak dipakai di tempat lain.
+
+### 3.6 Peta gang (GG) menjadi Hak Pakai
+
+Di `MASTER.dxf`, tanah gang **tidak** digambar sebagai poligon. Yang ada hanya
+19 label teks `GG` dan `TANAH GG` pada layer `tn_nama` dan `BATAS DESA` —
+titik penanda di tengah gang. Karena itu prosesnya dua langkah.
+
+Langkah satu, kumpulkan penandanya:
+
+```
+D:\xampp\php\php.exe tools\impor.php gg
+```
+
+Skrip membaca `files\master peta\MASTER.dxf`, memindahkan tiap label ke WGS84,
+lalu mencari nomor blok tempat titik itu jatuh (`ST_Contains` pada tabel
+`blok`). Hasilnya dua berkas di `files\peta gang\`: `peta_gg.geojson` (titik,
+sudah membawa `blok`, `nomor_blok`, dan `status_hak`) dan `peta_gg.csv`.
+Basis data tidak diubah.
+
+Titik yang tidak jatuh di dalam batas blok mana pun tetap diberi blok terdekat
+plus jaraknya, ditandai `perlu_dicek = ya`, dan tidak langsung dipakai.
+
+Langkah dua, digitasi bentuk gang dari titik acuan itu di QGIS atau AutoCAD,
+simpan sebagai GeoJSON poligon, dan pastikan setiap feature punya properti:
+
+```
+id_bidang   kode unik, mis. GG-01
+blok        kode blok hasil langkah satu, mis. "BLOK 4"
+luas_m2     opsional
+```
+
+Lalu periksa dan terapkan:
+
+```
+D:\xampp\php\php.exe tools\impor.php gang "files\peta gang\gang-poligon.geojson"
+D:\xampp\php\php.exe tools\impor.php gang "files\peta gang\gang-poligon.geojson" --terapkan
+```
+
+Tanpa `--terapkan` tidak ada satu baris pun yang ditulis. Berkas yang belum
+lengkap (tanpa `id_bidang`, tanpa `blok`, blok tidak dikenal, atau geometri
+bukan poligon) ditolak seluruhnya dengan daftar bagian yang salah.
+
+Yang masuk ke basis data saat `--terapkan`: `bidang` baru bertipe `lain`,
+bersumber `GG`, dan satu baris `hak` per bidang berisi `jenis_hak` **HP (Hak
+Pakai)** dengan pemegang `Pemerintah Desa Gedong`. Nomor blok ikut terisi dari
+kode blok pada feature. Impor ini menambah data, tidak menimpa bidang yang
+sudah ada; menjalankannya dua kali tidak menghasilkan duplikat karena
+`id_bidang` yang sama dilewati.
+
+### 3.7 Menggabungkan dua blok
+
+Blok hasil perkiraan batas kadang ternyata bagian dari blok tetangga. Contoh
+yang sudah dijalankan di Desa Gedong:
+
+```
+D:\xampp\php\php.exe tools\impor.php gabung 11 13          # periksa dulu
+D:\xampp\php\php.exe tools\impor.php gabung 11 13 --terapkan
+```
+
+Dalam satu transaksi, `gabung` memindahkan seluruh `bidang` milik blok sumber
+ke blok tujuan, menggabungkan batas keduanya (`ST_Union`, dipasang kembali
+dengan SRID 4326 karena MariaDB 10.4 tidak punya `ST_SetSRID`), lalu membuang
+baris blok sumber. Nomor blok sumber menjadi kosong — itu memang maksudnya,
+blok yang sudah dihapus tidak boleh dipakai lagi.
+
+Sebelum ada perubahan, salinan kedua blok (WKT batas, metadata, dan daftar
+bidang) ditulis ke `storage\gabung-blok-<waktu>.json`, dan kejadian lengkapnya
+masuk ke `audit_log`. Untuk membatalkan, baca berkas itu: pasang kembali WKT
+blok tujuan, sisipkan baris blok sumber, lalu kembalikan `blok_id` bidang yang
+terdaftar.
+
+Batas blok tujuan dibiarkan berstatus `batas_tersedia` seperti semula walaupun
+sebagian kecil wilayahnya kini berasal dari perkiraan; sumber perkiraannya ada
+di berkas cadangan dan `audit_log`. Perlu diingat: `impor.php blok --reset`
+membuat ulang blok dari `blok_peta.geojson`, sehingga blok yang sudah
+digabungkan muncul kembali. Jalankan ulang `gabung` sesudah impor blok.
+
+### 3.8 Batas blok dari peta dasar
+
+Di `MASTER.dxf`, sebagian blok hanya digambar **garis luarnya saja** — tidak ada
+batas tiap bidang di dalamnya. Garis luar itu ada pada lapisan `BATAS BLOK`.
+Daftarkan dulu mana yang tersedia:
+
+```
+D:\xampp\php\php.exe tools\impor.php batas
+```
+
+Lapisan ini memuat 20 garis luar. Sebuah garis luar dikenali sebagai milik blok
+yang paling banyak menampung bidang di dalamnya, jadi garis yang tidak sejalan
+dengan sebaran bidang tidak ikut terpakai. Pasang untuk blok tertentu:
+
+`MASTER.dwg` keluaran 19 Oktober 2026 (format AC1024) isinya **sama persis**
+dengan `MASTER.dxf` yang sudah dipakai: jumlah maupun koordinat 9.471 poligon dan
+26.112 label cocok satu-satu, dan 20 garis `BATAS BLOK`-nya identik. Satu-satunya
+perbedaan ada pada objek non-gambar (1.668 `ACAD_PROXY_OBJECT` gaya Map 3D yang
+tidak ikut terkonsversi), jadi tidak ada yang perlu diperbarui di peta dari
+berkas itu. Verifikasinya ada di `_lama\scratch\sidik-dwg.php`.
+
+Yang kecil di lapisan `BATAS BLOK` memang bukan garis utuh: BLOK 2 punya tiga
+potongan (19.164 m², 18.274 m², 72.051 m²) yang bersama-sama hanya menampung 59
+dari 213 bidangnya, dan BLOK 8, 19, 21, 22 tidak punya garis sama sekali.
+
+```
+D:\xampp\php\php.exe tools\impor.php batas 3 17 23 13 --terapkan
+```
+
+Batas yang dipasang = garis luar itu **digabung dengan bidang milik blok yang
+jatuh di luarnya**, sehingga tidak ada bidang yang kehilangan blok. Bloknya
+menjadi `batas_tersedia = 1`, `batas_perkiraan = 0`, dan `sumber_perkiraan`
+mencatat asal-usulnya. Bidang milik blok lain yang jatuh di dalam garis luar
+**tidak dipindahkan**; statusnya saja yang diubah menjadi
+`perlu_verifikasi` supaya muncul di daftar kerja.
+
+Bila tampilan peta lebih diutamakan daripada menampung semua bidang, tambahkan
+`--tegas` supaya batasnya murni satu garis luar saja:
+
+```
+D:\xampp\php\php.exe tools\impor.php batas 3 --tegas --terapkan
+```
+
+Dengan `--tegas` tidak ada bidang yang disisipkan, sehingga batas blok tampil
+sebagai satu garis tertutup (`ST_NumGeometries(geom) = 1`). Konsekuensinya,
+bidang anggota yang berada di luar garis tetap berstatus anggota blok yang sama
+tetapi tidak lagi terlihat di dalam batasnya. Angka bidang yang tertinggal di
+luar itu dicetak pada mode periksa, jadi selalu cek dulu sebelum `--terapkan`.
+
+Bila bidang yang tertinggal di luar itu memang milik blok tetangga, pindahkan
+sekali saja dengan perintah `pindah`. Perintah ini mengambil seluruh bidang
+anggota yang pusatnya berada di luar batas bloknya sendiri lalu mengubah
+`blok_id`-nya:
+
+```
+D:\xampp\php\php.exe tools\impor.php pindah 3 9 --terapkan
+```
+
+Ini yang dipakai untuk BLOK 3: 41 bidang sisipan dipindah menjadi anggota
+BLOK 9, sehingga BLOK 3 tinggal 299 bidang yang semuanya berada di dalam satu
+garisnya. Batas BLOK 9 sendiri lalu dipasang dari garis luar `MASTER.dxf`
+(234.930 m², satu bagian, menampung 165 bidang lamanya). Catatan penting: 41
+bidang yang dipindah itu berada di **celah antara** kedua garis luar, jadi
+pusatnya tidak jatuh di dalam garis BLOK 9 maupun BLOK 3. Bila ingin semuanya
+terlihat ikut tergambar sebagai BLOK 9, jalankan `batas 9` tanpa `--tegas` —
+batasnya menjadi 8 bagian dengan luas 284.125 m².
+
+Bila yang perlu diluruskan hanya beberapa bidang, sebut kodenya satu per satu
+lewat `ubah-blok`. Perintah ini tidak peduli posisi geometrisnya — dipakai
+kalau penentuan blok sudah diputuskan petugas lapangan:
+
+```
+D:\xampp\php\php.exe tools\impor.php ubah-blok 7 DXF-020100-1028 HM-0430 --terapkan
+```
+
+Kode yang tidak ada dilaporkan sebagai `tidak_dikenal`, lengkap dengan dugaan
+kode yang angka-angkanya cocok, jadi salah ketik tidak berubah menjadi
+perubahan yang sunyi. Empat bidang `DXF-020100-1028`, `HM-0430`, `HM-0431` dan
+`HM-0432` dengan cara ini dipindah dari BLOK 9 ke BLOK 7; keempatnya berada di
+tepat luar batas BLOK 7 — `HM-0430` dan `HM-0432` menempelnya (0 m), sisanya
+berjarak 12,8 m dan 22,5 m.
+
+Blok yang tidak punya garis luar di peta dasar (8, 19, 21 dan 22) batasnya
+dibuat dari gabungan seluruh bidang anggotanya. Awalnya gabungan itu diselubungi
+15 m supaya kluster bidang yang tidak saling menyentuh tampak satu kesatuan:
+
+```
+D:\xampp\php\php.exe tools\impor.php kira 8 19 21 22 --terapkan
+```
+
+Dengan `--tepat` penyangganya nol, jadi batasnya persis mengikuti bentuk bidang
+anggotanya; tanpa argumen perintah ini berlaku ke semua blok:
+
+```
+D:\xampp\php\php.exe tools\impor.php kira --tepat --terapkan
+```
+
+**Kondisi basis data sekarang: 19 blok memakai garis luar MASTER.dxf sebagai
+satu garis tutup** (`sumber_perkiraan = garis luar MASTER.dxf`,
+`batas_tersedia = 1`, `ST_NumGeometries = 1`), dipasang dengan
+`batas 3 15 25 17 18 7 9 5 4 16 6 14 12 26 24 20 10 13 23 --tegas --terapkan`
+pada 19 Okt 2026. Sisanya — **BLOK 2, 8, 19, 21, 22** — masih berupa gabungan
+persis bidang anggotanya (`sumber_perkiraan = gabungan bidang anggota`).
+
+Alasan penyaringannya: garis luar hanya dipasang pada blok yang bidangnya ikut
+tertutup ≥80 %. BLOK 2 tidak dipasang karena garis luar yang cocok ke blok itu
+hanya memuat 25 dari 213 bidangnya (12 %) dan luasnya 58 % lebih kecil dari
+gabungan bidangnya — jelas bukan batasnya. BLOK 8, 19, 21 dan 22 memang tidak
+punya garis luar di peta dasar.
+
+Kelima blok itu **ditinggalkan dengan sengaja**, bukan terlewat: satu-satunya cara
+otomatis yang tersedia untuk memaksanya jadi satu garis terbukti menambah tanah
+yang tidak dimiliki bidang mana pun (lihat dua cara yang gagal di bawah). Bila
+nanti garis nyanya sudah didigitasi dari peta lapangan, pasang lewat
+`impor.php batas 2 8 19 21 22 --tegas --terapkan` seperti 19 blok lainnya.
+
+Langkah sebelumnya, ketika kedua puluh empat blok sempat dijadikan gabungan
+persis (348 bagian, tidak ada satu pun blok satu garis), masih bisa dikembalikan
+per blok lewat `storage\batas-kira-<blok>-20261019-1827*.json`.
+
+Perbandingan yang diukur sebelum memutuskan (`ST_NumGeometries` mengembalikan 0
+untuk poligon tunggal, jadi "0 bagian" berarti satu garis tutup):
+
+| aturan | total bagian | blok satu garis | luas | bidang di luar |
+|---|---|---|---|---|
+| gabungan persis, 0 m | 348 | 0 | 3.736.339 m² | 175 |
+| gabungan + penyangga 3 m | 59 | 12 | 4.103.313 m² | 79 |
+| gabungan + penyangga 5 m | 49 | 13 | 4.293.593 m² | 53 |
+| gabungan + penyangga 8 m | 41 | 14 | 4.561.761 m² | 36 |
+
+Sebagian bidang selalu tetap berada di luar batasnya: pusat bidang yang bentuknya
+cekung sering jatuh di luar bidang itu sendiri, bukan hanya karena penyangganya
+kurang lebar.
+
+Dua cara lain untuk memaksa satu garis luar sudah diukur dan **gagal**, jadi
+jangan dicoba lagi:
+
+- **Cangkang cembung** (`ST_ConvexHull`, tersedia di MariaDB 10.4 dan instan)
+  memang memberi satu garis untuk setiap blok dan hanya menyisakan 17 bidang di
+  luar, tetapi luas seluruh blok naik dari 3.736.339 ke 6.360.027 m² — **bertambah
+  70 %** tanah yang tidak dimiliki bidang mana pun. Terparah BLOK 17 (+289 %),
+  BLOK 14 (+156 %), BLOK 9 (+149 %), BLOK 20 (+115 %).
+- **Penutupan morfologi** (`ST_Buffer` keluar lalu masuk, mis. +15 m/−15 m) bukannya
+  menyatukan bagian malah menghancurkannya: BLOK 14 dengan 16 bagian menghasilkan
+  **2.630 bagian** dan WKT 497 KB. Busur hasil `ST_Buffer` MariaDB terlalu kasar,
+  jadi penyangga masuk memotong pinggirannya sendiri jadi serpihan. Cara yang
+  sama juga pernah menghasilkan 1.717 bagian pada BLOK 3.
+
+Batas yang sudah terpasang masih bisa dirapikan supaya berhenti di **tepi
+jalan**. MASTER.dxf tidak menyimpan bentuk jalan sama sekali — lapisan
+`BATAS JALAN` hanya berisi 620 teks label tanpa geometri — jadi garis tengah
+jalan diambil dari OpenStreetMap dan disimpan di
+`files\master peta\jalan_osm.json` (Unduh dari Overpass API, bbox Desa Gedong,
+`way["highway"]`, `out geom tags`). Tiap ruas diselubungi setengah lebar
+menurut kelasnya (`primary` 5,5 m sampai `footway` 0,8 m), koridor hasilnya
+dikurangkan dari batas blok:
+
+```
+D:\xampp\php\php.exe tools\impor.php rapikan 21 22 23 --terapkan
+```
+
+Yang terpotong hanya bagian koridor yang benar-benar masuk ke dalam blok, jadi
+jalan di luar blok tidak mengubah apa pun. Serpihan hasil potongan di bawah
+500 m² dibuang karena terlalu kecil untuk dianggap bagian blok. Hasilnya pada
+pemakaian pertama:
+
+| blok | ruas | terpotong | bagian | bidang di luar |
+|---|---|---|---|---|
+| BLOK 21 | 16 | 14.432 m² | 1 → 9 | 2 (sebelumnya 1) |
+| BLOK 22 | 18 | 8.735 m² | 1 → 6 | 9 (sebelumnya 1) |
+| BLOK 23 | 38 | 6.092 m² | 14 → 10 | 7 (sebelumnya 6) |
+
+Blok 21 dan 22 menjadi beberapa bagian karena jaringan jalan memang memotong
+sebaran bidangnya; menahan potongan hanya di pita tepi (15–25 m) justru
+menghasilkan 41–139 serpihan, jadi koridor penuh yang dipakai. Kedelapan belas
+bidang yang tinggal di luar batas baru sudah berstatus `perlu_verifikasi`
+sebelumnya, jadi tidak ada bidang aktif yang kehilangan batas. `sumber_perkiraan`
+menyebut asal sebelumnya lalu `+ tepi jalan OSM`.
+
+Keenam perintah menulis cadangan sebelum mengubah apa pun —
+`storage\garis-luar-<blok>-<waktu>.json`,
+`storage\batas-kira-<blok>-<waktu>.json`,
+`storage\pindah-<blok-asal>-ke-<blok-tujuan>-<waktu>.json`,
+`storage\ubah-blok-ke-<blok>-<waktu>.json` atau
+`storage\rapikan-jalan-<blok>-<waktu>.json` (berisi WKT batas lama, daftar bidang
+sisipan, bidang yang ditandai, daftar bidang beserta `blok_id` lamanya, atau
+ruas dan kelas jalan yang memotong) —
+dan mencatat perubahannya ke `audit_log`.
+
+### 3.9 Bidang kembar (status duplikat)
+
+Sebagian bidang tercatat lebih dari satu kali dengan **poligon yang persis sama**.
+Ini bukan akibat impor yang berjalan dua kali — berkas GeoJSON sumber memang sudah
+memuatnya: `bidang_lain.geojson` mengulang kelompok poligon dengan nomor `DXF-*`
+yang berbeda (misalnya `DXF-020100-1563` kembar dengan `DXF-020100-0021`), dan
+`bidang_tanah.geojson` mengulang beberapa `HM-*` dengan nib dan luas yang sama.
+Hitungannya per 19 Oktober 2026, diukur dengan sidik teks: **334 grup, 680 baris,
+346 baris di antaranya berlebih**. Diukur dengan kesamaan geometri, angkanya naik
+(lihat di bawah). Sidiknya ada di `_lama\scratch\sidik-kembar*.php`.
+
+```
+D:\xampp\php\php.exe tools\impor.php duplikat                     # periksa saja
+D:\xampp\php\php.exe tools\impor.php duplikat --terapkan          # jalankan
+D:\xampp\php\php.exe tools\impor.php duplikat HM-0423 --terapkan  # grup beda blok,
+                                                                   # salinan ini dibuang
+D:\xampp\php\php.exe tools\impor.php kembar-tepat                 # kembar yang lolos ST_Equals
+D:\xampp\php\php.exe tools\impor.php kembar-tepat --terapkan
+```
+
+Perintah ini mengelompokkan bidang berdasar **`ST_Equals`** — identik secara
+topologi, bukan sama sebagai teks. `GROUP BY` atas teks WKT tidak dipakai karena
+kelompok itu dipotong `max_sort_length` 1024 bait, dan sidik teks
+`MD5(ST_AsText(geom))` yang dipakai pertama kali (343 bidang, 19 Okt) ternyata
+terlalu ketat: GeoJSON sumber ada yang menyimpan cincin yang sama dengan titik awal
+atau arah putaran berbeda, sehingga bentuknya satu bidang tapi teksnya beda.
+Pengukuran atas 3.700 bidang hidup (`_lama\scratch\kembaran-stequals.php`) menemukan
+**43 grup kembar, 40 di antaranya lolos dari sidik teks** — semua beranggota dua
+bidang, 39 tercatat di blok yang sama dan 3 sisanya adalah grup lama yang sudah
+dilewati. `MBRIntersects` dipakai sebagai prasyarat murah supaya indeks ruang terpakai;
+dengan itu seluruh pemeriksaan atas 3.700 bidang hidup selesai ±8 detik.
+
+Dari setiap grup disisakan satu bidang hidup: yang berstatus aktif, lalu yang datanya
+paling lengkap, lalu id terkecil. Sisanya diberi `status = 'duplikat'` dan catatan
+yang menyebut kode pasangannya. Blok, nib dan luas tidak disentuh, jadi penandaan
+ini bisa dibalik dari `storage\duplikat-bidang-<waktu>.json`.
+
+`ST_Equals` masih punya satu buta: dua poligon yang menelan satu sama lain sampai
+penuh tapi berbeda pada titik terakhirnya. `kembar-tepat` mencari itu dengan pengukur
+wilayah, bukan pengukur topologi — irisannya harus >= 99% dari luas masing-masing dan
+selisih luas tercatatnya <= 1 m² (`pasanganKembarTepat()`). Luas wilayahnya memakai
+`ST_Area(geom)` di kedua sisi; geometri disimpan tanpa SRID sehingga satuannya derajat
+persegi, dan membandingkannya dengan `luas_m2` membuat rasio itu selalu 0. Diukur
+20 Okt 2026 atas seluruh tabel: **403 pasangan lolos, hanya 4 yang kedua duanya masih
+hidup**. Tiga di antaranya ditandai duplikat (3.665 m² yang tercatat dua kali):
+
+| ditandai | dibiarkan hidup | blok | identitas yang tinggal |
+|---|---|---|---|
+| `DXF-020100-0055` | `HM-134C` | BLOK 10 | nis 134C, daftar 02779 |
+| `DXF-020100-2515` | `DXF-020100-0197` | BLOK 5 | daftar 04487, TRIMO JM |
+| `DXF-020100-2479` | `HM-1830D` | BLOK 12 | nis 1830D, daftar 03658, RAMIDI |
+
+Ketiganya bidang kosong melompong yang kembarannya sudah bersandar di nomor. Grup
+keempat — `HM-0079` dengan `HM-0094`, dua-duanya `aktif`, dua-duanya nib 00989, sama-
+sama 2.491 m² — **tidak pernah ditandai otomatis**: `aktif` artinya sudah dibaca orang,
+dan memilih salah satunya adalah keputusan petugas, jadi perintah itu hanya
+melaporkannya. Cadangannya `storage\kembar-tepat-bidang-<waktu>.json`. Batas 99% itu
+juga yang menahan *kulit penutup*: `DXF-020100-0057` (31.991 m²) menjepit `HM-114C` +
+`HM-164A` + `HM-1559D` di dalam satu poligon, tapi irisannya terhadap tiap anak hanya
+sebagian kecil luas anak itu, jadi ia bukan kembar dan memang harus dikerjakan sebagai
+bidang sendiri (lihat 3.17).
+
+Empat hal yang perlu diketahui:
+
+- **Grup yang anggotanya tercatat di blok berlainan tidak diputuskan otomatis.**
+  Menyisakan satu anggotanya dengan aturan biasa berarti memindahkan bidang itu ke
+  blok pasangan. Petugas yang memutuskan, dan kalau pilihannya sudah pasti, cukup
+  sebut kode salinan yang dibuang: `duplikat HM-0423 HM-0424 HM-0425 --terapkan`.
+  Grup itu baru terbuka kalau persis satu anggota tetap hidup; kalau tidak, ia tetap
+  dilaporkan sebagai DILEWATI. Kode yang tidak ada di grup kembar mana pun dilaporkan
+  sebagai PERINGATAN dan tidak ditandai apa pun. Geometri tidak ikut dipindah — yang
+  berubah hanya status dan catatan.
+  Tiga grup semacam itu diputuskan pada 19 Okt 2026 dengan BLOK 7 sebagai yang hidup:
+  `HM-0423`/`HM-0424`/`HM-0425` (BLOK 9) dibuang, pasangannya `HM-0432`/`HM-0431`/
+  `HM-0430` (BLOK 7) tetap. Bukunya: keenamnya poligon identik, NIB sama (01046,
+  01493, M.11), nama pemegang sama, dan ketiganya `perlu_verifikasi`; keduanya bahkan
+  jatuh di **luar** garis BLOK 7 maupun BLOK 9 (jarak ke garis BLOK 9 290-326 m, ke
+  garis BLOK 7 0-23 m), nomor HM 0423-0425 adalah satu-satunya yang nyempil di bawah
+  HM-0471 pada deret BLOK 9, dan satu-satunya catatan PBB atas nama tiga pemegangnya —
+  `MULYO WIJOYO REBIN`, NOP `33240400080`**`070`**`0010` — menunjuk BLOK 7. Riwayat
+  audit menjelaskan kenapa mereka terpisah: 17:08 perintah `pindah` membawa keenamnya
+  dari BLOK 3 ke BLOK 9, lalu 17:16 keputusan petugas menarik `HM-0430/0431/0432` ke
+  BLOK 7 — hanya salah satu salinan yang tersentuh. Rinciannya ada di
+  `_lama\scratch\detail-kembar-ditahan.php` dan `_lama\scratch\jarak-kembar-ditahan.php`.
+- **`duplikat` sudah disaring dari aplikasi, tapi belum dari laporan CSV.**
+  `bidang_filter()` — satu gerbang untuk lapisan peta, daftar bidang, dan
+  `api/bidang.php` — sekarang memakai `status NOT IN ('dihapus', 'duplikat')`, begitu
+  pula kartu dasbor (`statistik_bidang()`) dan komposisi hak. Angka luas ikut turun dari
+  4.169.068 m² menjadi **3.749.298 m²** dan peta menampilkan 3.654 bidang, bukan 4.043.
+  Yang disembunyikan tidak hilang diam-diam: kartu "Bidang tercatat" menyebut
+  `389 kembar tidak dihitung` sebagai tautan ke `bidang.php?status=duplikat`, dan status
+  itu memang masih bisa dipilih di saringan. `tools\ekspor.php` sengaja tetap
+  mengekspor semua baris — laporan punya kolom status sendiri.
+- **Angka kembar di laporan CSV ikut berubah.** `tools\ekspor.php` membangun grup dari
+  kedua pembanding — `ST_Equals` dan `pasanganKembarTepat()` — jadi
+  `04-bidang-kembar.csv` melaporkan **374 grup / 764 baris** dan tiap barisnya punya
+  kolom `Pembanding`: `ST_Equals` atau `ST_Equals + irisan penuh`. Sembilan baris
+  memakai pembanding kedua, dan empat grup di antaranya tidak akan muncul kalau
+  laporan hanya membaca `ST_Equals`. Laporan yang diekspor sebelum penandaan ini
+  memakai hitungan lama (334 grup dari sidik teks, lalu 371 grup dari `ST_Equals`
+  saja) dan sudah tidak cocok dengan isi
+  basis data — ekspor ulang.
+- **Kolom `Luas tanpa kembar` ikut bergerak.** Dengan 389 baris berstatus `duplikat`,
+  `00-keterangan.csv` mencatat 4.169.068 m² tercatat lawan **3.749.298 m² tanpa
+  kembar** — sama dengan angka dasbor, karena keduanya membuang status yang sama.
+
+### 3.10 Ekspor laporan lengkap (CSV)
+
+Untuk menyerahkan data ke desa atau memeriksa sendiri kelengkapan isinya, seluruh
+basis data bisa ditulis menjadi tujuh berkas CSV:
+
+```
+D:\xampp\php\php.exe tools\ekspor.php
+D:\xampp\php\php.exe tools\ekspor.php --tahun=2025
+```
+
+Hasilnya masuk ke `storage\laporan-<waktu>\`: `00-keterangan.csv` (angka pokok +
+bagian mana yang masih kosong), `01-rekap-status.csv`, `02-rekap-blok.csv`
+(menurut blok, termasuk luas garis batas dan berapa bagian garis itu),
+`03-bidang.csv` (semua bidang: pemegang, hak, penggunaan, PBB, catatan),
+`04-bidang-kembar.csv` (semua grup poligon identik), `05-komposisi-hak.csv`, dan
+`06-belum-terpetakan.csv` — daftar kerja persil yang belum masuk peta, dua golongan
+([§3.20](#320-sisa-yang-belum-terpetakan-diukur-dari-seluruh-lapisan-peta-master)): `A`
+cincin MASTER.dxf tanpa baris bidang, `B` nomor register peta yang labelnya berdiri di
+dalam garis blok tanpa poligon. Golongan `B` adalah pekerjaan digitasi, jadi berkasnya
+sengaja dilengkapi bujur/lintang supaya bisa dibawa ke lapangan. Bagian itu satu-satunya
+yang membaca peta master, jadi ia juga yang paling lama; susunannya dihasilkan
+`daftarBelumTerpetakan()` di `tools\lib-impor.php`, tempat skrip pengukuran
+`_lama\scratch\daftar-belum-terpetakan.php` mengambil angka yang sama.
+Berkas ber-BOM dengan pemisah titik-koma sehingga langsung benar dibuka Excel
+Indonesia. Perkakas ini hanya membaca; setiap jalanannya dicatat ke `audit_log`
+sebagai ekspor. Namanya `ekspor.php`, bukan `laporan.php`, karena halaman laporan
+warga sudah memakai nama itu di folder akar.
+
+### 3.11 Menautkan NOP PBB ke bidang peta
+
+Dua sisi data desa punya nomornya masing-masing dan **tidak punya kunci bidang yang
+sama**. Yang terbukti sudah diuji:
+
+| Dicoba | Hasil |
+| --- | --- |
+| `bidang.nib` (`M.580`, `00752`) vs persil di `objek_pajak.alamat_op` (`EX PSL 24B`) | 2 kecocokan dari 1.262 nib; garis dasar acaknya 2,4. Bukan kunci, hanya kebetulan. |
+| `bidang_sppt_gedong` dan `asset_sppt` di dump lama (tabel jodoh NOP↔blok) | keduanya 0 baris — tidak pernah diisi |
+| `bidang_pemetaan.nop` di dump lama | 4 baris contoh, `nop` NULL semua |
+| luas bumi SPPT vs luas poligon | `luas_bumi_m2` NULL untuk 3.794 objek |
+| nama pemegang hak vs nama wajib pajak | `hak.pemegang_nama` dulu kosong 4.043/4.043; nomornya diambil dari label peta (lihat 3.12), tapi nama yang sama dipakai banyak orang sehingga tidak pernah jadi kunci |
+
+Yang **bisa** dipastikan justru tingkat blok. Pada 18 digit NOP, digit 12-14 berisi
+kode blok kelipatan sepuluh (`020` = BLOK 2, `260` = BLOK 26), dan setiap nomor yang
+muncul ada di peta:
+
+```
+D:\xampp\php\php.exe tools\impor.php taut-blok            # periksa dulu
+D:\xampp\php\php.exe tools\impor.php taut-blok --terapkan # 3.794 objek tertaut
+```
+
+Perintah itu menambah kolom `objek_pajak.blok_id` bila belum ada (sekali `ALTER`,
+lalu diisi), mencatat tiap blok ke `audit_log`, dan menulis cadangan JSON ke
+`storage/`. Menjalankannya lagi tidak mengubah apa pun, jadi aman dipakai untuk
+menyinkronkan setelah impor SPPT berikutnya — importer `sppt` dan `sppt-dump` sudah
+mengisi kolom ini sendiri saat menyisipkan baris. Halaman `sppt.php` ikut dapat
+saringan **Blok peta** dan kolom **Blok**, `api/sppt.php?blok=<id blok>` mengikuti.
+
+Untuk jodoh sebidang per sebidang, alatnya membantu memilih, tidak memutuskan:
+
+```
+D:\xampp\php\php.exe tools\impor.php calon 7
+D:\xampp\php\php.exe tools\impor.php taut HM-0414 332404000800700010 --terapkan
+```
+
+`calon` mencetak setiap bidang tanah yang belum tertaut di blok itu bersama tiga calon
+NOP terdekat menurut nama (lihat 3.12), dan `taut` menolak NOP di luar kode wilayah
+desa, menolak NOP yang sudah tertaut ke bidang lain, serta memperingatkan bila blok
+pada NOP tidak sama dengan blok bidang — tetap jalan kalau memang begitu keadaannya.
+Di web, tombol **Tautkan NOP** pada halaman bidang menampilkan daftar calon yang sama,
+tersortir dengan angka kemiripan nama, jadi petugas tinggal mencentang sambil membuka
+buku SPPT.
+
+### 3.12 Nama pemegang dari label peta
+
+Basis data sempat tidak punya satu pun nama pemegang — `hak.pemegang_nama` kosong
+4.043/4.043 dan `buku_c.nama_pemegang` kosong 1.419/1.419 — padahal MASTER.dxf
+menyimpan **4.409 label TEXT** pada lapisan `tn_nama`. Jadi namanya tidak hilang,
+hanya belum diimpor:
+
+```
+D:\xampp\php\php.exe tools\impor.php nama            # periksa dulu
+D:\xampp\php\php.exe tools\impor.php nama --terapkan # 1.282 bidang terisi saat pertama dijalankan
+```
+
+Titik sisip tiap label dipindahkan ke WGS84 dengan transformasi affine yang sama
+seperti perintah `gg` (RMS 1,2 m), lalu dicari bidangnya dengan empat aturan, dari
+yang paling pasti:
+
+| Aturan | Kapan nama dipakai | Bidang terisi |
+| --- | --- | --- |
+| `label` | titik sisip jatuh di dalam poligon bidang hidup (`ST_Contains`; poligon terkecil kalau bertumpuk) | 1.243 |
+| `tepi` | label tidak jatuh di mana pun, tapi kurang dari 2 m dari **satu-satunya** bidang hidup | 11 |
+| `terdekat` | label tidak jatuh di mana pun dan tak lolos aturan tepi, tapi kurang dari 10 m dari satu bidang tanpa nama yang tidak bersaing dengan bidang hidup mana pun atas label itu, dan bidang itu hanya punya satu nama semacam ini | 4 |
+| `kembaran` | bidang tidak berlabel, poligonnya identik (`ST_Equals`) dengan bidang hidup lain yang sudah bernama | 28 |
+
+Label yang bukan nama orang disaring lebih dulu (`namaLayak`): di lapisan itu juga
+tertulis `MUSHOLA`, `MASJID`, `AA`, `JALAN`, `TANAH DESA`, `BALAI DESA`, `PECAH 3
+UTARA-SELATAN SAMA LUAS` dan catatan seperti `DULU SUDAH PERNAH DAFTAR`, termasuk
+deretan jabatan desa (`BENGKOK KADES`, `BENGKOK KAUR KEUANGAN`) — `bengkok` di desa
+ini memang bangunan kantor, bukan orang. Penyaringan itu berlaku untuk kedua pengimpor
+nama dan pembandingannya memakai nilai yang sudah disaring, jadi anotasi lama tidak
+dihitung sebagai "nama yang sudah ada": `HM-1415 MUSHOLA / SANTOSO` menjadi `SANTOSO`,
+`HM-789D JALAN` boleh digantikan label sungguhan. Delapan bidang yang terlanjur
+menyimpan anotasi demikian dibersihkan; lima di antaranya memang tanah fasilitas umum,
+jadi namanya sekarang kosong. Beberapa bidang memuat dua nama (suami-istri) dan ditulis
+dipisah ` / `. Kolom yang sudah terisi tidak ditimpa kalau isinya berbeda, dan keadaan
+sebelum perubahan ditulis ke cadangan JSON di `storage/` plus satu baris `audit_log`;
+kolom `catatan` bidang tidak pernah disentuh.
+
+Batas lain dipasang setelah terlihat satu bidang kantor desa menampung 17 label
+tetangganya: `NAMA_MAKS_BAGIAN = 4`. Bidang yang kebagian lebih dari empat label tidak
+ditulis namanya sama sekali, hanya dilaporkan `! HM-0622: kebagian 17 label (maks 4)` —
+gundukan semacam itu bukan satu pemegang, dan CSV-nya tidak bisa dibaca petugas.
+
+Aturan `tepi` dan `kembaran` ada karena dua hal yang terukur di peta ini. Konversi
+DXF sesedikit bergeser, sehingga 51 dari 82 bidang tanpa nama sebenarnya punya label
+dalam radius 2 m — hanya duduk di atas garis tepi sehingga `ST_Contains` menolak, dan
+nama baru dipakai kalau persaingannya nol. Dan 28 bidang lain ternyata kembaran
+geometris bidang yang sudah bernama: bagiannya lolos penandaan `duplikat` karena
+aturan waktu itu membandingkan teks WKT, bukan bentuk — lihat 3.9. Kembaran itu
+dipakai sebagai sumber nama lebih dulu, lalu **40 pasangan yang identik secara
+geometri ditandai `duplikat` pada 19 Oktober 2026**, diikuti tiga grup kembar beda
+blok yang salinannya dipilih petugas (lihat 3.9). Cakupan nama hidup karena itu turun
+dari 1.282/1.331 menjadi 1.255/1.302: 27 nama ikut tersisih bersama bidangnya, dan 47
+bidang tanah yang sekarang hidup memang tidak berlabel. Aturan `terdekat`, yang
+dipasang setelah penandaan itu, menaikkan cakupannya menjadi **1.259/1.302**; 43 bidang
+hidup masih tanpa nama dan tidak ada lagi label peta yang bisa dipertanggungjawabkan
+untuk mereka — sisanya pertanyaan lapangan, bukan algoritma.
+
+#### Nama bidang perlu_verifikasi lintas lapisan
+
+Cakupan 1.259/1.302 di atas hanya menghitung bidang `tipe = 'tanah'`. Padahal hampir
+semua bidang berstatus `perlu_verifikasi` justru duduk di lapisan `020100` dan
+ber-`tipe = 'lain'` — lihat 3.13 — sehingga perintah `nama` tidak pernah membaca
+labelnya: 2.355 bidang `lain` tanpa satu pun nama. Untuk mereka ada `nama-verifikasi`,
+aturan `label` saja (titik sisip di dalam poligon, `ST_Contains`, poligon terkecil kalau
+bertumpuk) tanpa batasan `tipe`:
+
+```
+D:\xampp\php\php.exe tools\impor.php nama-verifikasi            # periksa dulu
+D:\xampp\php\php.exe tools\impor.php nama-verifikasi --terapkan # 2.207 bidang terisi
+```
+
+Angka 19 Oktober 2026, sama di basis data uji dan produksi: sasaran 2.879 bidang
+`perlu_verifikasi`; 4.302 label lolos penyaringan; 2.702 sasaran kebagian paling tidak
+satu label; **2.207 terisi** (sisanya sudah bernama), 71 di antaranya memuat dua nama
+atau lebih, dan 177 sasaran memang tidak berlabel. `berebut = 0` — tidak ada satu pun
+nama yang ditimpa. Setelah itu cakupan seluruh bidang hidup naik dari 1.259/3.657
+(34%) menjadi **3.464 dari 3.654 bidang hidup (94,8%)**. Angka itu berubah lagi sesudah
+[§3.19](#319-persil-dxf-yang-flag-nya-tidak-pernah-ditutup) memasang 343 + 35 persil pemulihan
+dan `nama-verifikasi` dijalankan ulang: kini **3.696 dari 4.045 (91,4%)** sesudah tiga persil
+`HM` ([§3.20](#320-sisa-yang-belum-terpetakan-diukur-dari-seluruh-lapisan-peta-master)) ikut
+terisi namanya. Tiga puluh lima
+bidang ronde kedua semuanya kebagian nama, jadi jumlah yang tanpa nama tidak berubah: tetap
+**349**, termasuk 159 dari 343 pendatang baru §3.19 ronde pertama:
+
+| Tipe / status | Bidang hidup | Bernama |
+| --- | --- | --- |
+| `tanah` / `aktif` | 778 | 756 |
+| `tanah` / `perlu_verifikasi` | 526 | 503 |
+| `lain` / `perlu_verifikasi` | 2.728 | 2.424 |
+
+Aturan `tepi` dan `terdekat` sengaja tidak dipakai di sini: keduanya ditakar untuk
+bidang tanah dan belum pernah diukur untuk lapisan `020100`, jadi memakainya sekarang
+sama dengan mengarang. Baris `hak` bidang-bidang ini (jenis `BLM` hasil digitasi) hanya
+disentuh kolom `pemegang_nama`-nya; `jenis_hak_id` dan `catatan` dibiarkan, provenansi
+namanya ada di `audit_log`.
+
+Nama itu yang membuat calon tautan bisa diurutkan. Sudah diukur, bukan diasumsikan:
+
+| Diuji | Hasil |
+| --- | --- |
+| Bidang yang namanya hanya cocok dengan satu NOP seblok | 324 bidang |
+| Kontrol: nama diambil acak dari pool se-desa | 139 bidang |
+| Pasangan menurut nama yang ternyata sama dengan pasangan menurut urutan baris | 3 dari 323 (0,9%) |
+
+Baris terakhir itu yang penting: kecocokan nama **bukan** hasil menyamakan urutan
+baris — kalau iya, angkanya harus 323. Angka 1 dan 2 pada kolom "Nama" di web ialah
+skor kemiripan (`skor_nama`): 3 sama persis, 2 saling memuat, 1 satu unsur sama.
+Skor hanya urutan; satu nama bisa dipakai beberapa wajib pajak dan label peta bisa
+saja menempel ke bidang tetangga, jadi petugas yang menautkan. Tabel di atas diukur
+sebelum 2.207 bidang `lain` bernama — menjalankan `calon` ulang sekarang bisa
+menyusun urutan yang berbeda, tapi kesimpulannya (nama hanya urutan, pasangan tetap
+keputusan manusia) tidak berubah.
+
+### 3.13 NIS alas hak dari label peta
+
+Bidang berstatus `perlu_verifikasi` kebanyakan tidak punya NIB sama sekali, padahal
+petugas butuh pegangan saat mencocokkan ke daftar alas hak. Angka itu ada di peta:
+MASTER.dxf memuat **2.851 TEXT** pada lapisan `tn_alashak` berbentuk `NIS : 217b`,
+`NIS : A100`, dan sejenisnya.
+
+```
+D:\xampp\php\php.exe tools\impor.php nis            # periksa dulu
+D:\xampp\php\php.exe tools\impor.php nis --terapkan # 1.817 bidang terisi
+D:\xampp\php\php.exe tools\impor.php nis --terapkan --semua   # semua bidang hidup
+```
+
+**NIS bukan NIB.** 1.266 nilai `nib` di basis data tidak bersinggungan satu pun
+dengan 2.696 NIS unik pada label (irisannya nol), jadi nomor ini disimpan pada
+kolomnya sendiri, `bidang.nis`, dan tidak pernah menimpa `nib`. Kolom itu dibuat
+otomatis oleh perintah ini pada basis data lama; pada pemasangan baru sudah ada di
+`sql/01_skema.sql`.
+
+Yang mengejutkan, labelnya sebagian besar bukan duduk di atas bidang `tanah`:
+
+| Lapisan poligon | Bidang hidup | Label NIS jatuh di dalamnya |
+| --- | --- | --- |
+| `BIDANG HM` (`tipe = tanah`, bernib) | 1.302 | 148 |
+| `020100` (`tipe = lain`, tidak bernib) | 2.355 | 1.995 |
+| tidak ada poligon | — | 689 |
+
+Kedua lapisan itu bukan salinan satu sama lain: dari 2.143 label yang kebagian
+poligon, **nol** yang jatuh di kedua lapisan sekaligus, dan hanya 109 dari 2.355
+pusat bidang `lain` yang jatuh di dalam sebuah bidang `tanah`. Jadi `020100` adalah
+bagian desa yang belum tersentuh digitasi HM, bukan duplikatnya — dan aturan yang
+membatasi diri ke `tipe = tanah` akan membuang 1.995 dari 2.143 nomor, bukan menjaga
+kebenarannya.
+
+Sisanya sama seperti impor lain: satu NIS per bidang, beberapa NIS ditulis dipisah
+` / ` (184 bidang, contoh `C210 / 536D`), nilai yang sudah ada tidak ditimpa kalau
+berbeda, dan angka sebelum perubahan masuk ke cadangan JSON di `storage/` serta satu
+baris `audit_log`. Bawaan perintah hanya menyentuh bidang `perlu_verifikasi` —
+1.817 dari 2.879 bidang sasaran, terdiri atas 1.772 bidang `lain` dan 45 bidang
+`tanah`. NIS muncul di halaman bidang, di sematan peta, dan sebagai kolom `NIS`
+pada `03-bidang.csv`; kolom pencarian di daftar bidang ikut membaca `nis`, jadi
+`204B` menemukan HM-1235.
+
+Dari 689 label yang titiknya tidak jatuh di poligon mana pun, **36 akhirnya
+terpinjam** pada 20 Okt 2026 dengan aturan tepi `labelTepiNomor()` (lihat 3.14):
+penyangga 2 m harus menyentuh tepat satu bidang sasaran yang belum punya NIS sendiri.
+642 label ditolak, dan dua peminjaman dibatalkan lagi karena nomor yang sama
+`222B` tertulis dua kali di peta dan menunjuk dua bidang (`DXF-020100-1977` dan
+`DXF-020100-0317`) — tidak ada yang diisi, keduanya dilaporkan.
+
+#### Kode bidang dari NIS
+
+Kode sementara hasil digitasi (`DXF-020100-0453`) tidak berguna bagi petugas di
+lapangan, jadi ada perintah untuk menggantinya dengan nomornya sendiri:
+
+```
+D:\xampp\php\php.exe tools\impor.php kode-nis            # periksa dulu
+D:\xampp\php\php.exe tools\impor.php kode-nis --terapkan # 1.582 bidang berganti
+```
+
+Pola yang dipakai `HM-<nis>` apa adanya, termasuk akhiran ` K3` (`HM-148D K3`).
+Hanya bidang dengan **satu** NIS **unik** yang diganti; yang lain sengaja dibiarkan
+berkode lama dan penyebabnya dicetak satu per satu:
+
+| Yang tidak diganti | Bidang | Sebab |
+| --- | --- | --- |
+| tanpa NIS | 800 | tidak ada nomor untuk dipakai |
+| NIS lebih dari satu | 178 | `205B / 148D K3 / 149D K3` — memilih satu berarti menebak |
+| NIS tercatat di dua bidang | 10 | `1071D` ada di DXF-020100-2132 **dan** -2133; `kode` punya UNIQUE |
+| nomornya sudah jadi kode bidang lain | 2 | `HM-1074` dan `HM-1220` sudah dipakai bidang tanah `BIDANG HM` |
+
+Setelah penukaran: 1.582 bidang `020100` berkode `HM-…`, 990 tetap `DXF-…`, dan 4.043
+kode masih unik tanpa satu pun dobel. Semua foreign key menunjuk `bidang.id`, bukan
+`kode`, jadi tidak ada relasi yang ikut berubah; `sumber` tetap `020100` sehingga
+lapisan asalnya masih terbaca. **Ini bukan perubahan yang bertahan di atas impor
+ulang** — `impor.php bidang` memberi kode DXF-nya kembali dari GeoJSON. Pasangan
+lama→baru tersimpan di `storage/kode-nis-<waktu>.json` bila perlu dibaca balik.
+
+### 3.14 Dua register nomor pada peta master
+
+`nib` dan nomor yang ditulis lapisan `080201` **bukan register yang sama** — ini
+terukur, bukan asumsi:
+
+| Lapisan teks | Isi | Jumlah | Cocok dengan `nib` yang sudah terisi |
+| --- | --- | --- | --- |
+| `NIB HM` | `00828`, `M.254` | 1.657 | **1.264 cocok, 0 berbeda** |
+| `080201` | `01823`…`05004` | 3.156 | 3 bidang memakainya bersama `nib`, ketiganya berbeda |
+
+Jadi `NIB HM` memang sumber kolom `nib` (persil HM, 9..1526), sedangkan `080201`
+adalah daftar nomor lain yang dipakai pada bagian desa hasil digitasi `020100` —
+nomornya rapat ke nomor tetangga (bidang sebarat-setimur di BLOK 2 bernomor
+1909-1984), nol nomornya yang dipakai dua bidang hidup, dan nol yang sama dengan
+`nis`. Karena keduanya bisa menyebut bidang yang sama dengan nomor berbeda, `080201`
+disimpan di kolom sendiri: `bidang.nomor_daftar`.
+
+```
+D:\xampp\php\php.exe tools\impor.php nib                # periksa dulu
+D:\xampp\php\php.exe tools\impor.php nib --terapkan     # nib dari lapisan NIB HM
+D:\xampp\php\php.exe tools\impor.php daftar             # periksa dulu
+D:\xampp\php\php.exe tools\impor.php daftar --terapkan  # nomor_daftar dari 080201
+```
+
+Angka 19 Oktober 2026 di produksi, dari 2.879 bidang `perlu_verifikasi`: `nib`
+bertambah **7** bidang dan berhenti di 520 — 2.366 di antaranya memang tidak punya
+nomor di lapisan `NIB HM`, karena peta hanya menulis nomor persil HM. `nomor_daftar`
+terisi **2.334** bidang (13 tipe tanah, 2.321 tipe lain), sisa 539 bidang tidak
+kebagian label `080201` sama sekali. Setelah kedua perintah, `nib` seluruh tabel
+berada di 1.442 bidang. Kedua perintah hanya mengisi kolom yang kosong; nilai yang
+sudah ada tidak pernah ditimpa, keadaannya masuk cadangan JSON di `storage/` dan satu
+baris `audit_log`, dan dijalankan ulang tetap 0 perubahan. Bidang yang kebagian dua
+nomor berbeda dari satu lapisan tidak diisi, hanya dilaporkan — 6 bidang untuk
+`080201`, nol untuk `NIB HM`:
+
+```
+! HM-A178: 01789 / 03019 — tidak diisi, periksa letak labelnya
+```
+
+Sebagian label tidak tertulis di tengah persilnya: kartu menggambar nomor dengan ujung
+pena, jadi titiknya bisa jatuh beberapa puluh sentimeter di luar poligon yang ia
+maksud. Aturan cadangannya `labelTepiNomor()` — sebuah nomor menganggur hanya dipinjam
+kalau penyangga 2 m (`NOMOR_TOLERANSI_M`) menyentuh **tepat satu** bidang hidup yang
+kolomnya masih kosong, nomor itu belum terpasang di bidang lain, dan bidang itu tidak
+sudah punya labelnya sendiri. Uji kotak pembatas saja tidak cukup: `MBRIntersects`
+meloloskan poligon yang tepinya 20 m jauhnya (terukur pada `080201` `01731` terhadap
+`HM-1224`, 20,05 m), jadi jarak sebenarnya ikut diuji dengan `ST_Distance`. Atas 769
+label `080201` dan 359 `NIB HM` yang menganggur, hasilnya 20 Okt 2026: **3 nomor
+daftar terselamatkan** — `01800` ke `HM-1096` (1 m), `01816` ke `HM-0108` (0,26 m),
+`03814` ke `DXF-020100-2258` (1,36 m) — dan **nol nib**. Yang ditolak bukan karena
+jauh: `03215` berdiri 0,07 m dari `DXF-020100-0850` tapi 0,93 m juga dari
+`DXF-020100-0074` yang nomornya sudah terpasang, dan `02813` titik jatuh di dalam
+`HM-D689 K3` yang memegang dua nomor.
+
+Petugas yang mencocokkan ke daftar desa sebaiknya memakai `nomor_daftar` untuk bidang
+`020100` dan `nib` untuk persil HM; jangan menukar keduanya. Nomor daftar ikut
+tampil di halaman bidang (dan bisa disunting di sana), di sematan peta, sebagai kolom
+`Nomor daftar 080201` pada `03-bidang.csv`, dan dibaca juga oleh kolom pencarian di
+daftar bidang.
+
+### 3.15 Jenis hak bidang perlu_verifikasi
+
+Bidang hasil digitasi lapisan `020100` masuk ke basis data tanpa keterangan jenis hak
+dan diberi penanda sementara `BLM` ("Jenis hak tidak tercatat"). Atas keputusan
+petugas, seluruh bidang `perlu_verifikasi` kini dicatat **Hak Milik (HM)**:
+
+```
+D:\xampp\php\php.exe tools\impor.php hak-milik            # periksa dulu
+D:\xampp\php\php.exe tools\impor.php hak-milik --terapkan # 2.355 bidang jadi HM
+```
+
+Angka 20 Oktober 2026 di produksi: 2.354 baris `hak` berpindah dari `BLM` ke `HM` dan
+1 baris dibuatkan karena bidangnya (`DXF-020100-0008`) belum punya baris hak sama
+sekali. Setelah itu seluruh 2.879 bidang `perlu_verifikasi` ber-HM — 524 di antaranya
+memang sudah HM sejak awal karena persil `BIDANG HM`. Yang **tidak** disentuh: 778
+bidang `aktif`, 386 bidang `duplikat` (217 di antaranya masih `BLM` dan memang belum
+selesai diverifikasi), dan semua baris yang sudah mencatat jenis sungguhan. Nomor
+sertifikat, nomor hak pakai serta tautan Buku C pada baris yang diubah dibiarkan apa
+adanya — nol di antaranya terisi, jadi tidak ada bukti tertulis yang ikut pindah.
+
+Perintah ini hanya memindahkan jenis, tidak memutuskan apa pun tentang sertifikat:
+kolom `Jenis hak` di halaman bidang, `05-komposisi-hak.csv` dan warna peta mengikuti
+`hak.jenis_hak_id`, jadi HM di sini berarti "ditetapkan sebagai milik", bukan "sudah
+bersertifikat". Jalankan ulang tetap 0 perubahan. **Ini tidak bertahan di atas impor
+ulang**: `impor.php bidang` menyisipkan baris hak baru dengan penanda `BLM`
+(`JENIS_HAK_DEFAULT`), jadi sesudah itu `hak-milik --terapkan` harus dijalankan lagi.
+Keadaan sebelum perubahan ada di `storage/hak-milik-<waktu>.json` dan satu baris
+`audit_log`.
+
+Sejak 20 Okt 2026 perintah ini juga melewatkan bidang yang poligonya beranotasi
+petugas (`GG`, `TANAH DESA`, `BENGKOK`, masjid, jalan) — lihat
+[§3.18](#318-anotasi-petugas-di-atas-poligon-gg-tanah-desa-bengkok). Waktu aturan itu
+belum ada, 35 bidang fasilitas ikut berpindah ke Hak Milik dan harus dibetulkan balik.
+Label `GG` di atas persil yang punya nib, nis atau nomor daftar sendiri tidak
+termasuk lewat: peta menggambar gang sebagai titik, jadi yang bergeser labelnya, bukan
+status tanahnya.
+
+### 3.16 Matikan mode debug
+
+Setelah semuanya jalan, ubah `'debug' => true` menjadi `false` pada
+`app/config.php`. Pemasangan ini sudah `false` sejak 20 Okt 2026 — dengan debug
+hidup, layar galat 500 menuliskan pesan SQL mentah (termasuk nama tabel dan
+kolom) ke peramban. Kembalikan ke `true` hanya sebentar saat mencari sebab
+kegagalan.
+
+### 3.17 Bidang yang masih tanpa identitas
+
+Setelah `nis`, `nib`, `daftar`, `nama`, `nama-verifikasi`, `kode-nis`, `hak-milik`,
+`duplikat` dan `kembar-tepat` dijalankan, sisa bidang hidup yang **tidak punya satu
+pun** identitas (nib, nis, nomor daftar, nama pemegang) tinggal **10 dari 3.654**.
+Daftar itu bisa dibaca ulang dengan `_lama\scratch\isi-sepuluh-sisa.php`; isinya
+per 20 Okt 2026, dengan apa yang sebenarnya tertulis di atas poligonya:
+
+Sepuluh itu tidak berubah sampai hari ini. Yang bertambah cuma dari
+[§3.19](#319-persil-dxf-yang-flag-nya-tidak-pernah-ditutup): 37 dari 343 persil
+pemulihan masih sama sekali kosong identitasnya (poligonnya berdiri tanpa label apa pun
+di lapisan nomor), sehingga hitungannya kini **47 dari 4.045 bidang hidup** (sesudah seluruh
+penulisan 20 Okt, [§3.21](#321-bidang-tanpa-blok-dan-dua-perintah-koreksi-data)). Tiga puluh lima
+bidang pemulihan ronde kedua [§3.19](#319-persil-dxf-yang-flag-nya-tidak-pernah-ditutup)
+tidak menambah daftar itu: 34 di antaranya memperoleh nomor daftar, 30 memperoleh NIS,
+satu memperoleh nib, dan semuanya memperoleh nama.
+| bidang | blok | luas | tertulis di atasnya | yang perlu dilakukan |
+|---|---|---|---|---|
+| `DXF-020100-0057` | 14 | 31.991 m² | `NIS : 114C/164A/1559D`, daftar `01533/02963/03819`, nama `BENGKOK CARIK, SUNIMAN, SUKATI` | **kulit penutup**, bukan persil: menelan penuh `HM-114C` (30.010) + `HM-164A` (1.269) + `HM-1559D` (713). Nomornya sudah tinggal di anaknya |
+| `DXF-020100-0148` | 20 | 631 m² | `NIS : 143C/142C`, nama `MUHROJI, JUWARNO` | kulit penutup `HM-143C` (316) + `HM-142C` (315) |
+| `DXF-020100-0153` | 23 | 1.982 m² | `NIS : 248B/124B`, nama `TUGIO, YUNIATI, GRACE NGARPIYAH`, catatan kartunya `PECAH 3 UTARA-SELATAN SAMA LUAS` | kulit penutup `HM-124B` (991) + `HM-248B` (991) |
+| `DXF-020100-2572` | 4 | 12.259 m² | `GG` | **sudah dibaca** [§3.18](#318-anotasi-petugas-di-atas-poligon-gg-tanah-desa-bengkok): HP Hak Pakai + Fasilitas Umum; bentuk gangnya tetap menunggu digitasi `impor.php gang` |
+| `DXF-020100-0039` | 14 | 532 m² | `BENGKOK BEKEL` | **sudah dibaca** §3.18: KDH milik pemerintah desa; NIS `1554D` ada tapi 9,8 m jauhnya |
+| `DXF-020100-0011` | 22 | 36 m² | `TANAH DESA` | **sudah dibaca** §3.18: KDH, memang tidak berpemegang perorangan |
+| `DXF-020100-0850` | 13 | 100 m² | (kosong) | label `080201` `03215` berdiri 0,07 m di sini tapi 0,93 m juga dari `DXF-020100-0074` yang sudah bernomor — dua bidang, satu label |
+| `DXF-020100-1336` | 10 | 37 m² | (kosong) | `02813` 0,28 m, tapi titik labelnya jatuh di dalam `HM-D689 K3` yang memegang dua nomor (`02828` + `02813`) |
+| `HM-1192` | 26 | 107 m² | (kosong) | `status aktif`; nib `01472` 0,82 m tapi sudah jadi milik `HM-1193`; `00814` masih bebas pada 3,47 m — di luar toleransi 2 m |
+| `DXF-020100-0008` | 16 | 0 m² | (kosong) | serpihan tanpa luas, tidak ada label dalam 10 m; kandidat dibuang |
+
+Tidak ada satu pun dari sepuluh ini yang bisa diselesaikan dengan aturan otomatis —
+ketiganya yang pertama justru **jangan** ditandai duplikat, karena geometri induknya
+memuat angka yang benar untuk beberapa persil sekaligus. Yang lain menunggu petugas
+membaca buku letter C atau turun ke lapangan.
+
+Satu hal yang harus dicek terpisah: `HM-0079` (YAMUJI) dan `HM-0094` (tanpa nama) di
+BLOK 2 adalah kembar yang dua-duanya `aktif` dengan nib sama, `00989`, luas sama
+pula 2.491 m². `kembar-tepat` menahannya dan hanya melaporkannya.
+
+### 3.18 Anotasi petugas di atas poligon: GG, TANAH DESA, BENGKOK
+
+`hak-milik` hanya membaca kolom jenis hak, tidak pernah membaca lapisan `tn_nama`.
+Akibatnya bidang yang di atas poligonya tertulis `GG`, `TANAH DESA` atau `BENGKOK
+KAUR KEUANGAN` ikut dipindah menjadi **Hak Milik** — padahal anotasi itulah bukti
+bahwa tanahnya bukan milik orang. 20 Okt 2026 diukur dengan aturan yang sama seperti
+impor nama (label dihitung untuk poligon hidup terkecil yang memuat titik labelnya):
+**52 dari 3.654 bidang hidup** beranotasi petugas. Ukuran lepasnya bisa dibaca ulang
+dengan `_lama\scratch\anotasi-fasilitas.php` (skrip itu memakai penyaring huruf ulang,
+jadi ia menghitung 61 — `AA`, `AAA`, `PECAH` dan `DAFTAR` ikut terbawa; aturan alat hanya
+memakai kata pada tabel di bawah).
+
+```
+D:\xampp\php\php.exe tools\impor.php hak-anotasi           # periksa dulu
+D:\xampp\php\php.exe tools\impor.php hak-anotasi --semua   # termasuk bidang aktif
+D:\xampp\php\php.exe tools\impor.php hak-anotasi --semua --terapkan
+```
+
+Pemetaannya ada di `ANOTASI_HAK` ([tools/lib-impor.php](tools/lib-impor.php)):
+
+| anotasi | jenis hak yang ditetapkan | bidang | luas |
+|---|---|---|---|
+| `GG` (gang) — **hanya** bila bidangnya tidak punya nib, nis, nomor daftar dan tidak kebagian label nama | **HP Hak Pakai** | 1 | 12.259 m² |
+| `TANAH DESA`, `BENGKOK` (termasuk bengkok KADUS / KAUR / BEKEL / LURAH / KESRA), `BALAI` | **KDH Milik Pemerintah Desa / Kas Desa** | 33 | 205.800 m² |
+
+Penggunaan tanahnya ikut diisi **Fasilitas Umum** (`jenis_penggunaan_id` 7) pada 34
+bidang itu — kolom yang sebelumnya kosong untuk seluruh 3.654 bidang hidup.
+
+Yang **tidak** diubah alat:
+
+* **16 bidang bermasjid, bermushola atau berlabel `JALAN`** (`ANOTASI_FASILITAS`).
+  Masjid dan mushola di desa kebanyakan tanah wakaf, jalan punya ceritanya sendiri;
+  keduanya tidak bisa dibaca dari label, jadi daftar itu hanya dilaporkan supaya
+  petugas yang menetapkan jenisnya.
+* **1 bidang** yang anotasi dan nama orang jatuh di poligon yang sama
+  (`DXF-020100-0074`, `BENGKOK BEKEL KALIPLURU` + `KIRMAN`) — sama seperti 9 bidang
+  lain pada daftar 20 Okt, label anotasi sudah ditolak `nama`, namanya yang menang.
+* **1 bidang** yang label `GG`-nya mendarat di persil bernomor sendiri
+  (`HM-128C`, `nis 128C` + nomor daftar `02710`) — dilaporkan sebagai
+  `ditahan_gg_bergeser`, dan karena bidang ini sempat dipindah aturan lama, ia
+  **dikembalikan ke Hak Milik** beserta penggunaan Fasilitas Umum yang dilepas
+  (`akan_dipulihkan`). Lihat hasil audit di bawah.
+* bidang yang baris `hak`-nya sudah mencatat jenis sungguhan selain HM/BLM/BLH, dan
+  yang masih menyimpan nomor sertifikat, nomor hak pakai atau tautan Buku C. Nol di
+  antara 34 sasaran punya bukti itu, dan **nol pula yang tertaut NOP**, jadi tidak ada
+  satu SPPT pun yang jenisnya jadi bertentangan.
+
+Bawaan perintah ini hanya menyentuh `perlu_verifikasi`, seperti `hak-milik`. Dengan
+`--semua` ikut tiga bidang `aktif` yang bengkok (`HM-0622` BENGKOK KADES 41.050 m²,
+`HM-0663` BENGKOK LURAH, `HM-0810` BENGKOK KADES CURUGSEWU). `HM-0663` masih
+menyimpan nama `BA'I MUSTOFA / MISRI / SINI / YATIN SARNO` dari impor nama — itu
+penggarap bengkok, bukan pemilik, dan nama itu sengaja tidak dihapus.
+
+Hasil audit balik (20 Okt 2026, `_lama\scratch\audit-hak-anotasi.php`) — 35 bidang yang
+dipindah perintah ini diperiksa satu per satu terhadap bukti yang tidak dibacanya:
+nomor persil, nama, sertifikat, tautan Buku C, NOP, jumlah bidang hidup di dalamnya,
+dan bentuk poligonya. **33 KDH berdiri**: 36 label satu keluarga `BENGKOK` memang jatuh
+di dalam poligon, yang berpemegang hanya `HM-0663` dan keempat namanya itu penggarap
+bengkok garap (`BA'I MUSTOFA / MISRI / SINI / YATIN SARNO`), jadi ia malah mendukung
+KDH. **1 HP** (`DXF-020100-2572`, 12.259 m²) tetap: nol nib, nol nis, nol nomor daftar,
+nol nama, nol NOP, dan hanya 38,9% dari kotak luarnya terisi tanah — bentuk yang wajar
+untuk gang yang ikut terdigitasi. **1 HP dibatalkan**: `HM-128C` punya `nis 128C` dan
+nomor daftar sendiri, bentuknya seluas persil biasa (rapuh 1,37 terhadap median bidang
+hidup 1,22; isian kotak luarnya 54,9% terhadap median 53,9%), dan dari 15 label
+`GG`/`TANAH GG` di peta hanya 2 yang mendarat di dalam poligon — 13 lainnya di ruang
+terbuka di antara persil, karena peta master menggambar gang sebagai titik, bukan garis
+([§3.6](#36-peta-gang-gg-menjadi-hak-pakai)). Label itu yang bergeser, bukan tanahnya
+yang gang, jadi `GG` sejak itu hanya memutuskan bidang tanpa nomor. Nol dari 35 bidang
+itu menyimpan nomor sertifikat, tautan Buku C, NOP, atau memuat bidang hidup lain di
+dalamnya, sehingga tidak ada satu pun yang berubah karena bukti baru — hanya aturannya
+yang diperketat.
+
+Penjagaannya dipasang di dua arah: `hakMilikVerifikasi()` sekarang memanggil
+`anotasiPetugas()` dan melewatkan bidang yang anotasinya menetapkan jenis (bengkok,
+tanah desa, balai, gang pada bidang tanpa nomor) atau hanya beranotasi fasilitas umum,
+selagi tidak ada nama orang yang bersaing, jadi sesudah `impor.php bidang` menyetel
+ulang jenis ke `BLM` sekalipun, `hak-milik` tidak akan menjadikan gang dan bengkok Hak
+Milik lagi. Persil bernomor seperti `HM-128C` justru dibiarkan lewat — ia memang harus
+ber-HM. Angka kecualinya muncul sebagai `dikecualikan_beranotasi`. Jalankan ulang
+`hak-anotasi` tetap 0 perubahan: 31 bidang terbaca sebagai `sudah_sesuai` (jenis dan
+penggunaannya sudah benar, catatannya tidak ditulis ulang), bukan sebagai "keputusan
+orang" seperti sebelum diaudit. Keadaan sebelum perubahan ada di
+`storage/hak-anotasi-<waktu>.json` dan satu baris `audit_log` tiap kali menerapkan.
+
+Ini berbeda dari [§3.6](#36-peta-gang-gg-menjadi-hak-pakai): di sana gang belum
+digambar sama sekali dan `impor.php gg` mengumpulkan titik `GG` untuk didigitasi
+menjadi bidang baru; yang di sini menangani label `GG` yang jatuh ke dalam poligon
+yang **sudah ada** di basis data. Komposisi hak sesudah perubahan dan audit
+(`05-komposisi-hak.csv` per 20 Okt, `storage\laporan-20261020-073251`): HM 3.792,
+BLM 217 (semuanya `duplikat`), KDH 33, HP 1. Setelah 343 + 35 persil pemulihan
+[§3.19](#319-persil-dxf-yang-flag-nya-tidak-pernah-ditutup) ikut ber-Hak Milik,
+komposisi seluruh baris menjadi HM 4.183 · KDH 33 · HP 1 · BLM 217 (BLM tetap semuanya
+`duplikat`), dan pada 4.045 bidang hidup: HM 4.011 · KDH 33 · HP 1 · BLM 0.
+
+---
+
+### 3.19 Persil DXF yang flag-nya tidak pernah ditutup
+
+**Gejalanya.** Sebagian poligon peta master ada di layar AutoCAD tapi tidak pernah masuk
+ke basis data, sehingga peta SIPETADES bolong-bolong di sela persil yang sudah tercatat.
+Angka lebih dulu, sebab kemudian (`_lama\scratch\hitung-poligon-master.php` dan
+`_lama\scratch\garis-terbuka-master.php`, keduanya hanya membaca):
+
+- Importer **tidak** kehilangan apa pun dari yang dibacanya. `bidang_tanah.geojson` +
+  `bidang_lain.geojson` membawa 4.043 fitur dan 4.043 baris masuk `bidang` (nol dilewati);
+  lapisan `BIDANG HM` punya 1.471 ring tertutup dan 1.471 baris bersistem sumber
+  `BIDANG HM`, luasnya berbeda 9 m² saja secara keseluruhan.
+- Dari seluruh ring **tertutup** MASTER.dxf, cuma **11** yang tidak menemukan bidangnya,
+  dan 7 baris basis data yang titik tengahnya tidak jatuh di dalam ring mana pun.
+- Yang pada waktu itu belum terbaca sama sekali: lapisan `HM`, `020400`, `lb_lai` dan
+  `BATAS BLOK` tidak pernah diumpankan ke `impor.php bidang`, dan `dxfPoligon()` hanya
+  membaca `LWPOLYLINE`/`POLYLINE` — `LINE`, `ARC`, `CIRCLE` dan `INSERT` tidak pernah
+  dijadikan poligon (276 + 4 entitas). Dari keempatnya hanya `HM` yang sudah ditangani:
+  77 ringnya teruji, 74 sudah punya bidang, dan 3 persil sisangnya dipasang 20 Okt
+  ([§3.20](#320-sisa-yang-belum-terpetakan-diukur-dari-seluruh-lapisan-peta-master)).
+  `020400`, `lb_lai` dan 280 entitas garis/bulat masih seperti semula.
+
+**Sebabnya.** `dxfPoligon()` menandai sebuah cincin tertutup **hanya** bila bit 1 dari
+group code 70 terpasang. Di MASTER.dxf ada **1.892 `LWPOLYLINE` terbuka yang titik awal
+dan titik akhirnya berjarak ≤ 1 cm** — 1.838 di antaranya di lapisan `020100`. Secara
+geometri cincin itu tertutup; yang tidak pernah dipasang adalah flag-nya. Digitasi
+2019 mengambil poligon dari perangkat GIS yang menutup sendiri, jadi yang hilang terjadi
+di DXF, bukan di alat impor.
+
+Kalau celah ≤ 1 cm itu ditutup, 1.876 ring terbentuk dan terbagi tiga:
+
+| nasib | ring | keterangan |
+|---|---|---|
+| sama dengan persil yang sudah ada | 934 | memang sudah masuk, tidak ada yang dipulihkan |
+| menumpang persil yang sudah ada | 507 | garis ganda/pecahan di atas bidang lama |
+| **tidak menyentuh bidang mana pun** | **435** (310.992 m²) | 431 di `020100`, 4 di `BIDANG HM` |
+
+Ke-435 calon itu semuanya berlabel di dalam poligon (`tn_nama`, `NIB HM` atau `080201` —
+`_lama\scratch\cek-calon-bidang.php`), dan 384 di antaranya jatuh di dalam blok yang
+sudah ada. Yang 51 berdiri di luar garis blok mana pun.
+
+**Aturannya.** `impor.php dxf-persil` memasang calon itu dengan dua jaring penolakan,
+jadi ia tidak bisa menimpa bidang lama:
+
+1. dibaca semua `LWPOLYLINE`/`POLYLINE` di lapisan `BIDANG HM`, `020100` dan `HM`
+   (`DXF_PERSIL_LAPISAN`) yang ringnya tertutup **atau** celah ujungnya ≤ `--celah`
+   (bawaan 0,01 m), ≥ 3 titik;
+2. dibuang yang titiknya masih di dekat titik nol affine (coretan, < 1.000 m) dan yang
+   luasnya < `--minimal` (bawaan 20 m²) — serpihan penutupan morfologi yang pernah gagal
+   di [§3.8](#38-batas-blok-dari-peta-dasar) tidak mungkin terulang dari sini;
+3. ditolak bila **titik tengah atau salah satu sudutnya** sudah jatuh di dalam bidang
+   hidup mana pun (kisi ±55 m, murah);
+4. ditolak lagi dengan `ST_Intersection` bila ≥ 2 % luasnya menumpang bidang hidup
+   (`DXF_PERSIL_TUMPANG`) — langkah 3 cuma penyaring, langkah 4 yang memutuskan;
+5. calon yang saling menumpuk di antara dirinya sendiri disaring, yang terbesar dipakai;
+6. blok diambil dari titik tengah yang jatuh di dalam garis luar blok — **tidak pernah**
+   dikarang; kalau titik tengahnya di luar semua garis, ada satu jalan kedua: calon boleh
+   dipakai bila ia **berbagi tepi** (≤ `DXF_PERSIL_TETANGGA_M` = 0,5 m) dengan bidang hidup
+   yang seluruh tetangga tepinya anggota **satu** blok, dan blok itu bergaris
+   `sumber_perkiraan = gabungan bidang anggota`. Jarak ke garis blok sengaja **bukan**
+   bukti: garis dua blok yang berdempetan berjarak 1,1 m satu sama lain, jadi "dekat ke
+   BLOK 8" tidak membedakan apa pun. Blok bergaris ukur (`garis luar MASTER.dxf`) tidak
+   pernah bisa tumbuh dari sini — hanya petugas dengan garis ukur baru yang boleh mengubah
+   wilayahnya. Yang tetap tidak dapat blok dilaporkan sebagai `calon_tanpa_blok` berikut
+   alasannya, dan **tidak dipasang** — kecuali perintah itu ditambah `--tanpa-blok`:
+   poligonya tetap masuk basis data dengan `blok_id` NULL, garis blok terdekat plus
+   jaraknya ditulis di `catatan` sebagai petunjuk bagi petugas. Blok tetap tidak pernah
+   dikarang dari kedekatan ([§3.21](#321-bidang-tanpa-blok-dan-dua-perintah-koreksi-data)).
+
+Bidang baru masuk sebagai `perlu_verifikasi`, `sumber` = lapisan asalnya, kode meneruskan
+nomor terbesar awalan yang ada (`DXF-020100-2573`), `catatan` menyebut celah ujungnya, dan
+baris `hak`-nya berjenis `BLM` tanpa nama. Tidak ada nomor, nama, atau jenis yang
+diarang: setelah memasang, jalankan lagi `nama-verifikasi`, `nib`, `daftar`, `nis` dan
+`hak-milik` agar isinya datang dari label peta seperti biasa. Cadangan
+`storage\dxf-persil-<waktu>.json` (berisi kode, lapisan, blok, luas, pusat tiap baris)
+dibuat sebelum menulis, dan satu `audit_log` (`aksi = impor`) ditulis per blok yang
+tersentuh.
+
+```
+D:\xampp\php\php.exe tools\impor.php dxf-persil                     # periksa
+D:\xampp\php\php.exe tools\impor.php dxf-persil --terapkan          # pasang
+D:\xampp\php\php.exe tools\impor.php dxf-persil --celah=0.05        # longgarkan celah
+D:\xampp\php\php.exe tools\impor.php dxf-persil --tanpa-blok --terapkan   # pasang yg tak berblok
+```
+
+**Hasilnya (20 Okt 2026, produksi).** Ronde pertama memasang 343 persil, 262.050 m²,
+rata-rata 764 m², terbesar `DXF-020100-2573` 44.508 m² (MARTOYO, BLOK 26), terkecil 21,9 m²;
+tersebar di 16 blok — BLOK 12 124, BLOK 14 61, BLOK 25 60, BLOK 17 24, lalu sisanya kecil.
+48 calon ditahan karena tidak jatuh di dalam blok mana pun.
+
+Ronde kedua, sesudah aturan tepi dipasang, menyelesaikan 35 di antara 48 itu: **16.295 m²**
+masuk sebagai BLOK 2 25 bidang, BLOK 19 5, BLOK 21 4, BLOK 8 1 — semuanya blok
+`gabungan bidang anggota`, jadi tidak ada satu meter pun garis ukur yang digeser. Empat
+belas sisanya menjadi sepuluh yang masih ditahan, dan setiap yang ditahan sekarang punya
+alasan yang terbaca: **5** berbagi tepi dengan anggota BLOK 9/23/7 yang bergaris ukur,
+**1** berbagi tepi dengan dua blok sekaligus (`BLOK 23 + BLOK 21`, tetangganya `HM-1229`
+0,01 m dan `HM-198D K3` 0,09 m), **4** tidak berbagi tepi dengan bidang hidup mana pun.
+Yang 5+1 itu menunggu keputusan petugas, bukan menunggu alat.
+
+Dua hal yang ikut dibereskan sambil menjalankan aturan ini:
+
+- **Aturannya bekerja bertingkat, bukan sekali jalan.** Sesudah 34 bidang terpasang,
+  satu calon (`DXF-020100-2948`, 551,8 m²) baru bisa dipasang — tetangga tepinya
+  (`DXF-020100-2926`) sendiri baru saja terpasang, jadi calon itu sebelumnya dilaporkan
+  "tidak berbagi tepi dengan bidang hidup mana pun". Karena itu `dxf-persil` dijalankan
+  berulang sampai `calon = 0`: hari ini 34 → 1 → 0, dan `calon_tanpa_blok` turun 48 → 14 → 10
+  dan berhenti di situ.
+- **`wktCincin()` ternyata buta terhadap MULTIPOLYGON.** Penjaga `preg_match_all(...) !== 1`
+  membuat fungsi itu mengembalikan `[]` untuk setiap geometri multi-bagian, sehingga empat
+  blok bergaris gabungan (BLOK 2/8/19/21/22) tidak pernah terlihat uji titik-tengah di PHP
+  dan calonnya dilaporkan "blok tetangga tidak punya geometri". Sekarang cincin luar tiap
+  bagian dipecah lewat `wktBagian()` dan uji titik berjalan atas seluruh bagian
+  (`titikDiDalamBagian()`); lubang diabaikan. Dry-run berubah dari `calon=0 / ditahan=48`
+  menjadi `calon=34 / ditahan=14` tanpa mengubah aturan lain.
+
+Bidang yang bloknya datang dari aturan tepi mencatat itu di `catatan`-nya dan menyebutkan
+perintah yang perlu dijalankan sesudahnya — `impor.php kira 2 8 19 21 --tepat --terapkan`
+— supaya garis blok tumbuh menelan anggotanya. Empat batas itu memang lalu dipasang ulang:
+BLOK 2 42 → 58 bagian (171.966 → 184.302 m²), BLOK 8 9 → 10 (164.691 → 165.115),
+BLOK 19 14 → 19 (176.950 → 178.943), BLOK 21 35 → 39 (136.407 → 137.389). Bertambahnya
+bagian itu bukan kerusakan: bagiannya mengikuti bidang yang belum pernah tersentuh garis.
+
+Setelah kelima pengisi dijalankan pada 35 bidang baru: 35-35 bernama, 34 ber-nomor-daftar,
+30 ber-NIS, 1 ber-nib, dan seluruhnya Hak Milik. Keadaan akhir `bidang` pada ronde itu:
+**4.421 baris**
+(778 `aktif` + 3.254 `perlu_verifikasi` + 389 `duplikat`), 4.032 bidang hidup, 4.027.643 m²
+terpetakan, HM 3.998 · KDH 33 · HP 1 · BLM 0 pada yang hidup, dan tetap **47 dari 4.032**
+bidang hidup yang tidak punya satu pun identitas ([§3.17](#317-bidang-yang-masih-tanpa-identitas)).
+
+Diuji lebih dulu di `sipetades_uji` yang di-refresh dari produksi: 0 baris lama berubah
+(dibandingkan kolom demi kolom dengan `NOT (a <=> b)` pada `bidang`, `hak` dan `blok`),
+35 baru + 35 baris `hak` semuanya masuk BLOK 2/8/19/21, dan dijalankan berulang di uji
+maupun di produksi memberi angka yang sama persis. Yang tertinggal dan belum tersentuh waktu
+itu: sepuluh calon tanpa blok di atas, lapisan `HM` (sudah dipasang kemudian, lihat
+paragraf penutup [§3.20](#320-sisa-yang-belum-terpetakan-diukur-dari-seluruh-lapisan-peta-master)),
+`020400` dan `lb_lai` yang memang tidak pernah diimpor, dan 276 `LINE` + 4 `CIRCLE` yang tidak
+bisa dibaca `dxfPoligon()`. Ukuran seluruh
+lapisan untuk tiga hal itu — termasuk berapa yang benar-benar masih hilang — ada di
+[§3.20](#320-sisa-yang-belum-terpetakan-diukur-dari-seluruh-lapisan-peta-master).
+
+**Kecelakaan yang terjadi hari itu juga, dan penjaganya.** Satu `php tools\impor.php` tanpa
+argumen berarti `semua`, dan `semua` menulis tanpa `--terapkan`: ia menyisipkan ulang
+`blok_peta.geojson` + `bidang_tanah.geojson` + `bidang_lain.geojson` sehingga 1.582 bidang
+GeoJSON lama hidup lagi di atas data MASTER.dxf (basis data naik ke 6.003 bidang, 25 blok
+termasuk BLOK 11 yang sudah digabung ke BLOK 13) dan memaksa `namaPemegangDariMaster(true, …)`
+menulis nama. Semuanya dibatalkan pada hari yang sama oleh
+`_lama\scratch\batalkan-impor-semua.php` — 1.582 bidang + 1.582 baris `hak` + 1 baris `blok`
+dihapus, cadangan penuh (WKT) di `storage\batalkan-semua-20261020-084857.json`, dump utuh
+sebelum penghapusan di `storage\pemulihan-kecelakaan-impor-semua-20261020-0848.sql`. Setelah
+pembatalan, diff baris-per-baris terhadap `storage\pemulihan-sebelum-dxf-persil-20261020-0835.sql`
+menunjukkan satu-satunya selisih yang tersisa adalah yang direncanakan: +35 bidang, +35 baris
+`hak`, dan 4 geometri blok. `case 'semua'` kini berhenti pada mode periksa tanpa `--terapkan`.
+
+---
+
+### 3.20 Sisa yang belum terpetakan, diukur dari seluruh lapisan peta master
+
+**Gejalanya.** Setelah `dxf-persil` dua ronde, pertanyaan "masa masih ada yang belum terpetakan"
+hanya bisa dijawab dengan membaca **setiap** lapisan MASTER.dxf, bukan dua lapisan yang dikenal
+importer. Lima skrip hanya-membaca menghasilkan angka-angka ini:
+`_lama\scratch\audit-belum-terpetakan.php` (nasib tiap cincin per lapisan),
+`_lama\scratch\ukur-cincin-terbuka.php` (apa yang dilepas aturan celah 1 cm),
+`_lama\scratch\ukur-celah-dalam-blok.php` (luas di dalam garis blok yang tidak diisi bidang apa pun),
+`_lama\scratch\pilah-label-yatim.php` (label di luar poligon: nomor yang sudah tercatat vs yang tidak),
+dan `_lama\scratch\daftar-belum-terpetakan.php` (daftar kerja; sejak 20 Okt susunan barisnya
+dipindahkan ke `daftarBelumTerpetakan()` di `tools\lib-impor.php` dan ikut diekspor sebagai
+`06-belum-terpetakan.csv` — jalanan 20 Okt 09:52 ada di `storage\laporan-20261020-095207\`,
+10 baris golongan A + 522 baris golongan B; jalanan 20 Okt 10:29 di `storage\laporan-20261020-102934\`
+tinggal 522 baris golongan B karena golongan A sudah dipasang
+([§3.21](#321-bidang-tanpa-blok-dan-dua-perintah-koreksi-data)).)
+
+**Angkanya.** 6.020 cincin layak uji di semua lapisan, lawan 4.032 bidang hidup non-duplikat:
+
+| lapisan | diuji | sudah punya bidang | belum | m² belum | cincin dilepas sebelum diuji |
+|---|---|---|---|---|---|
+| `020100` | 4.430 | 4.416 | **14** | 12.808 | 3.397 terbuka, 19 coretan, 19 serpihan |
+| `BIDANG HM` | 1.493 | 1.491 | **2** | 2.090 | 2 terbuka |
+| `HM` | 77 | 74 | **3** | 6.223 | 1 terbuka |
+| `BATAS BLOK` | 16 | 16 | 0 | 0 | 10 terbuka |
+| `020400`, `lb_lai`, `010500` | 4 | 4 | 0 | 0 | 3 terbuka |
+
+Jadi **19 cincin = 13 persil berbeda (15.248 m²)** yang masih tanpa bidang waktu bagian ini
+diukur. Tiga di antaranya berdiri di lapisan `HM` dan **sudah dipasang hari itu juga**
+(TUGIATI/`00737`, ARI MULYONO/NIB `01170`, JUWARIYAH SUPARDI dkk/`00865`) sehingga tersisa
+**10 cincin / 10 persil = 9.025 m²**, semuanya `flag tertutup` dan semuanya berlabel:
+`01766` HARI SUTANTO, `01778` JUWITO, `01883` RUSMI, `01887` SRI RUSWANTI, `01888` INDARWATI,
+`01889` JUWARNI, `04280` SUYATI, `04321` AHMAD SODIKIN, dan dua ring `BIDANG HM` ber-NIB `M.58`
+/`M.59`+`M.200`+`M.201`. Nol cincin yang "tertutup sebagian" — tidak ada kulit penutup yang
+menumpang. Catatan metode: cincin raksasa seperti `010500` (6,7 km²) dan 16 `BATAS BLOK`
+digolongkan "sudah punya bidang" karena titik tengahnya jatuh di dalam sebuah persil; itu
+memang maksudnya — mereka bukan calon persil.
+**Kesepuluh cincin itu akhirnya dipasang juga pada hari yang sama**, dengan `--tanpa-blok`,
+jadi angka "tersisa 10" di atas sudah tidak berlaku — lihat
+[§3.21](#321-bidang-tanpa-blok-dan-dua-perintah-koreksi-data).
+
+Angka lama di [§3.19](#319-persil-dxf-yang-flag-nya-tidak-pernah-ditutup) perlu dikoreksi:
+lapisan `HM` tidak kehilangan 61 ring / 58.310 m². Yang benar 77 ring teruji dan **74 di
+antaranya sudah ada bidangnya**; yang benar-benar baru cuma 3 ring (6.223 m²) — dan itu
+satu-satunya sisa dari lapisan yang tidak pernah diimpor. `020400`, `lb_lai` dan `030300`
+tidak memberi apa pun.
+
+**Yang menahan 13 itu dua macam.** Sepuluh di antaranya adalah daftar `dxf-persil` yang
+sengaja ditahan (titik tengahnya tidak jatuh di dalam blok mana pun: lima minta garis ukur
+BLOK 9/23/7 ditumbuhkan, satu berbagi tepi dengan BLOK 23 + BLOK 21 sekaligus, empat tidak
+berbagi tepi dengan bidang hidup mana pun) — itu keputusan petugas, bukan alat, dan akhirnya
+dilewati dengan memasang poligonnya tanpa blok ([§3.21](#321-bidang-tanpa-blok-dan-dua-perintah-koreksi-data)).
+Tiga sisanya
+ada di lapisan `HM`, yang waktu itu belum tercatat dalam `DXF_PERSIL_LAPISAN`: ketiga titik
+tengahnya jatuh di dalam BLOK 8, BLOK 25 dan BLOK 2, jadi satu baris konstanta cukup untuk
+memasangnya — dan baris itu memang ditambahkan pada hari yang sama.
+
+**Celah 1 cm bukan penyebab yang tersisa.** Garis terbuka sebanyak 3.411 batang, dan talennya
+dijadikan cincin paksa pada beberapa ambang:
+
+| talen ditutup sampai | calon tanpa bidang | m² | yang berlabel di dalamnya |
+|---|---|---|---|
+| 5 cm | 0 | 0 | — |
+| 2 m | 0 | 0 | — |
+| 10 m | 2 | 43 | — |
+| 50 m | 91 | 30.520 | 40 dari 89 cincin pita 10–50 m, dan labelnya `BATAS JALAN`/`BATAS PERAIRAN`/`BLOK`/`HITUNG BIDANG` |
+| 250 m | 137 | 95.773 | — |
+
+Sebaran panjang talen: 2.473 batang bercelah 10–50 m, 670 batang 50–250 m, 26 batang > 250 m.
+Angka-angka itu bentuknya bukan persil: talen 30 m bukan bekuk bidang, dan label yang ikut
+tertangkap adalah label tetangga. Melonggarkan `--celah` melewati 2 m hanya menghasilkan
+geometri karangan, jadi sengaja tidak dilakukan. Cacah entitas mentah menutup kemungkinan lain: `TEXT` 25.903,
+`LWPOLYLINE` 17.659, `POINT` 12.985 di lapisan `MAP`, `LINE` 354 (276 di `020100`), `IMAGE` 353,
+`INSERT` 12, `CIRCLE` 4, `MTEXT` 1 — dan `POLYLINE` nol batang, jadi tidak ada yang terlewat dari
+jenis entitas yang tidak bisa dibaca `dxfPoligon()`.
+
+**Sedangkan bagian terbesar justru tidak digambar.** Di dalam 24 garis blok, bidang hidup
+mengisi 4.011.914 m² dari 4.482.393 m² = **89,5%** (diukur ulang sesudah tiga persil `HM` masuk):
+
+| blok | luas blok m² | terisi m² | sisa m² |
+|---|---|---|---|
+| BLOK 5 | 278.591 | 176.419 | 102.172 |
+| BLOK 25 | 299.469 | 236.382 | 63.087 |
+| BLOK 23 | 292.149 | 252.446 | 39.702 |
+| BLOK 17 | 126.388 | 93.575 | 32.813 |
+| BLOK 12 | 220.629 | 188.874 | 31.755 |
+| BLOK 20 | 205.112 | 174.179 | 30.932 |
+| sisanya (18 blok) | 3.060.055 | 2.890.039 | 170.016 |
+
+Empat blok beranggota-gabungan (BLOK 8/19/21/22) sisanya 0–1 m² karena garisnya memang
+ditumbuhkan dari anggotanya, dan BLOK 2 bernilai −3.111 m² karena ada bidang yang sedikit
+keluar dari garis turunan itu. Angka di paragraf ini semuanya luas **gambar**; luas yang
+**didaftarkan** di kolom `bidang.luas_m2` berbeda sedikit — 4.033.866 m² lawan 4.091.974 m²
+(`_lama\scratch\uji-luas-dua-cara.php`), jadi jangan mencampur kedua satuan dalam satu
+kalimat. Ukuran lama itu **tidak** mengalikan cosinus lintang sehingga selisihnya kelihatan
+1,4 %; diukur dengan faktor yang sama seperti tempat lain (`luasWkt()`, cos 7,08°) selisihnya
+**0,7 %** — 4.069.858 m² gambar lawan 4.042.892 m² terdaftar sesudah penulisan 20 Okt.
+470.479 m² yang tersisa sebagian besar koridor: 512 dari
+1.643 label yang berdiri di dalam blok tapi di luar poligon mana pun adalah nama jalan atau
+air (`BATAS JALAN` 383, `BATAS PERAIRAN` 129 — `JALAN RAYA PATEAN`, `KALI SARI`, `Saluran`).
+
+Bagian yang bukan koridor: **983 label bernomor** tidak berdiri di atas bidang, dan kalau
+dikumpulkan per titik (radius 4 m) menjadi **522 loket di dalam garis blok** yang nomornya
+tidak tercatat di baris hidup mana pun — 240 nomor `080201` (7 di antaranya sekloter dengan NIS),
+250 NIS `tn_alashak`, 32 `NIB HM`.
+Hanya 47 label bernomor yang nomornya ternyata sudah tercatat di baris hidup (080201 7,
+`NIB HM` 5, NIS 35 — itu sekadar label yang meleset dari poligonya sendiri), dan 387 nama
+`tn_nama` ikut yatim, termasuk 11 anotasi petugas
+`HITUNG BIDANG = Blm Ada NIB`. Konsentrasi teratas: BLOK 25 (94), BLOK 2 (69), BLOK 23 (41),
+BLOK 17 (40), BLOK 20 (33), BLOK 14 (32). Sensitivitas radius atas 983 label itu:
+783 kelompok @2 m, 749 @4 m, 581 @8 m, 455 @15 m — jadi 522 itu taksiran tengah, bukan angka
+pasti. Sesudah sepuluh cincin dipasang ([§3.21](#321-bidang-tanpa-blok-dan-dua-perintah-koreksi-data)),
+`daftarBelumTerpetakan()` mengukur ulang: **954** label yatim (29 di antaranya sekarang berdiri
+di atas bidang) dan loketnya **tetap 522** — kesepuluh cincin itu memang berdiri di luar garis
+blok mana pun, jadi sejak awal kelompoknya tidak ikut dihitung sebagai loket.
+
+**Kesimpulannya, tiga pekerjaan yang berbeda.** (1) Satu baris `DXF_PERSIL_LAPISAN` menambah
+lapisan `HM` → 3 persil (6.223 m²) langsung bisa dipasang dengan aturan yang sudah ada —
+**sudah dipasang hari itu juga**, lihat paragraf penutup bagian ini.
+(2) Sepuluh calon yang ditahan menunggu keputusan garis blok — bukan alat; jalan tengahnya
+dipakai hari itu juga, yaitu memasang poligonnya dan **membiarkan bloknya kosong**
+([§3.21](#321-bidang-tanpa-blok-dan-dua-perintah-koreksi-data)). (3) ±522 loket
+bernomor itu **tidak bisa dipulihkan alat apa pun**: MASTER.dxf tidak punya ring di sana, jadi
+itulah digitasi yang belum dikerjakan petugas (CSV-nya dibuat untuk dibawa ke lapangan).
+Sisi lain yang masih kosong dan bukan soal geometri: seluruh 3.794 `objek_pajak` sudah ber-`blok_id`
+tetapi `bidang_id`-nya NULL semua — NOP belum pernah tertaut ke persil ([§3.11](#311-menautkan-nop-pbb-ke-bidang-peta)).
+
+**Pekerjaan (1) sudah dipasang, 20 Okt 2026.** `HM` masuk ke `DXF_PERSIL_LAPISAN`
+([tools/lib-impor.php:4921](file:///D:/Master%20ku/sipetades/tools/lib-impor.php#L4921), kode baru
+`DXF-HM`, tipe `tanah`), dan tidak ada aturan lain yang disentuh. Dibuktikan lebih dulu di
+`sipetades_uji` yang dibangun dari buangan produksi, lawan salinan acuan `sipetades_uji_sebelum`
+dengan pembanding kolom-per-kolom `_lama\scratch\banding-uji.php` — `CHECKSUM TABLE` tidak dipakai
+karena hasilnya berbeda antara dua salinan walau isinya sama: `bidang`, `hak` dan `blok` **0 baris
+lama berubah**, 0 hilang, 3 `bidang` + 3 `hak` baru. Produksi lalu dikeringkan
+(`calon=3`, `luas_m2=6222.9` — persis sama dengan uji), dipasang
+(`storage\dxf-persil-20261020-093349.json`, satu `audit_log` per blok), dan dijalankan lagi
+sampai `calon=0`; cincin tertutup yang terhitung naik dari 5.981 ke 5.984.
+
+| kode | blok | luas | identitas yang datang dari label |
+|---|---|---|---|
+| `DXF-HM-0001` | BLOK 8 | 3.981,6 m² | nama `HERU SETIAWAN / JUWARIYAH SUPARDI / SUKARDI / SURIPTO`, NIS `941D K3 / 942D K3`, daftar `00865` |
+| `DXF-HM-0002` | BLOK 25 | 1.365,5 m² | nama `ARI MULYONO`, NIB `01170` |
+| `DXF-HM-0003` | BLOK 2 | 875,9 m² | nama `TUGIATI`, daftar `00737` |
+
+Empat nama pada baris pertama bukan karangan: satu poligon memang berdiri di bawah empat
+label (`nama-verifikasi` mencatatnya sebagai `nama_ganda=1`), jadi baris itu tetap
+`perlu_verifikasi` dan harus dipecah petugas. Setelah memasang, garis blok turunan dibuat ulang
+`kira 2 8 --tepat --terapkan`: BLOK 2 184.302 → 185.183 m² (58 bagian), BLOK 8 → 11 bagian
+169.123 m². **BLOK 25 sengaja tidak ditumbuhkan** — garisnya `garis luar MASTER.dxf`, dan
+aturan itu berlaku mutlak. Lima pengisinya berjalan sesudah itu: `nama-verifikasi` 3, `nib` 1,
+`daftar` 2, `nis` 1, `hak-milik` 3.
+
+Isi basis data sesudah seluruh penulisan 20 Okt: 4.434 baris `bidang` (778 `aktif` +
+3.267 `perlu_verifikasi` + 389 `duplikat`), **4.045 hidup** dengan 4.042.892 m² terdaftar,
+HM 4.011 · KDH 33 · HP 1, 3.696 bernama, dan tetap 47 bidang tanpa satu pun identitas.
+**12 bidang hidup tidak punya blok** — sepuluh yang baru dipasang itu ditambah
+`DXF-020100-0005` (H TONO, 6.984 m²) dan `HM-1235` (SUMARNI / TOMO) yang memang sudah kosong
+sebelumnya. Yang tertinggal: ±522 loket menunggu digitasi
+([§3.21](#321-bidang-tanpa-blok-dan-dua-perintah-koreksi-data)).
+
+---
+
+### 3.21 Bidang tanpa blok dan dua perintah koreksi data
+
+**Soalnya.** Sepuluh cincin terakhir yang ditahan `dxf-persil` tidak bisa diberi blok dengan
+jujur. Diukur satu per satu (`_lama\scratch\ukur-calon-tanpa-blok.php`, hanya membaca,
+9.025,2 m² seluruhnya): **garis blok ukur terdekat berjarak 12,9–30 m** dari titik tengah
+mereka, dan aturan tetangga tepi justru menunjuk bidang yang **dirinya sendiri** sudah tidak
+jatuh di dalam garis blok yang tercatat di padanya. Jadi tidak ada satu pun aturan yang tersedia
+waktu itu yang bisa menyebut bloknya; yang ada hanya petunjuk "garis ini paling dekat".
+
+**Aturannya (`--tanpa-blok`).** `persilDariDxf()` ([tools/lib-impor.php:5202](file:///D:/Master%20ku/sipetades/tools/lib-impor.php#L5202))
+menerima bendera kelima `$pasangTanpaBlok`. Kalau dipasang, calon yang gagal dua jaring blok
+tidak dibuang lagi: poligonya masuk `bidang` dengan `blok_id` **NULL**, dan `garisBlokTerdekat()`
+([tools/lib-impor.php:5596](file:///D:/Master%20ku/sipetades/tools/lib-impor.php#L5596)) menuliskan
+garis terdekat plus jaraknya ke `catatan` sebagai alamat untuk petugas, lengkap dengan perintah
+yang harus dijalankan sesudahnya — `impor.php ubah-blok <kode blok> <kode bidang> --terapkan`.
+Angka jarak itu sengaja **tidak** ditulis ke `blok_id`: ia hanya perkiraan, dan dua blok yang
+berdempetan hanya berjarak 1,1 m satu sama lain sehingga "dekat" tidak membedakan apa pun.
+Auditnya tidak disebar ke blok mana pun, melainkan dikumpulkan di bawah kunci
+`BLOK belum ditentukan`.
+
+**Hasilnya (20 Okt 2026, produksi).** Dibuktikan lebih dulu di `sipetades_uji` (0 baris lama
+berubah, 0 baris `blok` tersentuh, 10 `bidang` + 10 `hak` baru), baru ditulis
+(`storage\dxf-persil-20261020-101605.json`; dump sebelum menulis
+`storage\pemulihan-sebelum-dxf-persil-tanpa-blok-20261020-1018.sql`). Kesepuluhnya masuk
+`perlu_verifikasi`, dan lima pengisi dijalankan sesudahnya sampai tuntas:
+
+| kode | lapisan | luas | identitas dari label | garis blok terdekat di `catatan` |
+|---|---|---|---|---|
+| `DXF-020100-2949` | 020100 | 2.836,1 m² | JUWARNI, NIS `A114`, daftar `01889` | ada, disebut dengan jaraknya |
+| `DXF-020100-2950` | 020100 | 695,0 m² | HARI SUTANTO, NIS `A127 / A128`, daftar `01766` | idem |
+| `DXF-020100-2951` | 020100 | 680,9 m² | SRI RUSWANTI, NIS `112B`, daftar `01887` | idem |
+| `DXF-020100-2952` | 020100 | 679,5 m² | JUWITO, NIS `C61`, daftar `01778` | idem |
+| `DXF-020100-2953` | 020100 | 674,1 m² | INDARWATI, NIS `110B`, daftar `01888` | idem |
+| `DXF-020100-2954` | 020100 | 588,1 m² | AHMAD SODIKIN, NIS `1642D K3`, daftar `04321` | idem |
+| `DXF-020100-2955` | 020100 | 474,1 m² | SUYATI, NIS `1601D K3`, daftar `04280` | idem |
+| `DXF-020100-2956` | 020100 | 307,3 m² | RUSMI, NIS `109B`, daftar `01883` | idem |
+| `DXF-BIDANGHM-0003` | BIDANG HM | 1.635,2 m² | tiga nama (KRISTINA SUGIYARTI / RITA CHRISTINA / SOERAT BIN SAMAN) | idem |
+| `DXF-BIDANGHM-0004` | BIDANG HM | 454,9 m² | AGUS S, NIB `M.58` | idem |
+
+Sepuluh bernama, delapan ber-nomor-daftar, delapan ber-NIS, satu ber-nib, seluruhnya Hak Milik —
+semuanya dari label peta, tidak ada yang dikarang. Tiga nama pada `DXF-BIDANGHM-0003` berarti
+satu poligon berdiri di bawah tiga label: baris itu tetap harus dipecah petugas. Garis blok
+turunan **tidak** ikut ditumbuhkan — kesepuluh bidang ini tidak berblok, dan `kira 19 21 --tepat`
+sesudah seluruh koreksi di bawah melaporkan `dipasang=0 kurang=0`.
+
+**Dua cacat data yang terbukti dari geometri.** `bidang.luas_m2` warisan GeoJSON adalah luas
+**gambar**, bukan angka pendaftaran, dan `blok_id` warisan ada yang berasal dari perkiraan
+otomatis yang belum pernah dikoreksi. Untuk keduanya dibuat satu perintah per kasus, semuanya
+mode periksa dulu:
+
+- `impor.php luas [--toleransi=<bagian>]` → `hitungUlangLuasBidang()`
+  ([tools/lib-impor.php:1836](file:///D:/Master%20ku/sipetades/tools/lib-impor.php#L1836)). Luas tiap
+  bidang dihitung ulang dari cincin di `geom` dengan `luasWkt()` dan dibandingkan dengan kolomnya;
+  yang berbeda lebih dari `LUAS_TOLERANSI` (bawaan 0,05 = 5 %) ditimpa. `luas_m2 <= 0` **selalu**
+  dianggap cacat, sekecil apa pun selisihnya terhadap gambarannya. Ronde ini menyentuh 4.045 bidang hidup dan
+  memperbaiki **2**: `DXF-020100-0008` 0,00 → 0,02 m² dan `DXF-020100-2440` 5,00 → 5,27 m².
+- `impor.php koreksi-blok` → `koreksiBlokPerkiraan()`
+  ([tools/lib-impor.php:1960](file:///D:/Master%20ku/sipetades/tools/lib-impor.php#L1960)). Bidang
+  dipindah hanya bila **lima** syaratnya sekaligus terbukti: statusnya masih `perlu_verifikasi`,
+  `catatan`-nya bercorak mesin — `Blok diperkirakan otomatis%`, `Cincin MASTER.dxf lapis %` atau
+  `Garis kuning (ACI 2)%`, dirangkum `catatanBlokMesin()` + `sqlCatatanBlokMesin()` di
+  [tools/lib-impor.php:1915](file:///D:/Master%20ku/sipetades/tools/lib-impor.php#L1915)
+  (keputusan petugas tidak pernah ditimpa, dan catatan kosong **tidak** ikut karena `pindah`
+  dan `ubah-blok` tidak menulis catatan sehingga barisnya tak bisa dibuktikan bukan keputusan
+  petugas), titik tengahnya sudah **keluar** dari garis bloknya sendiri, titik tengahnya jatuh di
+  dalam **tepat satu** garis blok lain, dan garis tujuan itu bergaris ukur
+  (`BLOK_KOREKSI_SUMBER = 'garis luar MASTER.dxf'`) yang menaungi ≥ `BLOK_KEPERCAYAAN_MIN`
+  (90 %) anggotanya sendiri. Syarat terakhir yang menyelamatkan aturan ini: ada blok yang
+  garisnya sendiri sudah tidak cocok dengan anggotanya, jadi garis semacam itu tidak boleh
+  dipakai sebagai bukti. Kepercayaan tiap garis diukur dengan
+  `_lama\scratch\ukur-mutu-garis-blok.php` (hanya membaca): BLOK 5/6/14/25 99 %, BLOK 4 98 %,
+  BLOK 2 96 %, BLOK 20 95 %, BLOK 7 92 %, tetapi **BLOK 16 85 %**, **BLOK 18 83 %**,
+  **BLOK 9 79 %** dan turunan **BLOK 8 79 %**, **BLOK 21 88 %** ada di bawahnya — angka yang
+  tercetak di perintah sehari kemudian, sesudah enam bidang berpindah, sedikit lebih tinggi
+  (BLOK 23 80 %, BLOK 21 89 %, BLOK 19 97 %). Garis di bawah 90 % tidak dipakai.
+  Dari 1.213 bidang berkategori, **6** pindah dan **11** ditahan
+  beserta alasannya yang tercetak:
+
+  | kode | dari → ke | kepercayaan garis tujuan |
+  |---|---|---|
+  | `DXF-020100-0348` | BLOK 21 → BLOK 20 | 95 % |
+  | `HM-1261` | BLOK 21 → BLOK 20 | 95 % |
+  | `HM-172D K3` | BLOK 21 → BLOK 20 | 95 % |
+  | `DXF-020100-2107` | BLOK 19 → BLOK 24 | 98 % |
+  | `DXF-020100-2113` | BLOK 19 → BLOK 24 | 98 % |
+  | `HM-199D K3` | BLOK 23 → BLOK 26 | 97 % |
+
+  Sebelas yang ditahan: `DXF-020100-1434`, `-2435`, `-2564`, `HM-1381` (tujuannya BLOK 23, garisnya
+  sendiri cuma menaungi 80 % anggotanya), `DXF-020100-1997` (BLOK 2 turunan), `DXF-020100-2555`,
+  `HM-1343` (BLOK 21 turunan, 89 %), `HM-1201`, `HM-131D K3`, `HM-C82` (BLOK 19 turunan), dan
+  `HM-1367` yang titik tengahnya duduk di dalam **dua** garis sekaligus (BLOK 21 + BLOK 23).
+
+**Sasaran ronde pertama ternyata terlalu sempit.** `koreksi-blok` hanya melirik catatan
+"Blok diperkirakan otomatis%", yaitu baris buatan `kira`, padahal persil yang cincinnya dipasang
+`dxf-persil` dan `kuning` juga tidak pernah dipilih petugas. Ketika 219 bidang yang titik
+tengahnya keluar dari garis bloknya diukur ulang tanpa filter itu
+(`_lama\scratch\rinci-luar-blok.php`, hanya membaca; petanya
+`_lama\scratch\peta-luar-blok.php`), ternyata **66** punya garis ukur yang benar-benar menaungi
+titik tengahnya sementara perintah aslinya melaporkan `akan_dipindah=0`. Sejak saat itu tiga
+corak catatan mesin ikut diperiksa dan `catatan` kosong sengaja dikeluarkan.
+
+Ronde itu diuji lebih dulu pada salinan `sipetades_uji` (dump produksi
+`storage\pemulihan-sebelum-koreksi-blok-20261020-1348.sql`, basis data kembar
+`sipetades_uji_sebelum` untuk perbandingan): **1.603** bidang diperiksa, **57** pindah, **12**
+ditahan, dicadangkan ke `storage\koreksi-blok-perkiraan-20261020-134952.json`.
+
+- **57 pindah**: 31 → BLOK 12, 21 → BLOK 14, 4 → BLOK 15, 1 → BLOK 17; asalnya BLOK 9 dan
+  BLOK 18 masing-masing 19 bidang, BLOK 16 12, BLOK 7 dan BLOK 15 masing-masing 3, BLOK 14 1.
+- **12 ditahan**: sepuluh karena garis tujuannya turunan (BLOK 2/19/21, meskipun menaungi
+  94–96 % anggotanya sendiri), `DXF-020100-2435` dan `-2564` karena BLOK 23 cuma menaungi 80 %.
+
+Kolom-per-kolom dengan `sipetades_uji_sebelum`: **tepat 57 baris** `bidang` berubah, hanya
+`blok_id` + `catatan` (+ `diubah_pada`); `geom`, `luas_m2`, `status`, `nib`, titik tengah,
+tabel `hak` dan `blok` tidak tersentuh satu baris pun, 0 baris hilang. Kelima puluh tujuh titik
+tengah sudah jatuh di dalam garis barunya dan di luar garis lamanya. Dijalankan ulang seketika:
+`bidang_diperiksa` turun jadi 1.546 dan `akan_dipindah=0`, jadi perintahnya idempoten.
+Kepercayaan garis yang bergerak ikut naik — BLOK 18 78,2 → **100,0 %**, BLOK 16 91,3 → 99,3 %,
+BLOK 15 98,0 → 100,0 %, BLOK 9 75,7 → 83,1 %, BLOK 7 91,6 → 94,6 %, BLOK 14 98,1 → 99,2 %,
+BLOK 12 97,5 → 97,8 %; BLOK 17 tetap 98,0 %.
+
+Bug tampilan ikut ditemukan di ronde ini: baris kesimpulan memakai `$hasil + ['dipindah' => …]`
+padahal `dipindah` sudah ada di `$hasil`, dan operator `+` tidak menimpa kunci yang sudah ada —
+perintah ini memindah 57 bidang lalu mencetak `dipindah=0`. Sekarang `array_merge`.
+
+**Ditulis ke produksi 20 Okt 13:59** (`storage\pemulihan-sebelum-koreksi-produksi-20261020-135921.sql`
++ `storage\koreksi-blok-perkiraan-20261020-135926.json`). `_lama\scratch\verif-koreksi-produksi.php`
+(hanya membaca) membuktikan empat hal: lawan `sipetades_uji_sebelum` hanya `blok_id`, `catatan` dan
+`diubah_pada` yang bergerak (57 pindah + 1 pembatalan di bawah), tabel `hak` dan `blok` nol; produksi
+identik dengan `sipetades_uji` yang sudah diuji kecuali jam tulisnya; kelima puluh tujuh titik tengah
+dinaungi garis blok barunya dan tidak ada yang masih duduk di dalam garis lamanya; dijalankan ulang →
+`akan_dipindah=0`.
+
+Bagian pembuktian yang tidak memakai alat itu sendiri: uji keda-laman diulang dengan
+`ST_Contains` milik MariaDB, dan di situ **satu** perpindahan pagi hari (ronde 10:27) ternyata
+tidak punya bukti — `HM-199D K3` tercatat pindah ke BLOK 26 padahal titik tengahnya 482 m dari
+garis itu dan tidak jatuh di dalam garis blok mana pun. Bloknya dikembalikan ke BLOK 23 lewat
+`impor.php ubah-blok 23 "HM-199D K3" --terapkan`, kalimat catatan yang salah ditulis ulang oleh
+`_lama\scratch\batalkan-catatan-hm199d.php` (cadangan
+`storage\batalkan-catatan-hm199d-20261020-141746.json`), dan sesudah itu **62/62** baris berkoreksi
+hari ini lolos `ST_Contains`. Ukuran akhir dengan `ST_Contains`
+(`_lama\scratch\ukur-luka-mariadb.php`): **173** dari 4.036 bidang hidup berblok masih tidak dinaungi
+garis bloknya sendiri — 23 dinaungi tepat satu garis blok lain, 150 tidak dinaungi garis mana pun —
+dan garis terlemah kini **BLOK 23 79,2 %** (167/211) serta **BLOK 9 83,1 %** (162/195); BLOK 16 dan 18
+yang pagi tadi 85 %/78 % sudah keluar dari ekor lemah.
+
+Sejak ronde itu `koreksiBlokPerkiraan()` menguji ulang tiap calon perpindahan dengan `ST_Contains`
+sebelum menulis — `wktBagian()`/`titikDiDalamBagian()` membaca cincin sebagai bagian padat sehingga
+lebih murah hati daripada MariaDB (162 vs 173 bidang terluka). Dijalankan pada salinan sebelum
+koreksi: 57 calon, **0 diveto**, jadi gerbang ini tidak mengubah hasil 20 Okt — ia ada supaya kasus
+`HM-199D K3` tidak bisa ditulis ulang.
+
+Kedua perintah itu dicadangkan dulu ke `storage\luas-dari-geometri-<waktu>.json` dan
+`storage\koreksi-blok-perkiraan-<waktu>.json`, dump penuhnya di
+`storage\pemulihan-sebelum-koreksi-datan-20261020-1022.sql`, dan masing-masing meninggalkan
+`audit_log`. Uji di salinan sementara sebelum menulis ke produksi: **tepat 8 baris** berubah
+(2 `luas_m2`, 6 `blok_id` + `catatan`), 0 baris lain bergerak, dan produksi lalu dicocokkan
+kolom-per-kolom dengan salinan yang sudah terbukti itu — selisihnya hanya `dibuat_pada` /
+`diubah_pada`. Sesudah ditulis, `impor.php luas` dan `impor.php koreksi-blok` sama-sama
+melaporkan `berbeda=0 / akan_dipindah=0` selain sebelas yang ditahan: alatnya sudah tidak
+menemukan cacat lagi.
+
+**Daftar kerja petugas yang tersisa, tidak diubah alat apa pun.**
+`_lama\scratch\daftar-beda-blok.php` (hanya membaca) mengukur sisanya sesudah penulisan:
+**63** bidang hidup masih berdiri di dalam satu garis blok lain daripada garis bloknya sendiri —
+sebagian besar baris `Cincin MASTER.dxf` yang dipasang sebelum garis bloknya bergeser, dan
+57 di antaranya sudah dikoreksi 20 Okt 13:59 (ronde di atas) — dan
+**189** bidang titik tengahnya tidak jatuh di dalam garis blok mana pun (kesepuluh yang baru itu
+termasuk di dalamnya). Selebihnya bukan soal geometri: `DXF-020100-0008` cuma 0,02 m² (serpihan,
+mungkin bukan persil), 4 `nib` dan 10 `nis` dipakai lebih dari satu bidang hidup, `dusun_id`
+kosong di seluruh 4.434 baris karena peta master tidak membawanya, `objek_pajak.bidang_id`
+masih NULL semua ([§3.11](#311-menautkan-nop-pbb-ke-bidang-peta)), dan tabel `pemegang`
+kosong padahal 3.696 bidang sudah bernama.
+
+---
+
+### 3.22 Garis kuning MASTER.dxf: penjajaran tepi dan lima bidang yatim
+
+**Soalnya.** Peta master menggambar **51 poligon kuning** (ACI 2, code 62 = `2`) di seksi
+`ENTITIES` — itu persil yang petugas digitasi ulang di atas peta lama, bukan hiasan lapisan.
+Empat puluh enam di antaranya sudah punya padanan di basis data tapi tepinya tidak rapi: sudut
+bidang tertinggal 0,00–0,09 m dari garis tetangga, bekas digitasi dua lapis. Lima garis kuning
+lainnya tidak punya bidang sama sekali. `impor.php kuning`
+([tools/impor.php:502](file:///D:/Master%20ku/sipetades/tools/impor.php#L502)) menutup dua-duanya
+lewat `kuningMasterSelaraskan()` ([tools/lib-impor.php:6243](file:///D:/Master%20ku/sipetades/tools/lib-impor.php#L6243)).
+
+**Aturannya.** Tiga hal yang membuat perintah ini tidak mengarang bentuk:
+
+- Yang dibaca hanya `ENTITIES`; kuning di dalam `BLOCKS` berkoordinat lokal. Padanan dipilih dari
+  **berapa bagian garis kuning yang terjelaskan oleh sebuah bidang**, bukan dari berapa besar
+  bidang itu menumpang garis kuning — arah yang terakhir mudah tertipu bidang raksasa.
+- Penjajaran (`KUNING_TARIK_M` = `KUNING_SUDUT_M` = 0,15 m,
+  [tools/lib-impor.php:6010](file:///D:/Master%20ku/sipetades/tools/lib-impor.php#L6010)) hanya
+  memindahkan sudut yang **sudah** jatuh ≤ jarak itu ke tepi tetangga. Celah digitasi ditutup;
+  sudut baru tidak pernah diciptakan. `bidang.luas_m2` tidak disentuh karena itu angka
+  pendaftaran — yang berubah hanya luas gambar.
+- Garis kuning yatim dipotong dulu sampai pas ke tetangga (kepul kecil dibuang, cincin terbesar
+  dipakai), lalu dipasang sebagai `perlu_verifikasi` berjenis sementara `BLM`; sisanya sama seperti
+  sesudah `dxf-persil`: `nama-verifikasi`, `nib`, `daftar`, `hak-milik`. Kalau titik tengahnya tidak
+  jatuh di dalam garis blok mana pun, `blok_id` dibiarkan NULL dan garis blok terdekat ditulis ke
+  `catatan` sesuai [§3.21](#321-bidang-tanpa-blok-dan-dua-perintah-koreksi-data).
+
+**Empat cacat yang terbukti di tengah jalan — semuanya sudah diperbaiki di pustaka.** Bagian ini
+layak dibaca karena keempatnya tidak kelihatan dari laporan:
+
+1. `wktPoligon()` membulatkan ke **6 desimal** (≈ 8–11 cm pada bujur). Penjajaran yang memindahkan
+   sudut 5 cm lalu menulis hasilnya dengan pembulatan itu mengembalikan titik yang sama: dari 17
+   bidang yang dilaporkan dijajarkan, hanya **12** yang `geom`-nya benar-benar berubah. Sekarang
+   setiap jalur tulis kuning memakai `wktPoligonTepat()`
+   ([tools/lib-impor.php:6139](file:///D:/Master%20ku/sipetades/tools/lib-impor.php#L6139))
+   dengan `%.8F` (± 1 mm).
+2. Titik tengah serahkan ke **`ST_PointOnSurface()`**, dan fungsi itu mengembalikan NULL pada **33**
+   bidang basis data ini — sebagian di antaranya poligon sederhana yang sah. Karena pemanggilnya
+   tidak memeriksa NULL, `DXF-HM-0007` pernah tertulis dengan `pusat_lon = pusat_lat = 0` (titik
+   tengahnya 12,3 juta meter dari desanya). Sekarang titik tengah dihitung di PHP oleh
+   `pusatCincin()` ([tools/lib-impor.php:6189](file:///D:/Master%20ku/sipetades/tools/lib-impor.php#L6189))
+   — luas-bobot, lalu rata-rata sudut, lalu pusat kipas segitiga — dan **divalidasi jatuh di dalam
+   cincinnya sendiri** sebelum dipakai; kalau tidak ada satu pun kandidat yang di dalam, bidangnya
+   ditolak, bukan ditulis setengah jadi. `pusatWkt()`
+   ([tools/lib-impor.php:6222](file:///D:/Master%20ku/sipetades/tools/lib-impor.php#L6222)) sekarang
+   hanya membungkusnya dan mengembalikan `?array`.
+3. Sepasang sudut berjarak 0,06 m membuat MariaDB menyerah pada poligon yang bentuknya baik.
+   `cincinRapi()` ([tools/lib-impor.php:6110](file:///D:/Master%20ku/sipetades/tools/lib-impor.php#L6110))
+   membuang sudut yang jaraknya ke sudut berikutnya di bawah `KUNING_SUDUT_M`; ronde ini membuang
+   1 sudut pada `HM-0028`, `HM-0033` dan `HM-0139`.
+4. `luas_lama` dilaporkan dari garis kuning, bukan dari geometri bidangnya sendiri, sehingga delta
+   seluruh ronde tercetak 4,20 m² padahal 7,13 m².
+
+**Hasilnya (20 Okt 2026, produksi).** Dibuktikan lebih dulu pada `sipetades_uji` yang baru saja
+dirobohkan dan dibangun ulang dari keadaan bersih: **tepat 17 baris lama berbeda** (`geom`,
+`pusat_lon`, `pusat_lat`, `diubah_pada`), **5 `bidang` + 5 `hak` baru**, **0 baris `blok` tersentuh**,
+**0 hilang** (`_lama\scratch\banding-uji.php`, `_lama\scratch\kolom-uji.php`). Produksi lalu digulung
+kembali ke dump sebelum penulisan (`storage\pemulihan-sebelum-kuning-master-20261020-1158.sql`) dan
+dijalankan ulang dengan pustaka yang sudah dibetulkan; 22 baris terdampak produksi **sama persis**
+dengan salinan uji kalau dicocokkan `ST_Equals()` dan nilai titik tengahnya satu per satu
+(`_lama\scratch\cek-kuning-setelah.php`): 0 tumpang tindih > 0,5 m², baik pada 17 bidang yang
+dijajarkan maupun pada 5 bidang baru, dan 0 titik tengah baru yang keluar dari bidangnya sendiri
+(42 di antaranya sudah ada sebelumnya). Cadangan JSON `storage\kuning-master-20261020-125417.json` +
+`storage\hak-milik-20261020-125423.json`, dump pengaman keadaan sebelum perbaikan
+`storage\pemulihan-sebelum-betul-kuning-20261020-125351.sql`, 22 baris `audit_log`.
+
+Bidang baru hasil lima garis kuning yatim — seluruhnya sudah dipindahkan ke Hak Milik oleh
+`impor.php hak-milik --terapkan`, yang tepat mengusulkan kelima baris itu dan nol yang lain:
+
+| kode | kuning | luas gambar | label peta | blok |
+|---|---|---|---|---|
+| `DXF-HM-0004` | #30 | 5.910,9 m² | MUKRI YAKUP, NIB `00774` | BLOK 9 |
+| `DXF-HM-0005` | #41 | 238,4 m² | BASUKI, NIB `00965` | NULL — terdekat BLOK 2, 3,2 m |
+| `DXF-HM-0006` | #47 | 2.640,2 m² | DUL CHOLIK NGAIDIN, NIB `00902` | BLOK 18 |
+| `DXF-HM-0007` | #48 | 1.023,1 m² | SUSRI BISRI MUSTOFA, NIB `00659` | BLOK 17 |
+| `DXF-KUNING-0001` | #51 | 214,5 m² | `M.170`, tanpa nama | NULL — terdekat BLOK 2, 5,8 m |
+
+Tujuh belas bidang yang dijajarkan bergerak 0,00–3,31 m² (`HM-0028` paling besar 3,31 m², `HM-0675`
+0,76 m², `HM-0046` 1,45 m², selebihnya di bawah 0,6 m²): `DXF-HM-0002`, `DXF-HM-0003`, `HM-0028`,
+`HM-0033`, `HM-0034`, `HM-0046`, `HM-0052`, `HM-0082`, `HM-0127`, `HM-0128`, `HM-0139`, `HM-0209`,
+`HM-0487`, `HM-0511`, `HM-0512`, `HM-0533`, `HM-0675`. Peta sebelum dan sesudah ada di
+`storage\peta-kuning-20261020-sebelum-jajar.html` dan `storage\peta-kuning-20261020.html` (dibuat
+ulang oleh `_lama\scratch\kuning-sesuaikan.php` → `kuning-yatim.php` → `kuning-peta.php`, semuanya
+hanya membaca).
+
+**Perintah ini satu ronde, dan itu bukan kelalaian.** Dua bidang yang berdempetan sama-sama
+menarik sudut yang mereka bagi ke garis yang *tersimpan di tetangganya*, padahal garis tetangga
+itu sendiri baru saja digeser pada ronde yang sama — jadi ronde kedua menariknya kembali.
+Terukur di salinan: sesudah ronde pertama, ronde kedua masih menemukan 8 bidang (2,98 m²) dan
+ronde ketiga membatalkan 5 di antaranya (`HM-0127` 572,37 → 572,18 lalu 572,37; `HM-0128` sama).
+Karena itu produksi **ditinggalkan pada ronde pertama**, dan penjajaran membuang baris yang hasil
+cincinnya identik dengan yang tersimpan (dibandingkan sebagai teks `wktPoligonTepat()` kedua sisi,
+bukan sebagai angka: proyeksi ulang meninggalkan debu float ~1e-9° dan `ST_AsText()` menulis
+`110.07181610` sebagai `110.0718161`, jadi perbandingan string langsung selalu kalah maupun
+perbandingan ketat selalu menang). Sisa celah 0,001–0,063 m pada delapan tepi yang berdua memang
+dibiarkan; kalau ada yang salah di sana, yang dibetulkan garis bloknya, bukan penjajarannya.
+
+**Sisa yang tidak diubah perintah ini.** Kuning #52 pada lapisan `010500` adalah poligon **terbuka**
+seluas 6,7 km² — garis keliling, bukan persil — jadi memang tidak boleh dipasang; sesudah ronde ini
+tidak ada lagi garis kuning tertutup yang tanpa bidang, dan pengukuran ulang melaporkan 51 berpadan
+dari 51. `DXF-HM-0005` dan `DXF-KUNING-0001` masih tanpa blok dan menunggu petugas. Empat puluh dua
+bidang yang titik tengahnya duduk di luar poligonya sendiri, dan 32 bidang yang
+`ST_PointOnSurface()`-nya NULL, adalah warisan geometri lama yang berdiri sendiri — tidak bertambah
+satu pun karena penjajaran ini.
+
+### 3.23 Tampilan web mengikuti gambar antarmuka
+
+`Gambar Antarmuka.png` (di akar proyek) dipakai sebagai acuan rupa. Yang dikerjakan:
+
+- **`beranda.php`** — halaman depan publik yang meniru susunan gambar itu: cap
+  `PEMERINTAH DESA GEDONG / KECAMATAN PATEAN / KABUPATEN KENDAL` di kiri atas, judul
+  dua warna ("Sistem Informasi Geografis" biru, "Pertanahan Desa" hijau), tagline,
+  empat pintu layanan (Peta Interaktif, Data Bidang Tanah, Data Pemilik, Laporan &
+  Statistik), dan pita biru miring di kanan bawah bertuliskan *Desa Gedong — Maju
+  Desa, Sejahtera Masyarakat* (`clip-path`, bukan gambar). Panel kanan **bukan** hiasan:
+  Leaflet di atas citra Esri dengan geometri asli satu blok penuh dari MariaDB, kartu
+  info bidang, kompas, dan tombol zoom. Blok sampel dipilih yang anggotanya terbanyak
+  (sekarang BLOK 2, 235 bidang ≈ 59 KB) supaya petakannya rapat. Halaman ini satu-satunya
+  yang boleh dibaca tanpa akun, jadi geometrinya dibaca langsung dari basis data, bukan
+  lewat `api/` yang akan ditutup untuk anonim (§7).
+- **Palet** `assets/css/app.css` mengikuti gambar: hijau `#1f9d4d`, biru `#0f4c81`, biru
+  tua `#0a2f4f`; radius kartu 14 px; font utama **Plus Jakarta Sans** dan tulisan tangan
+  **Caveat** untuk tagline, dimuat dari Google Fonts seperti Leaflet. Warna lapisan Hak
+  Milik / Hak Pakai di `peta.php` ikut disamakan agar legenda dan peta tidak berbeda rupa.
+- **`assets/img/beranda-latar.jpg`** — latar foto langit+sawah untuk pahlawan beranda,
+  dibuat dari gambar (bukan potongan berkas mockup), dikecilkan ke 1600 px dan dikompresi
+  ke 178 KB memakai `php -d extension=gd`
+  (ekstensi GD bawaan XAMPP dinonaktifkan di `php.ini`).
+- **Navigasi** `app/layout.php` menambah item *Beranda* dan memendekkan label menu
+  (`Peta`, `Bidang`, `Buku C`, `Akun`) supaya sembilan item muat tanpa menggulir; merek
+  di kiri atas kini menuju `beranda.php`, dasbor pindah kunci menu `dasbor`.
+  `sip_header()`/`sip_footer()` menerima opsi `penuh` untuk halaman yang wadahnya melebar
+  sampai tepi layar.
+- **`login.php`** memakai identitas yang sama. Latar halaman ini bukan foto hasil
+  generate lagi, melainkan **potongan `Gambar Antarmuka.png`**: 32 % bawah gambar
+  (punggungan gunung, desa, sawah terasering, daun hijau kiri, coretan biru "Desa Gedong"
+  kanan) disimpan sebagai `assets/img/masuk-latar.jpg` 1672 × 301 px / 144 KB, lalu
+  ditempel di dasar layar dengan gradien langit di atasnya. Ujung atas potongan
+  dipudarkan 90 px ke warna `#cbe5f7` memakai `imagecolorallocatealpha()` — tanpa itu
+  garis potongannya memotong punggungan dan terbaca sebagai garis horizontal. Kotak
+  login sendiri putih pekat, jadi gambarnya tidak perlu disamarkan. Pada layar 561–900 px
+  tinggi pita dikunci 240 px dan disandarkan ke kanan supaya tulisan "Desa Gedong" ikut
+  terlihat; di bawah 560 px pita kembali selebar layar — tingginya menyusut jadi ±70 px,
+  tapi memotongnya pada 240 px meninggalkan "Sejahtera Masyaraka…" yang terbaca rusak.
+  Garis hijau di tepi atas kartu, tagline Caveat, dan taut
+  "Kembali ke beranda" dipertahankan.
+
+Verifikasi dilakukan di peramban pada 127.0.0.1:8099: beranda 235 path vektor, kartu info
+berubah saat bidang lain diklik (`HM-0001` → `HM-0137`, 552 m², CASWADI), tombol zoom dan
+pusat berfungsi, nol pesan konsol; dasbor, daftar bidang, dan peta ikut diperiksa. Halaman
+masuk juga difoto ulang sesudah latarnya diganti: pita sawah menutupi sepertiga bawah layar,
+batasnya dengan langit tidak terlihat sebagai garis potong, dan nol pesan konsol. Empat lebar
+sekaligus (390/480/768/1280 px) diperiksa lewat bingkai uji `_lama/scratch/uji-viewport.html`
+— berkas itu hanya untuk dibuka dari disk, sebab `_lama/` ditutup dari HTTP. Dari bingkai
+itulah aturan 560 px di atas lahir: pada 390 px pita 240 px memotong merek jadi separuh kata.
+
+Yang **tidak** ikut diubah: susunan kartu dasbor dan seluruh halaman kerja — hanya palet,
+font, dan menu yang berubah di sana. Angka "perlu verifikasi" pada kartu ringkas beranda
+sengaja diberi keterangan bahwa sebagian besar adalah lapisan bawaan obyek non-tanah
+(§3.15), bukan temuan lapangan.
+
+---
+
+### 3.24 Halaman Pengaturan: cadangan, ekspor, impor, kosongkan
+
+Menu **Dasbor** keluar dari deretan menu utama dan pindah jadi tautan kecil di
+kanan atas (`index.php` tetap dipertahankan); tempatnya diisi **Pengaturan** —
+`pengaturan.php`, hanya `super_admin`. Mesinnya dipisah ke `app/lib-pengaturan.php`
+supaya halaman tetap berisi tampilan dan alur "yakin" saja. Empat kartu, satu layar:
+
+1. **Cadangan basis data** — `mysqldump.exe` menulis seluruh 17 tabel ke
+   `storage/cadangan/cadangan-<waktu>.sql`; geometri ikut, jadi satu berkas ini cukup
+   untuk memindahkan desa ke komputer lain. Kredensial tidak pernah lewat baris perintah:
+   `pengaturan_kredensial()` menaruh host/user/sandi di berkas `[client]` sementara (mode
+   0600) yang dihapus lagi sesudah proses selesai. Pemulihan memakai `mysql.exe` dengan
+   berkas cadangan di *stdin*, dan membuat `sebelum-pulihkan` lebih dulu supaya bisa dibalik.
+   Kalau `mysqldump`/`mysql` tidak ketemu (dijajal di `db.bin` lalu jalur XAMPP/Laragon),
+   sistem menolak dan menyuruh mengisi kunci `bin` di `app/config.php` — bukan diam-diam
+   mencoba cara lain.
+2. **Ekspor data** — seluruh tabel ke satu berkas JSON di `storage/ekspor/`, geometri
+   sebagai WKB heks (`{"wkb":"0103…","srid":4326}`). Ditulis mengalir lewat `php://temp`
+   supaya memori tidak ikut membengkak bersama 9,3 MB geometri. Laporan CSV untuk Excel
+   tetap `php tools/ekspor.php`; berkas JSON ini khusus untuk dibaca kembali oleh kartu 3.
+3. **Impor data** — unggah berkas hasil ekspor (batas `upload_max_filesize`, nama dibuat
+   server, disimpan ke `storage/impor/`). Langkah pertama selalu **uji-kering**: tabel
+   perbandingan "di berkas / sekarang" plus cap waktu dan nama basis data asal, dan berkas
+   yang bukan hasil ekspor ditolak di sini sebelum ada satu pun pertanyaan yakin.
+   Menerapkannya butuh kata kunci `PULIHKAN` diketik ulang, cadangan `sebelum-impor` dibuat
+   otomatis, lalu seluruh tabel ditimpa dalam **satu transaksi** (`FOREIGN_KEY_CHECKS=0`
+   supaya urutan tabel tidak relevan).
+4. **Kosongkan data** — enam kelompok terpilih-sendiri (PBB, bidang+hak, buku C+peralihan,
+   laporan, blok, jejak audit), masing-masing menunjukkan jumlah barisnya sekarang dan
+   peringatan merah kalau akibatnya tidak jelas. Master data (`dusun`, `jenis_hak`,
+   `jenis_penggunaan`, `jenis_peralihan`, `setelan`) dan tabel `pengguna` tidak ada di
+   kelompok mana pun, jadi tidak mungkin ikut terhapus. Alurnya `HAPUS` → uji-kering →
+   `HAPUS` lagi → cadangan wajib → `DELETE`. `kosongkan_jalankan()` menolak jalan kalau
+   berkas cadangannya tidak benar-benar ada di cakram.
+
+Penjagaan yang berlaku di semua kartu: `wajib_csrf()`, unduhan lewat `?unduh=`/`?unduh-ekspor=`
+harus membawa token CSRF di kueri, `pengaturan_aman()` menyaring nama berkas dengan
+`basename()` + pola + pengecekan `realpath` di dalam folder (jadi `?unduh=../../app/config.php`
+membalas "Berkas tidak ditemukan."), dan setiap tindakan ditulis ke `audit_log`.
+
+**Bukti lingkaran penuh** dijalankan di salian sekali-pakai `sipetades_uji`
+(`_lama/scratch/uji-pengaturan.php`): 18.242 baris diekspor → seluruh tabel dikosongkan →
+diimpor balik → **sidik jari sama** (jumlah baris + MD5 per baris, geometri lewat
+`ST_AsText`); lalu dikosongkan lagi dan dipulihkan dari `.sql` langkah 3 → **sama juga**.
+Empat cacat yang hanya muncul di uji itu:
+
+- Kunci tabel ditulis `json_encode($tabel) . '":{"kolom":'` — satu tanda kutip berlebih
+  membuat seluruh berkas ekspor tidak terbulat (`Syntax error`) padahal ukurannya normal.
+- `/^([0-9A-Fa-f]{2})*$/` menembus `pcre.backtrack_limit` pada WKB heks 29.166 karakter
+  milik BLOK 2, sehingga geometri yang sah dilaporkan "rusak". Ganti dengan
+  `strlen() % 2` + `ctype_xdigit()`.
+- `proc_open()` tidak mengembalikan *resource* pada indeks 0 kalau stdin dibuat dari
+  `['file', …, 'r']` — `fclose($pipa[0])` melempar galat sesudah prosesnya sudah berjalan.
+- Dua aksi uji-kering tidak memanggil `redirect()`, jadi jatuh ke
+  `throw 'Aksi tidak dikenal'` dan hasilnya selalu didampangi peringatan merah yang palsu.
+
+Tiga aturan CSS ikut dibetulkan karena halaman ini memunculkannya: `input { width: 100% }`
+yang global membuat kotak centang kelompok melebar dan mendorong labelnya ke kanan
+(`.grup-baris input` dikunci 16 px), sembilan menu tidak muat di 1280 px sehingga
+"Pengaturan" terpotong (tingkat ≤1330 px memperkecil jarak dan ukuran huruf menu,
+≤1180 px menyembunyikan nama pengguna), dan grid kartu runtuh jadi satu kolom di ≤1080 px.
+Diperiksa di peramban pada 1232/768/390 px: nol elemen melewati lebar layar, uji-kering
+impor dan pengosongan tampil tanpa pesan galat, dan basis data produksi tidak tersentuh
+(`bidang` 4.439, `blok` 24, `laporan` 0 sebelum dan sesudah).
+
+---
+
+## 4. Berkas SPPT dari Excel
+
+Importer CSV menerima kolom berikut (nama kolom dibersihkan dari spasi dan tanda
+baca, lalu dicocokkan tanpa huruf besar-kecil):
+
+```
+nop, nama_wp, alamat_wp, alamat_op, dusun, luas_bumi, luas_bng,
+njop, pajak_ditetapkan, terbayar, status_bayar, tanggal_bayar,
+tahun_pajak, pemungut
+```
+
+Varian yang biasa tertulis di lembar desa juga diterima: `nop_pbb`,
+`nama_pemilik`, `pbb_terutang`, `tagihan_pbb`, `njop_pbb`, `tgl_bayar`.
+Kolom `nop` wajib ada.
+
+`*.xlsx` tidak dibaca langsung — simpan sheet sebagai CSV (UTF-8) ke
+`files\data excel\` lebih dulu, baru jalankan `php tools\impor.php sppt`.
+
+Aturan baris: NOP harus 18 digit dan diawali `kode_wilayah_nop` dari tabel
+setelan, kalau tidak barisnya dilewati dan dilaporkan sebagai galat. Tahun pajak
+yang kosong diisi dari setelan `tahun_pbb_aktif`. Kolom `sisa` pada tabel `sppt`
+dihitung sendiri oleh database (`pajak_ditetapkan - terbayar`), jadi tidak perlu
+diisi.
+
+---
+
+## 5. Menjalankan saat pengembangan tanpa Apache
+
+Server bawaan PHP mengabaikan `.htaccess`, jadi pakai router yang menutup folder
+terlindungi:
+
+```
+D:\xampp\php\php.exe -S 127.0.0.1:8099 -t . tools\server.php
+```
+
+Tanpa `tools\server.php`, berkas di `app\`, `sql\`, `tools\`, `storage\`,
+`files\`, dan `_lama\` **bisa diambil lewat URL**. Router itu meniru aturan
+Apache (404 untuk folder tertutup, 404 untuk `.sql .md .txt .json .geojson .csv`
+dan sejenisnya). Jangan pernah mengandalkan `php -S` langsung untuk host yang
+terbuka jaringan.
+
+---
+
+## 6. Struktur folder
+
+```
+app/            bootstrap, config, db, auth+CSRF, helper, layout, query data
+  data.php      satu-satunya tempat SQL pembacaan (dipakai halaman dan API)
+  lib-pengaturan.php  mesin kartu Pengaturan: mysqldump/mysql, ekspor-impor JSON, kosongkan
+api/            endpoint JSON (bidang, sppt, buku-c, laporan, statistik, peta-lama)
+assets/css/     app.css — seluruh gaya, tanpa framework
+assets/img/     beranda-latar.jpg — latar foto beranda (1600 px, 178 KB)
+                masuk-latar.jpg — pita bawah Gambar Antarmuka.png, latar halaman masuk (1672 px, 144 KB)
+assets/js/      app.js — helper `Sip.*`, modal, tab, konfirmasi formulir
+sql/            01_skema.sql (struktur + data acuan), 02_akun_awal.sql (Super Admin pertama, tanpa sandi bawaan)
+tools/          impor.php (CLI: impor + gabung blok), lib-impor.php (pustaka impor),
+                ekspor.php (laporan lengkap CSV),
+                fit-transform-dxf.php (turunkan ulang transformasi DXF),
+                konversi-dxf-lapisan.php (DXF → GeoJSON untuk peta-lama.php), server.php (router dev)
+*.geojson       blok_peta, bidang_tanah, bidang_lain di akar — sumber geometri
+files/          arsip pindai Buku C, lembar data excel, master peta (DXF), peta gang
+files/peta gang/ hasil `impor.php gg` (titik penanda) + poligon gang siap impor
+storage/        unggahan pengguna (lampiran laporan), cadangan gabung-blok/ubah-blok/
+                duplikat, dan luaran `ekspor.php` di laporan-<waktu>/
+                cadangan/  berkas .sql hasil kartu Cadangan (+ sebelum-impor/-pulihkan/-kosongkan)
+                ekspor/    berkas JSON hasil kartu Ekspor
+                impor/     berkas yang diunggah ke kartu Impor, namanya dibuat server
+_lama/          berkas sistem sebelumnya — diarsipkan, tidak dipakai
+```
+
+Halaman di akar: `beranda.php` (halaman depan publik, satu-satunya yang boleh dibaca
+tanpa akun), `index.php` (dasbor perangkat desa), `peta.php`, `peta-lama.php` (penampil
+15 layer DXF arsip `files/sig-pertanahan-gedong-lokal`, koordinat lokal), `bidang.php`, `sppt.php`,
+`buku-c.php`, `peralihan.php`, `laporan.php`, `pengaturan.php` (cadangan/ekspor/impor/
+kosongkan, hanya Super Admin), `pengguna.php`, `pasang.php`,
+`dokumen.php`, `login.php`, `logout.php`, `setup.php`. Akar situs (`/`) ditulis ulang
+ke `beranda.php`, baik pada `.htaccess` maupun `tools/server.php`.
+
+---
+
+## 7. Peran dan hak akses
+
+| Peran | Lihat data & peta | Ubah data lapangan | Catat laporan warga | Akun, setelan, impor |
+| --- | --- | --- | --- | --- |
+| `super_admin` | ya | ya | ya | ya |
+| `admin` | ya | ya | ya | tidak |
+| `kewilayahan` | ya | tidak | ya | tidak |
+| `baca` | ya | tidak | ya | tidak |
+
+Artinya peran `kewilayahan` dan `baca` untuk saat ini sama: keduanya pembaca.
+Nomor telepon pelapor hanya dibuka untuk `admin`/`super_admin`, dan pada API
+nilai itu diganti string `tersimpan` untuk peran lain.
+
+Aturan yang dijaga di tingkat kode, bukan hanya antarmuka:
+
+- Super Admin aktif terakhir tidak bisa dinonaktifkan, diturunkan, atau dihapus.
+- Akun tidak bisa menghapus atau menurunkan dirinya sendiri.
+- Gagal login 5 kali mengunci akun 15 menit; kunci manual juga tersedia dan
+  bisa dibuka lewat `pengguna.php`.
+- Setiap perubahan data memanggil `audit()` — siapa, objek apa, nilai sebelum
+  dan sesudah.
+- Empat tindakan yang boleh mengubah seluruh tabel (cadangan, pemulihan, impor,
+  pengosongan) hanya ada di `pengaturan.php`, dan halaman itu sendiri
+  `wajib_masuk([PERAN_SUPER])`; peran lain menerima 403 sebelum satu baris pun
+  dibaca (§3.24).
+
+---
+
+## 8. Keamanan
+
+Yang sudah diterapkan, dan jangan dilonggarkan:
+
+- `.htaccess` di akar menutup `app|sql|tools|storage|_lama` lewat
+  `RedirectMatch 404`, menolak ektensi berkas data, dan mematikan indeks folder.
+  `app/`, `sql/`, `tools/`, `files/`, `storage/` masing-masing juga punya
+  `Require all denied` sendiri supaya tetap tertutup bila `mod_rewrite` mati.
+- Pindai Buku C tidak pernah disajikan lewat path publik. Browser hanya mengirim
+  `dokumen.php?buku-c=142`; halaman itu memeriksa sesi, lalu mencari berkas dari
+  `baseline()` saja dan menjaga `realpath()` tetap di dalam folder arsip, sehingga
+  traversal (`../`) tidak mungkin. Respons dikirim dengan `nosniff` dan
+  `Cache-Control: private, no-store`, dan pengambilannya dicatat di audit.
+- Semua SQL memakai *prepared statement*; filter pencarian meng-escape `%` dan
+  `_` sebelum `LIKE`.
+- Setiap POST butuh `wajib_csrf()`; token dikirim sebagai `csrf_token` atau
+  header `X-CSRF-Token` untuk panggilan API.
+- Nomor telepon pelapor diganti string `tersimpan` pada API untuk peran di luar
+  pengelola.
+- Pembuatan laporan tidak memerlukan JavaScript: `laporan.php` memproses
+  formulirnya di sisi PHP. Seperti halaman lainnya, melaporkan masalah tetap
+  butuh akun masuk — laporan tidak diterima dari pengunjung anonim.
+
+Yang masih harus dilakukan pemilik sistem:
+
+- Ganti `app/config.php` dari contoh, lalu pastikan isinya tidak bocor ke
+  manapun.
+- **Buat akun resmi perangkat desa lewat `pengguna.php`, lalu hapus akun uji.**
+  Sandi lama peninggalan pengujian (`Sipetades2026!dev`) dan pasangan
+  `admin_gedong` di `_lama/setup.php` sudah tidak berlaku: pada 20 Okt 2026 akun
+  Super Admin satu-satunya (`superadmin`) dirotasi ke sandi acak yang hanya
+  disampaikan langsung, dan `password_verify()` memastikan kedua sandi lama
+  ditolak. Sandi acak itu sendiri juga harus diganti begitu akun resmi ada.
+- Matikan `debug` — sudah `false` di pemasangan ini (lihat §3.16); nyalakan
+  kembali hanya saat mencari sebab galat. Kalau sistem dibuka dari internet,
+  pasang HTTPS supaya cookie sesi dikirim dengan flag `Secure`.
+- **Salin berkas cadangan keluar dari disk produksi.** Halaman Pengaturan
+  menulisnya ke `storage/cadangan/` di cakram yang sama dengan basis data, jadi
+  unduh dan simpan di flashdisk atau komputer lain.
+
+---
+
+## 9. Cadangan dan pemulihan
+
+```
+D:\xampp\mysql\bin\mysqldump.exe -u root --no-tablespaces --databases sipetades_gedong > cadangan.sql
+D:\xampp\mysql\bin\mysql.exe -u root < cadangan.sql
+```
+
+Geometri ikut ter-*dump* sebagai WKT, jadi cadangan ini sudah mencakup peta.
+Berkas pindaian Buku C berada di luar database — folder `files\Data C Desa`
+harus ikut dicadangkan, karena tabel `buku_c` hanya menyimpan namanya.
+
+Dua baris di atas adalah cara manual; cara harian ada di halaman **Pengaturan**
+(§3.24) — kartu 1 membuat dan memulihkan berkas `.sql` yang sama lewat
+`mysqldump`/`mysql`, dan kartu 2–3 memindahkan data sebagai satu berkas JSON
+beserta geometrinya. Keduanya sudah diuji lingkaran penuh di salinan
+`sipetades_uji`: data dikosongkan lalu diimpor/dipulihkan balik, hasilnya identik
+baris per baris.
+
+---
+
+## 10. Pemecahan masalah
+
+**"Konfigurasi belum ada."** `app/config.php` belum dibuat. Salin dari
+`app/config.example.php`.
+
+**Impor GeoJSON lambat atau terpotong.** Poligon bidang besar; naikkan
+`max_execution_time` dan `memory_limit` di `php.ini`, atau jalankan lewat shell
+yang tidak mengenal batas waktu Apache. Dari browser, `pasang.php` sudah memanggil
+`set_time_limit(0)`, tetapi batas *timeout* Apache tetap berlaku.
+
+**Blok atau bidang dilewati semua.** Impor bersifat *idempoten* berdasarkan
+kode: jalankan dengan `--reset` (atau centang "Kosongkan tabel terkait") bila
+GeoJSON-nya memang versi baru.
+
+**Bidang seperti tidak ada di peta.** Centang lapisan **Bidang tanah** (kotak
+layers kanan bawah) lalu terapkan saringan — setelah **Terapkan** peta langsung
+memusat ke bidang yang cocok, jadi blok kecil (BLOK 14: 54 bidang, 6 di antaranya
+bidang tanah) tetap terlihat. Jumlah bidang hasil saringan terbaca di kartu
+"Bidang pada tampilan ini"; kalau angkanya benar tetapi petanya kosong, geser
+tampilan manual atau klik salah satu nama bidang di daftar itu.
+
+**Semua baris SPPT dilewati.** Cek `kode_wilayah_nop` pada tabel setelan terhadap
+18 digit NOP; baris di luar kode wilayah sengaja dibuang dan muncul sebagai galat
+di ringkasan impor.
+
+**`Folder arsip tidak ada` saat indeks Buku C.** Kunci
+`path.arsip_buku_c` di `app/config.php` menunjuk ke folder yang tidak ada di
+mesin itu.
+
+**Peta kosong.** Pastikan `ST_AsGeoJSON(geom)` tidak `NULL` pada tabel
+`bidang`/`blok`, dan `peta_lat_pusat`, `peta_lon_pusat`, `peta_zoom_awal` sudah
+benar di halaman pengaturan.
+
+**Tautan PDF Buku C memberi 404.** Berkas harus bernama persis
+`<nomor>.pdf` di folder arsip, karena `nomor` Buku C sekaligus dipakai sebagai
+nama berkas dan tidak boleh diubah dari halaman web.

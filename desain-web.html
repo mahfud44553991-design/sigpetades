@@ -1,0 +1,1214 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SIPETADES — SIG Pertanahan &amp; PBB Desa Gedong</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+    theme: {
+        extend: {
+            fontFamily: { sans: ['"Plus Jakarta Sans"', 'ui-sans-serif', 'system-ui', 'sans-serif'] },
+            colors: { canvas: '#f3f7f5' }
+        }
+    }
+};
+</script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 8px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+    #map { height: 560px; width: 100%; border-radius: 1rem; z-index: 0; }
+    .leaflet-popup-content-wrapper { border-radius: 12px; font-family: 'Plus Jakarta Sans', sans-serif; }
+
+    .page { animation: fadeUp .25s ease; }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+    .sidebar-link { transition: background .15s ease, color .15s ease; }
+    .progress-track { height: 6px; background: #e2e8f0; border-radius: 999px; overflow: hidden; }
+    .progress-fill { height: 100%; border-radius: 999px; }
+    table tbody tr { transition: background .12s ease; }
+
+    :root {
+        color-scheme: light;
+        --ink: #18342b;
+        --muted: #71827a;
+        --green: #176b4b;
+        --green-dark: #104b38;
+        --line: #e5ede7;
+        --surface: #ffffff;
+        --canvas: #f4f7f4;
+    }
+
+    body { background: var(--canvas); color: var(--ink); }
+    #sidebar {
+        background: linear-gradient(165deg, #123c30 0%, #0d3027 55%, #102b25 100%);
+        border-right: 1px solid rgba(255,255,255,.07);
+        box-shadow: 12px 0 36px rgba(21, 48, 38, .08);
+    }
+    #sidebar nav > div + div { padding-top: 2px; }
+    #sidebar nav a { margin: 3px 0; border: 1px solid transparent; }
+    #sidebar nav a.active {
+        background: linear-gradient(100deg, #21845d, #176b4b);
+        border-color: rgba(184, 231, 204, .2);
+        box-shadow: 0 7px 18px rgba(7, 28, 20, .2);
+    }
+    #sidebar nav a:not(.active):hover { border-color: rgba(255,255,255,.08); }
+    .brand-crest {
+        width: 44px;
+        height: 44px;
+        object-fit: contain;
+        padding: 3px;
+        border-radius: 12px;
+        background: #fff;
+        box-shadow: 0 4px 14px rgba(0,0,0,.16);
+    }
+    header {
+        box-shadow: 0 3px 18px rgba(29, 55, 43, .035);
+    }
+    header input, header select {
+        min-height: 40px;
+        border-color: var(--line);
+        border-radius: 11px;
+        background-color: #f8faf8;
+    }
+    header button { border-radius: 11px; }
+    main { padding-top: 28px !important; padding-bottom: 42px !important; }
+    .page .bg-white.rounded-2xl.border {
+        border-color: var(--line);
+        border-radius: 18px;
+        box-shadow: 0 5px 18px rgba(28, 54, 42, .045), 0 1px 2px rgba(28, 54, 42, .035);
+    }
+    .page .bg-white.rounded-2xl.border:not(.overflow-hidden) { padding: 22px; }
+    .dashboard-hero {
+        position: relative;
+        isolation: isolate;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 28px;
+        min-height: 188px;
+        overflow: hidden;
+        margin-bottom: 20px;
+        padding: 27px 32px;
+        border: 1px solid rgba(213, 239, 221, .16);
+        border-radius: 22px;
+        color: #fff;
+        background:
+            radial-gradient(ellipse at 82% 10%, rgba(145, 198, 132, .22), transparent 36%),
+            radial-gradient(ellipse at 100% 100%, rgba(244, 190, 89, .13), transparent 31%),
+            linear-gradient(112deg, #124835 0%, #176548 57%, #1b7050 100%);
+        box-shadow: 0 16px 34px rgba(19, 74, 51, .15);
+    }
+    .dashboard-hero::before, .dashboard-hero::after {
+        position: absolute;
+        z-index: -1;
+        content: "";
+        border: 1px solid rgba(221, 246, 227, .13);
+        border-radius: 50%;
+        pointer-events: none;
+    }
+    .dashboard-hero::before { width: 330px; height: 330px; right: 105px; top: -214px; }
+    .dashboard-hero::after { width: 420px; height: 420px; right: -105px; bottom: -330px; }
+    .hero-copy { max-width: 660px; }
+    .hero-eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 12px;
+        color: #c4e6cf;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 1.4px;
+        text-transform: uppercase;
+    }
+    .hero-eyebrow span { width: 7px; height: 7px; border-radius: 50%; background: #e8bd62; box-shadow: 0 0 0 4px rgba(232,189,98,.14); }
+    .hero-copy h2 { color: #fff; font-size: clamp(22px, 2.6vw, 30px); line-height: 1.2; letter-spacing: -.8px; }
+    .hero-copy p { max-width: 54ch; margin-top: 9px; color: rgba(235, 247, 238, .78); font-size: 12.5px; line-height: 1.7; }
+    .hero-actions { display: flex; align-items: center; gap: 10px; margin-top: 18px; }
+    .hero-map-button {
+        display: inline-flex;
+        align-items: center;
+        gap: 9px;
+        min-height: 39px;
+        padding: 0 15px;
+        border: 1px solid rgba(255,255,255,.22);
+        border-radius: 10px;
+        background: #fff;
+        color: #15563c;
+        font-size: 11.5px;
+        font-weight: 800;
+        text-decoration: none;
+        transition: transform .15s ease, box-shadow .15s ease;
+    }
+    .hero-map-button:hover { color: #10452f; box-shadow: 0 5px 14px rgba(0,0,0,.14); transform: translateY(-1px); }
+    .hero-location {
+        flex: 0 0 auto;
+        width: 190px;
+        padding: 17px;
+        border: 1px solid rgba(255,255,255,.17);
+        border-radius: 16px;
+        background: rgba(8, 48, 34, .22);
+        backdrop-filter: blur(8px);
+    }
+    .hero-location i { color: #e8bd62; font-size: 15px; }
+    .hero-location strong { display: block; margin-top: 10px; color: #fff; font-size: 14px; }
+    .hero-location small { display: block; margin-top: 3px; color: rgba(235,247,238,.7); font-size: 10.5px; }
+    #page-dashboard > .grid:first-of-type > div {
+        position: relative;
+        overflow: hidden;
+        transition: transform .18s ease, box-shadow .18s ease;
+    }
+    #page-dashboard > .grid:first-of-type > div:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 24px rgba(28, 54, 42, .09);
+    }
+    #page-dashboard > .grid:first-of-type > div:not(:last-child)::before {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 3px;
+        height: 100%;
+        content: "";
+        background: #4b9b70;
+    }
+    #page-dashboard > .grid:first-of-type > div:nth-child(2)::before { background: #5b9cbd; }
+    #page-dashboard > .grid:first-of-type > div:nth-child(3)::before { background: #d87c76; }
+    #statBaku, #statRealisasi, #statSisa {
+        white-space: nowrap;
+        font-size: clamp(16px, 1.45vw, 20px);
+        letter-spacing: -.045em;
+    }
+    .progress-track { background: #e7eee8; }
+    table thead th { color: #71827a; font-size: 10px; letter-spacing: .07em; }
+    table tbody tr:hover { background: #f7faf7; }
+    #map { border: 1px solid var(--line); box-shadow: inset 0 0 0 1px rgba(255,255,255,.35); }
+    input:focus, select:focus, button:focus-visible, a:focus-visible {
+        outline: 3px solid rgba(46, 143, 95, .25);
+        outline-offset: 2px;
+    }
+
+    @media (max-width: 640px) {
+        main { padding-top: 18px !important; }
+        .dashboard-hero { align-items: flex-start; flex-direction: column; gap: 18px; padding: 22px; border-radius: 18px; }
+        .hero-location { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 14px; }
+        .hero-location strong { margin-top: 0; }
+        .hero-location small { margin-top: 2px; }
+        .hero-location i { font-size: 18px; }
+        .page .bg-white.rounded-2xl.border:not(.overflow-hidden) { padding: 17px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
+    }
+</style>
+</head>
+<body class="bg-canvas text-slate-800 antialiased font-sans">
+
+<!-- ================= SIDEBAR ================= -->
+<aside id="sidebar" class="fixed inset-y-0 left-0 w-72 bg-emerald-950 text-white z-40 flex flex-col -translate-x-full lg:translate-x-0 transition-transform duration-200">
+    <div class="px-5 pt-6 pb-5 border-b border-emerald-900/60">
+        <div class="flex items-center gap-3">
+            <img class="brand-crest" src="logo-kabupaten-kendal.png" alt="Lambang Kabupaten Kendal">
+            <div class="min-w-0">
+                <p class="font-extrabold text-lg leading-tight tracking-tight">SIPETADES</p>
+                <p class="text-[11px] text-emerald-300/80 leading-tight">Desa Gedong &middot; Patean &middot; Kendal</p>
+            </div>
+        </div>
+    </div>
+
+    <nav class="flex-1 overflow-y-auto px-3 py-4 space-y-6 text-sm">
+        <div>
+            <p class="px-3 mb-2 text-[10px] font-bold tracking-widest text-emerald-400/60 uppercase">Utama</p>
+            <a href="#" data-nav="dashboard" class="sidebar-link nav-item active flex items-center gap-3 px-3 py-2.5 rounded-lg font-semibold bg-emerald-600 text-white shadow-sm">
+                <i class="fa-solid fa-gauge-high w-4 text-center"></i> Dashboard
+            </a>
+            <a href="#" data-nav="peta" class="sidebar-link nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium text-emerald-100/70 hover:bg-white/5 hover:text-white">
+                <i class="fa-solid fa-map w-4 text-center"></i> Peta Bidang <span class="ml-auto text-[10px] bg-white/10 px-1.5 py-0.5 rounded">GIS</span>
+            </a>
+        </div>
+        <div>
+            <p class="px-3 mb-2 text-[10px] font-bold tracking-widest text-emerald-400/60 uppercase">Data Pertanahan</p>
+            <a href="#" data-nav="bidang" class="sidebar-link nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium text-emerald-100/70 hover:bg-white/5 hover:text-white">
+                <i class="fa-solid fa-vector-square w-4 text-center"></i> Data Bidang Tanah
+            </a>
+            <a href="#" data-nav="sppt" class="sidebar-link nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium text-emerald-100/70 hover:bg-white/5 hover:text-white">
+                <i class="fa-solid fa-file-invoice-dollar w-4 text-center"></i> SPPT &amp; PBB
+            </a>
+            <a href="#" data-nav="cdesa" class="sidebar-link nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium text-emerald-100/70 hover:bg-white/5 hover:text-white">
+                <i class="fa-solid fa-book-bookmark w-4 text-center"></i> Buku C-Desa
+            </a>
+        </div>
+        <div>
+            <p class="px-3 mb-2 text-[10px] font-bold tracking-widest text-emerald-400/60 uppercase">Administrasi</p>
+            <a href="#" data-nav="peralihan" class="sidebar-link nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium text-emerald-100/70 hover:bg-white/5 hover:text-white">
+                <i class="fa-solid fa-right-left w-4 text-center"></i> Peralihan Hak
+            </a>
+            <a href="#" data-nav="sengketa" class="sidebar-link nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg font-medium text-emerald-100/70 hover:bg-white/5 hover:text-white">
+                <i class="fa-solid fa-scale-balanced w-4 text-center"></i> Laporan Sengketa
+                <span class="ml-auto w-5 h-5 rounded-full bg-amber-500/90 text-white text-[10px] font-bold flex items-center justify-center">2</span>
+            </a>
+        </div>
+    </nav>
+
+    <div class="px-4 py-4 border-t border-emerald-900/60">
+        <div class="flex items-center gap-3 p-2.5 rounded-xl bg-white/5">
+            <div class="w-9 h-9 rounded-full bg-emerald-500 flex items-center justify-center font-bold text-sm shrink-0">SG</div>
+            <div class="min-w-0">
+                <p class="text-xs font-bold truncate">Sekretariat Desa</p>
+                <p class="text-[10px] text-emerald-300/70 truncate">Perangkat Desa Gedong</p>
+            </div>
+            <i class="fa-solid fa-right-from-bracket ml-auto text-emerald-300/60 hover:text-white cursor-pointer" title="Keluar"></i>
+        </div>
+    </div>
+</aside>
+<div id="sidebarOverlay" class="fixed inset-0 bg-slate-900/50 z-30 hidden lg:hidden"></div>
+
+<!-- ================= KONTEN ================= -->
+<div class="lg:pl-72 min-h-screen flex flex-col">
+
+    <!-- Topbar -->
+    <header class="sticky top-0 z-20 bg-white/90 backdrop-blur border-b border-slate-200">
+        <div class="px-4 sm:px-6 py-3 flex items-center gap-3">
+            <button id="hamburger" class="lg:hidden w-9 h-9 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50" aria-label="Buka menu">
+                <i class="fa-solid fa-bars"></i>
+            </button>
+            <div class="min-w-0">
+                <h1 id="pageTitle" class="text-base sm:text-lg font-extrabold tracking-tight truncate">Dashboard</h1>
+                <p id="pageSubtitle" class="text-[11px] text-slate-500 hidden sm:block">Ringkasan pertanahan &amp; realisasi PBB Desa Gedong</p>
+            </div>
+
+            <div class="ml-auto flex items-center gap-2 sm:gap-3">
+                <div class="relative hidden md:block">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                    <input id="globalSearch" type="text" placeholder="Cari NOP, nama, dusun..."
+                        class="w-56 xl:w-72 pl-8 pr-3 py-2 text-sm border border-slate-200 rounded-lg bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500">
+                </div>
+                <select id="yearSelect" class="text-sm font-semibold border border-slate-200 rounded-lg px-2.5 py-2 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-500/40" aria-label="Tahun pajak">
+                    <option>2026</option><option>2025</option><option>2024</option>
+                </select>
+                <button class="relative w-9 h-9 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50" title="Notifikasi">
+                    <i class="fa-regular fa-bell"></i>
+                    <span class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500"></span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 px-4 sm:px-6 py-6 max-w-[1440px] w-full mx-auto">
+
+        <!-- ============ HALAMAN: DASHBOARD ============ -->
+        <section id="page-dashboard" class="page">
+            <div class="dashboard-hero">
+                <div class="hero-copy">
+                    <span class="hero-eyebrow"><span></span> Sistem Informasi Pertanahan Desa</span>
+                    <h2>Selamat datang di SIPETADES</h2>
+                    <p>Pantau data bidang tanah, arsip C-Desa, dan penerimaan PBB Desa Gedong dalam satu ruang kerja yang terhubung.</p>
+                    <div class="hero-actions">
+                        <a href="#" data-nav="peta" class="hero-map-button"><i class="fa-solid fa-map-location-dot"></i> Jelajahi peta bidang <i class="fa-solid fa-arrow-right text-[10px]"></i></a>
+                    </div>
+                </div>
+                <div class="hero-location">
+                    <i class="fa-solid fa-location-dot"></i>
+                    <div>
+                        <strong>Desa Gedong</strong>
+                        <small>Kecamatan Patean &middot; Kabupaten Kendal</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Kartu statistik -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-5">
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Ketetapan PBB</p>
+                            <p id="statBaku" class="text-2xl font-extrabold mt-1">—</p>
+                            <p id="statBakuSub" class="text-xs text-slate-400 mt-0.5">—</p>
+                        </div>
+                        <div class="w-11 h-11 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-lg"><i class="fa-solid fa-file-invoice"></i></div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Realisasi Penerimaan</p>
+                            <p id="statRealisasi" class="text-2xl font-extrabold mt-1 text-emerald-700">—</p>
+                            <p id="statRealisasiSub" class="text-xs text-slate-400 mt-0.5">—</p>
+                        </div>
+                        <div class="w-11 h-11 rounded-xl bg-sky-100 text-sky-700 flex items-center justify-center text-lg"><i class="fa-solid fa-sack-dollar"></i></div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Tunggakan</p>
+                            <p id="statSisa" class="text-2xl font-extrabold mt-1 text-rose-600">—</p>
+                            <p id="statSisaSub" class="text-xs text-slate-400 mt-0.5">—</p>
+                        </div>
+                        <div class="w-11 h-11 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center text-lg"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                    </div>
+                </div>
+                <div class="bg-gradient-to-br from-emerald-700 to-emerald-900 rounded-2xl shadow-sm p-5 text-white relative overflow-hidden">
+                    <i class="fa-solid fa-earth-asia absolute -right-4 -bottom-5 text-8xl text-white/10 rotate-12"></i>
+                    <p class="text-xs font-semibold text-emerald-200 uppercase tracking-wide">Persentase Realisasi</p>
+                    <p id="statPersen" class="text-3xl font-extrabold mt-1">—</p>
+                    <div class="progress-track bg-white/25 mt-3"><div id="statPersenBar" class="progress-fill bg-amber-400" style="width:0%"></div></div>
+                    <p id="statPersenSub" class="text-[11px] text-emerald-200 mt-2">—</p>
+                </div>
+            </div>
+
+            <!-- Grafik -->
+            <div class="grid grid-cols-1 xl:grid-cols-3 gap-4 mb-5">
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 xl:col-span-2">
+                    <div class="flex items-center justify-between mb-4">
+                        <div>
+                            <h2 class="font-bold text-slate-800">Realisasi PBB per Dusun</h2>
+                            <p class="text-xs text-slate-400">Ketetapan vs realisasi — tahun pajak <span class="font-semibold text-emerald-700">2026</span></p>
+                        </div>
+                        <a href="#" data-nav="sppt" class="text-xs font-semibold text-emerald-700 hover:text-emerald-800">Lihat SPPT <i class="fa-solid fa-arrow-right ml-0.5"></i></a>
+                    </div>
+                    <div class="h-[320px]"><canvas id="chartDusun"></canvas></div>
+                </div>
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+                    <h2 class="font-bold text-slate-800 mb-1">Status Pembayaran</h2>
+                    <p class="text-xs text-slate-400 mb-4">Sebaran SPPT sampel</p>
+                    <div class="h-[200px] flex items-center justify-center"><canvas id="chartStatus"></canvas></div>
+                    <div class="mt-4 space-y-2 text-sm">
+                        <div class="flex items-center justify-between">
+                            <span class="flex items-center gap-2 text-slate-600"><span class="w-2.5 h-2.5 rounded-full bg-emerald-600"></span> Lunas</span>
+                            <span id="donutLunas" class="font-bold">—</span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="flex items-center gap-2 text-slate-600"><span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span> Belum Bayar</span>
+                            <span id="donutBelum" class="font-bold">—</span>
+                        </div>
+                        <div class="flex items-center justify-between border-t border-slate-100 pt-2">
+                            <span class="text-slate-500 text-xs">Nilai terbayar</span>
+                            <span id="donutNilai" class="font-bold text-emerald-700 text-sm">—</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tabel realisasi dusun + aktivitas -->
+            <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden xl:col-span-2">
+                    <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                        <h2 class="font-bold text-slate-800 flex items-center gap-2"><i class="fa-solid fa-chart-simple text-emerald-600"></i> Rekapitulasi per Dusun</h2>
+                        <button class="btn-demo text-xs font-semibold text-slate-500 border border-slate-200 rounded-lg px-3 py-1.5 hover:bg-slate-50"><i class="fa-solid fa-download mr-1"></i>Ekspor</button>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm">
+                            <thead class="bg-slate-50 text-slate-600 text-[11px] uppercase tracking-wide">
+                                <tr>
+                                    <th class="px-4 py-3 font-bold">Dusun</th>
+                                    <th class="px-4 py-3 font-bold">Pemungut</th>
+                                    <th class="px-4 py-3 font-bold text-right">Baku</th>
+                                    <th class="px-4 py-3 font-bold text-right">Realisasi</th>
+                                    <th class="px-4 py-3 font-bold w-40">Capaian</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tabelDusun" class="divide-y divide-slate-100 text-slate-600"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="space-y-4">
+                    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+                        <div class="flex items-center justify-between mb-3">
+                            <h2 class="font-bold text-slate-800">Peralihan Hak Terbaru</h2>
+                            <a href="#" data-nav="peralihan" class="text-xs font-semibold text-emerald-700 hover:text-emerald-800">Semua <i class="fa-solid fa-arrow-right ml-0.5"></i></a>
+                        </div>
+                        <div id="aktivitasPeralihan" class="space-y-3"></div>
+                    </div>
+                    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 flex items-center gap-4">
+                        <div class="w-12 h-12 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center text-xl shrink-0"><i class="fa-solid fa-scale-balanced"></i></div>
+                        <div class="min-w-0">
+                            <p class="font-bold text-slate-800 text-sm">2 laporan sengketa aktif</p>
+                            <p class="text-xs text-slate-500">Perlu ditindaklanjuti</p>
+                        </div>
+                        <a href="#" data-nav="sengketa" class="ml-auto text-xs font-bold text-white bg-amber-500 hover:bg-amber-600 rounded-lg px-3 py-2 shrink-0">Tinjau</a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============ HALAMAN: PETA BIDANG ============ -->
+        <section id="page-peta" class="page hidden">
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+                <div class="flex flex-col lg:flex-row lg:items-center gap-3 mb-4">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-map text-emerald-600"></i>
+                        <h2 class="font-bold text-slate-800">Peta Bidang Tanah Desa Gedong</h2>
+                    </div>
+                    <div class="lg:ml-auto flex flex-wrap items-center gap-2">
+                        <select id="filterDusun" class="text-sm border border-slate-200 rounded-lg px-3 py-2 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-500/40">
+                            <option value="">Semua Dusun</option>
+                        </select>
+                        <select id="filterStatus" class="text-sm border border-slate-200 rounded-lg px-3 py-2 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-500/40">
+                            <option value="">Semua Status</option>
+                            <option value="Lunas">PBB Lunas</option>
+                            <option value="Belum Bayar">PBB Belum Lunas</option>
+                            <option value="Aset Desa">Aset Desa</option>
+                        </select>
+                        <span id="jumlahBidang" class="text-xs font-semibold text-slate-500 bg-slate-100 rounded-lg px-3 py-2">8 bidang</span>
+                    </div>
+                </div>
+                <div class="relative">
+                    <div id="map"></div>
+                    <div class="absolute bottom-3 left-3 z-[500] bg-white/95 backdrop-blur rounded-xl shadow-lg border border-slate-200 px-4 py-3 text-xs space-y-1.5">
+                        <p class="font-bold text-slate-700 mb-1">Legenda</p>
+                        <p class="flex items-center gap-2 text-slate-600"><span class="w-3 h-3 rounded-sm bg-emerald-600"></span> PBB Lunas</p>
+                        <p class="flex items-center gap-2 text-slate-600"><span class="w-3 h-3 rounded-sm bg-rose-500"></span> PBB Belum Lunas</p>
+                        <p class="flex items-center gap-2 text-slate-600"><span class="w-3 h-3 rounded-sm bg-sky-500"></span> Aset / Bengkok Desa</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============ HALAMAN: DATA BIDANG ============ -->
+        <section id="page-bidang" class="page hidden">
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <div class="px-5 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center gap-3">
+                    <h2 class="font-bold text-slate-800 flex items-center gap-2"><i class="fa-solid fa-vector-square text-emerald-600"></i> Data Bidang Tanah</h2>
+                    <div class="relative sm:ml-auto w-full sm:w-72">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                        <input id="searchBidang" type="text" placeholder="Cari NOP, pemilik, dusun..."
+                            class="w-full pl-8 pr-3 py-2 text-sm border border-slate-200 rounded-lg bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/40">
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-slate-50 text-slate-600 text-[11px] uppercase tracking-wide">
+                            <tr>
+                                <th class="px-4 py-3 font-bold">ID Bidang</th>
+                                <th class="px-4 py-3 font-bold">NOP</th>
+                                <th class="px-4 py-3 font-bold">Pemilik</th>
+                                <th class="px-4 py-3 font-bold">Hak / Luas</th>
+                                <th class="px-4 py-3 font-bold">Penggunaan</th>
+                                <th class="px-4 py-3 font-bold">Status PBB</th>
+                                <th class="px-4 py-3 font-bold text-center">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabelBidang" class="divide-y divide-slate-100 text-slate-600"></tbody>
+                    </table>
+                </div>
+                <div id="emptyBidang" class="hidden py-12 text-center">
+                    <i class="fa-solid fa-magnifying-glass text-3xl text-slate-300 mb-2"></i>
+                    <p class="text-sm text-slate-400">Tidak ada bidang yang cocok dengan pencarian.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============ HALAMAN: SPPT & PBB ============ -->
+        <section id="page-sppt" class="page hidden">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center"><i class="fa-solid fa-file-lines"></i></div>
+                    <div><p class="text-[11px] text-slate-500 font-semibold uppercase">Total SPPT</p><p id="spptTotal" class="text-xl font-extrabold">—</p></div>
+                </div>
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center"><i class="fa-solid fa-circle-check"></i></div>
+                    <div><p class="text-[11px] text-slate-500 font-semibold uppercase">Lunas</p><p id="spptLunas" class="text-xl font-extrabold text-emerald-700">—</p></div>
+                </div>
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-rose-100 text-rose-700 flex items-center justify-center"><i class="fa-solid fa-circle-exclamation"></i></div>
+                    <div><p class="text-[11px] text-slate-500 font-semibold uppercase">Belum Bayar</p><p id="spptBelum" class="text-xl font-extrabold text-rose-600">—</p></div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <div class="px-5 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center gap-3">
+                    <h2 class="font-bold text-slate-800 flex items-center gap-2"><i class="fa-solid fa-file-invoice-dollar text-emerald-600"></i> Daftar SPPT Tahun 2026</h2>
+                    <div class="relative sm:ml-auto w-full sm:w-64">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                        <input id="searchSppt" type="text" placeholder="Cari NOP / nama WP..."
+                            class="w-full pl-8 pr-3 py-2 text-sm border border-slate-200 rounded-lg bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/40">
+                    </div>
+                    <select id="filterSpptStatus" class="text-sm border border-slate-200 rounded-lg px-3 py-2 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-500/40">
+                        <option value="">Semua Status</option>
+                        <option value="Lunas">Lunas</option>
+                        <option value="Belum Bayar">Belum Bayar</option>
+                    </select>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-slate-50 text-slate-600 text-[11px] uppercase tracking-wide">
+                            <tr>
+                                <th class="px-4 py-3 font-bold">NOP</th>
+                                <th class="px-4 py-3 font-bold">Nama WP</th>
+                                <th class="px-4 py-3 font-bold">Dusun</th>
+                                <th class="px-4 py-3 font-bold text-right">Pajak</th>
+                                <th class="px-4 py-3 font-bold text-right">Terbayar</th>
+                                <th class="px-4 py-3 font-bold">Status</th>
+                                <th class="px-4 py-3 font-bold">Tgl Bayar</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabelSppt" class="divide-y divide-slate-100 text-slate-600"></tbody>
+                    </table>
+                </div>
+                <div id="emptySppt" class="hidden py-12 text-center">
+                    <i class="fa-solid fa-file-circle-question text-3xl text-slate-300 mb-2"></i>
+                    <p class="text-sm text-slate-400">Tidak ada SPPT yang cocok dengan filter.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============ HALAMAN: BUKU C-DESA ============ -->
+        <section id="page-cdesa" class="page hidden">
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 mb-5 flex flex-col sm:flex-row sm:items-center gap-3">
+                <div class="flex items-center gap-3">
+                    <div class="w-11 h-11 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-lg"><i class="fa-solid fa-book-bookmark"></i></div>
+                    <div>
+                        <h2 class="font-bold text-slate-800">Buku C-Desa Digital</h2>
+                        <p class="text-xs text-slate-400">Pencatatan kepemilikan tanah adat — 1.040 dokumen terdigitalisasi</p>
+                    </div>
+                </div>
+                <div class="relative sm:ml-auto w-full sm:w-72">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                    <input id="searchCdesa" type="text" placeholder="Cari nomor C / nama pemilik..."
+                        class="w-full pl-8 pr-3 py-2 text-sm border border-slate-200 rounded-lg bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/40">
+                </div>
+            </div>
+            <div id="gridCdesa" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4"></div>
+            <div id="emptyCdesa" class="hidden bg-white rounded-2xl border border-slate-200 py-12 text-center">
+                <i class="fa-solid fa-book text-3xl text-slate-300 mb-2"></i>
+                <p class="text-sm text-slate-400">Tidak ada dokumen C-Desa yang cocok.</p>
+            </div>
+        </section>
+
+        <!-- ============ HALAMAN: PERALIHAN HAK ============ -->
+        <section id="page-peralihan" class="page hidden">
+            <div class="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-5">
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
+                    <p class="text-[11px] text-slate-500 font-semibold uppercase">Total Transaksi</p>
+                    <p id="perTotal" class="text-xl font-extrabold mt-1">—</p>
+                </div>
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
+                    <p class="text-[11px] text-slate-500 font-semibold uppercase">Jual Beli</p>
+                    <p id="perJual" class="text-xl font-extrabold mt-1 text-sky-700">—</p>
+                </div>
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
+                    <p class="text-[11px] text-slate-500 font-semibold uppercase">Waris &amp; Hibah</p>
+                    <p id="perWaris" class="text-xl font-extrabold mt-1 text-purple-700">—</p>
+                </div>
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
+                    <p class="text-[11px] text-slate-500 font-semibold uppercase">Nilai Transaksi</p>
+                    <p id="perNilai" class="text-xl font-extrabold mt-1 text-emerald-700">—</p>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <div class="px-5 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center gap-3">
+                    <h2 class="font-bold text-slate-800 flex items-center gap-2"><i class="fa-solid fa-right-left text-emerald-600"></i> Riwayat Peralihan Hak Tanah</h2>
+                    <div class="relative w-full sm:w-64">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                        <input id="searchPeralihan" type="text" placeholder="Cari NOP / nama pihak..."
+                            class="w-full pl-8 pr-3 py-2 text-sm border border-slate-200 rounded-lg bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/40">
+                    </div>
+                    <button id="btnTambahPeralihan" class="sm:ml-auto bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-lg px-4 py-2 shadow-sm">
+                        <i class="fa-solid fa-plus mr-1"></i>Catat Peralihan
+                    </button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-slate-50 text-slate-600 text-[11px] uppercase tracking-wide">
+                            <tr>
+                                <th class="px-4 py-3 font-bold">No. Trx / Tgl</th>
+                                <th class="px-4 py-3 font-bold">NOP / C-Desa</th>
+                                <th class="px-4 py-3 font-bold">Jenis</th>
+                                <th class="px-4 py-3 font-bold">Peralihan</th>
+                                <th class="px-4 py-3 font-bold text-right">Luas / Nilai</th>
+                                <th class="px-4 py-3 font-bold">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabelPeralihan" class="divide-y divide-slate-100 text-slate-600"></tbody>
+                    </table>
+                </div>
+                <div id="emptyPeralihan" class="hidden py-12 text-center">
+                    <i class="fa-solid fa-right-left text-3xl text-slate-300 mb-2"></i>
+                    <p class="text-sm text-slate-400">Tidak ada transaksi yang cocok.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============ HALAMAN: SENGKETA ============ -->
+        <section id="page-sengketa" class="page hidden">
+            <div id="gridSengketa" class="grid grid-cols-1 lg:grid-cols-2 gap-4"></div>
+            <div class="mt-5 bg-white rounded-2xl border border-slate-200 shadow-sm p-5 flex flex-col sm:flex-row items-center gap-3">
+                <div class="w-11 h-11 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center text-lg"><i class="fa-solid fa-bullhorn"></i></div>
+                <p class="text-sm text-slate-500">Warga menemukan indikasi sengketa batas tanah? Laporkan melalui formulir di bawah atau datang langsung ke kantor desa.</p>
+                <button class="btn-demo sm:ml-auto bg-slate-800 hover:bg-slate-900 text-white text-sm font-semibold rounded-lg px-4 py-2 shrink-0">Buat Laporan Baru</button>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="border-t border-slate-200 bg-white/60">
+        <div class="max-w-[1440px] mx-auto px-4 sm:px-6 py-4 flex flex-col sm:flex-row items-center gap-2 text-xs text-slate-400">
+            <p>&copy; 2026 Pemerintah Desa Gedong — Kecamatan Patean, Kabupaten Kendal.</p>
+            <p class="sm:ml-auto">SIPETADES &middot; Desain antarmuka v2.0</p>
+        </div>
+    </footer>
+</div>
+
+<!-- ================= MODAL DETAIL BIDANG ================= -->
+<div id="modalBidang" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden">
+        <div class="bg-emerald-900 text-white px-5 py-4 flex items-center justify-between">
+            <h3 class="font-bold"><i class="fa-solid fa-vector-square mr-2"></i>Detail Bidang Tanah</h3>
+            <button onclick="closeModal('modalBidang')" class="text-emerald-200 hover:text-white text-xl leading-none">&times;</button>
+        </div>
+        <div id="isiModalBidang" class="p-5 text-sm"></div>
+    </div>
+</div>
+
+<!-- ================= MODAL FORM PERALIHAN ================= -->
+<div id="modalPeralihan" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div class="bg-emerald-800 text-white px-6 py-4 flex items-center justify-between sticky top-0">
+            <h3 class="font-bold"><i class="fa-solid fa-pen-to-square mr-2"></i>Catat Peralihan Hak Tanah</h3>
+            <button onclick="closeModal('modalPeralihan')" class="text-emerald-200 hover:text-white text-xl leading-none">&times;</button>
+        </div>
+        <form id="formPeralihan" class="p-6 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <div>
+                <label class="block text-xs font-bold text-slate-600 mb-1">NOP (18 digit)</label>
+                <input name="nop" required placeholder="33.24.040.008.xxx-xxxx.0" class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/40">
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-slate-600 mb-1">Nomor C-Desa</label>
+                <input name="c_desa" required placeholder="Contoh: C-0155" class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/40">
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-slate-600 mb-1">Jenis Peralihan</label>
+                <select name="jenis" class="w-full px-3 py-2 border border-slate-200 rounded-lg bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-500/40">
+                    <option>Jual Beli</option><option>Waris</option><option>Hibah</option><option>Tukar Menukar</option><option>Lainnya</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-slate-600 mb-1">Tanggal Peralihan</label>
+                <input name="tgl" type="date" required class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/40">
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-slate-600 mb-1">Pihak I (Penyerah)</label>
+                <input name="p1" required placeholder="Nama pemilik lama" class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/40">
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-slate-600 mb-1">Pihak II (Penerima)</label>
+                <input name="p2" required placeholder="Nama pemilik baru" class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/40">
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-slate-600 mb-1">Luas (m&sup2;)</label>
+                <input name="luas" type="number" min="1" required placeholder="450" class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/40">
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-slate-600 mb-1">Dusun</label>
+                <select name="dusun" class="w-full px-3 py-2 border border-slate-200 rounded-lg bg-slate-50 focus:outline-none focus:ring-2 focus:ring-emerald-500/40">
+                    <option>Wates</option><option>Rowogandu</option><option>Ngrandu</option><option>Dakah</option>
+                    <option>Gedong</option><option>Kandang</option><option>Tempuran</option><option>Kalipuru</option>
+                    <option>Kreyo</option><option>Sabrang</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-slate-600 mb-1">Nilai Transaksi (Rp)</label>
+                <input name="nilai" type="number" min="0" placeholder="0 jika waris/hibah" class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/40">
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-slate-600 mb-1">No. Akta / Surat Bukti</label>
+                <input name="akta" placeholder="PPAT/2026/015" class="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500/40">
+            </div>
+            <div class="md:col-span-2 pt-3 border-t border-slate-100 flex justify-end gap-3">
+                <button type="button" onclick="closeModal('modalPeralihan')" class="px-4 py-2 border border-slate-200 rounded-lg font-semibold text-slate-600 hover:bg-slate-50">Batal</button>
+                <button type="submit" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold shadow-sm">Simpan Peralihan</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Toast -->
+<div id="toastWrap" class="fixed bottom-5 right-5 z-[60] space-y-2"></div>
+
+<script>
+/* ================= DATA (mock, mengikuti data dump desa) ================= */
+const DUSUN = [
+    { nama:'Wates',     pemungut:'Sumadi',     baku:13122198, spptBaku:279, realisasi:1397685,  spptRealisasi:52  },
+    { nama:'Rowogandu', pemungut:'Jarmanto',   baku:12112540, spptBaku:440, realisasi:4530317,  spptRealisasi:172 },
+    { nama:'Ngrandu',   pemungut:'Sholikin',   baku:4108766,  spptBaku:176, realisasi:4108766,  spptRealisasi:176 },
+    { nama:'Dakah',     pemungut:'Senimin',    baku:22323100, spptBaku:573, realisasi:13326210, spptRealisasi:356 },
+    { nama:'Gedong',    pemungut:'Suyono',     baku:14337538, spptBaku:306, realisasi:8351437,  spptRealisasi:292 },
+    { nama:'Kandang',   pemungut:'Suyono',     baku:9032347,  spptBaku:278, realisasi:6966092,  spptRealisasi:231 },
+    { nama:'Tempuran',  pemungut:'Muktaman',   baku:9186278,  spptBaku:331, realisasi:7013237,  spptRealisasi:212 },
+    { nama:'Kalipuru',  pemungut:'Bahrun',     baku:8741397,  spptBaku:474, realisasi:8741397,  spptRealisasi:474 },
+    { nama:'Kreyo',     pemungut:'Siswadi',    baku:9904485,  spptBaku:314, realisasi:7673253,  spptRealisasi:277 },
+    { nama:'Sabrang',   pemungut:'Ngateminto', baku:10280434, spptBaku:349, realisasi:4711519,  spptRealisasi:130 }
+];
+
+const SPPT = [
+    { nop:'332404000800200010', nama:'RIBUT',          dusun:'Kalipuru',  pajak:297600, terbayar:0,     status:'Belum Bayar', tgl:null },
+    { nop:'332404000800200030', nama:'WAGIMEN',        dusun:'Kalipuru',  pajak:34496,  terbayar:34496, status:'Lunas', tgl:'2026-06-03' },
+    { nop:'332404000800200040', nama:'WITO',           dusun:'Kalipuru',  pajak:34496,  terbayar:34496, status:'Lunas', tgl:'2026-06-03' },
+    { nop:'332404000800200050', nama:'JUMINEM',        dusun:'Kalipuru',  pajak:34496,  terbayar:34496, status:'Lunas', tgl:'2026-06-25' },
+    { nop:'332404000800200070', nama:'SARYONO H',      dusun:'Kalipuru',  pajak:51436,  terbayar:0,     status:'Belum Bayar', tgl:null },
+    { nop:'332404000800200080', nama:'SUDIRO SASTRO',  dusun:'Kalipuru',  pajak:95480,  terbayar:95480, status:'Lunas', tgl:'2026-06-25' },
+    { nop:'332404000800200220', nama:'PARIYEM',        dusun:'Kalipuru',  pajak:56364,  terbayar:0,     status:'Belum Bayar', tgl:null },
+    { nop:'332404000800210010', nama:'SLAMET WIDODO',  dusun:'Wates',     pajak:128500, terbayar:128500,status:'Lunas', tgl:'2026-07-11' },
+    { nop:'332404000800210040', nama:'KARSIMAH',       dusun:'Wates',     pajak:42800,  terbayar:0,     status:'Belum Bayar', tgl:null },
+    { nop:'332404000800220020', nama:'PAWIRO S.',      dusun:'Rowogandu', pajak:75300,  terbayar:37500, status:'Belum Bayar', tgl:null },
+    { nop:'332404000800230060', nama:'SUPARMI',        dusun:'Gedong',    pajak:210400, terbayar:210400,status:'Lunas', tgl:'2026-05-30' },
+    { nop:'332404000800240010', nama:'NGATEMINTO',     dusun:'Sabrang',   pajak:38200,  terbayar:0,     status:'Belum Bayar', tgl:null }
+];
+
+const BIDANG = [
+    { id:'BDG001', nop:'332404000800200010', hak:'Hak Milik', pemilik:'Slamet Rahardjo', luas:450,  guna:'Perumahan',             status:'Belum Bayar', dusun:'Kalipuru', coords:[[-7.085,110.025],[-7.085,110.028],[-7.087,110.028],[-7.087,110.025]] },
+    { id:'BDG002', nop:'332404000800200030', hak:'Hak Milik', pemilik:'Siti Aminah',     luas:1200, guna:'Pertanian (Sawah)',     status:'Lunas',       dusun:'Rowogandu', coords:[[-7.088,110.026],[-7.088,110.030],[-7.091,110.030],[-7.091,110.026]] },
+    { id:'DXF-020100-0503', nop:'—', hak:'Hak Pakai', pemilik:'Pemerintah Desa Gedong', luas:3500, guna:'Bengkok Kadus Tempuran', status:'Aset Desa', dusun:'Tempuran', coords:[[-7.082,110.020],[-7.082,110.024],[-7.085,110.024],[-7.085,110.020]] },
+    { id:'DXF-020100-0504', nop:'—', hak:'Hak Pakai', pemilik:'Pemerintah Desa Gedong', luas:4200, guna:'Bengkok Kadus Tempuran', status:'Aset Desa', dusun:'Tempuran', coords:[[-7.080,110.025],[-7.080,110.029],[-7.083,110.029],[-7.083,110.025]] },
+    { id:'BDG003', nop:'332404000800200040', hak:'Hak Milik', pemilik:'Wito',            luas:800,  guna:'Pekarangan',            status:'Lunas',       dusun:'Kalipuru', coords:[[-7.092,110.025],[-7.092,110.028],[-7.094,110.028],[-7.094,110.025]] },
+    { id:'BDG004', nop:'332404000800200050', hak:'Hak Milik', pemilik:'Juminem',         luas:620,  guna:'Pertanian (Sawah)',     status:'Lunas',       dusun:'Wates', coords:[[-7.092,110.030],[-7.092,110.033],[-7.094,110.033],[-7.094,110.030]] },
+    { id:'BDG005', nop:'332404000800200070', hak:'Hak Milik', pemilik:'Saryono H',       luas:300,  guna:'Perumahan',             status:'Belum Bayar', dusun:'Kalipuru', coords:[[-7.079,110.031],[-7.079,110.033],[-7.080,110.033],[-7.080,110.031]] },
+    { id:'BDG006', nop:'332404000800200220', hak:'Hak Milik', pemilik:'Pariyem',         luas:540,  guna:'Pekarangan',            status:'Belum Bayar', dusun:'Sabrang', coords:[[-7.096,110.020],[-7.096,110.023],[-7.098,110.023],[-7.098,110.020]] }
+];
+
+const PERALIHAN = [
+    { id:'TRX-2026-001', nop:'33.24.040.008.002-0045.0', cDesa:'C-0142', jenis:'Jual Beli',    tgl:'2026-02-14', akta:'PPAT/2026/012', p1:'Slamet Widodo',  p2:'Budi Santoso',  luas:450,  nilai:135000000, dusun:'Wates',     status:'Selesai' },
+    { id:'TRX-2026-004', nop:'33.24.040.008.002-0010.0', cDesa:'C-0205', jenis:'Hibah',        tgl:'2026-03-01', akta:'AHB/2026/004',  p1:'H. Ahmad',       p2:'Siti Aminah',   luas:820,  nilai:0,         dusun:'Gedong',    status:'Proses Verifikasi' },
+    { id:'TRX-2026-002', nop:'33.24.040.008.001-0012.0', cDesa:'C-0089', jenis:'Waris',        tgl:'2026-01-20', akta:'SKW/2026/005',  p1:'Alm. Suparman',  p2:'Siti Aminah',   luas:1200, nilai:0,         dusun:'Rowogandu', status:'Selesai' },
+    { id:'TRX-2025-018', nop:'33.24.040.008.003-0088.0', cDesa:'C-0210', jenis:'Hibah',        tgl:'2025-11-05', akta:'AHB/2025/089',  p1:'Karsiman',       p2:'Ahmad Fauzi',   luas:650,  nilai:0,         dusun:'Kalipuru',  status:'Selesai' },
+    { id:'TRX-2025-012', nop:'33.24.040.008.004-0015.0', cDesa:'C-0305', jenis:'Tukar Menukar', tgl:'2025-08-19', akta:'ATM/2025/002',  p1:'Pem. Desa Gedong', p2:'H. Suwandi', luas:800,   nilai:240000000, dusun:'Gedong',  status:'Selesai' },
+    { id:'TRX-2025-007', nop:'33.24.040.008.005-0031.0', cDesa:'C-0417', jenis:'Jual Beli',    tgl:'2025-05-27', akta:'PPAT/2025/041', p1:'Wagimen',        p2:'Wito',          luas:800,  nilai:98000000,  dusun:'Kalipuru',  status:'Selesai' }
+];
+
+const SENGKETA = [
+    { id:'LPR-001', nop:'332404000800200010', pelapor:'Ahmad Mubarok', hp:'0812-3456-7890', ket:'Klaim tumpang tindih batas tanah di bagian utara persil dengan lahan tetangga.', status:'Diproses', tgl:'2026-10-10' },
+    { id:'LPR-002', nop:'DXF-020100-0503',    pelapor:'Sukarno',      hp:'0857-1234-1234', ket:'Indikasi penggunaan tanpa izin pada batas tanah bengkok desa.', status:'Menunggu', tgl:'2026-10-15' }
+];
+
+const CDESA = [
+    { no:1,   nama:'Slamet Widodo',  dusun:'Wates',     luas:450,  hak:'Letter C' },
+    { no:5,   nama:'Sutarjo',        dusun:'Gedong',    luas:1250, hak:'Letter C' },
+    { no:14,  nama:'Wagimen',        dusun:'Kalipuru',  luas:800,  hak:'Letter C' },
+    { no:42,  nama:'Pariyem',        dusun:'Kalipuru',  luas:540,  hak:'Letter C' },
+    { no:88,  nama:'Budi Santoso',   dusun:'Wates',     luas:450,  hak:'Letter C' },
+    { no:142, nama:'Siti Aminah',    dusun:'Rowogandu', luas:1200, hak:'Letter C' },
+    { no:205, nama:'Ahmad Fauzi',    dusun:'Kalipuru',  luas:650,  hak:'Letter C' },
+    { no:305, nama:'H. Suwandi',     dusun:'Gedong',    luas:800,  hak:'Letter C' },
+    { no:412, nama:'Karsimin',       dusun:'Tempuran',  luas:980,  hak:'Letter C' },
+    { no:517, nama:'Muktaman',       dusun:'Tempuran',  luas:720,  hak:'Letter C' },
+    { no:633, nama:'Siswadi',        dusun:'Kreyo',     luas:1100, hak:'Letter C' },
+    { no:721, nama:'Ngateminto',     dusun:'Sabrang',   luas:890,  hak:'Letter C' }
+];
+
+/* ================= UTIL ================= */
+const rp = n => 'Rp ' + new Intl.NumberFormat('id-ID').format(n);
+const num = n => new Intl.NumberFormat('id-ID').format(n);
+const juta = n => n >= 1e9 ? (n/1e9).toFixed(2).replace('.', ',') + ' M' : (n/1e6).toFixed(1).replace('.', ',') + ' Jt';
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function toast(msg, tipe = 'sukses') {
+    const wrap = document.getElementById('toastWrap');
+    const el = document.createElement('div');
+    const warna = tipe === 'sukses' ? 'bg-emerald-600' : 'bg-slate-800';
+    el.className = `${warna} text-white text-sm font-semibold px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 animate-[fadeUp_.2s_ease]`;
+    el.innerHTML = `<i class="fa-solid ${tipe === 'sukses' ? 'fa-circle-check' : 'fa-circle-info'}"></i><span>${esc(msg)}</span>`;
+    wrap.appendChild(el);
+    setTimeout(() => el.remove(), 3200);
+}
+
+function openModal(id) { const m = document.getElementById(id); m.classList.remove('hidden'); m.classList.add('flex'); }
+function closeModal(id) { const m = document.getElementById(id); m.classList.add('hidden'); m.classList.remove('flex'); }
+document.querySelectorAll('#modalBidang,#modalPeralihan').forEach(m => m.addEventListener('click', e => {
+    if (e.target === m) closeModal(m.id);
+}));
+
+const badgeStatus = s => ({
+    'Lunas':'bg-emerald-100 text-emerald-700',
+    'Belum Bayar':'bg-rose-100 text-rose-700',
+    'Aset Desa':'bg-sky-100 text-sky-700',
+    'Selesai':'bg-emerald-100 text-emerald-700',
+    'Proses Verifikasi':'bg-amber-100 text-amber-700',
+    'Diproses':'bg-amber-100 text-amber-700',
+    'Menunggu':'bg-slate-100 text-slate-600'
+}[s] || 'bg-slate-100 text-slate-600');
+
+const badgeJenis = j => ({
+    'Jual Beli':'bg-sky-100 text-sky-700',
+    'Waris':'bg-purple-100 text-purple-700',
+    'Hibah':'bg-teal-100 text-teal-700',
+    'Tukar Menukar':'bg-amber-100 text-amber-700'
+}[j] || 'bg-slate-100 text-slate-600');
+
+/* ================= NAVIGASI ================= */
+const JUDUL = {
+    dashboard: ['Dashboard', 'Ringkasan pertanahan & realisasi PBB Desa Gedong'],
+    peta:      ['Peta Bidang', 'Peta GIS bidang tanah & status PBB'],
+    bidang:    ['Data Bidang Tanah', 'Daftar bidang dan atribut kepemilikan'],
+    sppt:      ['SPPT & PBB', 'Surat pemberitahuan pajak terhutang tahun 2026'],
+    cdesa:     ['Buku C-Desa', 'Arsip digital pencatatan kepemilikan tanah'],
+    peralihan: ['Peralihan Hak', 'Riwayat mutasi jual beli, waris & hibah'],
+    sengketa:  ['Laporan Sengketa', 'Tindak lanjut laporan sengketa pertanahan']
+};
+
+function navigate(hal) {
+    document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
+    document.getElementById('page-' + hal).classList.remove('hidden');
+
+    document.querySelectorAll('.nav-item').forEach(a => {
+        const aktif = a.dataset.nav === hal;
+        a.classList.toggle('bg-emerald-600', aktif);
+        a.classList.toggle('text-white', aktif);
+        a.classList.toggle('shadow-sm', aktif);
+        a.classList.toggle('font-semibold', aktif);
+        a.classList.toggle('text-emerald-100/70', !aktif);
+        a.classList.toggle('font-medium', !aktif);
+        a.classList.toggle('hover:bg-white/5', !aktif);
+        a.classList.toggle('hover:text-white', !aktif);
+    });
+
+    document.getElementById('pageTitle').textContent = JUDUL[hal][0];
+    document.getElementById('pageSubtitle').textContent = JUDUL[hal][1];
+    window.scrollTo({ top: 0 });
+    closeSidebar();
+    if (hal === 'peta') setTimeout(() => { initMap(); peta.invalidateSize(); }, 60);
+}
+
+document.querySelectorAll('[data-nav]').forEach(a => a.addEventListener('click', e => {
+    e.preventDefault();
+    navigate(a.dataset.nav);
+}));
+
+const sidebar = document.getElementById('sidebar');
+const overlay = document.getElementById('sidebarOverlay');
+function openSidebar() { sidebar.classList.remove('-translate-x-full'); overlay.classList.remove('hidden'); }
+function closeSidebar() { if (window.innerWidth < 1024) { sidebar.classList.add('-translate-x-full'); overlay.classList.add('hidden'); } }
+document.getElementById('hamburger').addEventListener('click', openSidebar);
+overlay.addEventListener('click', closeSidebar);
+
+/* ================= DASHBOARD ================= */
+const tot = {
+    baku: DUSUN.reduce((a, d) => a + d.baku, 0),
+    realisasi: DUSUN.reduce((a, d) => a + d.realisasi, 0),
+    spptBaku: DUSUN.reduce((a, d) => a + d.spptBaku, 0),
+    spptRealisasi: DUSUN.reduce((a, d) => a + d.spptRealisasi, 0)
+};
+tot.sisa = tot.baku - tot.realisasi;
+tot.persen = tot.baku ? (tot.realisasi / tot.baku * 100) : 0;
+
+document.getElementById('statBaku').textContent = rp(tot.baku);
+document.getElementById('statBakuSub').textContent = num(tot.spptBaku) + ' SPPT ketetapan';
+document.getElementById('statRealisasi').textContent = rp(tot.realisasi);
+document.getElementById('statRealisasiSub').textContent = num(tot.spptRealisasi) + ' SPPT terbayar';
+document.getElementById('statSisa').textContent = rp(tot.sisa);
+document.getElementById('statSisaSub').textContent = num(tot.spptBaku - tot.spptRealisasi) + ' SPPT menunggak';
+document.getElementById('statPersen').textContent = tot.persen.toFixed(1).replace('.', ',') + '%';
+document.getElementById('statPersenBar').style.width = Math.min(tot.persen, 100) + '%';
+document.getElementById('statPersenSub').textContent = 'Target tahunan 90% — kurang ' + (90 - tot.persen).toFixed(1).replace('.', ',') + ' poin';
+
+document.getElementById('tabelDusun').innerHTML = DUSUN.map(d => {
+    const persen = d.baku ? d.realisasi / d.baku * 100 : 0;
+    const warna = persen >= 75 ? 'bg-emerald-500' : persen >= 40 ? 'bg-amber-400' : 'bg-rose-500';
+    return `<tr class="hover:bg-slate-50">
+        <td class="px-4 py-3 font-bold text-slate-700 capitalize">${esc(d.nama)}</td>
+        <td class="px-4 py-3 capitalize">${esc(d.pemungut)}</td>
+        <td class="px-4 py-3 text-right tabular-nums">${rp(d.baku)}</td>
+        <td class="px-4 py-3 text-right tabular-nums text-emerald-700 font-semibold">${rp(d.realisasi)}</td>
+        <td class="px-4 py-3">
+            <div class="flex items-center gap-2">
+                <div class="progress-track flex-1"><div class="progress-fill ${warna}" style="width:${persen.toFixed(1)}%"></div></div>
+                <span class="text-xs font-bold tabular-nums w-12 text-right">${persen.toFixed(1).replace('.', ',')}%</span>
+            </div>
+        </td>
+    </tr>`;
+}).join('');
+
+document.getElementById('aktivitasPeralihan').innerHTML = PERALIHAN.slice(0, 4).map(p => `
+    <div class="flex items-start gap-3 p-3 rounded-xl border border-slate-100 hover:border-emerald-200 hover:bg-emerald-50/40 transition cursor-default">
+        <div class="w-9 h-9 rounded-lg ${p.jenis === 'Jual Beli' ? 'bg-sky-100 text-sky-700' : p.jenis === 'Waris' ? 'bg-purple-100 text-purple-700' : 'bg-teal-100 text-teal-700'} flex items-center justify-center shrink-0">
+            <i class="fa-solid ${p.jenis === 'Jual Beli' ? 'fa-handshake' : p.jenis === 'Waris' ? 'fa-people-roof' : 'fa-gift'}"></i>
+        </div>
+        <div class="min-w-0">
+            <p class="text-sm font-semibold text-slate-800 truncate">${esc(p.p1)} <i class="fa-solid fa-arrow-right-long text-emerald-600 mx-0.5 text-xs"></i> ${esc(p.p2)}</p>
+            <p class="text-[11px] text-slate-400">${esc(p.id)} &middot; ${num(p.luas)} m&sup2; &middot; Dsn. ${esc(p.dusun)}</p>
+        </div>
+        <span class="ml-auto text-[10px] font-bold px-2 py-1 rounded-full shrink-0 ${badgeJenis(p.jenis)}">${esc(p.jenis)}</span>
+    </div>
+`).join('');
+
+/* Grafik Chart.js */
+const W = DUSUN.map(d => d.nama);
+new Chart(document.getElementById('chartDusun'), {
+    type: 'bar',
+    data: {
+        labels: W,
+        datasets: [
+            { label: 'Baku', data: DUSUN.map(d => d.baku), backgroundColor: '#cbd5e1', borderRadius: 4, barPercentage: 0.7 },
+            { label: 'Realisasi', data: DUSUN.map(d => d.realisasi), backgroundColor: '#059669', borderRadius: 4, barPercentage: 0.7 }
+        ]
+    },
+    options: {
+        indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 8, font: { family: 'Plus Jakarta Sans' } } },
+            tooltip: { callbacks: { label: c => `${c.dataset.label}: ${rp(c.raw)}` } } },
+        scales: {
+            x: { ticks: { callback: v => juta(v), font: { size: 10 } }, grid: { color: '#f1f5f9' } },
+            y: { ticks: { font: { size: 11 } }, grid: { display: false } }
+        }
+    }
+});
+
+const spptLunasN = SPPT.filter(s => s.status === 'Lunas').length;
+new Chart(document.getElementById('chartStatus'), {
+    type: 'doughnut',
+    data: {
+        labels: ['Lunas', 'Belum Bayar'],
+        datasets: [{ data: [spptLunasN, SPPT.length - spptLunasN], backgroundColor: ['#059669', '#f43f5e'], borderWidth: 0, cutout: '72%' }]
+    },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => `${c.label}: ${c.raw} SPPT` } } }
+    }
+});
+document.getElementById('donutLunas').textContent = spptLunasN + ' SPPT';
+document.getElementById('donutBelum').textContent = (SPPT.length - spptLunasN) + ' SPPT';
+document.getElementById('donutNilai').textContent = rp(SPPT.reduce((a, s) => a + s.terbayar, 0));
+
+/* ================= PETA ================= */
+let peta = null;
+const layerBidang = {};
+function warnaBidang(s) { return s === 'Lunas' ? '#059669' : s === 'Belum Bayar' ? '#e11d48' : '#0284c7'; }
+
+function initMap() {
+    if (peta) return;
+    peta = L.map('map', { scrollWheelZoom: true }).setView([-7.087, 110.027], 15);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap — Desa Gedong, Patean, Kendal'
+    }).addTo(peta);
+
+    BIDANG.forEach(b => {
+        const poligon = L.polygon(b.coords, { color: warnaBidang(b.status), weight: 2, fillColor: warnaBidang(b.status), fillOpacity: 0.35 });
+        poligon.bindPopup(`
+            <div style="font-family:'Plus Jakarta Sans',sans-serif;min-width:210px">
+                <strong style="display:block;margin-bottom:2px">${esc(b.pemilik)}</strong>
+                <span style="font-size:11px;color:#64748b">NOP: ${esc(b.nop)}</span><br>
+                <span style="font-size:11px;color:#64748b">${esc(b.hak)} &middot; ${num(b.luas)} m&sup2; &middot; ${esc(b.guna)}</span>
+                <span style="display:inline-block;margin-top:6px;padding:2px 8px;border-radius:99px;font-size:10px;font-weight:700;color:#fff;background:${warnaBidang(b.status)}">${b.status}</span>
+            </div>`);
+        layerBidang[b.id] = poligon.addTo(peta);
+    });
+    peta.fitBounds(L.featureGroup(Object.values(layerBidang)).getBounds(), { padding: [30, 30] });
+    terapkanFilterPeta();
+}
+
+function terapkanFilterPeta() {
+    const dusun = document.getElementById('filterDusun').value.toLowerCase();
+    const status = document.getElementById('filterStatus').value;
+    let tampil = 0;
+    BIDANG.forEach(b => {
+        const cocok = (dusun === '' || b.dusun.toLowerCase() === dusun) && (status === '' || b.status === status);
+        if (cocok) tampil++;
+        if (peta) {
+            if (peta.hasLayer(layerBidang[b.id])) peta.removeLayer(layerBidang[b.id]);
+            if (cocok) layerBidang[b.id].addTo(peta);
+        }
+    });
+    document.getElementById('jumlahBidang').textContent = tampil + ' bidang';
+}
+
+/* isi dropdown dusun dari data */
+DUSUN.forEach(d => {
+    const o = document.createElement('option');
+    o.value = d.nama; o.textContent = d.nama.charAt(0).toUpperCase() + d.nama.slice(1).toLowerCase();
+    document.getElementById('filterDusun').appendChild(o);
+});
+document.getElementById('filterDusun').addEventListener('change', terapkanFilterPeta);
+document.getElementById('filterStatus').addEventListener('change', terapkanFilterPeta);
+
+/* ================= DATA BIDANG ================= */
+function renderBidang() {
+    const q = document.getElementById('searchBidang').value.trim().toLowerCase();
+    const rows = BIDANG.filter(b => !q || [b.id, b.nop, b.pemilik, b.guna, b.hak].join(' ').toLowerCase().includes(q));
+    document.getElementById('tabelBidang').innerHTML = rows.map(b => `
+        <tr class="hover:bg-slate-50">
+            <td class="px-4 py-3 font-mono text-xs font-bold text-slate-700">${esc(b.id)}</td>
+            <td class="px-4 py-3 font-mono text-xs">${esc(b.nop)}</td>
+            <td class="px-4 py-3 font-semibold text-slate-700">${esc(b.pemilik)}</td>
+            <td class="px-4 py-3"><span class="text-xs font-semibold bg-slate-100 rounded px-1.5 py-0.5">${esc(b.hak)}</span>
+                <span class="block text-xs text-slate-400 mt-0.5">${num(b.luas)} m&sup2;</span></td>
+            <td class="px-4 py-3">${esc(b.guna)}</td>
+            <td class="px-4 py-3"><span class="text-[11px] font-bold px-2.5 py-1 rounded-full ${badgeStatus(b.status)}">${b.status}</span></td>
+            <td class="px-4 py-3 text-center">
+                <button onclick="bukaDetailBidang('${esc(b.id)}')" class="text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg px-3 py-1.5">Detail</button>
+            </td>
+        </tr>`).join('');
+    document.getElementById('emptyBidang').classList.toggle('hidden', rows.length > 0);
+}
+document.getElementById('searchBidang').addEventListener('input', renderBidang);
+
+function bukaDetailBidang(id) {
+    const b = BIDANG.find(x => x.id === id);
+    if (!b) return;
+    document.getElementById('isiModalBidang').innerHTML = `
+        <div class="flex items-center gap-3 mb-4">
+            <div class="w-12 h-12 rounded-xl flex items-center justify-center text-white text-lg" style="background:${warnaBidang(b.status)}">
+                <i class="fa-solid fa-vector-square"></i></div>
+            <div><p class="font-bold text-slate-800">${esc(b.pemilik)}</p>
+            <p class="text-xs text-slate-400 font-mono">${esc(b.id)}</p></div>
+        </div>
+        <dl class="space-y-2.5">
+            ${[['NOP', b.nop], ['Jenis Hak', b.hak], ['Luas', num(b.luas) + ' m²'], ['Penggunaan', b.guna], ['Status PBB', b.status]]
+            .map(([k, v]) => `<div class="flex justify-between gap-4 border-b border-slate-100 pb-2">
+                <dt class="text-slate-400 text-xs">${k}</dt><dd class="font-semibold text-slate-700 text-right">${esc(v)}</dd></div>`).join('')}
+        </dl>
+        <div class="mt-4 flex gap-2">
+            <button onclick="navigate('peta')" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-lg py-2">Lihat di Peta</button>
+            <button onclick="closeModal('modalBidang')" class="px-4 border border-slate-200 rounded-lg text-sm font-semibold text-slate-600 hover:bg-slate-50">Tutup</button>
+        </div>`;
+    openModal('modalBidang');
+}
+
+/* ================= SPPT ================= */
+function renderSppt() {
+    const q = document.getElementById('searchSppt').value.trim().toLowerCase();
+    const st = document.getElementById('filterSpptStatus').value;
+    const rows = SPPT.filter(s => (!st || s.status === st) && (!q || (s.nop + ' ' + s.nama + ' ' + s.dusun).toLowerCase().includes(q)));
+    document.getElementById('tabelSppt').innerHTML = rows.map(s => `
+        <tr class="hover:bg-slate-50">
+            <td class="px-4 py-3 font-mono text-xs">${esc(s.nop)}</td>
+            <td class="px-4 py-3 font-semibold text-slate-700">${esc(s.nama)}</td>
+            <td class="px-4 py-3 capitalize">${esc(s.dusun)}</td>
+            <td class="px-4 py-3 text-right tabular-nums">${rp(s.pajak)}</td>
+            <td class="px-4 py-3 text-right tabular-nums ${s.terbayar ? 'text-emerald-700 font-semibold' : 'text-slate-400'}">${s.terbayar ? rp(s.terbayar) : '—'}</td>
+            <td class="px-4 py-3"><span class="text-[11px] font-bold px-2.5 py-1 rounded-full ${badgeStatus(s.status)}">${s.status}</span></td>
+            <td class="px-4 py-3 text-xs text-slate-500">${s.tgl || '—'}</td>
+        </tr>`).join('');
+    document.getElementById('emptySppt').classList.toggle('hidden', rows.length > 0);
+}
+document.getElementById('searchSppt').addEventListener('input', renderSppt);
+document.getElementById('filterSpptStatus').addEventListener('change', renderSppt);
+
+document.getElementById('spptTotal').textContent = num(SPPT.length) + ' SPPT';
+document.getElementById('spptLunas').textContent = num(spptLunasN) + ' SPPT';
+document.getElementById('spptBelum').textContent = num(SPPT.length - spptLunasN) + ' SPPT';
+
+/* ================= BUKU C-DESA ================= */
+function renderCdesa() {
+    const q = document.getElementById('searchCdesa').value.trim().toLowerCase();
+    const rows = CDESA.filter(c => !q || ('c-' + c.no + ' ' + c.nama + ' ' + c.dusun).includes(q));
+    document.getElementById('gridCdesa').innerHTML = rows.map(c => `
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 hover:border-emerald-300 hover:shadow-md transition">
+            <div class="flex items-start justify-between mb-3">
+                <div class="w-11 h-11 rounded-xl bg-emerald-800 text-white flex items-center justify-center">
+                    <span class="font-extrabold text-sm">C</span></div>
+                <span class="text-[11px] font-bold px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">${esc(c.hak)}</span>
+            </div>
+            <p class="text-lg font-extrabold text-slate-800">C-${String(c.no).padStart(4, '0')}</p>
+            <p class="text-sm font-semibold text-slate-600 mt-0.5">${esc(c.nama)}</p>
+            <p class="text-xs text-slate-400 mt-1 capitalize"><i class="fa-solid fa-location-dot mr-1"></i>Dsn. ${esc(c.dusun)} &middot; ${num(c.luas)} m&sup2;</p>
+            <a href="files/Data C Desa/${c.no}.pdf" target="_blank" rel="noopener"
+                class="mt-4 block text-center text-sm font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-600 hover:text-white rounded-lg py-2 transition">
+                <i class="fa-solid fa-file-pdf mr-1.5"></i>Buka Dokumen
+            </a>
+        </div>`).join('');
+    document.getElementById('emptyCdesa').classList.toggle('hidden', rows.length > 0);
+}
+document.getElementById('searchCdesa').addEventListener('input', renderCdesa);
+
+/* ================= PERALIHAN ================= */
+function renderPeralihan() {
+    const q = document.getElementById('searchPeralihan').value.trim().toLowerCase();
+    const rows = PERALIHAN.filter(p => !q || (p.nop + p.p1 + p.p2 + p.id + p.cDesa).toLowerCase().includes(q));
+    document.getElementById('tabelPeralihan').innerHTML = rows.map(p => `
+        <tr class="hover:bg-slate-50">
+            <td class="px-4 py-3"><p class="font-bold text-slate-700 text-xs">${esc(p.id)}</p><p class="text-[11px] text-slate-400">${esc(p.tgl)}</p></td>
+            <td class="px-4 py-3"><p class="font-mono text-xs">${esc(p.nop)}</p><p class="text-[11px] text-slate-400 mt-0.5">${esc(p.cDesa)} &middot; Akta ${esc(p.akta)}</p></td>
+            <td class="px-4 py-3"><span class="text-[11px] font-bold px-2.5 py-1 rounded-full ${badgeJenis(p.jenis)}">${esc(p.jenis)}</span></td>
+            <td class="px-4 py-3 text-sm"><span class="font-semibold text-slate-700">${esc(p.p1)}</span>
+                <i class="fa-solid fa-arrow-right-long text-emerald-600 mx-1.5 text-xs"></i>
+                <span class="font-semibold text-emerald-700">${esc(p.p2)}</span></td>
+            <td class="px-4 py-3 text-right"><p class="tabular-nums">${num(p.luas)} m&sup2;</p>
+                <p class="text-xs ${p.nilai ? 'text-emerald-700 font-semibold' : 'text-slate-400'} tabular-nums">${p.nilai ? rp(p.nilai) : 'Bukan komersial'}</p></td>
+            <td class="px-4 py-3"><span class="text-[11px] font-bold px-2.5 py-1 rounded-full ${badgeStatus(p.status)}">${esc(p.status)}</span></td>
+        </tr>`).join('');
+    document.getElementById('emptyPeralihan').classList.toggle('hidden', rows.length > 0);
+
+    const jual = PERALIHAN.filter(p => p.jenis === 'Jual Beli').length;
+    const waris = PERALIHAN.filter(p => ['Waris', 'Hibah'].includes(p.jenis)).length;
+    const nilai = PERALIHAN.reduce((a, p) => a + p.nilai, 0);
+    document.getElementById('perTotal').textContent = num(PERALIHAN.length) + ' transaksi';
+    document.getElementById('perJual').textContent = num(jual) + ' bidang';
+    document.getElementById('perWaris').textContent = num(waris) + ' bidang';
+    document.getElementById('perNilai').textContent = rp(nilai);
+}
+document.getElementById('searchPeralihan').addEventListener('input', renderPeralihan);
+
+document.getElementById('btnTambahPeralihan').addEventListener('click', () => openModal('modalPeralihan'));
+document.getElementById('formPeralihan').addEventListener('submit', e => {
+    e.preventDefault();
+    const f = new FormData(e.target);
+    PERALIHAN.unshift({
+        id: 'TRX-' + new Date().getFullYear() + '-' + String(PERALIHAN.length + 1).padStart(3, '0'),
+        nop: f.get('nop'), cDesa: f.get('c_desa'), jenis: f.get('jenis'), tgl: f.get('tgl'),
+        akta: f.get('akta') || '—', p1: f.get('p1'), p2: f.get('p2'),
+        luas: parseInt(f.get('luas'), 10) || 0, nilai: parseInt(f.get('nilai'), 10) || 0,
+        dusun: f.get('dusun'), status: 'Proses Verifikasi'
+    });
+    e.target.reset();
+    closeModal('modalPeralihan');
+    renderPeralihan();
+    toast('Peralihan hak berhasil dicatat (demonstrasi desain)');
+});
+
+/* ================= SENGKETA ================= */
+document.getElementById('gridSengketa').innerHTML = SENGKETA.map(s => `
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+        <div class="flex items-center justify-between mb-3">
+            <span class="text-xs font-bold text-slate-400 font-mono">${esc(s.id)}</span>
+            <span class="text-[11px] font-bold px-2.5 py-1 rounded-full ${badgeStatus(s.status)}">${esc(s.status)}</span>
+        </div>
+        <div class="flex items-start gap-3 mb-3">
+            <div class="w-10 h-10 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center shrink-0"><i class="fa-solid fa-user"></i></div>
+            <div class="min-w-0">
+                <p class="font-bold text-slate-800">${esc(s.pelapor)}</p>
+                <p class="text-xs text-slate-400">${esc(s.hp)} &middot; ${esc(s.tgl)}</p>
+            </div>
+        </div>
+        <p class="text-sm text-slate-600 leading-relaxed">${esc(s.ket)}</p>
+        <p class="text-xs text-slate-400 mt-3 pt-3 border-t border-slate-100">NOP terkait: <span class="font-mono font-semibold text-slate-600">${esc(s.nop)}</span></p>
+        <div class="mt-4 flex gap-2">
+            <button class="btn-demo flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg py-2">Verifikasi Lapangan</button>
+            <button class="btn-demo px-4 border border-slate-200 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-50">Arsipkan</button>
+        </div>
+    </div>`).join('');
+
+/* ================= LAIN-LAIN ================= */
+document.querySelectorAll('.btn-demo').forEach(b => b.addEventListener('click', () =>
+    toast('Fitur demonstrasi desain — belum terhubung ke basis data.', 'info')));
+
+document.getElementById('yearSelect').addEventListener('change', e =>
+    toast('Menampilkan data tahun ' + e.target.value + ' (demonstrasi desain).', 'info'));
+
+document.getElementById('globalSearch').addEventListener('keydown', e => {
+    if (e.key !== 'Enter') return;
+    const q = e.target.value;
+    const halaman = document.querySelector('.page:not(.hidden)').id.replace('page-', '');
+    const target = { bidang: 'searchBidang', sppt: 'searchSppt', cdesa: 'searchCdesa', peralihan: 'searchPeralihan' }[halaman];
+    if (target) { document.getElementById(target).value = q; document.getElementById(target).dispatchEvent(new Event('input')); }
+    else toast('Pencarian global: "' + q + '" — buka halaman data untuk memfilter.', 'info');
+});
+
+renderBidang();
+renderSppt();
+renderCdesa();
+renderPeralihan();
+</script>
+</body>
+</html>

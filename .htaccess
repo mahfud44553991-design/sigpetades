@@ -1,0 +1,31 @@
+# SIPETADES — pelindung tingkat web root
+#
+# Isi folder ini adalah aplikasi + data desa. Yang di bawah ini memastikan
+# hanya halaman dan aset yang boleh diakses browser; skema database, konfigurasi,
+# skrip impor, dan arsip PDF tidak bisa diambil lewat URL.
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Halaman depan sistem: beranda publik, dasbor baru setelah masuk.
+    RewriteRule ^$ beranda.php [L]
+</IfModule>
+
+# Direktori yang isinya tidak pernah disajikan lewat HTTP.
+# Pola ini harus tetap cocok baik aplikasi dipasang di akar document root
+# maupun di subfolder seperti /sigpetades/.
+RedirectMatch 404 ^/([^/]+/)*(app|sql|tools|storage|_lama)(/|$)
+RedirectMatch 404 (^|/)\.(env|git|gitignore|htaccess|htpasswd)
+
+<FilesMatch "\.(sql|md|txt|log|ini|conf|json|geojson|csv|tsv|bak|old|dist|example|lock|uji)$">
+    Require all denied
+</FilesMatch>
+
+<IfModule mod_autoindex.c>
+    Options -Indexes
+</IfModule>
+
+<IfModule mod_php.c>
+    php_flag display_errors off
+    php_flag expose_php off
+</IfModule>

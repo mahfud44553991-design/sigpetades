@@ -1,0 +1,17 @@
+# Kredensial lokal
+/app/config.php
+
+# Data, cadangan, dan arsip lokal
+/storage/
+/files/
+/_lama/
+/tools/vendor/
+
+# Dump dan skrip akun lokal (berisi hash sandi)
+/sigpetadesv1.sql
+/sql/sigpetades.sql
+/sql/akun_superadmin_lokal.sql
+
+# Berkas sementara
+/_uji-*.php
+*.log
