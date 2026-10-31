@@ -1787,6 +1787,40 @@ impor dan pengosongan tampil tanpa pesan galat, dan basis data produksi tidak te
 
 ---
 
+### 3.25 Garis "PTP" di peta utama: batas desa dari lapisan 010500
+
+Pertanyaan "garis dengan nama PTP belum terpetakan" ternyata bukan soal bidang
+yang tertinggal. `PTP` hanya muncul sebagai **teks**: 20 label pada lapisan
+`BATAS DESA` di `MASTER-dari-dwg.dxf`, tanpa satu pun entitas garis bernama PTP.
+Garis yang dimaksud adalah cincin lapisan `010500` — poligon tertutup 531 titik
+seluas ±6,7 km² yang memang sejak §3.22 sengaja tidak pernah dipasang sebagai
+persil. Jadi yang kurang bukan datanya, melainkan tampilannya: `peta-lama.php`
+punya layer "010500 — garis luar" di koordinat DXF, sedangkan `peta.php` (WGS84,
+dipakai sehari-hari) tidak menggambar batas desa sama sekali.
+
+Yang dikerjakan:
+
+- **`api/bidang.php`** mendapat cabang `?lapisan=batas`. Berkas
+  `files/sig-pertanahan-gedong-lokal/data/dxf-layers/010500.geojson` dibaca,
+  tiap titik meter lokal diterjemahkan `dxfKeWgs84()` dari `tools/lib-impor.php`,
+  lalu dikirim sebagai satu `LineString` tertutup (532 titik, 6 desimal).
+  Hasil terukur: lon 110,055172–110,085375, lat −7,099005…−7,064871 — seluruh
+  4.396 bidang berada di dalamnya. Tidak ada tabel atau baris basis data yang
+  disentuh. Bila berkas konversi belum ada, API menjawab 404 dengan pesan agar
+  `tools/konversi-dxf-lapisan.php` dijalankan.
+- **`peta.php`** menambah kotak centang **Batas desa** (bawaan aktif, tersimpan
+  di `localStorage` seperti lapisan lain) dan garis putus-putus biru tua
+  `#1f4e79` selebar 2 px tanpa isian, `interactive: false` supaya klik tetap
+  jatuh ke bidang di bawahnya. Legenda mendapat contoh garis putus-putus
+  "Batas desa (010500)". Lapisan ini tidak ikut `fitBounds` awal — pemusatan
+  tetap mengikuti sebaran bidang dari saringan.
+
+Berkas GeoJSON lapisan DXF berada di bawah `files/` yang di-.gitignore, jadi
+pada salinan baru batas desa baru tampil setelah konversi DXF dijalankan sekali;
+halaman hanya menampilkan pesan galat bila berkas belum ada, bukan gagal senyap.
+
+---
+
 ## 4. Berkas SPPT dari Excel
 
 Importer CSV menerima kolom berikut (nama kolom dibersihkan dari spasi dan tanda

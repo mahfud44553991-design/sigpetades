@@ -232,6 +232,10 @@ input[readonly], input:disabled, select:disabled, textarea:disabled { background
 .lapisan-kontrol label { display: flex; align-items: center; gap: 7px; margin: 3px 0; font-weight: 600; color: #4e5e57; }
 .legenda { display: flex; flex-wrap: wrap; gap: 10px 16px; margin-top: 12px; font-size: 11px; color: var(--redup); }
 .legenda i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; margin-right: 6px; vertical-align: -1px; }
+.legenda i.contoh-batas-desa {
+    height: 2px; border-radius: 0; vertical-align: 2px;
+    background: repeating-linear-gradient(90deg, #1f4e79 0 4px, transparent 4px 7px);
+}
 .kepekatan-baris { display: flex; align-items: center; gap: 10px; }
 .kepekatan-baris input[type=range] { flex: 1; accent-color: var(--hijau); }
 .kepekatan-baris output { min-width: 40px; text-align: right; font-size: 11px; font-weight: 700; color: var(--redup); }

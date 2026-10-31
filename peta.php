@@ -46,6 +46,7 @@ sip_judul(
                 <div class="lapisan-kontrol">
                     <label class="cek"><input type="checkbox" id="tampilBidang" checked> Bidang tanah</label>
                     <label class="cek"><input type="checkbox" id="tampilBlok"> Batas blok</label>
+                    <label class="cek"><input type="checkbox" id="tampilBatas" checked> Batas desa</label>
                     <?php if ($kelola): ?>
                         <label class="cek"><input type="checkbox" id="tampilLaporan"> Titik laporan</label>
                     <?php endif; ?>
@@ -191,7 +192,7 @@ $naskah = <<<'JS'
     const KUNCI = 'sip.peta.pengaturan.v1';
     const BAWAAN = {
         dasar: 'jalan', warna: 'hak', kepekatan: 28, label: false,
-        bidang: true, blok: false, laporan: false, tampilan: null
+        bidang: true, blok: false, batas: true, laporan: false, tampilan: null
     };
     const BATAS_LABEL = 800;
 
@@ -205,7 +206,7 @@ $naskah = <<<'JS'
         if (s.dasar !== 'jalan' && s.dasar !== 'satelit') s.dasar = BAWAAN.dasar;
         if (s.warna !== 'hak' && s.warna !== 'pbb' && s.warna !== 'status') s.warna = BAWAAN.warna;
         s.kepekatan = Math.max(0, Math.min(60, Number(s.kepekatan) || 0));
-        ['label', 'bidang', 'blok', 'laporan'].forEach((k) => { s[k] = !!s[k]; });
+        ['label', 'bidang', 'blok', 'batas', 'laporan'].forEach((k) => { s[k] = !!s[k]; });
         return s;
     }
 
@@ -216,7 +217,9 @@ $naskah = <<<'JS'
     }
 
     const peta = L.map('peta', { preferCanvas: true }).setView([SIP.peta.lat, SIP.peta.lon], SIP.peta.zoom);
-    const grup = { bidang: L.layerGroup(), blok: L.layerGroup(), laporan: L.layerGroup() };
+    const grup = {
+        bidang: L.layerGroup(), blok: L.layerGroup(), batas: L.layerGroup(), laporan: L.layerGroup()
+    };
 
     const dasar = {
         jalan: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -290,7 +293,7 @@ $naskah = <<<'JS'
         const isi = LEGENDA[setelan.warna] || LEGENDA.hak;
         document.getElementById('legendaPeta').innerHTML = isi.map(([w, t]) =>
             '<span><i style="background:' + w + '"></i>' + Sip.esc(t) + '</span>'
-        ).join('');
+        ).join('') + '<span><i class="contoh-batas-desa"></i>Batas desa (010500)</span>';
     }
 
     // L.LayerGroup tidak punya getBounds(), jadi batas dihitung dari lapisan anak.
@@ -441,6 +444,17 @@ $naskah = <<<'JS'
         });
     }
 
+    async function muatBatas() {
+        const data = await Sip.api('api/bidang.php', { query: { lapisan: 'batas' } });
+        grup.batas.clearLayers();
+        (data.features || []).forEach((f) => {
+            L.geoJSON(f, {
+                style: { color: '#1f4e79', weight: 2, dashArray: '8 5', fillOpacity: 0 },
+                interactive: false
+            }).addTo(grup.batas);
+        });
+    }
+
     async function muatLaporan() {
         const data = await Sip.api('api/bidang.php', { query: { lapisan: 'laporan' } });
         grup.laporan.clearLayers();
@@ -470,6 +484,7 @@ $naskah = <<<'JS'
         document.getElementById('labelBidang').checked = setelan.label;
         document.getElementById('tampilBidang').checked = setelan.bidang;
         document.getElementById('tampilBlok').checked = setelan.blok;
+        document.getElementById('tampilBatas').checked = setelan.batas;
         const kotakLaporan = document.getElementById('tampilLaporan');
         if (kotakLaporan) kotakLaporan.checked = setelan.laporan;
 
@@ -477,9 +492,13 @@ $naskah = <<<'JS'
         gambarLegenda();
         aktifkan('bidang', setelan.bidang);
         aktifkan('blok', setelan.blok);
+        aktifkan('batas', setelan.batas);
         aktifkan('laporan', setelan.laporan);
         if (setelan.blok && !grup.blok.getLayers().length) {
             muatBlok().catch((err) => Sip.pesan(err.message, 'gagal'));
+        }
+        if (setelan.batas && !grup.batas.getLayers().length) {
+            muatBatas().catch((err) => Sip.pesan(err.message, 'gagal'));
         }
         if (kotakLaporan && setelan.laporan && !grup.laporan.getLayers().length) {
             muatLaporan().catch((err) => Sip.pesan(err.message, 'gagal'));
@@ -497,6 +516,14 @@ $naskah = <<<'JS'
         aktifkan('blok', setelan.blok);
         if (setelan.blok && !grup.blok.getLayers().length) {
             muatBlok().catch((err) => Sip.pesan(err.message, 'gagal'));
+        }
+    });
+    document.getElementById('tampilBatas').addEventListener('change', (e) => {
+        setelan.batas = e.target.checked;
+        simpanSetelan();
+        aktifkan('batas', setelan.batas);
+        if (setelan.batas && !grup.batas.getLayers().length) {
+            muatBatas().catch((err) => Sip.pesan(err.message, 'gagal'));
         }
     });
     const kotakLaporan = document.getElementById('tampilLaporan');

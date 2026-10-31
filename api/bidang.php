@@ -6,6 +6,7 @@ declare(strict_types=1);
  *
  *   GET api/bidang.php?lapisan=bidang   -> GeoJSON FeatureCollection
  *   GET api/bidang.php?lapisan=blok     -> GeoJSON blok peta
+ *   GET api/bidang.php?lapisan=batas    -> GeoJSON garis batas desa (lapisan 010500)
  *   GET api/bidang.php?lapisan=laporan  -> GeoJSON titik laporan (hanya pengelola)
  *   GET api/bidang.php?cari=&dusun=     -> daftar ringkas untuk tabel/pencarian
  *   GET api/bidang.php?tanpa_blok=1     -> hanya bidang yang belum punya blok
@@ -51,6 +52,42 @@ try {
             ];
         }
         json_response(['type' => 'FeatureCollection', 'features' => $fitur]);
+    }
+
+    // ------------------------------------------------------------------ batas desa
+    // Cincin lapisan 010500 di arsip DXF adalah garis keliling desa (±6,7 km²),
+    // bukan persil, jadi memang tidak pernah masuk tabel bidang. Koordinatnya
+    // masih meter lokal DXF dan diterjemahkan dxfKeWgs84() di sini.
+    if ($lapisan === 'batas') {
+        require_once __DIR__ . '/../tools/lib-impor.php';
+        $berkas = SIP_ROOT . '/files/sig-pertanahan-gedong-lokal/data/dxf-layers/010500.geojson';
+        if (!is_file($berkas)) {
+            json_error('Berkas batas desa tidak ditemukan. Jalankan tools/konversi-dxf-lapisan.php.', 404);
+        }
+        $data = json_decode((string) file_get_contents($berkas), true);
+        $cincin = $data['features'][0]['geometry']['coordinates'][0] ?? null;
+        $garis = [];
+        if (is_array($cincin)) {
+            foreach ($cincin as $titik) {
+                if (!is_array($titik) || count($titik) < 2) {
+                    continue;
+                }
+                [$lon, $lat] = dxfKeWgs84((float) $titik[0], (float) $titik[1]);
+                $garis[] = [round($lon, 7), round($lat, 7)];
+            }
+        }
+        if (count($garis) < 4) {
+            json_error('Geometri batas desa tidak sah.', 500);
+        }
+        $garis[] = $garis[0];
+        json_response([
+            'type' => 'FeatureCollection',
+            'features' => [[
+                'type' => 'Feature',
+                'geometry' => ['type' => 'LineString', 'coordinates' => $garis],
+                'properties' => ['label' => 'Batas desa', 'sumber' => '010500'],
+            ]],
+        ]);
     }
 
     // ------------------------------------------------------------------ blok peta
