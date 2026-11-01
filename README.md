@@ -2096,6 +2096,105 @@ jejak `storage/pangkas-b23-b26-25-20261101-094648.json`. Menjalankan ulang
 `rapikan-garis-blok.php 25 --satukan` akan memasang lagi jembatan itu, jadi
 BLOK 23 jangan dirapikan ulang tanpa memikirkan pangkasan ini.
 
+**Tumpang BLOK 21 × 22 dipangkas (1 Nov 2026).** Kedua blok berbatas
+**perkiraan**. Irisan 14,55 m² itu 28 verteks dalam 1 ring yang berkelok
+sepanjang ±300 m, jadi tipisnya merata ±1,5 m di tepi bersama — sisa penghalusan,
+bukan koridor. Arah ditentukan isi bidang: BLOK 21 menutupi 12,95 m²
+(`DXF-BIDANGHM-0323` 6,55, `DXF-BIDANGHM-0123` 5,48, `DXF-BIDANGHM-0555` 0,61,
+`DXF-BIDANGHM-0774` 0,31) melawan BLOK 22 hanya 1,50 m² (`DXF-BIDANGHM-0161`);
+0,10 m² tidak bertuan. Dua arah pemangkasan diuji dan keduanya tetap 1 bagian,
+jadi keputusannya murni cakupan bidang. Garis BLOK 22 dipangkas:
+`ST_Difference(BLOK 22, BLOK 21)` → 61.513,1 menjadi 61.498,6 m², 1 bagian;
+irisan BLOK 22 dengan BLOK 21 tepat 0,000000 m² dan sisa irisan BLOK 22 dengan
+blok lain tinggal BLOK 22 × 23 (10,21 m², tidak berubah). Ongkosnya 1,50 m²:
+97 bidang BLOK 22 kini menyembul 6.099,95 → 6.101,45 m², sepersepuluh ongkos
+arah sebaliknya (BLOK 21 +12,95 m²). Tumpang antar-blok 64,35 → 49,80 m² di
+4 pasang; luas total 4.473.201,6 → 4.473.187,0 m²; 24 dari 25 blok 1 bagian
+(BLOK 23 tetap 2 bagian, 26 bagian total); bidang 4.397 (22 tanpa blok, 251
+bertitik tengah di luar blok). Cadangan penuh
+`storage/cadangan/sebelum-pangkas-b21-b22-20261101-095023-1535.sql` dan jejak
+`storage/pangkas-22-24-20261101-095023.json`. Sisa tumpang terbesar sekarang
+BLOK 21 × 23 (20,29 m²).
+
+**Tumpang BLOK 21 × 23 dipangkas (1 Nov 2026).** Kedua blok berbatas
+**perkiraan**; irisan 20,29 m² itu 33 verteks dalam 1 ring yang berkelok ±490 m,
+jadi lagi-lagi sliver tipis di tepi bersama. Cakupan bidang hampir imbang:
+BLOK 23 menutupi 10,47 m² (`DXF-020100-2192` 8,37 + `DXF-BIDANGHM-0763` 2,10)
+melawan BLOK 21 9,23 m² (`DXF-020100-0791` 3,64, `DXF-BIDANGHM-0459` 2,68,
+`DXF-BIDANGHM-0472` 2,21, `DXF-020100-1914` 0,60, `DXF-BIDANGHM-0822` 0,10);
+0,59 m² tidak bertuan. Karena imbang, arahnya dipilih dari ongkos, bukan cakupan
+mayoritas: memangkas BLOK 21 menambah penyembulan 9,23 m², memangkas BLOK 23
+10,47 m², dan keduanya tidak menambah bagian (BLOK 21 tetap 1, BLOK 23 tetap 2).
+Garis BLOK 21 dipangkas: `ST_Difference(BLOK 21, BLOK 23)` → 136.569,0 menjadi
+136.548,7 m², 1 bagian, dan BLOK 21 kini tidak beririsan dengan blok mana pun.
+Tumpang antar-blok 49,80 → 29,51 m² di 3 pasang; luas total 4.473.187,0 →
+4.473.166,7 m²; 24 dari 25 blok 1 bagian (BLOK 23 tetap 2 bagian, 26 bagian
+total); bidang 4.397 (22 tanpa blok, 251 bertitik tengah di luar blok). Ongkos:
+235 bidang BLOK 21 menyembul 12.995,58 → 13.004,81 m². Cadangan penuh
+`storage/cadangan/sebelum-pangkas-blok21-blok23-20261101-095144-131e.sql` dan
+jejak `storage/pangkas-23-25-20261101-095144.json`. Sisa tumpang terbesar
+sekarang BLOK 19 × 23 (19,25 m²), lalu BLOK 22 × 23 (10,21 m²).
+
+**Tumpang BLOK 19 × 23 dipangkas (1 Nov 2026).** Irisan 19,25 m² (35 verteks,
+1 ring, berkelok ±520 m) juga sliver tepi. Kedua blok berbatas **perkiraan**,
+tetapi kali ini isi bidangnya jelas: satu bidang BLOK 23 `DXF-020100-1508`
+menutupi 13,84 m² (72 %) melawan 5,31 m² dari tiga bidang BLOK 19
+(`DXF-BIDANGHM-0759` 4,03, `DXF-BIDANGHM-0244` 0,99, `DXF-BIDANGHM-0247` 0,28);
+0,11 m² tanpa bidang. Garis BLOK 19 dipangkas: `ST_Difference(BLOK 19, BLOK 23)`
+→ 177.282,7 menjadi 177.263,5 m², 1 bagian, dan BLOK 19 kini tidak beririsan
+dengan blok mana pun. Ongkos 5,31 m² (117 bidang, 16.468,94 → 16.474,25 m²;
+satu bidang tambahan menyembul), sepertiga ongkos arah sebaliknya (BLOK 23
++13,84 m²). Tumpang antar-blok 29,51 → 10,26 m² di 2 pasang; luas total
+4.473.166,7 → 4.473.147,5 m²; 24 dari 25 blok 1 bagian (BLOK 23 tetap
+2 bagian, 26 bagian total); bidang 4.397 (22 tanpa blok, 251 bertitik tengah
+di luar blok). Cadangan penuh
+`storage/cadangan/sebelum-pangkas-blok19-blok23-20261101-095253-59be.sql` dan
+jejak `storage/pangkas-22-25-20261101-095253.json`. Sisa tumpang tinggal
+BLOK 22 × 23 (10,21 m²) dan serpihan lama BLOK 16 × 8 (0,05 m²).
+
+**Tumpang BLOK 22 × 23 dipangkas (1 Nov 2026).** Pasangan terakhir yang berarti:
+irisan 10,21 m², 14 verteks dalam 1 ring (kotak 84 × 149 m), dan kali ini
+cakupannya sepihak — tiga bidang BLOK 23 menutupi 9,81 m² (96 %)
+(`DXF-BIDANGHM-0485` 5,30, `DXF-BIDANGHM-0346` 4,22, `DXF-020100-1491` 0,30)
+melawan 0,36 m² dari satu bidang BLOK 22 (`DXF-BIDANGHM-0031`); 0,03 m² tanpa
+bidang. Garis BLOK 22 dipangkas: 61.498,6 menjadi 61.488,4 m², 1 bagian, dan
+BLOK 22 kini bebas tumpang. Ongkosnya hanya +0,36 m² penyembulan (97 bidang,
+6.101,45 → 6.101,81 m²) melawan +9,81 m² bila BLOK 23 yang dipangkas.
+Tumpang antar-blok 10,26 → 0,05 m²; luas total 4.473.147,5 → 4.473.137,2 m²;
+24 dari 25 blok 1 bagian (BLOK 23 tetap 2 bagian, 26 bagian total); bidang
+4.397 (22 tanpa blok, 251 bertitik tengah di luar blok). Cadangan penuh
+`storage/cadangan/sebelum-pangkas-blok22-blok23-20261101-095353-69be.sql` dan
+jejak `storage/pangkas-24-25-20261101-095354.json`. Yang tersisa hanya serpihan
+lama BLOK 16 × 8 sebesar 0,0465 m² (9 verteks, 1 ring) yang sudah ada sebelum
+rangkaian pangkasan ini — praktis nol, tetapi belum bertuan.
+
+**Serpihan BLOK 16 × 8 ditutup (1 Nov 2026).** Tumpang terakhir ini lain sifatnya:
+bukan koridor `--satukan`, bukan pita sambung, melainkan sliver tipis hasil
+penghalusan Douglas–Peucker 1,5 m di tepi bersama — irisan 0,0465 m² dengan
+9 verteks dalam 1 ring, tetapi kotaknya 113 × 76 m (garisnya nyaris berimpit
+sepanjang puluhan meter) dan jarak tepi kedua blok 0,00 m. Aturan yang dipakai
+bukan lagi cakupan bidang, melainkan kewenangan garis: **BLOK 16 berbatas ukur**
+(127.671,5 m²), **BLOK 8 berbatas perkiraan** (166.592,2 m²), jadi garis BLOK 8
+yang dipangkas walaupun bidang BLOK 8 `DXF-020100-0496` justru menutupi seluruh
+serpihan (0,0464 m²) sedangkan BLOK 16 tidak punya bidang di situ. Alat pangkas
+dua blok secara bawaan memilih arah berkebalikan (cakupan bidang menunjuk
+BLOK 16), jadi arahnya dipaksa dengan `--pangkas="BLOK 8"`. Hasil:
+`ST_Difference(BLOK 8, BLOK 16)` → 166.592,2442 menjadi 166.592,1977 m², tetap
+1 bagian (2 cincin, 193 verteks), irisan sisa 0,0000, dan tidak ada tumpang baru
+dengan blok lain. Ongkosnya 0,0464 m² bidang `DXF-020100-0496` menyembul di luar
+garis BLOK 8. Cadangan penuh
+`storage/cadangan/sebelum-pangkas-blok16-blok8-20261101-095619-72d7.sql` dan
+jejak `storage/pangkas-19-4-20261101-095619.json` (berkas jejak dinamai dengan
+**id** blok: 19 = BLOK 8, 4 = BLOK 16).
+
+Sesudah langkah ini **tumpang antar-blok nol**: 0 pasang pada ambang 0,01 m²
+(sebelumnya 1 pasang/0,05 m²). Luas total 4.473.137,2 m², 26 bagian untuk
+25 blok, dan 24 dari 25 blok tetap 1 bagian (BLOK 23 sengaja 2 bagian sejak
+pangkasan BLOK 26 × 23); bidang 4.397 baris/4.396 aktif (22 tanpa blok, 251
+bertitik tengah di luar blok). Rangkaian pangkasan tumpang yang dimulai dari
+BLOK 16 × 17 (124,45 m²) berakhir di angka nol, dengan harga yang selalu
+dilaporkan: penyembulan bidang tipis di tiap blok yang dipangkas.
+
 Pengamanan alat: WKT diuji `ST_GeomFromText` sebelum cadangan dibuat, hasil kosong
 atau selisih luas >5% membatalkan seluruh proses kecuali `--paksa`, dan
 `--terapkan` selalu menulis cadangan penuh lebih dulu. Menjalankan ulang aman:
