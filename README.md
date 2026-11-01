@@ -2211,6 +2211,47 @@ hasil untuk dilihat di peta). Setiap run yang menulis membuat cadangan penuh dan
 jejak `storage/rapikan-blok-<id>-<waktu>.json` berisi geometri sebelum dan
 sesudah (pulihkan dengan `geojsonKeWkt()` dari `tools/lib-impor.php`).
 
+### 3.27 Identitas bidang hasil impor ulang: nama, NIS, NIB, nomor daftar, jenis hak
+
+Angka di §3.12, §3.13, §3.14, §3.15 dan §3.17 berasal dari basis data **sebelum**
+impor ulang 31 Oktober 2026 (3.654–4.045 bidang hidup). Setelah dataset sekarang
+(4.397 bidang) dipasang, seluruh kolom identitas kembali kosong: `nib`, `nis` dan
+`nomor_daftar` 0, `hak.pemegang_nama` 0, `pemegang` 0, dan jenis hak semua `BLM`.
+Bagian ini mencatat pengisian ulangnya pada 1 November 2026, berurutan, setelah
+cadangan penuh `storage/cadangan/sebelum-identitas-bidang-20261101-100004-9e84.sql`
+(3.165.993 byte, 17 tabel) dibuat. Setiap perintah menulis cadangan JSON sendiri
+dan satu baris `audit_log`.
+
+| Perintah | Label dibaca | Bidang terisi | Catatan |
+| --- | --- | --- | --- |
+| `nama` | 4.302 (`tn_nama`) | 1.018 dari 1.055 bidang tanah hidup | 1.005 lewat aturan `label`, 10 `tepi`, 3 `terdekat`, 0 `kembaran` |
+| `nama-verifikasi` | 4.302 (`tn_nama`) | 3.015 bidang tipe `lain` | 1.004 bidang tanah sudah didahului `nama`; 94 bidang memuat dua nama atau lebih; 377 sasaran tanpa label; 0 rebut |
+| `nis` | 2.832 (`tn_alashak`) | 2.359 | 2.342 sasaran kebagian label, 17 dipinjam dari label tepi ≤2 m; 248 bidang memuat lebih dari satu NIS; 0 sengketa tepi |
+| `nib` | 1.629 (`NIB HM`) | 1.393 | 45 bidang tidak diisi karena nomornya ganda, 28 label bukan nomor |
+| `daftar` | 3.154 (`080201`) | 2.902 di `nomor_daftar` | 2.901 tepat di dalam, 1 dari label tepi; 17 tidak diisi karena nomor ganda |
+| `hak-milik` | — | 4.350 bidang `BLM` → `HM` | 46 bidang dikecualikan karena tertumpuk anotasi petugas (gang, tanah desa, bengkok, masjid) dan tidak punya nama orang; 0 baris hak baru, 0 nomor sertifikat/Buku C yang tersentuh |
+
+Hasil akhir: **4.033 dari 4.396 bidang hidup bernama (91,7 %)**, `nib` 1.393,
+`nis` 2.359, `nomor_daftar` 2.902, dan jenis hak 4.350 Hak Milik + 46 "Jenis hak
+tidak tercatat" (semuanya kulit penutup celah ujung peta yang juga beranotasi).
+Status seluruh bidang tetap `perlu_verifikasi`; 363 bidang masih tanpa nama.
+Nama disimpan di `hak.pemegang_nama`, bukan di tabel `pemegang` (masih 0 baris) —
+tabel itu untuk identitas orang yang dipakai SPPT, jadi mengisinya menunggu data
+wajib pajak. `sppt`, `objek_pajak`, `buku_c` dan `pembayaran` tetap 0.
+
+Dua hal sengaja belum dijalankan. `kode-nis` (mengganti kode `DXF-…` menjadi
+`HM-<nis>`) akan mengubah kunci yang dipakai seluruh tautan peta dan audit, jadi
+butuh keputusan tersendiri. `nama` juga hanya menyentuh bidang `tipe = 'tanah'`;
+bidang `lain` diurus `nama-verifikasi` dengan aturan `label` saja. Seperti
+sebelumnya, API publik menyamarkan nama pemegang menjadi `"tersimpan"` lewat
+`sembunyikan_pribadi()`, sehingga tampilan anonim hanya memperlihatkan nomor
+bidang, luas, blok, NIS, NIB dan nomor daftar.
+
+Enam cadangan per perintah ada di `storage/nama-pemegang-20261101-100013.json`,
+`nama-verifikasi-20261101-100102.json`, `nis-bidang-20261101-100317.json`,
+`nib-bidang-20261101-100453.json`, `nomor-daftar-20261101-100456.json` dan
+`hak-milik-20261101-100459.json`; `audit_log` bertambah 6 baris (75 → 81).
+
 ---
 
 ## 4. Berkas SPPT dari Excel
