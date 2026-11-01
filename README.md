@@ -1903,6 +1903,20 @@ Dua anomali data yang dibiarkan dan wajib dilaporkan, bukan diperbaiki diam-diam
   jadi tidak disambung dan tidak dipotong; dilaporkan sebagai kandidat salah
   penugasan bidang.
 
+**Batch kedua: 17 blok berbatas ukur (1 Nov 2026).** Atas permintaan
+"terapkan perapian ke semua blok yang belum diproses", sisa blok yang belum
+disentuh (2, 4–7, 9, 10, 12–16, 18, 20, 24–26) ikut dijalankan. Semuanya sudah
+1 bagian, 0 lubang, dan 0 cincin memotong diri, jadi langkah sambung tidak
+aktif; yang berubah hanya penghalusan (2.325 → 1.200 titik, −48%) dan potong
+tumpang 170,2 m². Luas bergeser antara −0,13% dan +0,14%, semuanya di bawah
+penjaga 5%. Karena ini garis ukur, toleransi 1,5 m menggeser tepi paling jauh
+1,5 m — bisa dipulihkan dari cadangan
+`storage/cadangan/sebelum-rapikan-blok-2-4-5-6-7-9-10-12-13-14-15-16-18-20-24-25-26-20261101-084328-1067.sql`
+(3,1 MB) atau per blok dari jejak `storage/rapikan-blok-<id>-20261101-084329.json`.
+Setelah dua batch: 25 blok, 39 bagian (semuanya dari 8 blok perkiraan), 3.728
+titik, tumpang antar-blok 1,34 m² (BLOK 21 × 23), dan 255 bidang yang titik
+tengahnya di luar bloknya (turun dari 257).
+
 Pengamanan alat: WKT diuji `ST_GeomFromText` sebelum cadangan dibuat, hasil kosong
 atau selisih luas >5% membatalkan seluruh proses kecuali `--paksa`, dan
 `--terapkan` selalu menulis cadangan penuh lebih dulu. Menjalankan ulang aman:
