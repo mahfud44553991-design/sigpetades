@@ -410,6 +410,7 @@ input[readonly], input:disabled, select:disabled, textarea:disabled { background
     .peta-wadah #peta { height: 440px; }
     .chip-lapisan { font-size: 11px; padding: 5px 9px; }
     .legenda-peta { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+    .label-blok span { font-size: 8.5px; padding: 1px 5px; }
 }
 
 @media print {

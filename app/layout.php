@@ -22,6 +22,13 @@ function menu_utama(): array
     ];
 }
 
+/** Penanda versi berkas aset agar peramban tidak memakai CSS/JS lama. */
+function sip_versi_aset(string $berkas): string
+{
+    $jalan = SIP_ROOT . '/' . ltrim($berkas, '/');
+    return is_file($jalan) ? '?v=' . filemtime($jalan) : '';
+}
+
 function sip_header(string $judul, string $aktif = '', array $opsi = []): void
 {
     $pengguna = pengguna_aktif();
@@ -42,7 +49,7 @@ function sip_header(string $judul, string $aktif = '', array $opsi = []): void
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Caveat:wght@600&display=swap">
     <?= $leafletCss ?>
-    <link rel="stylesheet" href="<?= e($base) ?>/assets/css/app.css">
+    <link rel="stylesheet" href="<?= e($base) ?>/assets/css/app.css<?= e(sip_versi_aset('assets/css/app.css')) ?>">
 </head>
 <body class="halaman-<?= e($aktif ?: 'umum') ?>">
 <header class="bilah-atas">
@@ -141,7 +148,7 @@ function sip_footer(array $opsi = []): void
 
 <?= $leafletJs ?>
 <script>window.SIP = <?= json_encode($konstanta, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
-<script src="<?= e($base) ?>/assets/js/app.js"></script>
+<script src="<?= e($base) ?>/assets/js/app.js<?= e(sip_versi_aset('assets/js/app.js')) ?>"></script>
 <?= $opsi['kaki'] ?? '' ?>
 </body>
 </html>

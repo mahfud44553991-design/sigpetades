@@ -57,27 +57,27 @@ sip_judul(
 
             <div class="lapisan-peta" role="group" aria-label="Lapisan peta">
                 <label class="chip-lapisan">
-                    <input type="checkbox" id="tampilBidang" checked>
+                    <input type="checkbox" id="tampilBidang" autocomplete="off" checked>
                     <i style="background:#1f9d4d"></i>Bidang tanah
                     <b><?= e(angka((int) $ringkas['tanah'])) ?></b>
                 </label>
                 <label class="chip-lapisan">
-                    <input type="checkbox" id="tampilLain">
+                    <input type="checkbox" id="tampilLain" autocomplete="off">
                     <i style="background:#8a7a66"></i>Obyek non-tanah
                     <b><?= e(angka((int) $ringkas['lain'])) ?></b>
                 </label>
                 <label class="chip-lapisan">
-                    <input type="checkbox" id="tampilBlok" checked>
+                    <input type="checkbox" id="tampilBlok" autocomplete="off" checked>
                     <i class="contoh-batas-blok"></i>Batas blok
                     <b><?= e(count($blok)) ?></b>
                 </label>
                 <label class="chip-lapisan">
-                    <input type="checkbox" id="tampilBatas" checked>
+                    <input type="checkbox" id="tampilBatas" autocomplete="off" checked>
                     <i class="contoh-batas-desa"></i>Batas desa
                 </label>
                 <?php if ($kelola): ?>
                     <label class="chip-lapisan">
-                        <input type="checkbox" id="tampilLaporan">
+                        <input type="checkbox" id="tampilLaporan" autocomplete="off">
                         <i style="background:#b42318"></i>Titik laporan
                         <b><?= e(angka($jmlLaporan)) ?></b>
                     </label>
@@ -188,12 +188,12 @@ sip_judul(
             <div class="lapangan">
                 <label for="kepekatan">Kepekatan isian bidang</label>
                 <div class="kepekatan-baris">
-                    <input id="kepekatan" type="range" min="0" max="60" step="1" value="26">
-                    <output id="nilaiKepekatan" for="kepekatan">26%</output>
+                    <input id="kepekatan" type="range" min="0" max="60" step="1" value="38">
+                    <output id="nilaiKepekatan" for="kepekatan">38%</output>
                 </div>
             </div>
-            <label class="cek jarak-atas"><input type="checkbox" id="labelBidang"> Tampilkan kode bidang</label>
-            <label class="cek"><input type="checkbox" id="labelBlok" checked> Tampilkan nama blok</label>
+            <label class="cek jarak-atas"><input type="checkbox" id="labelBidang" autocomplete="off"> Tampilkan kode bidang</label>
+            <label class="cek"><input type="checkbox" id="labelBlok" autocomplete="off" checked> Tampilkan nama blok</label>
             <p class="petunjuk">Nama blok hanya tampil pada zoom dekat (14 ke atas) agar tidak bertumpuk.</p>
             <div class="baris-tombol jarak-atas">
                 <button class="tombol" type="button" id="simpanTampilan">Simpan tampilan peta</button>
@@ -224,7 +224,7 @@ $naskah = <<<'JS'
     'use strict';
     const KUNCI = 'sip.peta.pengaturan.v2';
     const BAWAAN = {
-        dasar: 'jalan', warna: 'blok', kepekatan: 26, label: false, labelBlok: true,
+        dasar: 'jalan', warna: 'blok', kepekatan: 38, label: false, labelBlok: true,
         bidang: true, lain: false, blok: true, batas: true, laporan: false, tampilan: null
     };
     const MODE = ['blok', 'tipe', 'hak', 'pbb', 'status'];
@@ -657,6 +657,7 @@ $naskah = <<<'JS'
                 interactive: false, keyboard: false
             }).addTo(grup.blok);
         });
+        rapikanLabelBlok();
     }
 
     async function muatBatas() {
@@ -693,10 +694,28 @@ $naskah = <<<'JS'
         else peta.removeLayer(grup[nama]);
     }
 
+    // Pada tampilan seluruh desa 25 nama blok saling bertumpuk di layar sempit.
+    // Label yang bertabrakan disembunyikan; zoom lebih dekat memunculkannya lagi.
+    function rapikanLabelBlok() {
+        if (!setelan.labelBlok || peta.getZoom() < ZOOM_LABEL) return;
+        const kotak = [];
+        document.querySelectorAll('#peta .label-blok span').forEach((span) => {
+            span.style.visibility = '';
+            const r = span.getBoundingClientRect();
+            if (!r.width || !r.height) return;
+            if (kotak.some((k) => r.left < k.right && k.left < r.right && r.top < k.bottom && k.top < r.bottom)) {
+                span.style.visibility = 'hidden';
+                return;
+            }
+            kotak.push(r);
+        });
+    }
+
     function perbaruiZoom() {
         const wadah = peta.getContainer();
         wadah.classList.toggle('peta-dekat', peta.getZoom() >= ZOOM_LABEL);
         wadah.classList.toggle('tanpa-label-blok', !setelan.labelBlok);
+        rapikanLabelBlok();
     }
 
     function terapkanSetelan() {
@@ -890,6 +909,8 @@ $naskah = <<<'JS'
     });
 
     peta.on('zoomend', perbaruiZoom);
+    window.addEventListener('resize', rapikanLabelBlok);
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(rapikanLabelBlok);
     L.control.scale({ imperial: false, position: 'bottomleft', maxWidth: 120 }).addTo(peta);
 
     if (setelan.tampilan && typeof setelan.tampilan.lat === 'number' && typeof setelan.tampilan.lon === 'number') {
