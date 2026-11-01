@@ -1950,6 +1950,33 @@ dulu menghasilkan WKT kosong sehingga sambungan putus meski dilaporkan
 "disambung" (BLOK 19 berhenti di 2 bagian). Sekarang titik terdekat yang sama
 dipakai sebagai titik tengah pita pendek 0,6 × 1,5 m.
 
+**Kantong 443 m² BLOK 3 dipindah ke BLOK 8 (1 Nov 2026).** Kantong itu bidang
+`DXF-020100-2059` (id 2647, 443,1 m²) yang menempel pada 3 bidang BLOK 8
+(jarak 0,00 m) dan hanya 1,09 m dari bidang BLOK 3; garis hubungnya ke badan
+BLOK 3 menembus 26,1 m wilayah BLOK 8. Bidang dipindah dengan
+`php tools/impor.php ubah-blok 8 DXF-020100-2059 --terapkan`.
+
+Membangun ulang kedua batas dengan `impor.php kira 3 8 --tepat` **tidak dipakai**:
+uji keringnya membengkakkan luas (BLOK 3 +7% menjadi 238.207 m², BLOK 8 +15%
+menjadi 189.087 m²) karena garis blok lama tidak pernah dibangun dari seluruh
+anggota yang sekarang. Jadi geometri dibedah langsung: bagian kantong dibuang
+dari garis BLOK 3 hasil rapikan sebelumnya (5 → 4 bagian), parcelnya di-union ke
+garis BLOK 8 (hasil `POLYGON` dibungkus `MULTIPOLYGON` karena tipe kolom), lalu
+`rapikan-garis-blok.php 3 8 --satukan` dijalankan ulang. Cadangan per blok
+`storage/kantong-443-<id>-*.json` dan cadangan penuh
+`storage/cadangan/sebelum-kantong-443-20261101-085636-bfb2.sql`.
+
+Hasil: BLOK 3 222.628,4 → 222.082,1 m² (−546,3; 1 bagian, 466 titik, cincin
+memotong diri 1 → 0, hanya 3 jembatan lintas jalan), BLOK 8 164.722,8 → 165.184,7
+m² (+461,9; 1 bagian, 180 titik, lubang tetap 1). Luas total 4.473.616,3 m².
+Tumpang antar-blok turun 472,07 → 403,48 m²: BLOK 3 × 8 65,78 → 26,74 m² dan
+BLOK 8 × 17 37,07 → 33,82 m²; sisa 26,74 m² itu setebal tepi hasil penghalusan,
+bukan koridor lagi. Titik tengah bidang 2647 kini di dalam BLOK 8, dan jumlah
+bidang yang titik tengahnya di luar bloknya tetap 251. Cadangan penuh sebelum
+perapian ulang `storage/cadangan/sebelum-rapikan-blok-3-8-20261101-085856-a0a6.sql`,
+jejak `storage/rapikan-blok-18-20261101-085856.json` dan
+`storage/rapikan-blok-19-20261101-085856.json`.
+
 Pengamanan alat: WKT diuji `ST_GeomFromText` sebelum cadangan dibuat, hasil kosong
 atau selisih luas >5% membatalkan seluruh proses kecuali `--paksa`, dan
 `--terapkan` selalu menulis cadangan penuh lebih dulu. Menjalankan ulang aman:
