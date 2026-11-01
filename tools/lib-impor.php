@@ -2993,6 +2993,11 @@ const NAMA_TOLERANSI_M = 2.0;
  *  tetangga yang bergeser, bukan nama bidang kosong ini. */
 const NAMA_JANGKAU_M = 10.0;
 
+/** Selisih jarak minimal supaya bidang lain dianggap "sama dekat" atas sebuah
+ *  label. Konversi DXF ke WGS84 punya RMS 1,2 m, jadi selisih di bawah 1 m
+ *  belum bisa dipakai untuk memilih pemenang. */
+const NAMA_MARGIN_PESAING_M = 1.0;
+
 /** Bidang yang kebagian lebih dari sekian label tidak lagi bisa dibaca sebagai
  *  satu pemegang: ukurannya tanda bangunan umum (kantor desa, balai) yang
  *  dilingkungi bidang milik banyak orang. Nama begitu jangan ditulis. */
@@ -3093,9 +3098,13 @@ function namaDariTepi(array $label, array $sudah): array
  */
 function namaTerdekat(array $label, array $sudah): array
 {
-    $derajat = NAMA_JANGKAU_M / 111320.0;
+    // Jangkauan diukur dari tepi poligon, jadi saringan awal memakai kotak
+    // bidang yang dilebarkan — bukan pusatnya. Pusat bidang besar bisa jauh
+    // lebih dari 10 m dari label yang sebenarnya hanya 5 m dari tepinya.
+    $padding = NAMA_JANGKAU_M / 110000.0;
     $kosong = db_all(
-        "SELECT b.id, b.pusat_lon AS lon, b.pusat_lat AS lat
+        "SELECT b.id, b.pusat_lon AS lon, b.pusat_lat AS lat,
+                ST_AsText(ST_Envelope(b.geom)) AS kotak
            FROM bidang b LEFT JOIN hak h ON h.bidang_id = b.id
           WHERE b.tipe = 'tanah' AND b.status NOT IN ('dihapus', 'duplikat')
             AND (h.pemegang_nama IS NULL OR h.pemegang_nama = '')"
@@ -3117,13 +3126,31 @@ function namaTerdekat(array $label, array $sudah): array
         if (isset($sudah[$id])) {
             continue;
         }
+        $kiri = $kanan = $bawah = $atas = null;
+        if (preg_match_all('/(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/', (string) $b['kotak'], $titik,
+                PREG_SET_ORDER)) {
+            foreach ($titik as $t) {
+                $x = (float) $t[1];
+                $y = (float) $t[2];
+                $kiri = $kiri === null ? $x : min($kiri, $x);
+                $kanan = $kanan === null ? $x : max($kanan, $x);
+                $bawah = $bawah === null ? $y : min($bawah, $y);
+                $atas = $atas === null ? $y : max($atas, $y);
+            }
+        }
         $nama = [];
         foreach ($label as $l) {
             if ($l['bidang_id'] !== null) {
                 continue;                   // label ini sudah jadi nama bidangnya sendiri
             }
-            if (abs($l['lon'] - (float) $b['lon']) > $derajat
-                || abs($l['lat'] - (float) $b['lat']) > $derajat) {
+            if ($kiri === null) {
+                // jaring pengaman bila ST_Envelope tidak terbaca
+                if (abs($l['lon'] - (float) $b['lon']) > $padding
+                    || abs($l['lat'] - (float) $b['lat']) > $padding) {
+                    continue;
+                }
+            } elseif ($l['lon'] < $kiri - $padding || $l['lon'] > $kanan + $padding
+                || $l['lat'] < $bawah - $padding || $l['lat'] > $atas + $padding) {
                 continue;
             }
             $jarak->execute([(float) $l['lon'], (float) $l['lat'], $id]);
@@ -3131,7 +3158,8 @@ function namaTerdekat(array $label, array $sudah): array
             if ($meter === false || (float) $meter > NAMA_JANGKAU_M) {
                 continue;
             }
-            $pesaing->execute([$id, (float) $l['lon'], (float) $l['lat'], (float) $meter]);
+            $pesaing->execute([$id, (float) $l['lon'], (float) $l['lat'],
+                (float) $meter + NAMA_MARGIN_PESAING_M]);
             if ((int) $pesaing->fetchColumn() > 0) {
                 continue;                   // ada bidang lain yang lebih berhak atas label ini
             }

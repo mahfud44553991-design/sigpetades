@@ -658,7 +658,7 @@ yang paling pasti:
 | --- | --- | --- |
 | `label` | titik sisip jatuh di dalam poligon bidang hidup (`ST_Contains`; poligon terkecil kalau bertumpuk) | 1.243 |
 | `tepi` | label tidak jatuh di mana pun, tapi kurang dari 2 m dari **satu-satunya** bidang hidup | 11 |
-| `terdekat` | label tidak jatuh di mana pun dan tak lolos aturan tepi, tapi kurang dari 10 m dari satu bidang tanpa nama yang tidak bersaing dengan bidang hidup mana pun atas label itu, dan bidang itu hanya punya satu nama semacam ini | 4 |
+| `terdekat` | label tidak jatuh di mana pun dan tak lolos aturan tepi, tapi kurang dari 10 m dari satu bidang tanpa nama yang tidak bersaing dengan bidang hidup mana pun atas label itu, dan bidang itu hanya punya satu nama semacam ini. Sejak 2 November 2026 jarak disaring lewat kotak tepi bidang (bukan titik tengah) dan pesaing harus lebih jauh ≥1 m — lihat 3.32 | 4 |
 | `kembaran` | bidang tidak berlabel, poligonnya identik (`ST_Equals`) dengan bidang hidup lain yang sudah bernama | 28 |
 
 Label yang bukan nama orang disaring lebih dulu (`namaLayak`): di lapisan itu juga
@@ -2234,7 +2234,9 @@ dan satu baris `audit_log`.
 Hasil akhir: **4.033 dari 4.396 bidang hidup bernama (91,7 %)**, `nib` 1.393,
 `nis` 2.359, `nomor_daftar` 2.902, dan jenis hak 4.350 Hak Milik + 46 "Jenis hak
 tidak tercatat" (semuanya kulit penutup celah ujung peta yang juga beranotasi).
-Status seluruh bidang tetap `perlu_verifikasi`; 363 bidang masih tanpa nama.
+Status seluruh bidang tetap `perlu_verifikasi`; 363 bidang masih tanpa nama
+(per 2 November 2026 tinggal 358: 326 objek non-tanah + 32 bidang tanah, lihat
+3.32).
 Nama disimpan di `hak.pemegang_nama`, bukan di tabel `pemegang` (masih 0 baris) —
 tabel itu untuk identitas orang yang dipakai SPPT, jadi mengisinya menunggu data
 wajib pajak. `sppt`, `objek_pajak`, `buku_c` dan `pembayaran` tetap 0.
@@ -2390,6 +2392,86 @@ nama, jadi harus dicocokkan petugas lewat layar bidang (kartu "Calon NOP")
 atau `php tools/impor.php taut <kode-bidang> <nop> --terapkan`. Jangan
 menjalankan penautan massal untuk skor di bawah 3: contoh nyatanya
 "BENI SETIAWAN" sempat tercocokkan dengan NOP "BUDI SETIAWAN".
+
+### 3.31 Tiga belas bidang tanpa blok dipasang, sembilan ditunda
+
+Dua puluh dua bidang yang tersisa tanpa blok sejak 31 Oktober diperiksa ulang
+pada 2 November 2026 dengan tiga bukti: luas irisan dengan tiap blok kandidat,
+jarak garis bidang ke blok terdekat, dan blok tempat NOP bernama persis atau
+bidang senama berada. Aturannya: pilih blok dengan irisan terbesar asalkan blok
+itu juga terdekat dari titik tengah atau ditopang NOP/bidang senama; bila
+bidang hanya menempel satu blok, blok itu dipakai kalau sama dengan blok
+terdekat. **Tiga belas bidang dipasang**, sembilan ditunda karena buktinya
+bertentangan.
+
+| Blok | Bidang |
+|------|--------|
+| BLOK 8 | `DXF-020100-3230`, `DXF-020100-3249`, `DXF-BIDANGHM-0984` |
+| BLOK 17 | `DXF-020100-3278` |
+| BLOK 19 | `DXF-BIDANGHM-0981` |
+| BLOK 20 | `DXF-020100-3186` |
+| BLOK 21 | `DXF-020100-3187`, `DXF-020100-3203`, `DXF-BIDANGHM-0980` |
+| BLOK 23 | `DXF-020100-3235`, `DXF-020100-3247`, `DXF-020100-3253`, `DXF-BIDANGHM-0985` |
+
+Hasil: **9 bidang tanpa blok** (dari 22), total tetap 4.397 baris (4.387 aktif
+ber-blok + 9 tanpa blok + 1 berstatus duplikat), `audit_log` bertambah 13.
+Cadangan penuh `storage/cadangan/sebelum-blok-22-20261102-061528-5b3c.sql`
+(5.087.542 byte, 17 tabel) dan jejak `ubah-blok` per bidang di `storage/`.
+
+Sembilan yang **sengaja belum dipasang**, semuanya menunggu keputusan petugas:
+`DXF-020100-3176` (terisolasi, 724 m dari blok terdekat), `3177` (menempel
+BLOK 17 tetapi BLOK 25 hanya 3,4 m), `3181` (menempel 17, terdekat 18, tiga
+bidang senama di 25), `3213` (menempel 3 dan 8; NOP persis serta lima bidang
+senama di 8), `3242` (menempel 21, terdekat 23), `3275` (tumpang BLOK 8 hanya
+4 m², NOP persis di BLOK 9), `3295` (menempel 21 dan 23, NOP persis di 23),
+`3308` (menempel 19 dan 23, tanpa NOP/senama), dan `DXF-BIDANGHM-0987` (tidak
+menempel blok mana pun, 8,3 m dari BLOK 21 dan 22).
+
+### 3.32 Nama pemegang: lima bidang terbantu perbaikan saringan label
+
+Dari 363 bidang tanpa nama, **326 adalah objek non-tanah** (`tipe = 'lain'`:
+jalan, saluran, anotasi peta) yang memang tidak punya pemegang, dan hanya **37
+bidang tanah**. Aturan label peta sudah habis (`akan_diisi = 0`), sedangkan NIS
+dan NIB tidak menolong: dari 37 bidang itu hanya 2 punya NIS dan tidak ada satu
+pun yang cocok dengan bidang bernama.
+
+**Penyebabnya saringan awal yang salah acuan.** `namaTerdekat()` menyaring label
+dengan kotak ±10 m di sekitar **titik tengah** bidang, padahal jarak 10 m
+diukur dari **tepi poligon**. Pada bidang besar kedua ukuran itu jauh berbeda:
+`DXF-BIDANGHM-0011` (5.389 m²) punya label ERIK 5,8 m dari tepinya tetapi 51 m
+dari pusatnya, jadi label itu tidak pernah diperiksa. Sekarang saringan memakai
+kotak bidang (`ST_Envelope`) yang dilebarkan 10 m. Aturan pesaing juga diberi
+`NAMA_MARGIN_PESAING_M = 1,0` m: bidang lain yang jaraknya kurang dari 1 m dari
+label dianggap sama berhak, karena konversi DXF ke WGS84 sendiri punya RMS
+1,2 m. Periksa kering sebelum perbaikan: 0 bidang; sesudahnya: **5 bidang**.
+
+Lima bidang yang diisi, semuanya lewat aturan `terdekat`:
+
+| Bidang | Blok | Nama | Label (m) | Bidang lain terdekat (m) |
+|--------|------|------|-----------|--------------------------|
+| `DXF-BIDANGHM-0381` | 16 | ROHATI | 8,6 | 19,8 |
+| `DXF-BIDANGHM-0536` | 21 | KUSBARYONO | 7,2 | 18,1 |
+| `DXF-BIDANGHM-0749` | 20 | DWIYANTO | 4,9 | 7,0 |
+| `DXF-BIDANGHM-0791` | 8 | KARTONO | 6,7 | 13,3 |
+| `DXF-BIDANGHM-0792` | 20 | BUTUK S | 9,9 | 19,6 |
+
+Hasil: bidang tanah bernama **1.018 → 1.023** dari 1.055, yang tanpa nama
+**37 → 32** (total tanpa nama 363 → 358). Tidak ada nama lama yang ditimpa
+(`berebut = 0`), tidak ada label yang diambil dari bidang bernama, dan perintah
+kini idempoten (`akan_diisi = 0` bila diulang). `audit_log` bertambah satu baris
+(#254). Cadangan penuh `storage/cadangan/sebelum-nama-5-20261102-062032-4166.sql`
+(5.091.291 byte, 17 tabel) dan jejak `storage/nama-pemegang-20261102-062042.json`.
+
+**32 bidang sisanya menunggu pemeriksaan lapangan**, bukan diisi otomatis:
+20 bidang tidak punya label bebas dalam 10 m sama sekali; 11 bidang punya label
+≤10 m tetapi bidang lain jelas lebih dekat (mis. `0880` PAINEM 7,2 m vs `0370`
+4,3 m); `0794` beda jarak hanya 0,01 m dengan `0814` sehingga masuk margin; dan
+`0011` justru punya **dua** label tanpa pesaing (ERIK 5,8 m dan SLAMET KATENG
+7,0 m) sehingga harus ditanyakan mana pemegangnya, atau apakah bidang itu
+memang tanah bersama. Daftarnya, lengkap dengan koordinat, luas, NIS/NIB,
+jumlah NOP belum tertaut di bloknya, label terdekat, dan tautan peta:
+`storage/nama-verifikasi-lapangan-20261102.csv` (32 baris) serta versi JSON
+`storage/nama-verifikasi-lapangan-20261102.json`.
 
 ---
 
