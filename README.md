@@ -2045,8 +2045,56 @@ m² di 6 pasang, luas total 4.473.310,0 → 4.473.252,6 m², 25 blok tetap
 Cadangan penuh `storage/cadangan/sebelum-pangkas-b3-20261101-091848-7aed.sql`
 dan jejak `storage/pangkas-b3-18-20261101-091849.json`. Sama seperti BLOK 19,
 `rapikan-garis-blok.php 3 --satukan` bisa memunculkan bulge baru di tepi BLOK 7,
-jadi setelah dijalankan pangkasan ini perlu diulang. Sisa tumpang terbesar
-sekarang BLOK 3 × 8 (26,74 m²).
+jadi setelah dijalankan pangkasan ini perlu diulang.
+
+**Tumpang BLOK 3 × 8 dipangkas (1 Nov 2026).** Kedua blok berbatas **perkiraan**,
+jadi tidak ada garis ukur yang otomatis dianggap benar. Yang menentukan siapa
+berhak atas 26,74 m² itu isi bidangnya: 21,80 m² (81,5%) ditutupi dua bidang
+BLOK 8 (`DXF-020100-0897` 13,37 m² dan `DXF-020100-1536` 8,43 m²), sedangkan
+bidang BLOK 3 hanya memakai 4,95 m² (`DXF-020100-2897` 3,08,
+`DXF-BIDANGHM-0292` 1,36, `DXF-BIDANGHM-0417` 0,51). Wilayah itu milik BLOK 8,
+jadi garis BLOK 3 yang dipangkas: `ST_Difference(BLOK 3, BLOK 8)` → 222.024,7
+menjadi 221.998,0 m², tetap 1 bagian (473 titik). Tumpang BLOK 3 × 8 26,74 → 0,
+dan karena pasangan itulah satu-satunya sisa, BLOK 3 kini tidak beririsan dengan
+blok mana pun. Tumpang antar-blok 115,35 → 88,60 m² di 5 pasang; luas total
+4.473.252,6 → 4.473.225,9 m²; 25 blok tetap 1 bagian; bidang 4.397 (22 tanpa
+blok, 251 bertitik tengah di luar blok). Ongkosnya kecil: bidang yang menyembul
+di luar garis BLOK 3 bertambah 4,95 m² (220 bidang, 21.439,9 → 21.444,9 m²).
+Cadangan penuh `storage/cadangan/sebelum-pangkas-b3-b8-20261101-093821-0189.sql`
+dan jejak `storage/pangkas-b3-b8-18-20261101-093822.json`. Sisa tumpang terbesar
+saat itu BLOK 26 × 23 (24,30 m²).
+
+**Tumpang BLOK 26 × 23: jembatan `--satukan` melintasi blok ukur (1 Nov 2026).**
+Irisannya persegi panjang 1,5 m × 16 m (24,30 m²), bukan sliver penghalusan.
+Jejak `storage/rapikan-blok-25-20261101-085219.json` menunjukkan BLOK 23 tadinya
+8 bagian dan disatukan dengan 7 jembatan bertoleransi 1,5 m; salah satu jembatan
+itu — penyambung kantong selatan 30.184 m² ke badan utara — melintasi BLOK 26.
+BLOK 26 berbatas **ukur**, dan 22,90 m² (94,2 %) dari irisan ditutupi bidang
+BLOK 26 `DXF-BIDANGHM-0848`, sedangkan tidak ada satu pun bidang BLOK 23 di
+irisan itu. Dua arah pemangkasan diukur lebih dulu: memangkas BLOK 26 memecahnya
+menjadi 2 bagian di leher selebar 16 m dan menambah penyembulan bidang 22,91 m²,
+memangkas BLOK 23 tidak membebani bidang mana pun. Jadi garis BLOK 23 yang
+dipangkas: `ST_Difference(BLOK 23, BLOK 26)` → 259.482,5 menjadi 259.458,2 m²,
+irisan dengan BLOK 26 tepat 0,000000 m² dan kedua tepi hanya bersentuhan (0,00 m).
+
+Konsekuensinya BLOK 23 kini **2 bagian**: kantong selatan 30.184 m² berisi 3
+bidang (`DXF-BIDANGHM-0002` 12.532,15, `DXF-020100-0014` 10.000,16,
+`DXF-BIDANGHM-0008` 7.299,55) terpisah 16,05 m dari badan utama. Itu keadaan
+jujurnya — satu-satunya penghubung adalah jembatan buatan `--satukan`, dan
+koridor pengganti di luar BLOK 26 memang tidak ada. Jadi 24 dari 25 blok
+1 bagian dan BLOK 23 2 bagian (26 bagian total); target "semua 1 bagian" di
+batch ketiga sengaja dilepas di titik ini karena hanya begitu tumpangnya bisa
+nol tanpa memotong garis ukur.
+
+Tumpang antar-blok 88,60 → 64,30 m² di 4 pasang (BLOK 26 × 23 hilang; sisanya
+BLOK 21 × 23 20,29, BLOK 19 × 23 19,25, BLOK 21 × 22 14,55, BLOK 22 × 23
+10,21); dengan ambang 0,01 m² masih terlihat satu serpihan lama 0,05 m² BLOK
+16 × 8 yang tidak tersentuh pangkasan ini. Luas total 4.473.225,9 → 4.473.201,6
+m²; bidang 4.397 (22 tanpa blok, 251 bertitik tengah di luar blok). Cadangan
+penuh `storage/cadangan/sebelum-pangkas-b26-b23-20261101-094647-c4f3.sql` dan
+jejak `storage/pangkas-b23-b26-25-20261101-094648.json`. Menjalankan ulang
+`rapikan-garis-blok.php 25 --satukan` akan memasang lagi jembatan itu, jadi
+BLOK 23 jangan dirapikan ulang tanpa memikirkan pangkasan ini.
 
 Pengamanan alat: WKT diuji `ST_GeomFromText` sebelum cadangan dibuat, hasil kosong
 atau selisih luas >5% membatalkan seluruh proses kecuali `--paksa`, dan
