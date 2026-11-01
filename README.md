@@ -2194,6 +2194,17 @@ Yang sudah diterapkan, dan jangan dilonggarkan:
   header `X-CSRF-Token` untuk panggilan API.
 - Nomor telepon pelapor diganti string `tersimpan` pada API untuk peran di luar
   pengelola.
+- `api/statistik.php` wajib masuk. Angka PBB, peralihan, dan laporan adalah data
+  internal desa; beranda publik menghitung sendiri ringkasan yang boleh tampil,
+  jadi tidak ada pemanggil yang kehilangan akses.
+- Lapisan `api/bidang.php` dan daftar ringkasnya tetap bisa dibaca tanpa masuk,
+  tetapi nama pemegang, NOP, nomor sertifikat, dan status PBB diganti `tersimpan`
+  atau dikosongkan lewat `sembunyikan_pribadi()` di `app/helpers.php` (1 Nov
+  2026). Beranda publik juga tidak lagi ikut menanam nama pemegang ke HTML:
+  `SIP_HERO` hanya membawa kode, luas, status, jenis hak, penggunaan, dan
+  geometri bidang sampel, sedangkan kolom "Pemilik" berbunyi "tersedia untuk
+  petugas". Data pribadi baru akan terisi saat petugas menautkan Buku C, jadi
+  penutupan ini bersifat pencegahan.
 - Pembuatan laporan tidak memerlukan JavaScript: `laporan.php` memproses
   formulirnya di sisi PHP. Seperti halaman lainnya, melaporkan masalah tetap
   butuh akun masuk — laporan tidak diterima dari pengunjung anonim.
@@ -2234,6 +2245,18 @@ Dua baris di atas adalah cara manual; cara harian ada di halaman **Pengaturan**
 beserta geometrinya. Keduanya sudah diuji lingkaran penuh di salinan
 `sipetades_uji`: data dikosongkan lalu diimpor/dipulihkan balik, hasilnya identik
 baris per baris.
+
+**Retensi `storage/`: simpan semua, tidak ada yang dihapus otomatis** (keputusan
+pemilik sistem, 1 Nov 2026). Setiap `cadangan_buat()`, `cadanganBlok()`, dan
+jejak `rapikan-blok-<id>-*.json` dibiarkan menumpuk karena semuanya bisa dipakai
+untuk menelusuri perubahan geometri. Keadaannya saat keputusan diambil: 142 MB —
+`storage/cadangan/` 63 MB (20 berkas `.sql`), jejak JSON 11 MB (230 berkas), dua
+dump pemulihan 20 Okt 11,9 MB di akar `storage/`, dan `storage/ekspor/` 9,3 MB.
+Konsekuensinya cakram produksi akan terus bertambah (sesi perapian blok 1 Nov
+menambah ±3 MB per blok), jadi yang perlu dijaga: salin berkas cadangan keluar
+disk secara berkala dan pantau sisa ruang. Kalau kelak dibutuhkan pemangkasan,
+buat alatnya dengan mode uji kering bawaan dan **pindahkan** berkas lama ke
+arsip, jangan menghapus.
 
 ---
 

@@ -8,9 +8,15 @@ declare(strict_types=1);
  *
  * Isinya murni memanggil fungsi pembaca di app/data.php supaya dasbor dan
  * endpoint ini tidak pernah menampilkan angka yang berbeda.
+ *
+ * Wajib masuk: rekap PBB, peralihan, dan laporan tidak untuk pengunjung anonim.
  */
 
 require_once __DIR__ . '/../app/bootstrap.php';
+
+// Angka PBB, peralihan, dan laporan adalah data internal desa. Beranda publik
+// menghitung sendiri ringkasan yang boleh tampil, jadi endpoint ini dikunci.
+wajib_masuk();
 
 try {
     $tahun = get_int('tahun') ?? (int) setelan('tahun_pbb_aktif', '2026');

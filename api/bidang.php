@@ -13,12 +13,17 @@ declare(strict_types=1);
  *   GET api/bidang.php?id=123           -> detail satu bidang
  *
  * Semua pembacaan pakai placeholder; tidak ada input yang disisipkan ke SQL.
+ *
+ * Tanpa sesi masuk, `lapisan=bidang` dan daftar ringkas tetap menyajikan
+ * geometri dan atribut fisik, tetapi nama pemegang, NOP, nomor sertifikat, dan
+ * status PBB diganti "tersimpan"/kosong lewat sembunyikan_pribadi().
  */
 
 require_once __DIR__ . '/../app/bootstrap.php';
 
 try {
     $lapisan = get_str('lapisan');
+    $publik = !sudah_masuk();
 
     // ------------------------------------------------------------------ titik laporan
     if ($lapisan === 'laporan') {
@@ -195,6 +200,9 @@ try {
                 ],
             ];
         }
+        if ($publik) {
+            $fitur = sembunyikan_pribadi($fitur, ['pemegang', 'nop']);
+        }
         json_response([
             'type' => 'FeatureCollection',
             'jumlah' => count($fitur),
@@ -206,6 +214,12 @@ try {
     // ------------------------------------------------------------------ daftar ringkas
     [$halaman, $perHalaman] = batas_halaman(get_int('halaman'), get_int('per_halaman'), 100);
     $daftar = daftar_bidang($query, $halaman, $perHalaman);
+    if ($publik) {
+        $daftar['items'] = sembunyikan_pribadi(
+            $daftar['items'],
+            ['pemegang_nama', 'nama_wp', 'no_sertifikat', 'nop']
+        );
+    }
 
     json_response([
         'status' => 'berhasil',

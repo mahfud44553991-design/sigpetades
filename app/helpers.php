@@ -320,6 +320,43 @@ function namaLayak(?string $label): bool
 // ---------------------------------------------------------------------------
 // Audit
 // ---------------------------------------------------------------------------
+/**
+ * Buang data pribadi dari keluaran yang boleh dibaca tanpa masuk.
+ *
+ * Bekerja pada dua bentuk: baris biasa (daftar) dan Feature GeoJSON
+ * (`properties`). Bentuk geometri dan atribut fisik (kode, luas, hak,
+ * penggunaan, blok) tetap terbuka; nilai pada `$kunci` diganti "tersimpan"
+ * mengikuti perlakuan nomor telepon di daftar laporan, dan `pbb` dikosongkan.
+ */
+function sembunyikan_pribadi(array $baris, array $kunci): array
+{
+    foreach ($baris as &$satu) {
+        $fitur = array_key_exists('properties', $satu);
+        $isi = $fitur ? $satu['properties'] : $satu;
+
+        foreach ($kunci as $k) {
+            if (array_key_exists($k, $isi) && $isi[$k] !== null && $isi[$k] !== '') {
+                $isi[$k] = 'tersimpan';
+            }
+        }
+        // Status pembayaran menempel pada NOP, jadi ikut ditutup.
+        foreach (['pbb', 'status_bayar'] as $k) {
+            if (array_key_exists($k, $isi)) {
+                $isi[$k] = null;
+            }
+        }
+
+        if ($fitur) {
+            $satu['properties'] = $isi;
+        } else {
+            $satu = $isi;
+        }
+    }
+    unset($satu);
+
+    return $baris;
+}
+
 function audit(string $aksi, string $objek, string|int $objekId, string $keterangan = '', ?array $sebelum = null, ?array $sesudah = null): void
 {
     try {

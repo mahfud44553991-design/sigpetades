@@ -47,9 +47,6 @@ if ($contoh !== null) {
         "SELECT b.id, b.kode, b.luas_m2, b.status,
                 ST_AsGeoJSON(b.geom) AS geojson,
                 ST_X(ST_Centroid(b.geom)) AS lon, ST_Y(ST_Centroid(b.geom)) AS lat,
-                (SELECT h.pemegang_nama FROM hak h WHERE h.bidang_id = b.id
-                  AND h.pemegang_nama IS NOT NULL AND h.pemegang_nama <> ''
-                  ORDER BY h.id DESC LIMIT 1) AS pemegang,
                 (SELECT jh.kode FROM hak h JOIN jenis_hak jh ON jh.id = h.jenis_hak_id
                   WHERE h.bidang_id = b.id ORDER BY h.id DESC LIMIT 1) AS hak_kode,
                 (SELECT jh.nama FROM hak h JOIN jenis_hak jh ON jh.id = h.jenis_hak_id
@@ -70,7 +67,6 @@ if ($contoh !== null) {
             'kode' => (string) $b['kode'],
             'luas' => $b['luas_m2'] === null ? null : (float) $b['luas_m2'],
             'status' => (string) $b['status'],
-            'pemegang' => $b['pemegang'],
             'hak' => $b['hak_nama'],
             'hak_kode' => $b['hak_kode'],
             'penggunaan' => $b['penggunaan'],
@@ -84,7 +80,7 @@ if ($contoh !== null) {
 // Bidang yang ditonjolkan di kartu info: cari yang paling lengkap datanya.
 $pilihan = null;
 foreach ($fitur as $f) {
-    if ($f['pemegang'] !== null && $f['luas'] !== null && $pilihan === null) {
+    if ($f['hak'] !== null && $f['luas'] !== null && $pilihan === null) {
         $pilihan = $f;
     }
 }
@@ -300,7 +296,7 @@ $naskah = <<<'JS'
         document.getElementById('cbJudul').textContent = 'Bidang ' + f.kode;
         document.getElementById('cbLuas').textContent = angka(f.luas, f.luas && f.luas % 1 ? 2 : 0);
         document.getElementById('cbHak').textContent = f.hak || 'belum tercatat';
-        document.getElementById('cbPemilik').textContent = f.pemegang || 'belum tercatat';
+        document.getElementById('cbPemilik').textContent = 'tersedia untuk petugas';
         document.getElementById('cbPenggunaan').textContent = f.penggunaan || 'belum tercatat';
         document.getElementById('cbBlok').textContent = DATA.blok;
         if (penanda) { penanda.setLatLng([f.lat, f.lon]); } else {
@@ -313,7 +309,7 @@ $naskah = <<<'JS'
 
     let penanda = null;
     if (DATA.fitur.length) {
-        const awal = DATA.fitur.find((f) => f.pemegang && f.luas) || DATA.fitur[0];
+        const awal = DATA.fitur.find((f) => f.hak && f.luas) || DATA.fitur[0];
         peta.fitBounds(L.geoJSON({ type: 'FeatureCollection', features: DATA.fitur.map((f) => ({
             type: 'Feature', geometry: f.geo, properties: {},
         })) }).getBounds().pad(.06));
