@@ -2341,7 +2341,8 @@ dusun, hak, atau status tidak menyisakan geometri lama.
 **Batas data yang perlu diketahui.** Saat ditata, `objek_pajak.bidang_id` masih
 NULL untuk seluruh 3.794 NOP, jadi mode warna `pbb` menampilkan semua bidang
 sebagai "Tanpa SPPT". Sejak 128 NOP ditautkan pada 1 November 2026 (bagian
-3.30), mode itu mewarnai 128 bidang dan sisanya tetap "Tanpa SPPT"; legenda
+3.30) dan 48 lagi pada 2 November 2026 (bagian 3.33), mode itu mewarnai **176
+bidang** dan sisanya tetap "Tanpa SPPT"; legenda
 menghitung dari fitur yang tampil, tidak mengarang warna. Selain itu `dusun`
 kosong pada semua bidang, sehingga baris "Dusun" di popup tampil "—".
 
@@ -2387,7 +2388,8 @@ warna **PBB** di peta kini benar-benar membedakan status. Cadangan penuh
 `storage/taut-nop-ringkas-20261101-110225.json`, dan satu jejak per tautan
 `storage/taut-nop-20261101-110215-*.json` (128 berkas).
 
-Sisa **922 bidang tanah** belum tertaut; 499 di antaranya tidak punya kandidat
+Sisa **879 bidang tanah** belum tertaut (927 sebelum 48 tautan pada 2 November
+2026, bagian 3.33); 499 di antaranya tidak punya kandidat
 nama, jadi harus dicocokkan petugas lewat layar bidang (kartu "Calon NOP")
 atau `php tools/impor.php taut <kode-bidang> <nop> --terapkan`. Jangan
 menjalankan penautan massal untuk skor di bawah 3: contoh nyatanya
@@ -2472,6 +2474,35 @@ memang tanah bersama. Daftarnya, lengkap dengan koordinat, luas, NIS/NIB,
 jumlah NOP belum tertaut di bloknya, label terdekat, dan tautan peta:
 `storage/nama-verifikasi-lapangan-20261102.csv` (32 baris) serta versi JSON
 `storage/nama-verifikasi-lapangan-20261102.json`.
+
+### 3.33 Tautan NOP gelombang kedua: 48 pasangan 1:1
+
+Setelah gelombang pertama (bagian 3.30), 3.666 NOP masih belum tertaut dan 927
+bidang tanah belum punya NOP. Uji ulang memakai aturan yang lebih ketat dari
+gelombang pertama, seluruhnya harus terpenuhi:
+
+- `nama_wp` sama persis dengan `hak.pemegang_nama` (huruf besar, spasi tepi
+  dibuang);
+- NOP dan bidang berada di **blok yang sama** (`objek_pajak.blok_id` =
+  `bidang.blok_id`);
+- bidang itu satu-satunya pemilik nama tersebut **di blok itu** dan **di
+  seluruh desa**;
+- bidang hanya punya **satu** kandidat NOP (1:1).
+
+Saringan bertahap: 3.666 NOP → 435 nama unik global → 144 kandidat blok sama →
+87 bidang → **48 bidang 1:1**. Sebagai validasi, dari 128 tautan lama 126 memang
+bernama sama (dua sisanya beda sejak gelombang pertama, sengaja dibiarkan).
+
+Hasil: `objek_pajak.bidang_id` terisi untuk **48 NOP baru**, total 128 → **176**
+NOP tertaut, 176 bidang, **0 bidang dengan lebih dari satu NOP**, dan ke-48
+tautan baru cocok nama sekaligus blok. Bidang tanah tanpa NOP **927 → 879**,
+`audit_log` bertambah 48 baris (`aksi = ubah`, `objek = objek_pajak`). Cadangan
+penuh `storage/cadangan/sebelum-taut-nop-48-20261102-065052-853b.sql`
+(5.091.904 byte, 17 tabel) plus satu jejak JSON per NOP di `storage/`.
+
+**39 bidang dengan 2–3 NOP (96 NOP) sengaja ditinggalkan** — kemungkinan NOP
+ganda atau tanah yang terpecah, sehingga tidak boleh dipilih otomatis. Sisa
+3.618 NOP tetap menunggu pencocokan petugas.
 
 ---
 
