@@ -1977,6 +1977,77 @@ perapian ulang `storage/cadangan/sebelum-rapikan-blok-3-8-20261101-085856-a0a6.s
 jejak `storage/rapikan-blok-18-20261101-085856.json` dan
 `storage/rapikan-blok-19-20261101-085856.json`.
 
+**Tumpang BLOK 16 × 17 hilang: pulau bidang `DXF-020100-0641` pindah ke BLOK 8
+(1 Nov 2026).** Tumpang 124,45 m² itu bukan tepi yang bergeser akibat
+penghalusan, melainkan pita sambung 1,5 m sepanjang ±73 m yang dibuat
+`--satukan` untuk menyambung **satu bidang** ke badan BLOK 17. Bidang itu
+(1.444,4 m²) berjarak 230 m dari bagian BLOK 17 lainnya dengan BLOK 16 di
+antaranya, sementara tepinya bersinggungan langsung dengan tiga bidang BLOK 8
+(jarak 0,00 m) dan dua bidang tanpa blok. Pita yang sama juga menembus BLOK 8,
+itulah tumpang BLOK 8 × 17 33,82 m².
+
+Bidangnya dipindah dengan `php tools/impor.php ubah-blok 8 DXF-020100-0641
+--terapkan`, lalu geometrinya disusulkan: garis BLOK 8 di-union dengan bidang
+itu (165.184,7 → 166.592,2 m², tetap 1 bagian; garis lama hanya menaungi 2,6%
+bidang karena batas perkiraan di situ memang kurang), dan BLOK 17 dibangun ulang
+dari lima bagian lamanya tanpa pulau tersebut (73.531,8 → 71.568,0 m²,
+5 bagian), lalu `rapikan-garis-blok.php 17 --satukan` menyambungnya dengan 4
+pita menjadi 71.890,4 m², 237 titik. Cadangan penuh
+`storage/cadangan/sebelum-tumpang-b16-17-20261101-090516-4cc4.sql`, cadangan
+per blok `storage/tumpang-b16-17-19-*.json` dan `storage/tumpang-b16-17-21-*.json`,
+`storage/ubah-blok-ke-BLOK-8-*.json`, serta
+`storage/cadangan/sebelum-rapikan-blok-17-20261101-090638-d7be.sql` dan jejak
+`storage/rapikan-blok-21-20261101-090639.json`.
+
+Hasil: tumpang antar-blok 403,48 → 245,22 m² di 9 pasang; BLOK 16 × 17 dan
+BLOK 8 × 17 keduanya 0. 25 blok tetap 1 bagian, luas total 4.473.616,3 →
+4.473.382,4 m². Titik tengah bidang 0641 kini di dalam BLOK 8; jumlah bidang
+bertitik tengah di luar bloknya tetap 251, bidang tanpa blok tetap 22. Sisa
+tumpang terbesar saat itu BLOK 24 × 19 (72,47 m²) dan BLOK 7 × 3 (57,35 m²).
+
+**Tumpang BLOK 24 × 19: garis BLOK 24 dipangkas (1 Nov 2026).** Koridor 1,5 m
+sepanjang 47 m itu bukan data salah: BLOK 19 (batas **perkiraan**) memang
+terbelah BLOK 24 (batas **ukur**) menjadi dua kantong sah, 45.715,1 m² dan
+131.495,2 m²; letak kantongnya terbukti dari 6 bidang anggota yang titik
+tengahnya di dalam BLOK 19, dan dua bidang BLOK 24 di bawah koridor juga sah
+(100% di dalam garisnya). Empat kemungkinan sambungan BLOK 19 diukur: 2×4
+menembus BLOK 24 65,8 m², 3×4 menembus BLOK 20 119,5 m², 1×4 dan 1×5 menembus
+BLOK 24 128,7 m²; hanya 1×2, 2×3 dan 4×5 yang bebas. Jadi selama BLOK 19
+dipaksa 1 bagian, tumpang itu tak terhindarkan. Petugas memilih **memangkas
+garis BLOK 24** (bukan membelah BLOK 19, bukan membiarkan tumpang).
+
+Garis BLOK 24 di-`ST_Difference` dengan irisan itu: 143.147,1 → 143.074,6 m²,
+tetap 1 bagian, dan tumpang BLOK 24 × 19 72,47 → 0. Harga yang diterima: dua
+bidang BLOK 24 (`DXF-BIDANGHM-0041`, `DXF-BIDANGHM-0367`) kini menyembul di luar
+garisnya 79,3 m² (sebelumnya 9,6 m²; bertambah 69,7 m² setebal koridor).
+Tumpang antar-blok 245,22 → 172,75 m² di 8 pasang, luas total 4.473.382,4 →
+4.473.310,0 m², 25 blok tetap 1 bagian, bidang 4.397 (22 tanpa blok, 251
+bertitik tengah di luar blok). Cadangan penuh
+`storage/cadangan/sebelum-pangkas-b24-20261101-091336-967f.sql` dan cadangan
+per blok `storage/pangkas-b24-16-20261101-091353.json`. Menjalankan ulang
+`rapikan-garis-blok.php 19 --satukan` akan mengembalikan koridor itu, jadi BLOK
+19 jangan dirapikan ulang tanpa memikirkan pangkasan ini.
+
+**Tumpang BLOK 7 × 3: bulge penghalusan BLOK 3 dipangkas (1 Nov 2026).** Sisa
+57,35 m² itu bukan pita sambungan: bentuknya sliver 3 verteks sepanjang ±100 m,
+lebar 1,2 m di pangkal, dan muncul hanya pada bagian ke-2 BLOK 3 (jarak 0,00 m;
+tiga bagian lain BLOK 3 berjarak ≥80 m). Sliver ini tepat sama dengan pita
+ke-4 (57,4 m²) hasil `ST_Difference` garis BLOK 3 sekarang terhadap `sebelum`
+jejak `storage/rapikan-blok-18-20261101-085856.json`, jadi asalnya penghalusan
+ulang, bukan pergeseran data. Isinya bidang BLOK 7 `DXF-BIDANGHM-0025`
+(52,85 m²) dan dua bidang BLOK 3 (4,51 m² dan 0,00 m²). Karena BLOK 7 berbatas
+**ukur** dan BLOK 3 berbatas **perkiraan**, yang dipangkas adalah BLOK 3:
+`ST_Difference(BLOK 3, BLOK 7)` → 222.082,1 menjadi 222.024,7 m², tetap
+1 bagian (468 titik). Tumpang BLOK 3 × 7 57,35 → 0; irisan BLOK 3 dengan blok
+lain 84,10 → 26,74 m² (tinggal BLOK 3 × 8). Tumpang antar-blok 172,70 → 115,35
+m² di 6 pasang, luas total 4.473.310,0 → 4.473.252,6 m², 25 blok tetap
+1 bagian, bidang 4.397 (22 tanpa blok, 251 bertitik tengah di luar blok).
+Cadangan penuh `storage/cadangan/sebelum-pangkas-b3-20261101-091848-7aed.sql`
+dan jejak `storage/pangkas-b3-18-20261101-091849.json`. Sama seperti BLOK 19,
+`rapikan-garis-blok.php 3 --satukan` bisa memunculkan bulge baru di tepi BLOK 7,
+jadi setelah dijalankan pangkasan ini perlu diulang. Sisa tumpang terbesar
+sekarang BLOK 3 × 8 (26,74 m²).
+
 Pengamanan alat: WKT diuji `ST_GeomFromText` sebelum cadangan dibuat, hasil kosong
 atau selisih luas >5% membatalkan seluruh proses kecuali `--paksa`, dan
 `--terapkan` selalu menulis cadangan penuh lebih dulu. Menjalankan ulang aman:
