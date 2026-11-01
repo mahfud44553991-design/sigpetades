@@ -1821,6 +1821,57 @@ halaman hanya menampilkan pesan galat bila berkas belum ada, bukan gagal senyap.
 
 ---
 
+### 3.26 Garis BLOK 3 dirapikan: larutkan, haluskan, potong tumpang
+
+BLOK 3 (id 18) adalah satu-satunya blok yang batasnya bukan garis ukur, melainkan
+perkiraan dari anggotanya (`sumber_perkiraan =
+'nearest-unmapped-parcel-within-distance-limit'`, 323 bidang). Karena garis itu
+mengikuti tepi tiap bidang, bentuknya terdiri dari **41 bagian** yang menempel
+tak beraturan, **11 lubang** (celah antar-bidang), dan **2 cincin yang memotong
+diri sendiri** — di peta tampak bergerigi. Alat barunya:
+
+```
+php tools/rapikan-garis-blok.php 3              # uji kering, tidak menulis
+php tools/rapikan-garis-blok.php 3 --terapkan   # cadangan penuh dulu, baru tulis
+```
+
+Empat langkah, semuanya dijalankan ulang tiap kali (tanpa berkas antara):
+
+1. **Larutkan** — MariaDB 10.4 tidak punya `ST_Union` agregat, jadi bagian
+   di-union berpasangan dengan `ST_Union(a, b)` sampai satu geometri: 41 → 27
+   bagian. Jadi tidak ada `ST_Simplify`/`ST_IsValid` yang dipakai.
+2. **Buang lubang kecil** — cincin dalam ≤500 m² dibuang (3 lubang: 391,8;
+   140,2; 139,5 m²), karena lubang itu hanya celah antar-bidang, bukan rongga.
+3. **Haluskan** — Douglas–Peucker 1,5 m dengan jarak dihitung dalam meter
+   (lon dikali 111.320·cos(lintang rata-rata blok)). Cincin hasilnya diuji
+   perpotongan sesama sisi; bila memotong diri, toleransinya dibagi dua (tiga
+   tingkat) lalu dikembalikan ke bentuk larutan bila tetap gagal.
+4. **Potong tumpang** — bagian hasil penghalusan yang masuk ke garis blok lain
+   dikurangi dengan `ST_Difference` berurutan (193,8 m²), supaya tidak muncul
+   tumpang tindih baru; `--biarkan-tumpang` mematikan langkah ini.
+
+Hasil pada BLOK 3 (id 18): bagian **41 → 26**, titik **1.028 → 428**, lubang
+**11 → 0**, cincin memotong diri **2 → 0**, luas **222.412,8 → 222.246,4 m²**
+(−0,07%), irisan dengan blok lain **0,00 m²** (sebelumnya 0,2 m² dari
+persinggungan). Bagian menjadi 26 (bukan 27) karena dua bagian yang hanya
+bersinggungan di satu titik menyatu saat `ST_Difference` dinormalisasi; luasnya
+tetap utuh. Anggota blok (323 bidang) dan tanda `batas_perkiraan` tidak berubah,
+hanya garis luarnya.
+
+Pengamanan alat: WKT diuji `ST_GeomFromText` sebelum cadangan dibuat, hasil kosong
+atau selisih luas >5% membatalkan seluruh proses kecuali `--paksa`, dan
+`--terapkan` selalu menulis cadangan penuh lebih dulu. Alat ini dijalankan
+sekali per blok: bila garis sudah rapi (bagian dan lubang tidak berubah, titik
+berkurang <2%, luas bergeser <0,05%) tidak ada yang ditulis, jadi menjalankan
+ulang tidak menggerus garis; `--paksa` melewati semua penjagaan. Untuk percobaan:
+`--toleransi=<m>`, `--lubang-maks=<m²>`, `--keluaran=<berkas.geojson>` (calon
+hasil untuk dilihat di peta). Jejak run ini: cadangan
+`storage/cadangan/sebelum-rapikan-blok-3-20261101-075120-bbd3.sql` (3,1 MB) dan
+`storage/rapikan-blok-18-20261101-075121.json` yang menyimpan geometri sebelum
+dan sesudah (pulihkan dengan `geojsonKeWkt()` dari `tools/lib-impor.php`).
+
+---
+
 ## 4. Berkas SPPT dari Excel
 
 Importer CSV menerima kolom berikut (nama kolom dibersihkan dari spasi dan tanda
@@ -1879,7 +1930,8 @@ sql/            01_skema.sql (struktur + data acuan), 02_akun_awal.sql (Super Ad
 tools/          impor.php (CLI: impor + gabung blok), lib-impor.php (pustaka impor),
                 ekspor.php (laporan lengkap CSV),
                 fit-transform-dxf.php (turunkan ulang transformasi DXF),
-                konversi-dxf-lapisan.php (DXF → GeoJSON untuk peta-lama.php), server.php (router dev)
+                konversi-dxf-lapisan.php (DXF → GeoJSON untuk peta-lama.php),
+                rapikan-garis-blok.php (larutkan + haluskan garis blok perkiraan), server.php (router dev)
 *.geojson       blok_peta, bidang_tanah, bidang_lain di akar — sumber geometri
 files/          arsip pindai Buku C, lembar data excel, master peta (DXF), peta gang
 files/peta gang/ hasil `impor.php gg` (titik penanda) + poligon gang siap impor
