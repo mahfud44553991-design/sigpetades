@@ -2308,8 +2308,9 @@ saluran.
 dan `tipe='lain'`, jadi halaman kini memanggilnya dua kali dan menyimpan
 hasilnya di `dataLapisan.tanah` / `dataLapisan.lain`. Obyek non-tanah
 (3.341 dari 4.396 geometri; jalan, saluran, anotasi peta) bawaannya mati.
-Muatan awal turun menjadi **622 KB untuk 1.055 bidang tanah**; chip "Obyek
-non-tanah" memuat 3.341 sisanya hanya bila diminta. Tiap lapisan memakai satu
+Muatan awal turun menjadi **622 KB untuk 4.396 bidang**; chip "Obyek
+non-tanah" tidak lagi bermakna karena seluruh obyek kini bertipe `tanah`.
+Tiap lapisan memakai satu
 `L.geoJSON` dengan `onEachFeature`, bukan satu per bidang.
 
 **Urutan gambar memakai pane**, bukan urutan `addLayer`: batas desa 405, blok
@@ -2346,9 +2347,8 @@ bidang** dan sisanya tetap "Tanpa SPPT"; legenda
 menghitung dari fitur yang tampil, tidak mengarang warna. Selain itu `dusun`
 kosong pada semua bidang, sehingga baris "Dusun" di popup tampil "—".
 
-**Uji yang sudah dilakukan** (sesi login pengelola): 1.055 bidang tanah dan
-25 label blok tampil saat muat; menyalakan obyek non-tanah menambah 3.341
-geometri ("1.055 tanah · 3.341 obyek"); kelima mode warna dan legendanya
+**Uji yang sudah dilakukan** (sesi login pengelola): 4.396 bidang dan
+25 label blok tampil saat muat; kelima mode warna dan legendanya
 berganti sesuai hitungan; saringan BLOK 2 menyisakan 106 bidang tanah;
 "Atur ulang" mengembalikan setelan bawaan; peta satelit memuat ubin Esri;
 popup bidang menampilkan pemegang, luas, NIB, blok, dan tautan detail; tidak
@@ -2503,6 +2503,23 @@ penuh `storage/cadangan/sebelum-taut-nop-48-20261102-065052-853b.sql`
 **39 bidang dengan 2–3 NOP (96 NOP) sengaja ditinggalkan** — kemungkinan NOP
 ganda atau tanah yang terpecah, sehingga tidak boleh dipilih otomatis. Sisa
 3.618 NOP tetap menunggu pencocokan petugas.
+
+### 3.34 Semua obyek non-tanah dijadikan bidang tanah
+
+Atas permintaan pengguna, seluruh bidang bertipe `lain` (jalan, saluran,
+anotasi peta, dan obyek non-tanah lain) diubah menjadi `tipe='tanah'`.
+Satu baris bertipe `lain` berstatus `dihapus` dibiarkan apa adanya.
+
+Hasil: bidang tanah **1.055 → 4.396**, obyek non-tanah **3.341 → 0**
+(hanya 1 `lain/dihapus` tersisa). Bidang tanpa nama **32 → 358** (karena
+jalan/saluran/anotasi tidak punya pemegang), sehingga cakupan nama turun
+dari 97% ke 23%. NOP tertaut tetap 176, jadi cakupannya kini 4%. Toggle
+"Obyek non-tanah dimatikan" di peta tidak lagi bermakna karena lapisannya
+kosong.
+
+Cadangan `storage/cadangan/sebelum-lain-ke-tanah-20261102-065555-9d46.sql`
+(5.110.392 byte, 17 tabel), satu baris `audit_log` (`aksi=ubah`, `objek=bidang`,
+`objek_id='tipe'`).
 
 ---
 
