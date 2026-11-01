@@ -19,6 +19,11 @@ declare(strict_types=1);
  *   5. memotong bagian yang menumpang garis blok lain (bila ada), supaya
  *      penghalusan dan jembatan tidak membuat dua blok bertumpang tindih.
  *
+ * Mode --satukan memaksa satu bagian: langkah 4 menyambung semua bagian tanpa
+ * uji jalan, tanpa uji wilayah blok, dan tanpa batas jarak, lalu langkah 5
+ * dilewati supaya koridor tidak ikut terpotong. Akibatnya blok bisa bertumpang
+ * dengan tetangga; itu disengaja dan dilaporkan, bukan kerusakan.
+ *
  * Uji kering adalah bawaan; tidak ada data yang ditulis tanpa --terapkan, dan
  * --terapkan selalu membuat cadangan basis data penuh lebih dulu.
  *
@@ -30,6 +35,9 @@ declare(strict_types=1);
  *                                                    (jangan potong bagian yang menumpang blok lain)
  *   php tools/rapikan-garis-blok.php 3 --rapat=30 --abaikan-jalan
  *                                                    (sambung bagian sampai 30 m tanpa uji jalan)
+ *   php tools/rapikan-garis-blok.php 3 --satukan      (paksa 1 bagian: sambung semua
+ *                                                    bagian tanpa batas jarak, abaikan jalan
+ *                                                    dan wilayah blok lain, tanpa potong tumpang)
  *   php tools/rapikan-garis-blok.php 3 --rinci       (tampilkan keputusan tiap sambungan)
  *   php tools/rapikan-garis-blok.php 3 --keluaran=cek.geojson
  *                                                    (tulis calon hasil untuk dilihat di peta)
@@ -44,12 +52,14 @@ const RAPIKAN_SELISIH_LUAS_MAKS = 0.05;
 const RAPIKAN_RAPAT_M = 30.0;
 const RAPIKAN_JEMBATAN_SETENGAH_M = 0.75;
 const RAPIKAN_JALAN_LEBAR_M = 3.0;
+const RAPIKAN_SATUKAN_RAPAT_M = 5000.0;
 
 $argv = $_SERVER['argv'] ?? [];
 $terapkan = in_array('--terapkan', $argv, true);
 $paksa = in_array('--paksa', $argv, true);
 $biarkanTumpang = in_array('--biarkan-tumpang', $argv, true);
 $abaikanJalan = in_array('--abaikan-jalan', $argv, true);
+$satukan = in_array('--satukan', $argv, true);
 $rinci = in_array('--rinci', $argv, true);
 $toleransi = RAPIKAN_TOLERANSI_M;
 $lubangMaks = RAPIKAN_LUBANG_MAKS_M2;
@@ -90,6 +100,12 @@ if ($nomor === []) {
 if ($toleransi <= 0.0) {
     fwrite(STDERR, "Toleransi harus lebih dari 0 meter.\n");
     exit(1);
+}
+if ($satukan) {
+    // Semua penghalang sengaja dimatikan supaya hasilnya pasti satu bagian.
+    $abaikanJalan = true;
+    $biarkanTumpang = true;
+    $rapat = max($rapat, RAPIKAN_SATUKAN_RAPAT_M);
 }
 
 set_time_limit(0);
@@ -601,10 +617,14 @@ function rapiPita(array $pa, array $pb, array $skala): string
     $dy = $b[1] - $a[1];
     $panjang = hypot($dx, $dy);
     if ($panjang === 0.0) {
-        return '';
+        // Dua bagian bisa hampir bersentuhan sehingga titik terdekatnya sama;
+        // pita kosong akan memutus sambungan, jadi pakai potongan pendek mendatar.
+        $ux = 1.0;
+        $uy = 0.0;
+    } else {
+        $ux = $dx / $panjang;
+        $uy = $dy / $panjang;
     }
-    $ux = $dx / $panjang;
-    $uy = $dy / $panjang;
     $px = -$uy * RAPIKAN_JEMBATAN_SETENGAH_M;
     $py = $ux * RAPIKAN_JEMBATAN_SETENGAH_M;
     $lebih = 0.3;
@@ -634,7 +654,7 @@ function rapiPita(array $pa, array $pb, array $skala): string
  *
  * @return array{0: array<int, array<int, array>>, 1: array{jembatan:int,jalan:int,blok:int,jauh:int}}
  */
-function rapiRapatkan(array $poligon, array $skala, float $maksMeter, string $wktBlok, int $id, bool $abaikanJalan, bool $rinci = false): array
+function rapiRapatkan(array $poligon, array $skala, float $maksMeter, string $wktBlok, int $id, bool $abaikanJalan, bool $rinci = false, bool $abaikanBlok = false): array
 {
     $n = count($poligon);
     $hitung = ['jembatan' => 0, 'jalan' => 0, 'blok' => 0, 'jauh' => 0];
@@ -708,28 +728,30 @@ function rapiRapatkan(array $poligon, array $skala, float $maksMeter, string $wk
         }
         // Jembatan hanya dilewati bila garisnya benar-benar masuk wilayah blok
         // lain, bukan sekadar menyentuh sudut batas di ujungnya.
-        $lintas = db_query(
-            'SELECT kode, ST_Length(ST_Intersection(geom, ST_GeomFromText(?, 4326))) * 111320 AS m
-               FROM blok
-              WHERE id <> ? AND geom IS NOT NULL
-                AND ST_Intersects(geom, ST_GeomFromText(?, 4326))
-              ORDER BY m DESC LIMIT 1',
-            [$garis, $id, $garis]
-        )->fetch();
-        $masuk = is_array($lintas) ? (float) $lintas['m'] : 0.0;
-        if ($masuk > max(0.5, $d * 0.5)) {
-            $hitung['blok']++;
-            if ($rinci) {
-                printf(
-                    "    #%d-#%d %5.1f m: dilewati (%.1f m di wilayah %s)\n",
-                    $a,
-                    $b,
-                    $d,
-                    $masuk,
-                    (string) $lintas['kode']
-                );
+        if (!$abaikanBlok) {
+            $lintas = db_query(
+                'SELECT kode, ST_Length(ST_Intersection(geom, ST_GeomFromText(?, 4326))) * 111320 AS m
+                   FROM blok
+                  WHERE id <> ? AND geom IS NOT NULL
+                    AND ST_Intersects(geom, ST_GeomFromText(?, 4326))
+                  ORDER BY m DESC LIMIT 1',
+                [$garis, $id, $garis]
+            )->fetch();
+            $masuk = is_array($lintas) ? (float) $lintas['m'] : 0.0;
+            if ($masuk > max(0.5, $d * 0.5)) {
+                $hitung['blok']++;
+                if ($rinci) {
+                    printf(
+                        "    #%d-#%d %5.1f m: dilewati (%.1f m di wilayah %s)\n",
+                        $a,
+                        $b,
+                        $d,
+                        $masuk,
+                        (string) $lintas['kode']
+                    );
+                }
+                continue;
             }
-            continue;
         }
         $pita[] = rapiPita($pa, $pb, $skala);
         $hitung['jembatan']++;
@@ -740,6 +762,28 @@ function rapiRapatkan(array $poligon, array $skala, float $maksMeter, string $wk
 
     if ($pita === []) {
         return [$poligon, $hitung];
+    }
+    if ($rinci) {
+        $uji = wktAmbilPoligon(wktGabung(array_merge($wkt, $pita)));
+        printf(
+            "    gabung: %d bagian dari %d poligon + %d pita\n",
+            (int) db_value('SELECT ST_NumGeometries(ST_GeomFromText(?, 4326))', [$uji]),
+            count($wkt),
+            count($pita)
+        );
+        foreach ($pita as $k => $p) {
+            $kena = [];
+            foreach ($wkt as $j => $w) {
+                $luas = (float) db_value(
+                    'SELECT ST_Area(ST_Intersection(ST_GeomFromText(?, 4326), ST_GeomFromText(?, 4326)))',
+                    [$p, $w]
+                );
+                if ($luas > 0.0) {
+                    $kena[] = '#' . $j;
+                }
+            }
+            printf("    pita %d menimpa %s\n", $k, $kena === [] ? 'tidak ada' : implode(',', $kena));
+        }
     }
 
     $gabung = wktAmbilPoligon(wktGabung(array_merge($wkt, $pita)));
@@ -802,7 +846,7 @@ foreach ($nomor as $satuNomor) {
     $tumpang = 0.0;
     $rapatStat = ['jembatan' => 0, 'jalan' => 0, 'blok' => 0, 'jauh' => 0];
     if (count($hasil) > 1) {
-        [$hasil, $rapatStat] = rapiRapatkan($hasil, $skala, $rapat, rapiMultiWkt($poligon), (int) $baris['id'], $abaikanJalan, $rinci);
+        [$hasil, $rapatStat] = rapiRapatkan($hasil, $skala, $rapat, rapiMultiWkt($poligon), (int) $baris['id'], $abaikanJalan, $rinci, $satukan);
     }
     if (!$biarkanTumpang) {
         [$hasil, $tumpang] = rapiPotongTumpang($hasil, (int) $baris['id'], $skala);
@@ -814,6 +858,13 @@ foreach ($nomor as $satuNomor) {
     $uji = db_value('SELECT ST_AsText(ST_GeomFromText(?, 4326))', [$wkt]);
     if (!is_string($uji) || $uji === '') {
         fwrite(STDERR, "WKT blok {$baris['kode']} ditolak basis data.\n");
+        exit(1);
+    }
+    if ($satukan && $sesudah['bagian'] > 1) {
+        fwrite(
+            STDERR,
+            "Blok {$baris['kode']} tetap {$sesudah['bagian']} bagian walau dipaksa; perubahan dibatalkan.\n"
+        );
         exit(1);
     }
     $selisih = $sebelum['luas'] > 0 ? ($sesudah['luas'] - $sebelum['luas']) / $sebelum['luas'] : 0.0;
@@ -843,6 +894,9 @@ foreach ($nomor as $satuNomor) {
             && $rapatStat['jembatan'] === 0
             && $sesudah['titik'] >= $sebelum['titik'] * 0.98
             && abs($selisih) < 0.0005);
+    if ($satukan && $sebelum['bagian'] > 1) {
+        $rapi = false;
+    }
 
     $rencana[] = [
         'baris' => $baris,
@@ -863,7 +917,11 @@ foreach ($nomor as $satuNomor) {
 }
 
 echo "Toleransi {$toleransi} m, lubang dibuang bila ≤ {$lubangMaks} m², "
-    . 'jembatan sampai ' . rapiAngkaTeks($rapat, 0) . " m.\n\n";
+    . 'jembatan sampai ' . rapiAngkaTeks($rapat, 0) . " m.\n";
+if ($satukan) {
+    echo "Mode satukan: uji jalan dan uji wilayah blok dimatikan, tumpang tidak dipotong.\n";
+}
+echo "\n";
 foreach ($rencana as $r) {
     $b = $r['baris'];
     $s = $r['sebelum'];
@@ -980,6 +1038,7 @@ foreach ($kerjakan as $r) {
             'toleransi_m' => $toleransi,
             'lubang_maks_m2' => $lubangMaks,
             'rapat_m' => $rapat,
+            'satukan' => $satukan,
             'jembatan' => $r['rapat']['jembatan'],
             'dilewati_jalan' => $r['rapat']['jalan'],
             'dilewati_blok' => $r['rapat']['blok'],

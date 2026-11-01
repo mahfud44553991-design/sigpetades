@@ -1913,9 +1913,42 @@ penjaga 5%. Karena ini garis ukur, toleransi 1,5 m menggeser tepi paling jauh
 1,5 m — bisa dipulihkan dari cadangan
 `storage/cadangan/sebelum-rapikan-blok-2-4-5-6-7-9-10-12-13-14-15-16-18-20-24-25-26-20261101-084328-1067.sql`
 (3,1 MB) atau per blok dari jejak `storage/rapikan-blok-<id>-20261101-084329.json`.
-Setelah dua batch: 25 blok, 39 bagian (semuanya dari 8 blok perkiraan), 3.728
-titik, tumpang antar-blok 1,34 m² (BLOK 21 × 23), dan 255 bidang yang titik
+Setelah dua batch: 25 blok, 56 bagian (39 di antaranya dari 8 blok perkiraan),
+3.728 titik, tumpang antar-blok 1,34 m² (BLOK 21 × 23), dan 255 bidang yang titik
 tengahnya di luar bloknya (turun dari 257).
+
+**Batch ketiga: semua blok dipaksa 1 bagian (1 Nov 2026).** Atas permintaan
+"terapkan semua garis batas blok menjadi 1 bagian", delapan blok perkiraan
+dijalankan dengan mode baru `--satukan`:
+
+```
+php tools/rapikan-garis-blok.php 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 --satukan --terapkan
+```
+
+Mode ini mematikan uji jalan (jalan ≥3 m tidak lagi memisahkan), mematikan uji
+wilayah blok lain, menaikkan batas jembatan ke 5.000 m, dan **melewati potong
+tumpang** — kalau tumpang dipotong, koridor yang menembus blok tetangga ikut
+hilang dan blok terbelah lagi. Hasilnya 25 blok × 1 bagian: 39 bagian tambahan
+disambung dengan 31 pita 1,5 m (BLOK 3: 4, BLOK 8: 1, BLOK 17: 5, BLOK 19: 4,
+BLOK 21: 5, BLOK 22: 5, BLOK 23: 7). Titik turun 3.728 → 3.492; luas naik
+4.471.644,9 → 4.473.702,6 m² (+0,046%), tiap blok bergeser +0,07%…+0,73%.
+BLOK 11 dan 17 blok ukur tidak disentuh karena sudah 1 bagian.
+
+Harga yang dibayar: tumpang antar-blok naik dari 1,34 m² menjadi 472,07 m² pada
+12 pasangan (terbesar BLOK 16 × 17 124,45 m², lalu BLOK 24 × 19 72,47 m² dan
+BLOK 3 × 8 65,78 m²), karena koridor kini boleh menembus blok tetangga dan
+pemotongan tumpang dimatikan. Koridor terpanjang adalah penyambung kantong 443 m²
+BLOK 3 yang berada di lubang BLOK 8. Cadangan sebelum batch:
+`storage/cadangan/sebelum-rapikan-blok-2-3-4-5-6-7-8-9-10-11-12-13-14-15-16-17-18-19-20-21-22-23-24-25-26-20261101-085218-8cfd.sql`
+(3,1 MB); jejak tujuh blok yang berubah
+`storage/rapikan-blok-<id>-20261101-085219.json`. Menjalankan ulang mode ini
+melaporkan 25 blok "sudah rapi" tanpa mengubah apa pun. Bidang yang titik
+tengahnya di luar bloknya turun 255 → 251.
+
+Bug yang ikut diperbaiki: pita sambung untuk dua bagian yang jaraknya 0,0 m
+dulu menghasilkan WKT kosong sehingga sambungan putus meski dilaporkan
+"disambung" (BLOK 19 berhenti di 2 bagian). Sekarang titik terdekat yang sama
+dipakai sebagai titik tengah pita pendek 0,6 × 1,5 m.
 
 Pengamanan alat: WKT diuji `ST_GeomFromText` sebelum cadangan dibuat, hasil kosong
 atau selisih luas >5% membatalkan seluruh proses kecuali `--paksa`, dan
@@ -1926,11 +1959,12 @@ per blok diperiksa dulu apakah geometri di basis data masih sama persis dengan
 pemeriksaan itu, pemotongan tumpang setelah penghalusan memunculkan verteks baru
 dan run kedua akan menggerus garis. `--paksa` melewati semua penjagaan.
 Opsi percobaan: `--toleransi=<m>`, `--lubang-maks=<m²>`, `--rapat=<m>`,
-`--abaikan-jalan` (sambung tanpa uji jalan), `--rinci` (tampilkan keputusan tiap
-sambungan beserta koordinat), `--keluaran=<berkas.geojson>` (calon hasil untuk
-dilihat di peta). Setiap run yang menulis membuat cadangan penuh dan jejak
-`storage/rapikan-blok-<id>-<waktu>.json` berisi geometri sebelum dan sesudah
-(pulihkan dengan `geojsonKeWkt()` dari `tools/lib-impor.php`).
+`--abaikan-jalan` (sambung tanpa uji jalan), `--satukan` (paksa 1 bagian: tanpa
+uji jalan/blok, batas 5.000 m, tanpa potong tumpang), `--rinci` (tampilkan
+keputusan tiap sambungan beserta koordinat), `--keluaran=<berkas.geojson>` (calon
+hasil untuk dilihat di peta). Setiap run yang menulis membuat cadangan penuh dan
+jejak `storage/rapikan-blok-<id>-<waktu>.json` berisi geometri sebelum dan
+sesudah (pulihkan dengan `geojsonKeWkt()` dari `tools/lib-impor.php`).
 
 ---
 
