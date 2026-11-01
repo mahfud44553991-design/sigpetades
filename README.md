@@ -2336,12 +2336,12 @@ indeks `[lat, lon]` tanpa mengubah data. Saringan juga selalu memuat ulang
 lapisan yang tanda tangan filternya berubah (`kunciFilter`), jadi mengganti blok,
 dusun, hak, atau status tidak menyisakan geometri lama.
 
-**Batas data yang perlu diketahui.** `objek_pajak.bidang_id` masih NULL untuk
-seluruh 3.794 NOP, jadi mode warna `pbb` menampilkan semua bidang sebagai
-"Tanpa SPPT". Legenda mencantumkan catatan itu dan mengarahkan rekap PBB ke
-halaman e-SPPT; tidak ada warna lunas/belum yang dibuat-buat dari data yang
-belum tertaut. Selain itu `dusun` kosong pada semua bidang, sehingga baris
-"Dusun" di popup tampil "—".
+**Batas data yang perlu diketahui.** Saat ditata, `objek_pajak.bidang_id` masih
+NULL untuk seluruh 3.794 NOP, jadi mode warna `pbb` menampilkan semua bidang
+sebagai "Tanpa SPPT". Sejak 128 NOP ditautkan pada 1 November 2026 (bagian
+3.30), mode itu mewarnai 128 bidang dan sisanya tetap "Tanpa SPPT"; legenda
+menghitung dari fitur yang tampil, tidak mengarang warna. Selain itu `dusun`
+kosong pada semua bidang, sehingga baris "Dusun" di popup tampil "—".
 
 **Uji yang sudah dilakukan** (sesi login pengelola): 1.055 bidang tanah dan
 25 label blok tampil saat muat; menyalakan obyek non-tanah menambah 3.341
@@ -2356,6 +2356,40 @@ label belum diverifikasi secara visual — perlu dicek sekali di Chrome biasa.
 Setelan peramban memakai kunci baru `sip.peta.pengaturan.v2`; setelan lama
 (`v1`) sengaja diabaikan agar pengguna tidak mewarisi mode `bidang/blok/batas`
 yang sudah tidak ada.
+
+### 3.30 Tautan NOP PBB ke bidang: 128 pasangan nama persis
+
+`tools/impor.php calon <blok>` sudah menyusun calon NOP seblok untuk tiap
+bidang tanpa tautan, tetapi keputusan menautkan tetap milik petugas. Pada
+1 November 2026 seluruh 25 blok dipindai sekali untuk melihat berapa yang bisa
+dipastikan secara otomatis: dari **1.050 bidang tanah belum tertaut**, **273**
+punya tepat satu kandidat, 102 dua kandidat, 176 tiga kandidat atau lebih, dan
+499 tidak punya kandidat nama sama sekali. Dari 273 itu diambil yang paling
+kuat saja — nama pemegang dan nama wajib pajak sama persis (skor 3) **dan** NOP
+itu tidak menjadi kandidat tunggal bidang lain — hasilnya **128 pasangan**,
+tersebar di 23 blok (terbanyak BLOK 3 = 14). 65 pasangan "nama termuat" (skor
+2), 20 "satu unsur" (skor 1), dan 28 NOP yang menjadi kandidat tunggal 2–3
+bidang (nama kembar) sengaja dibiarkan untuk ditinjau petugas.
+
+Validasi luas belum bisa dipakai: laporan Daftar Penerimaan PBB tidak memuat
+kolom luas bumi, jadi `objek_pajak.luas_bumi_m2` NULL untuk seluruh 3.794 NOP.
+Pencocokan hanya lewat nama di blok yang sama — NOP digit 12–14 memuat nomor
+blok, dan `calonTautanBlok()` hanya mengambil objek pajak seblok.
+
+Hasil: **128 NOP tertaut, satu bidang satu NOP** (0 bidang dipakai dua NOP, 0
+menunjuk bidang non-tanah atau nonaktif), `audit_log` bertambah 128 baris.
+SPPT 2026 pada bidang yang tertaut: 80 Lunas dan 48 Belum Bayar, sehingga mode
+warna **PBB** di peta kini benar-benar membedakan status. Cadangan penuh
+`storage/cadangan/sebelum-taut-nop-20261101-110134-51aa.sql` (5.024.095 byte,
+17 tabel), ringkasan 128 pasangan di
+`storage/taut-nop-ringkas-20261101-110225.json`, dan satu jejak per tautan
+`storage/taut-nop-20261101-110215-*.json` (128 berkas).
+
+Sisa **922 bidang tanah** belum tertaut; 499 di antaranya tidak punya kandidat
+nama, jadi harus dicocokkan petugas lewat layar bidang (kartu "Calon NOP")
+atau `php tools/impor.php taut <kode-bidang> <nop> --terapkan`. Jangan
+menjalankan penautan massal untuk skor di bawah 3: contoh nyatanya
+"BENI SETIAWAN" sempat tercocokkan dengan NOP "BUDI SETIAWAN".
 
 ---
 
