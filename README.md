@@ -1821,54 +1821,102 @@ halaman hanya menampilkan pesan galat bila berkas belum ada, bukan gagal senyap.
 
 ---
 
-### 3.26 Garis BLOK 3 dirapikan: larutkan, haluskan, potong tumpang
+### 3.26 Garis blok perkiraan dirapikan: larutkan, haluskan, sambung, potong tumpang
 
-BLOK 3 (id 18) adalah satu-satunya blok yang batasnya bukan garis ukur, melainkan
-perkiraan dari anggotanya (`sumber_perkiraan =
-'nearest-unmapped-parcel-within-distance-limit'`, 323 bidang). Karena garis itu
-mengikuti tepi tiap bidang, bentuknya terdiri dari **41 bagian** yang menempel
-tak beraturan, **11 lubang** (celah antar-bidang), dan **2 cincin yang memotong
-diri sendiri** — di peta tampak bergerigi. Alat barunya:
+Blok hasil "kira" (`sumber_perkiraan =
+'nearest-unmapped-parcel-within-distance-limit'`) mendapat garis dari batas
+anggota bidangnya, bukan dari garis ukur. Karena itu bentuknya bergerigi,
+terdiri dari puluhan bagian yang menempel tak beraturan, berlubang celah
+antar-bidang, dan kadang cincinnya memotong diri sendiri. Aturan cakupannya:
+**satu bagian per blok**, kecuali bagian yang benar-benar terpotong jalan.
 
 ```
-php tools/rapikan-garis-blok.php 3              # uji kering, tidak menulis
-php tools/rapikan-garis-blok.php 3 --terapkan   # cadangan penuh dulu, baru tulis
+php tools/rapikan-garis-blok.php 3 8 11 17 19 21 22 23   # uji kering
+php tools/rapikan-garis-blok.php 3 8 11 17 19 21 22 23 --terapkan
 ```
 
-Empat langkah, semuanya dijalankan ulang tiap kali (tanpa berkas antara):
+Lima langkah, semuanya dijalankan ulang tiap kali (tanpa berkas antara):
 
 1. **Larutkan** — MariaDB 10.4 tidak punya `ST_Union` agregat, jadi bagian
-   di-union berpasangan dengan `ST_Union(a, b)` sampai satu geometri: 41 → 27
-   bagian. Jadi tidak ada `ST_Simplify`/`ST_IsValid` yang dipakai.
-2. **Buang lubang kecil** — cincin dalam ≤500 m² dibuang (3 lubang: 391,8;
-   140,2; 139,5 m²), karena lubang itu hanya celah antar-bidang, bukan rongga.
+   di-union berpasangan dengan `ST_Union(a, b)` sampai satu geometri. Tidak ada
+   `ST_Simplify`/`ST_IsValid` yang dipakai.
+2. **Buang lubang kecil** — cincin dalam ≤500 m² dibuang, karena lubang itu
+   hanya celah antar-bidang, bukan rongga.
 3. **Haluskan** — Douglas–Peucker 1,5 m dengan jarak dihitung dalam meter
    (lon dikali 111.320·cos(lintang rata-rata blok)). Cincin hasilnya diuji
    perpotongan sesama sisi; bila memotong diri, toleransinya dibagi dua (tiga
    tingkat) lalu dikembalikan ke bentuk larutan bila tetap gagal.
-4. **Potong tumpang** — bagian hasil penghalusan yang masuk ke garis blok lain
-   dikurangi dengan `ST_Difference` berurutan (193,8 m²), supaya tidak muncul
+4. **Sambung bagian** — pasangan bagian terdekat dihubungkan Prim (MST) dengan
+   jembatan selebar 1,5 m sebagai poligon empat titik, jadi tidak memakai
+   `ST_Buffer` (ujung bulatnya menambah ribuan titik). Batas bawaan 30 m
+   (`--rapat=<m>`). Sebuah sambungan **tidak** dibuat bila garis hubungnya:
+   - melintasi jalan OSM selebar **3 m atau lebih** (lebar = 2 × `setengah_m`
+     di `JALAN_SETENGAH_M`), jadi blok tetap terpisah di tempat yang memang
+     terpotong jalan; atau
+   - memotong wilayah blok lain sepanjang > setengah jarak hubungnya (tanpa ini
+     jembatan akan menabrak blok tetangga).
+
+   Bagian yang terpisah 34–141 m tanpa jalan di antaranya dibiarkan terpisah dan
+   dilaporkan, bukan dipaksa menyatu. Ambang ini diuji ulang pada geometri asli
+   saat diturunkan menjadi ≥3 m: hanya ada beberapa ruas tepat 3 m di dekat
+   BLOK 3, 11, dan 23, dan tidak satu pun dilintasi garis jembatan, jadi hasil
+   terpasang tidak berubah.
+5. **Potong tumpang** — bagian hasil penghalusan dan jembatan yang masuk ke garis
+   blok lain dikurangi dengan `ST_Difference` berurutan, supaya tidak muncul
    tumpang tindih baru; `--biarkan-tumpang` mematikan langkah ini.
 
-Hasil pada BLOK 3 (id 18): bagian **41 → 26**, titik **1.028 → 428**, lubang
-**11 → 0**, cincin memotong diri **2 → 0**, luas **222.412,8 → 222.246,4 m²**
-(−0,07%), irisan dengan blok lain **0,00 m²** (sebelumnya 0,2 m² dari
-persinggungan). Bagian menjadi 26 (bukan 27) karena dua bagian yang hanya
-bersinggungan di satu titik menyatu saat `ST_Difference` dinormalisasi; luasnya
-tetap utuh. Anggota blok (323 bidang) dan tanda `batas_perkiraan` tidak berubah,
-hanya garis luarnya.
+Hasil satu batch (cadangan
+`storage/cadangan/sebelum-rapikan-blok-3-8-11-17-19-21-22-23-20261101-082141-43ee.sql`,
+3,1 MB). Semua di bawah batas selisih luas 5%:
+
+| Blok (id) | bagian | titik | lubang | luas (m²) | jembatan | lewati jalan/blok/jauh |
+|---|---|---|---|---|---|---|
+| 3 (18) | 26 → 5 | 428 → 500 | 0 → 0 | 222.246,4 → 222.296,3 (+0,02%) | 21 | 3 / 1 / 0 |
+| 8 (19) | 16 → 2 | 367 → 223 | 5 → 1 | 164.657,4 → 164.602,2 (−0,03%) | 7 | 0 / 1 / 0 |
+| 11 (20) | 2 → 1 | 24 → 16 | 0 → 0 | 5.178,6 → 5.172,2 (−0,12%) | 0 | 0 / 0 / 0 |
+| 17 (21) | 26 → 6 | 394 → 281 | 1 → 0 | 72.749,9 → 72.995,1 (+0,34%) | 18 | 2 / 0 / 3 |
+| 19 (22) | 22 → 5 | 504 → 296 | 4 → 0 | 176.911,7 → 176.947,9 (+0,02%) | 10 | 1 / 0 / 2 |
+| 21 (23) | 47 → 6 | 754 → 467 | 4 → 2 | 136.376,4 → 136.320,0 (−0,04%) | 30 | 3 / 0 / 0 |
+| 22 (24) | 22 → 6 | 359 → 240 | 2 → 0 | 61.256,3 → 61.281,2 (+0,04%) | 12 | 5 / 0 / 0 |
+| 23 (25) | 27 → 8 | 740 → 505 | 19 → 3 | 258.806,5 → 259.206,9 (+0,15%) | 10 | 5 / 0 / 1 |
+| **jumlah** | **188 → 39** | **3.570 → 2.528** | **35 → 6** | | **108** | **19 / 2 / 6** |
+
+Cincin yang memotong diri 6 → 0 dan irisan yang dipotong 349,0 m². Anggota blok
+dan tanda `batas_perkiraan` tidak berubah, hanya garis luarnya. Titik bisa
+bertambah (BLOK 3: 428 → 500) karena jembatan dan normalisasi `ST_Union`
+menambah verteks; yang dinilai rapi adalah bentuknya, bukan jumlah titiknya.
+Garis tipis yang masih terlihat di dalam blok adalah lekuk batas yang mengikuti
+celah antar-bidang asal (lebar ≤1 m), bukan cincin yang memotong diri —
+independen dicek ulang 0 silang, dan menutupnya dengan closing 0,5 m hanya
+menambah 0,02–0,19% luas, jadi dibiarkan.
+
+Dua anomali data yang dibiarkan dan wajib dilaporkan, bukan diperbaiki diam-diam:
+
+- **Bagian yang hanya bisa disambung lewat blok lain.** BLOK 3 punya bagian
+  25,9 m dari badan utamanya, dengan 26,1 m garis hubung jatuh di wilayah
+  BLOK 8; BLOK 8 punya bagian 24,1 m dengan 24,3 m di wilayah BLOK 17. Bagian
+  terkecil BLOK 3 adalah kantong **443 m²** (bidang DXF-020100-2059) yang
+  seluruhnya dikelilingi BLOK 8. Semuanya dibiarkan terpisah — kemungkinan besar
+  bidangnya salah ditugaskan, jadi perlu dicek manual, bukan disambung paksa.
+- **Bagian terpisah 34–141 m tanpa jalan.** BLOK 17 (38,5; 39,8; 141,3 m),
+  BLOK 19 (88,6; 67,3 m), BLOK 23 (34,4 m). Tidak ada jalan ≥3 m di antaranya,
+  jadi tidak disambung dan tidak dipotong; dilaporkan sebagai kandidat salah
+  penugasan bidang.
 
 Pengamanan alat: WKT diuji `ST_GeomFromText` sebelum cadangan dibuat, hasil kosong
 atau selisih luas >5% membatalkan seluruh proses kecuali `--paksa`, dan
-`--terapkan` selalu menulis cadangan penuh lebih dulu. Alat ini dijalankan
-sekali per blok: bila garis sudah rapi (bagian dan lubang tidak berubah, titik
-berkurang <2%, luas bergeser <0,05%) tidak ada yang ditulis, jadi menjalankan
-ulang tidak menggerus garis; `--paksa` melewati semua penjagaan. Untuk percobaan:
-`--toleransi=<m>`, `--lubang-maks=<m²>`, `--keluaran=<berkas.geojson>` (calon
-hasil untuk dilihat di peta). Jejak run ini: cadangan
-`storage/cadangan/sebelum-rapikan-blok-3-20261101-075120-bbd3.sql` (3,1 MB) dan
-`storage/rapikan-blok-18-20261101-075121.json` yang menyimpan geometri sebelum
-dan sesudah (pulihkan dengan `geojsonKeWkt()` dari `tools/lib-impor.php`).
+`--terapkan` selalu menulis cadangan penuh lebih dulu. Menjalankan ulang aman:
+per blok diperiksa dulu apakah geometri di basis data masih sama persis dengan
+`sesudah.wkt` pada jejak terbaru `storage/rapikan-blok-<id>-*.json`
+(`ST_Equals`); bila sama, blok dilewati dan dilaporkan "sudah rapi". Tanpa
+pemeriksaan itu, pemotongan tumpang setelah penghalusan memunculkan verteks baru
+dan run kedua akan menggerus garis. `--paksa` melewati semua penjagaan.
+Opsi percobaan: `--toleransi=<m>`, `--lubang-maks=<m²>`, `--rapat=<m>`,
+`--abaikan-jalan` (sambung tanpa uji jalan), `--rinci` (tampilkan keputusan tiap
+sambungan beserta koordinat), `--keluaran=<berkas.geojson>` (calon hasil untuk
+dilihat di peta). Setiap run yang menulis membuat cadangan penuh dan jejak
+`storage/rapikan-blok-<id>-<waktu>.json` berisi geometri sebelum dan sesudah
+(pulihkan dengan `geojsonKeWkt()` dari `tools/lib-impor.php`).
 
 ---
 
@@ -1931,7 +1979,7 @@ tools/          impor.php (CLI: impor + gabung blok), lib-impor.php (pustaka imp
                 ekspor.php (laporan lengkap CSV),
                 fit-transform-dxf.php (turunkan ulang transformasi DXF),
                 konversi-dxf-lapisan.php (DXF → GeoJSON untuk peta-lama.php),
-                rapikan-garis-blok.php (larutkan + haluskan garis blok perkiraan), server.php (router dev)
+                rapikan-garis-blok.php (larutkan/haluskan/sambung garis blok perkiraan), server.php (router dev)
 *.geojson       blok_peta, bidang_tanah, bidang_lain di akar — sumber geometri
 files/          arsip pindai Buku C, lembar data excel, master peta (DXF), peta gang
 files/peta gang/ hasil `impor.php gg` (titik penanda) + poligon gang siap impor
