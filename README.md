@@ -2252,6 +2252,111 @@ Enam cadangan per perintah ada di `storage/nama-pemegang-20261101-100013.json`,
 `nib-bidang-20261101-100453.json`, `nomor-daftar-20261101-100456.json` dan
 `hak-milik-20261101-100459.json`; `audit_log` bertambah 6 baris (75 → 81).
 
+### 3.28 Buku C dan data PBB 2026 dari berkas desa
+
+Dua berkas desa yang sudah lama ada di `files/` akhirnya masuk ke basis data
+pada 1 November 2026. **Penting: perintah `buku-c` dan `sppt` tidak punya mode
+periksa** — keduanya langsung menulis, tidak seperti perintah `nama`, `nis`,
+`nib`, `daftar` dan `hak-milik` yang bawaannya hanya melapor. Cadangan penuh
+dibuat sebelum dan sesudahnya:
+`storage/cadangan/sebelum-identitas-bidang-20261101-100004-9e84.sql` dan
+`storage/cadangan/sesudah-pbb-buku-c-20261101-101408-42eb.sql` (5.016.530 byte).
+
+**Buku C.** `php tools/impor.php buku-c` mendaftarkan isi `files/Data C Desa`
+(1.419 berkas PDF, satu per surat) ke tabel `buku_c` — 1.419 baris, 0 dilewati.
+Isinya baru indeks berkas: nama pemegang dan isi surat belum diekstrak, jadi
+kolom `buku_c.nama_pemegang` masih kosong.
+
+**SPPT/PBB 2026.** Sumbernya dua laporan "Daftar Penerimaan PBB" dari desa,
+`files/data excel/Laporan Daftar Penerimaan PBB_11532820261015.xlsx` (Sudah
+Bayar, 2.200 baris sheet) dan `..._11540120261015.xlsx` (Belum Bayar, 1.630
+baris sheet). Importer hanya menerima CSV, jadi tiap sheet diekstrak (zip + XML,
+tanpa pustaka luar) lalu ditulis ke `files/data excel/sppt-2026-sudah-bayar.csv`
+(2.182 NOP) dan `sppt-2026-belum-bayar.csv` (1.612 NOP); 9 baris per berkas
+tanpa NOP 18 digit adalah baris judul/total dan dilewati. Aturan konversi yang
+dipakai: NOP bertitik dirapatkan menjadi 18 digit, tanggal `dd-mm-yyyy` diubah
+ke ISO (`yyyy-mm-dd`) karena importer membuang format lain dan akan mengisi
+tanggal hari ini untuk baris lunas, status `Terbayar`/`Belum` dibiarkan dan
+keputusan Lunas diambil importer dari `terbayar >= ketetapan`, kolom `sisa`
+tidak diimpor (dihitung database).
+
+Hasil: **3.794 objek pajak + 3.794 SPPT tahun 2026, 0 baris dilewati**, semuanya
+NOP 18 digit berawalan `3324040008`, dan semuanya sudah tertaut ke blok
+(`taut-blok` melaporkan `sudah_benar=3.794`, `diisi=0`). Ringkasan uang:
+ketetapan Rp216.117.829, terbayar Rp117.625.205, sisa Rp98.492.624; 2.182 lunas
+(tanggal 15 Januari – 14 Oktober 2026) dan 1.612 belum bayar. Tabel
+`pembayaran` tetap 0 karena laporan ini hanya memuat total per tahun, bukan
+kuitansi; `peralihan`, `laporan` dan `pemegang` juga tetap 0.
+
+Data pajak tidak bocor ke publik: `beranda.php` tidak memuat nama wajib pajak
+(diuji dengan dua nama dari laporan, 0 kecocokan), `api/statistik.php` tetap
+401, dan `api/bidang.php` menyamarkan `pemegang` menjadi `"tersimpan"` serta
+mengosongkan `pbb`/`nop`.
+
+### 3.29 Peta bidang: lapisan terpisah dan warna per blok
+
+Halaman `peta.php` ditata ulang pada 1 November 2026. Sebelumnya 4.396
+geometri digambar sekaligus dengan satu panggilan `L.geoJSON` per bidang,
+semuanya berwarna merah putus-putus karena seluruh bidang berstatus
+`perlu_verifikasi`. Akibatnya tiga hal: muatan awal ±2,6 MB, warna per mode
+tidak pernah terlihat, dan persil tanah tenggelam di antara jalan serta
+saluran.
+
+**Dua lapisan, bukan satu.** `api/bidang.php` sudah memisahkan `tipe='tanah'`
+dan `tipe='lain'`, jadi halaman kini memanggilnya dua kali dan menyimpan
+hasilnya di `dataLapisan.tanah` / `dataLapisan.lain`. Obyek non-tanah
+(3.341 dari 4.396 geometri; jalan, saluran, anotasi peta) bawaannya mati.
+Muatan awal turun menjadi **622 KB untuk 1.055 bidang tanah**; chip "Obyek
+non-tanah" memuat 3.341 sisanya hanya bila diminta. Tiap lapisan memakai satu
+`L.geoJSON` dengan `onEachFeature`, bukan satu per bidang.
+
+**Urutan gambar memakai pane**, bukan urutan `addLayer`: batas desa 405, blok
+410, obyek non-tanah 415, bidang tanah 420, titik laporan 430. Pane batas desa
+diberi `pointer-events: none` supaya garis keliling tidak menghalangi klik
+bidang di bawahnya.
+
+**Warna bawaan per blok.** Rona dihitung dari nomor blok dengan sudut emas
+(`hue = (nomor × 137,508°) mod 360`) sehingga 25 blok tersebar di roda warna
+tanpa dua blok bersebelahan mendapat warna hampir sama. Pilihan mode:
+`blok` (bawaan), `tipe`, `hak`, `pbb`, `status`. Status `perlu_verifikasi`
+tidak lagi memaksa merah di semua mode — pada mode status ia berwarna kuning
+tua, dan legenda menuliskan jumlah tiap kategori dari fitur yang benar-benar
+tampil.
+
+**Batas blok dan label.** Garis blok diukur tampil hijau tua solid, blok
+perkiraan tampil cokelat putus-putus; nama blok dipasang sebagai `divIcon`
+di titik tengah dan hanya terlihat pada zoom ≥ 14, bisa dimatikan lewat
+"Tampilkan nama blok". Label kode bidang ditolak bila tampilan memuat lebih
+dari 1.500 bidang (pesan muncul dan centang dibatalkan), supaya kanvas tidak
+dipenuhi teks.
+
+**Kesalahan lama yang ikut diperbaiki.** `L.circleMarker(f.geometry.coordinates.reverse(), …)`
+pada lapisan laporan membalik array koordinat asli; sekarang dibaca dengan
+indeks `[lat, lon]` tanpa mengubah data. Saringan juga selalu memuat ulang
+lapisan yang tanda tangan filternya berubah (`kunciFilter`), jadi mengganti blok,
+dusun, hak, atau status tidak menyisakan geometri lama.
+
+**Batas data yang perlu diketahui.** `objek_pajak.bidang_id` masih NULL untuk
+seluruh 3.794 NOP, jadi mode warna `pbb` menampilkan semua bidang sebagai
+"Tanpa SPPT". Legenda mencantumkan catatan itu dan mengarahkan rekap PBB ke
+halaman e-SPPT; tidak ada warna lunas/belum yang dibuat-buat dari data yang
+belum tertaut. Selain itu `dusun` kosong pada semua bidang, sehingga baris
+"Dusun" di popup tampil "—".
+
+**Uji yang sudah dilakukan** (sesi login pengelola): 1.055 bidang tanah dan
+25 label blok tampil saat muat; menyalakan obyek non-tanah menambah 3.341
+geometri ("1.055 tanah · 3.341 obyek"); kelima mode warna dan legendanya
+berganti sesuai hitungan; saringan BLOK 2 menyisakan 106 bidang tanah;
+"Atur ulang" mengembalikan setelan bawaan; peta satelit memuat ubin Esri;
+popup bidang menampilkan pemegang, luas, NIB, blok, dan tautan detail; tidak
+ada galat di konsol. Tangkapan layar tidak bisa diambil karena peramban
+dalam aplikasi berjalan tanpa permukaan tampak, jadi warna dan kerapatan
+label belum diverifikasi secara visual — perlu dicek sekali di Chrome biasa.
+
+Setelan peramban memakai kunci baru `sip.peta.pengaturan.v2`; setelan lama
+(`v1`) sengaja diabaikan agar pengguna tidak mewarisi mode `bidang/blok/batas`
+yang sudah tidak ada.
+
 ---
 
 ## 4. Berkas SPPT dari Excel
@@ -2271,6 +2376,12 @@ Kolom `nop` wajib ada.
 
 `*.xlsx` tidak dibaca langsung — simpan sheet sebagai CSV (UTF-8) ke
 `files\data excel\` lebih dulu, baru jalankan `php tools\impor.php sppt`.
+
+Perintah `sppt` (dan `buku-c`) **langsung menulis tanpa mode periksa**, tidak
+seperti `nama`, `nis`, `nib`, `daftar` atau `hak-milik`. Cadangkan basis data
+dulu; `--reset` membuang seluruh isi `pembayaran`, `sppt` dan `objek_pajak`
+sebelum impor. Lihat [§3.28](#328-buku-c-dan-data-pbb-2026-dari-berkas-desa)
+untuk contoh pemakaian pada laporan PBB 2026.
 
 Aturan baris: NOP harus 18 digit dan diawali `kode_wilayah_nop` dari tabel
 setelan, kalau tidak barisnya dilewati dan dilaporkan sebagai galat. Tahun pajak

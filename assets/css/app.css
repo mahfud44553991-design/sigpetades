@@ -236,6 +236,61 @@ input[readonly], input:disabled, select:disabled, textarea:disabled { background
     height: 2px; border-radius: 0; vertical-align: 2px;
     background: repeating-linear-gradient(90deg, #1f4e79 0 4px, transparent 4px 7px);
 }
+.legenda i.contoh-batas-blok {
+    height: 2px; border-radius: 0; vertical-align: 2px;
+    background: repeating-linear-gradient(90deg, #14603a 0 5px, transparent 5px 8px);
+}
+.legenda i.contoh-batas-blok-perkiraan {
+    height: 2px; border-radius: 0; vertical-align: 2px;
+    background: repeating-linear-gradient(90deg, #a06a12 0 4px, transparent 4px 7px);
+}
+
+/* Tata letak halaman peta: tombol lapisan di atas kanvas, legenda berjaring. */
+.kartu-peta .kepala-kartu { margin-bottom: 12px; }
+.lapisan-peta { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 12px; }
+.chip-lapisan {
+    display: inline-flex; align-items: center; gap: 7px; padding: 6px 11px;
+    background: var(--putih); border: 1px solid var(--garis); border-radius: 999px;
+    font-size: 11.5px; font-weight: 600; color: #4e5e57; cursor: pointer;
+    transition: background .15s, border-color .15s;
+}
+.chip-lapisan input { width: 14px; height: 14px; margin: 0; accent-color: var(--hijau); }
+.chip-lapisan i { width: 10px; height: 10px; border-radius: 3px; flex: 0 0 auto; }
+.chip-lapisan i.contoh-batas-blok,
+.chip-lapisan i.contoh-batas-desa { height: 2px; border-radius: 0; }
+.chip-lapisan b { font-weight: 700; color: var(--redup); font-size: 10.5px; }
+.chip-lapisan:has(input:checked) { background: var(--hijau-muda); border-color: var(--hijau-garis); color: var(--hijau-tua); }
+.chip-lapisan:has(input:checked) b { color: var(--hijau-tua); }
+.chip-lapisan:has(input:focus-visible) { outline: 2px solid var(--hijau); outline-offset: 2px; }
+.peta-wadah #peta { height: 680px; }
+.legenda-peta {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+    gap: 7px 16px; margin-top: 12px; font-size: 11px;
+}
+.legenda-peta span { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.legenda-peta b { margin-left: auto; font-weight: 700; color: var(--redup); font-size: 10px; }
+.legenda-catatan { grid-column: 1 / -1; color: var(--redup); font-size: 10.5px; }
+
+.label-blok { background: none; border: 0; pointer-events: none; }
+.label-blok span {
+    position: absolute; left: 0; top: 0; transform: translate(-50%, -50%);
+    display: inline-block; padding: 2px 7px; border-radius: 999px;
+    background: rgba(255, 255, 255, .86); border: 1px solid rgba(20, 96, 58, .28);
+    color: #14603a; font-size: 9.5px; font-weight: 800; letter-spacing: .2px; white-space: nowrap;
+    box-shadow: 0 2px 6px rgba(10, 47, 79, .12);
+}
+#peta:not(.peta-dekat) .label-blok,
+#peta.tanpa-label-blok .label-blok { display: none; }
+
+.popup-peta .leaflet-popup-content { margin: 12px 14px; }
+.popup-peta-isi { font-size: 11.5px; line-height: 1.5; }
+.popup-peta-judul { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.popup-peta-judul strong { font-size: 13px; color: var(--biru); }
+.popup-peta-judul span { color: var(--redup); font-size: 10px; }
+.popup-isi { display: grid; grid-template-columns: 82px minmax(0, 1fr); gap: 2px 8px; margin: 0; }
+.popup-isi dt { color: var(--redup); }
+.popup-isi dd { margin: 0; font-weight: 600; color: #2f4a3f; overflow-wrap: anywhere; }
+.popup-peta-kaki { margin: 9px 0 0; padding-top: 8px; border-top: 1px dashed var(--garis); }
 .kepekatan-baris { display: flex; align-items: center; gap: 10px; }
 .kepekatan-baris input[type=range] { flex: 1; accent-color: var(--hijau); }
 .kepekatan-baris output { min-width: 40px; text-align: right; font-size: 11px; font-weight: 700; color: var(--redup); }
@@ -343,6 +398,7 @@ input[readonly], input:disabled, select:disabled, textarea:disabled { background
     .akun-teks { display: none; }
     .grid-3, .grid-2, .baris-form, .baris-form-3 { grid-template-columns: 1fr; }
     #peta, .peta { height: 460px; }
+    .peta-wadah #peta { height: 520px; }
 }
 
 @media (max-width: 620px) {
@@ -351,6 +407,9 @@ input[readonly], input:disabled, select:disabled, textarea:disabled { background
     .statistik { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .kartu { padding: 14px; }
     .gulir-tabel { margin: 0 -14px -14px; }
+    .peta-wadah #peta { height: 440px; }
+    .chip-lapisan { font-size: 11px; padding: 5px 9px; }
+    .legenda-peta { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
 }
 
 @media print {

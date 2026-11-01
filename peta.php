@@ -5,6 +5,11 @@ declare(strict_types=1);
  * Peta GIS Desa Gedong. Geometri dibaca dari MariaDB lewat api/bidang.php,
  * bukan dari berkas GeoJSON mentah, supaya ukuran halaman tetap kecil berapa
  * pun jumlah bidang.
+ *
+ * Tata letak peta: bidang tanah dan obyek non-tanah adalah dua lapisan
+ * terpisah. Obyek non-tanah (3.341 dari 4.396 geometri) dimatikan secara
+ * bawaan supaya persil tanah tidak tenggelam di antara jalan, saluran, dan
+ * anotasi. Warna bawaan mengikuti blok agar batas antarblok terbaca.
  */
 
 require __DIR__ . '/app/bootstrap.php';
@@ -16,44 +21,74 @@ $blok = db_all('SELECT kode, nomor FROM blok ORDER BY nomor, kode');
 $dusun = daftar_dusun();
 $hak = daftar_jenis_hak();
 
+$ringkas = db_one(
+    "SELECT COUNT(*) AS total,
+            COALESCE(SUM(tipe = 'tanah'), 0) AS tanah,
+            COALESCE(SUM(tipe = 'lain'), 0) AS lain
+     FROM bidang WHERE status NOT IN ('dihapus', 'duplikat')"
+) ?? ['total' => 0, 'tanah' => 0, 'lain' => 0];
+$jmlLaporan = $kelola ? (int) db_value('SELECT COUNT(*) FROM laporan') : 0;
+
 sip_header('Peta pertanahan', 'peta', ['leaflet' => true]);
 sip_judul(
     'Pemetaan',
     'Peta bidang tanah desa',
     'Klik bidang untuk melihat pemilik, jenis hak, dan status PBB-nya. '
-        . 'Bidang bertanda "perlu verifikasi" berasal dari digitasi yang belum dikonfirmasi lapangan.'
+        . 'Warna bawaan mengikuti blok peta; obyek non-tanah dimatikan agar persil tanah terbaca.'
 );
 ?>
 
 <div class="grid grid-sidebar">
     <div>
-        <section class="kartu">
+        <section class="kartu kartu-peta">
             <header class="kepala-kartu">
                 <div>
                     <h2>Lapisan peta</h2>
-                    <p>Sumber: <?= e(angka((int) db_value("SELECT COUNT(*) FROM bidang WHERE status NOT IN ('dihapus', 'duplikat')"))) ?> bidang &middot;
+                    <p>Sumber: <?= e(angka((int) $ringkas['tanah'])) ?> bidang tanah &middot;
+                        <?= e(angka((int) $ringkas['lain'])) ?> obyek non-tanah &middot;
                         <?= e(count($blok)) ?> blok</p>
                 </div>
                 <div class="baris-tombol">
-                    <button class="tombol tombol-kecil" type="button" id="pasangkanSemua">Muat semua</button>
+                    <button class="tombol tombol-kecil" type="button" id="pasangkanSemua">Seluruh desa</button>
                     <a class="tombol tombol-kecil" href="<?= e(sip_url('bidang.php')) ?>">Daftar bidang</a>
                     <a class="tombol tombol-kecil" href="<?= e(sip_url('peta-lama.php')) ?>">Peta DXF lama</a>
                 </div>
             </header>
 
-            <div class="peta-wadah">
-                <div id="peta" aria-label="Peta bidang tanah Desa Gedong"></div>
-                <div class="lapisan-kontrol">
-                    <label class="cek"><input type="checkbox" id="tampilBidang" checked> Bidang tanah</label>
-                    <label class="cek"><input type="checkbox" id="tampilBlok"> Batas blok</label>
-                    <label class="cek"><input type="checkbox" id="tampilBatas" checked> Batas desa</label>
-                    <?php if ($kelola): ?>
-                        <label class="cek"><input type="checkbox" id="tampilLaporan"> Titik laporan</label>
-                    <?php endif; ?>
-                </div>
+            <div class="lapisan-peta" role="group" aria-label="Lapisan peta">
+                <label class="chip-lapisan">
+                    <input type="checkbox" id="tampilBidang" checked>
+                    <i style="background:#1f9d4d"></i>Bidang tanah
+                    <b><?= e(angka((int) $ringkas['tanah'])) ?></b>
+                </label>
+                <label class="chip-lapisan">
+                    <input type="checkbox" id="tampilLain">
+                    <i style="background:#8a7a66"></i>Obyek non-tanah
+                    <b><?= e(angka((int) $ringkas['lain'])) ?></b>
+                </label>
+                <label class="chip-lapisan">
+                    <input type="checkbox" id="tampilBlok" checked>
+                    <i class="contoh-batas-blok"></i>Batas blok
+                    <b><?= e(count($blok)) ?></b>
+                </label>
+                <label class="chip-lapisan">
+                    <input type="checkbox" id="tampilBatas" checked>
+                    <i class="contoh-batas-desa"></i>Batas desa
+                </label>
+                <?php if ($kelola): ?>
+                    <label class="chip-lapisan">
+                        <input type="checkbox" id="tampilLaporan">
+                        <i style="background:#b42318"></i>Titik laporan
+                        <b><?= e(angka($jmlLaporan)) ?></b>
+                    </label>
+                <?php endif; ?>
             </div>
 
-            <div class="legenda" id="legendaPeta"></div>
+            <div class="peta-wadah">
+                <div id="peta" aria-label="Peta bidang tanah Desa Gedong"></div>
+            </div>
+
+            <div class="legenda legenda-peta" id="legendaPeta"></div>
             <p class="petunjuk" id="infoMuat">Menyiapkan data peta…</p>
         </section>
 
@@ -120,14 +155,7 @@ sip_judul(
                         </select>
                     </div>
                 </div>
-                <div class="lapangan">
-                    <label for="tipe">Jenis obyek</label>
-                    <select id="tipe" name="tipe">
-                        <option value="">Bidang tanah dan non-tanah</option>
-                        <option value="tanah">Hanya bidang tanah</option>
-                        <option value="lain">Hanya obyek non-tanah</option>
-                    </select>
-                </div>
+                <p class="petunjuk">Lapisan mana yang dimuat diatur pada tombol di atas peta.</p>
                 <div class="baris-tombol">
                     <button class="tombol tombol-utama" type="submit">Terapkan</button>
                     <button class="tombol" type="reset">Bersihkan</button>
@@ -137,7 +165,7 @@ sip_judul(
 
         <section class="kartu pengaturan-peta">
             <header class="kepala-kartu">
-                <div><h2>Pengaturan peta</h2><p>Tersimpan di peramban ini</p></div>
+                <div><h2>Tampilan peta</h2><p>Tersimpan di peramban ini</p></div>
                 <button class="tombol tombol-kecil" type="button" id="aturUlangPengaturan">Atur ulang</button>
             </header>
             <div class="lapangan">
@@ -150,6 +178,8 @@ sip_judul(
             <div class="lapangan">
                 <label for="modeWarna">Warnai bidang menurut</label>
                 <select id="modeWarna">
+                    <option value="blok">Blok peta (warna per blok)</option>
+                    <option value="tipe">Jenis obyek (tanah / non-tanah)</option>
                     <option value="hak">Jenis hak</option>
                     <option value="pbb">Status PBB</option>
                     <option value="status">Status bidang</option>
@@ -158,11 +188,13 @@ sip_judul(
             <div class="lapangan">
                 <label for="kepekatan">Kepekatan isian bidang</label>
                 <div class="kepekatan-baris">
-                    <input id="kepekatan" type="range" min="0" max="60" step="1" value="28">
-                    <output id="nilaiKepekatan" for="kepekatan">28%</output>
+                    <input id="kepekatan" type="range" min="0" max="60" step="1" value="26">
+                    <output id="nilaiKepekatan" for="kepekatan">26%</output>
                 </div>
             </div>
             <label class="cek jarak-atas"><input type="checkbox" id="labelBidang"> Tampilkan kode bidang</label>
+            <label class="cek"><input type="checkbox" id="labelBlok" checked> Tampilkan nama blok</label>
+            <p class="petunjuk">Nama blok hanya tampil pada zoom dekat (14 ke atas) agar tidak bertumpuk.</p>
             <div class="baris-tombol jarak-atas">
                 <button class="tombol" type="button" id="simpanTampilan">Simpan tampilan peta</button>
             </div>
@@ -172,11 +204,12 @@ sip_judul(
         <section class="kartu">
             <header class="kepala-kartu"><div><h2>Catatan pemakaian</h2></div></header>
             <p class="penjelasan">
-                Peta hanya menampilkan <?= e(angka(6000)) ?> bidang pertama dari hasil saringan.
-                Persempit dengan blok atau kata kunci bila jumlah bidang pada satu tampilan
-                melebihi batas itu, atau buka halaman daftar bidang untuk melihat semua.
+                Tiap lapisan memuat paling banyak <?= e(angka(6000)) ?> bidang dari hasil saringan.
+                Persempit dengan blok atau kata kunci bila jumlahnya melebihi batas itu,
+                atau buka halaman daftar bidang untuk melihat semua.
             </p>
             <p class="petunjuk">
+                Obyek non-tanah adalah jalan, saluran, dan anotasi peta yang ikut terdigitasi.
                 Digitasi batas bidang dilakukan di perangkat GIS lalu dimuat ulang melalui
                 menu impor data; peta ini tidak untuk menggambar batas baru.
             </p>
@@ -189,12 +222,14 @@ $naskah = <<<'JS'
 <script>
 (function () {
     'use strict';
-    const KUNCI = 'sip.peta.pengaturan.v1';
+    const KUNCI = 'sip.peta.pengaturan.v2';
     const BAWAAN = {
-        dasar: 'jalan', warna: 'hak', kepekatan: 28, label: false,
-        bidang: true, blok: false, batas: true, laporan: false, tampilan: null
+        dasar: 'jalan', warna: 'blok', kepekatan: 26, label: false, labelBlok: true,
+        bidang: true, lain: false, blok: true, batas: true, laporan: false, tampilan: null
     };
-    const BATAS_LABEL = 800;
+    const MODE = ['blok', 'tipe', 'hak', 'pbb', 'status'];
+    const BATAS_LABEL = 1500;
+    const ZOOM_LABEL = 14;
 
     function bacaSetelan() {
         let isi = {};
@@ -204,9 +239,9 @@ $naskah = <<<'JS'
         } catch (e) { /* localStorage tidak tersedia */ }
         const s = Object.assign({}, BAWAAN, isi);
         if (s.dasar !== 'jalan' && s.dasar !== 'satelit') s.dasar = BAWAAN.dasar;
-        if (s.warna !== 'hak' && s.warna !== 'pbb' && s.warna !== 'status') s.warna = BAWAAN.warna;
+        if (MODE.indexOf(s.warna) < 0) s.warna = BAWAAN.warna;
         s.kepekatan = Math.max(0, Math.min(60, Number(s.kepekatan) || 0));
-        ['label', 'bidang', 'blok', 'batas', 'laporan'].forEach((k) => { s[k] = !!s[k]; });
+        ['label', 'labelBlok', 'bidang', 'lain', 'blok', 'batas', 'laporan'].forEach((k) => { s[k] = !!s[k]; });
         return s;
     }
 
@@ -217,8 +252,21 @@ $naskah = <<<'JS'
     }
 
     const peta = L.map('peta', { preferCanvas: true }).setView([SIP.peta.lat, SIP.peta.lon], SIP.peta.zoom);
+    peta.attributionControl.setPrefix('');
+
+    // Panes menentukan urutan gambar tanpa bergantung urutan addLayer:
+    // batas desa paling bawah, lalu blok, obyek non-tanah, bidang tanah.
+    const PANES = { batas: 405, blok: 410, lain: 415, tanah: 420, laporan: 430 };
+    Object.keys(PANES).forEach((nama) => {
+        const pane = peta.createPane('pane-' + nama);
+        pane.style.zIndex = String(PANES[nama]);
+    });
+    peta.getPane('pane-batas').style.pointerEvents = 'none';
+    peta.getPane('pane-laporan').style.pointerEvents = 'auto';
+
     const grup = {
-        bidang: L.layerGroup(), blok: L.layerGroup(), batas: L.layerGroup(), laporan: L.layerGroup()
+        bidang: L.layerGroup(), lain: L.layerGroup(), blok: L.layerGroup(),
+        batas: L.layerGroup(), laporan: L.layerGroup()
     };
 
     const dasar = {
@@ -241,11 +289,30 @@ $naskah = <<<'JS'
 
     const WARNA = {
         hijau: '#1f9d4d', biru: '#0f4c81', coklat: '#8a5a10',
-        abu: '#9aa8a2', merah: '#b42318', kuning: '#c47f00', gelap: '#6b7280'
+        abu: '#9aa8a2', merah: '#b42318', kuning: '#c47f00', gelap: '#6b7280',
+        lain: '#8a7a66'
     };
 
+    function nomorBlok(kode) {
+        const cocok = String(kode || '').match(/(\d+)/);
+        return cocok ? Number(cocok[1]) : 0;
+    }
+
+    // Sudut emas menyebar 25 blok ke seluruh roda warna tanpa dua blok
+    // bersebelahan mendapat rona yang hampir sama.
+    function warnaBlok(kode) {
+        const nomor = nomorBlok(kode);
+        if (!nomor) return WARNA.abu;
+        return 'hsl(' + Math.round((nomor * 137.508) % 360) + ', 38%, 44%)';
+    }
+
     function warnaBidang(p) {
-        if (p.status === 'perlu_verifikasi') return WARNA.merah;
+        if (setelan.warna === 'blok') {
+            return p.blok ? warnaBlok(p.blok) : WARNA.abu;
+        }
+        if (setelan.warna === 'tipe') {
+            return p.tipe === 'tanah' ? WARNA.hijau : WARNA.lain;
+        }
         if (setelan.warna === 'pbb') {
             if (p.pbb === 'Lunas') return WARNA.hijau;
             if (p.pbb === 'Sebagian') return WARNA.kuning;
@@ -254,6 +321,7 @@ $naskah = <<<'JS'
         }
         if (setelan.warna === 'status') {
             if (p.status === 'aktif') return WARNA.hijau;
+            if (p.status === 'perlu_verifikasi') return WARNA.kuning;
             if (p.status === 'duplikat') return WARNA.gelap;
             return WARNA.abu;
         }
@@ -264,36 +332,82 @@ $naskah = <<<'JS'
     }
 
     function gayaBidang(p) {
-        const w = warnaBidang(p);
+        const warna = warnaBidang(p);
         const isi = setelan.kepekatan / 100;
+        const lain = p.tipe !== 'tanah';
         return {
-            color: w, weight: 1, opacity: .85,
-            fillColor: w, fillOpacity: p.tipe === 'tanah' ? isi : isi * .35,
-            dashArray: p.status === 'perlu_verifikasi' ? '4 3' : null
+            color: warna, weight: lain ? 0.7 : 1.1, opacity: lain ? .7 : .9,
+            fillColor: warna, fillOpacity: lain ? isi * .3 : isi,
+            dashArray: lain ? '3 4' : null
         };
     }
-
-    const LEGENDA = {
-        hak: [[WARNA.hijau, 'Hak Milik'], [WARNA.biru, 'Hak Pakai / HGB / HGU'],
-            [WARNA.coklat, 'Milik desa / Buku C'], [WARNA.abu, 'Belum tercatat'],
-            [WARNA.merah, 'Perlu verifikasi']],
-        pbb: [[WARNA.hijau, 'PBB lunas'], [WARNA.kuning, 'PBB sebagian'],
-            [WARNA.merah, 'PBB belum bayar'], [WARNA.abu, 'Tanpa SPPT']],
-        status: [[WARNA.hijau, 'Aktif'], [WARNA.merah, 'Perlu verifikasi'],
-            [WARNA.gelap, 'Duplikat'], [WARNA.abu, 'Lainnya']]
-    };
 
     const daftar = document.getElementById('daftarBidang');
     const info = document.getElementById('infoMuat');
     const hitung = document.getElementById('hitungTampil');
-    let fiturTerakhir = [];
+    const dataLapisan = { tanah: null, lain: null };
+    const filterLapisan = { tanah: null, lain: null };
+    const tampil = new Map();
+    let terpotong = false;
     let sudahMemusat = false;
 
+    function fiturTampil() {
+        const hasil = [];
+        if (setelan.bidang && dataLapisan.tanah) hasil.push.apply(hasil, dataLapisan.tanah);
+        if (setelan.lain && dataLapisan.lain) hasil.push.apply(hasil, dataLapisan.lain);
+        return hasil;
+    }
+
     function gambarLegenda() {
-        const isi = LEGENDA[setelan.warna] || LEGENDA.hak;
-        document.getElementById('legendaPeta').innerHTML = isi.map(([w, t]) =>
-            '<span><i style="background:' + w + '"></i>' + Sip.esc(t) + '</span>'
-        ).join('') + '<span><i class="contoh-batas-desa"></i>Batas desa (010500)</span>';
+        const fitur = fiturTampil();
+        const hitungDengan = (fn) => fitur.reduce((n, f) => n + (fn(f.properties) ? 1 : 0), 0);
+        const butir = (warna, teks, jumlah, kelas) =>
+            '<span><i class="' + (kelas || '') + '" style="background:' + warna + '"></i>'
+            + Sip.esc(teks) + (jumlah === null ? '' : ' <b>' + Sip.angka(jumlah) + '</b>') + '</span>';
+        const baris = [];
+
+        if (setelan.warna === 'blok') {
+            const perBlok = new Map();
+            fitur.forEach((f) => {
+                const kode = f.properties.blok || 'Tanpa blok';
+                perBlok.set(kode, (perBlok.get(kode) || 0) + 1);
+            });
+            Array.from(perBlok.keys())
+                .sort((a, b) => nomorBlok(a) - nomorBlok(b))
+                .forEach((kode) => {
+                    baris.push(butir(kode === 'Tanpa blok' ? WARNA.abu : warnaBlok(kode), kode, perBlok.get(kode)));
+                });
+        } else if (setelan.warna === 'tipe') {
+            baris.push(butir(WARNA.hijau, 'Bidang tanah', hitungDengan((p) => p.tipe === 'tanah')));
+            baris.push(butir(WARNA.lain, 'Obyek non-tanah', hitungDengan((p) => p.tipe !== 'tanah')));
+        } else if (setelan.warna === 'pbb') {
+            baris.push(butir(WARNA.hijau, 'PBB lunas', hitungDengan((p) => p.pbb === 'Lunas')));
+            baris.push(butir(WARNA.kuning, 'PBB sebagian', hitungDengan((p) => p.pbb === 'Sebagian')));
+            baris.push(butir(WARNA.merah, 'PBB belum bayar', hitungDengan((p) => p.pbb === 'Belum Bayar')));
+            baris.push(butir(WARNA.abu, 'Tanpa SPPT', hitungDengan((p) => !p.pbb)));
+            if (!fitur.some((f) => f.properties.pbb)) {
+                baris.push('<span class="legenda-catatan">Belum ada NOP yang tertaut ke bidang; rekap PBB ada di halaman e-SPPT.</span>');
+            }
+        } else if (setelan.warna === 'status') {
+            baris.push(butir(WARNA.hijau, 'Aktif', hitungDengan((p) => p.status === 'aktif')));
+            baris.push(butir(WARNA.kuning, 'Perlu verifikasi', hitungDengan((p) => p.status === 'perlu_verifikasi')));
+            baris.push(butir(WARNA.gelap, 'Duplikat', hitungDengan((p) => p.status === 'duplikat')));
+            baris.push(butir(WARNA.abu, 'Lainnya', hitungDengan((p) => ['aktif', 'perlu_verifikasi', 'duplikat'].indexOf(p.status) < 0)));
+        } else {
+            baris.push(butir(WARNA.hijau, 'Hak Milik', hitungDengan((p) => p.hak_kode === 'HM')));
+            baris.push(butir(WARNA.biru, 'Hak Pakai / HGB / HGU', hitungDengan((p) => ['HP', 'HGB', 'HGU'].indexOf(p.hak_kode) >= 0)));
+            baris.push(butir(WARNA.coklat, 'Milik desa / Buku C', hitungDengan((p) => ['KDH', 'BCD'].indexOf(p.hak_kode) >= 0)));
+            baris.push(butir(WARNA.abu, 'Belum tercatat', hitungDengan((p) => !p.hak_kode || ['HM', 'HP', 'HGB', 'HGU', 'KDH', 'BCD'].indexOf(p.hak_kode) < 0)));
+        }
+
+        if (setelan.blok) {
+            baris.push('<span><i class="contoh-batas-blok"></i>Batas blok ukur</span>');
+            baris.push('<span><i class="contoh-batas-blok-perkiraan"></i>Batas blok perkiraan</span>');
+        }
+        if (setelan.batas) {
+            baris.push('<span><i class="contoh-batas-desa"></i>Batas desa (010500)</span>');
+        }
+        document.getElementById('legendaPeta').innerHTML = baris.join('');
     }
 
     // L.LayerGroup tidak punya getBounds(), jadi batas dihitung dari lapisan anak.
@@ -303,6 +417,13 @@ $naskah = <<<'JS'
             if (l.getBounds) { b.extend(l.getBounds()); }
             else if (l.getLatLng) { b.extend(l.getLatLng()); }
         });
+        return b;
+    }
+
+    function batasTampil() {
+        const b = L.latLngBounds([]);
+        if (setelan.bidang && peta.hasLayer(grup.bidang)) b.extend(batasGrup(grup.bidang));
+        if (setelan.lain && peta.hasLayer(grup.lain)) b.extend(batasGrup(grup.lain));
         return b;
     }
 
@@ -323,18 +444,44 @@ $naskah = <<<'JS'
         return bagian.length ? '<p class="petunjuk">Blok kandidat — ' + bagian.join(' &middot; ') + '</p>' : '';
     }
 
-    function isianSaring() {
-        const f = document.getElementById('formSaring');
-        const blok = f.blok.value;
-        return {
-            cari: f.cari.value.trim(),
-            blok: blok === '__tanpa' ? '' : blok,
-            tanpa_blok: blok === '__tanpa' ? 1 : '',
-            dusun: f.dusun.value,
-            hak: f.hak.value,
-            status: f.status.value,
-            tipe: f.tipe.value
+    const NAMA_STATUS = {
+        aktif: 'Aktif', perlu_verifikasi: 'Perlu verifikasi',
+        duplikat: 'Duplikat', dihapus: 'Dihapus'
+    };
+
+    function isiPopup(p) {
+        const baris = [];
+        const tambah = (k, v) => {
+            const teks = v === null || v === undefined ? '' : String(v).trim();
+            if (teks !== '') baris.push('<dt>' + Sip.esc(k) + '</dt><dd>' + Sip.esc(teks) + '</dd>');
         };
+        tambah('Jenis hak', p.hak_nama || 'belum tercatat');
+        tambah('Pemegang', p.pemegang || 'belum tercatat');
+        tambah('Luas', p.luas ? Sip.angka(p.luas, p.luas % 1 ? 2 : 0) + ' m²' : 'belum dihitung');
+        tambah('Status', NAMA_STATUS[p.status] || p.status);
+        tambah('NIS alas hak', p.nis);
+        tambah('NIB', p.nib);
+        tambah('Nomor daftar 080201', p.nomor_daftar);
+        tambah('Blok', p.blok || '—');
+        tambah('Dusun', p.dusun || '—');
+        if (p.nop) {
+            tambah('NOP', p.nop);
+            tambah('Status PBB', p.pbb || 'tanpa SPPT');
+        }
+
+        return '<div class="popup-peta-isi">'
+            + '<p class="popup-peta-judul"><strong>' + Sip.esc(p.kode) + '</strong>'
+            + '<span>' + Sip.esc(p.tipe === 'tanah' ? 'bidang tanah' : 'obyek non-tanah') + '</span></p>'
+            + '<dl class="popup-isi">' + baris.join('') + '</dl>'
+            + teksKandidat(p.blok_kandidat)
+            + '<p class="popup-peta-kaki"><a href="' + Sip.url('bidang.php', { id: p.id }) + '">Buka detail bidang</a></p></div>';
+    }
+
+    function tandaAktif(id) {
+        if (!daftar) return;
+        daftar.querySelectorAll('button').forEach((b) => {
+            b.classList.toggle('aktif', Number(b.dataset.lompat) === id);
+        });
     }
 
     function gambarDaftar(features) {
@@ -355,92 +502,160 @@ $naskah = <<<'JS'
     }
 
     function pasangLabel() {
-        if (setelan.label && fiturTerakhir.length > BATAS_LABEL) {
+        if (setelan.label && fiturTampil().length > BATAS_LABEL) {
             setelan.label = false;
             simpanSetelan();
             document.getElementById('labelBidang').checked = false;
             Sip.pesan('Label kode dimatikan karena tampilan memuat lebih dari '
                 + Sip.angka(BATAS_LABEL) + ' bidang. Persempit saringan untuk memakainya.', 'info');
         }
-        grup.bidang.eachLayer((l) => {
-            if (!l.feature) return;
-            l.unbindTooltip();
+        tampil.forEach((v) => {
+            if (v.tipe !== 'tanah') return;
+            v.lapisan.unbindTooltip();
             if (setelan.label) {
-                l.bindTooltip(l.feature.properties.kode, {
+                v.lapisan.bindTooltip(v.fitur.properties.kode, {
                     permanent: true, direction: 'center', className: 'label-bidang', opacity: 1
                 });
-                l.openTooltip();
+                v.lapisan.openTooltip();
             }
         });
     }
 
     function gambarGaya() {
-        grup.bidang.eachLayer((l) => {
-            if (l.feature) l.setStyle(gayaBidang(l.feature.properties));
+        tampil.forEach((v) => v.lapisan.setStyle(gayaBidang(v.fitur.properties)));
+    }
+
+    function segarkanTampilan() {
+        const fitur = fiturTampil();
+        const tanah = fitur.filter((f) => f.properties.tipe === 'tanah').length;
+        hitung.textContent = Sip.angka(tanah) + ' tanah · ' + Sip.angka(fitur.length - tanah) + ' obyek';
+        gambarDaftar(fitur);
+        pasangLabel();
+        gambarLegenda();
+    }
+
+    function kunciFilter(tipe) {
+        return JSON.stringify(Object.assign({ lapisan: 'bidang', maks: 6000 }, isianSaring(), { tipe }));
+    }
+
+    function isianSaring() {
+        const f = document.getElementById('formSaring');
+        const blok = f.blok.value;
+        return {
+            cari: f.cari.value.trim(),
+            blok: blok === '__tanpa' ? '' : blok,
+            tanpa_blok: blok === '__tanpa' ? 1 : '',
+            dusun: f.dusun.value,
+            hak: f.hak.value,
+            status: f.status.value
+        };
+    }
+
+    function kosongkanLapisan(tipe) {
+        const kunci = tipe === 'tanah' ? 'bidang' : 'lain';
+        grup[kunci].clearLayers();
+        Array.from(tampil.keys()).forEach((id) => {
+            if (tampil.get(id).tipe === tipe) tampil.delete(id);
         });
+    }
+
+    function gambarLapisan(tipe) {
+        kosongkanLapisan(tipe);
+        const fitur = dataLapisan[tipe] || [];
+        if (!fitur.length) return;
+        const kunci = tipe === 'tanah' ? 'bidang' : 'lain';
+        L.geoJSON({ type: 'FeatureCollection', features: fitur }, {
+            pane: 'pane-' + (tipe === 'tanah' ? 'tanah' : 'lain'),
+            style: gayaBidang,
+            onEachFeature: (f, l) => {
+                const p = f.properties;
+                tampil.set(p.id, { lapisan: l, fitur: f, tipe });
+                l.bindPopup(isiPopup(p), { maxWidth: 320, className: 'popup-peta' });
+                l.on('click', () => {
+                    const batas = l.getBounds();
+                    if (batas && batas.isValid()) peta.flyToBounds(batas.pad(.4), { duration: .4 });
+                    tandaAktif(p.id);
+                });
+                l.on('mouseover', () => {
+                    l.setStyle({ weight: tipe === 'tanah' ? 2.6 : 1.8, opacity: 1 });
+                    l.bringToFront();
+                });
+                l.on('mouseout', () => {
+                    l.setStyle(gayaBidang(f.properties));
+                });
+            }
+        }).addTo(grup[kunci]);
+    }
+
+    async function muatLapisan(tipe) {
+        const kunci = kunciFilter(tipe);
+        const data = await Sip.api('api/bidang.php', {
+            query: Object.assign({ lapisan: 'bidang', maks: 6000 }, isianSaring(), { tipe })
+        });
+        dataLapisan[tipe] = data.features || [];
+        filterLapisan[tipe] = kunci;
+        if (data.terpotong) terpotong = true;
+        gambarLapisan(tipe);
+    }
+
+    function pusatkanKe(batas) {
+        if (batas.isValid()) peta.fitBounds(batas.pad(.05));
     }
 
     async function muatBidang(pusatkan = false) {
         info.textContent = 'Mengambil geometri bidang…';
-        const data = await Sip.api('api/bidang.php', { query: Object.assign({ lapisan: 'bidang', maks: 6000 }, isianSaring()) });
-        grup.bidang.clearLayers();
-        fiturTerakhir = data.features || [];
+        terpotong = false;
+        const tugas = [];
+        if (setelan.bidang) tugas.push(muatLapisan('tanah'));
+        if (setelan.lain) tugas.push(muatLapisan('lain'));
+        if (!tugas.length) {
+            segarkanTampilan();
+            info.textContent = 'Kedua lapisan bidang dimatikan. Nyalakan salah satu di atas peta.';
+            return;
+        }
+        await Promise.all(tugas);
+        segarkanTampilan();
 
-        fiturTerakhir.forEach((f) => {
-            L.geoJSON(f, { style: gayaBidang }).eachLayer((l) => {
-                const p = f.properties;
-                l.bindPopup(
-                    '<div class="popup-bidang"><strong>' + Sip.esc(p.kode) + '</strong>'
-                    + '<p>' + Sip.esc(p.hak_nama || 'Jenis hak belum tercatat') + '</p>'
-                    + '<p>Pemegang: ' + Sip.esc(p.pemegang || 'belum tercatat') + '</p>'
-                    + (p.nis ? '<p>NIS alas hak: ' + Sip.esc(p.nis) + '</p>' : '')
-                    + (p.nomor_daftar ? '<p>Nomor daftar 080201: ' + Sip.esc(p.nomor_daftar) + '</p>' : '')
-                    + '<p>Luas: ' + (p.luas ? Sip.angka(p.luas) + ' m²' : 'belum dihitung') + '</p>'
-                    + '<p>Blok: ' + Sip.esc(p.blok || '—') + ' &middot; Dusun: ' + Sip.esc(p.dusun || '—') + '</p>'
-                    + teksKandidat(p.blok_kandidat)
-                    + (p.nop ? '<p>NOP: ' + Sip.esc(p.nop) + ' (' + Sip.esc(p.pbb || 'tanpa SPPT') + ')</p>' : '')
-                    + '<p><a href="' + Sip.url('bidang.php', { id: p.id }) + '">Buka detail bidang</a></p></div>'
-                );
-                l.on('click', () => {
-                    peta.flyToBounds(l.getBounds().pad(.4), { duration: .4 });
-                    daftar.querySelectorAll('button').forEach((b) => {
-                        b.classList.toggle('aktif', Number(b.dataset.lompat) === p.id);
-                    });
-                });
-                l.addTo(grup.bidang);
-            });
-        });
-
-        hitung.textContent = Sip.angka(fiturTerakhir.length) + ' bidang';
-        gambarDaftar(fiturTerakhir);
-        pasangLabel();
-
-        // Pusat peta di setelan hanya titik awal; tampilan pertama selalu
-        // disesuaikan dengan sebaran bidang yang benar-benar dimuat. Menerapkan
-        // saringan juga memusatkan ulang, sebab blok seperti BLOK 14 isinya
-        // bidang-bidang kecil yang hilang bila peta masih seukuran seluruh desa.
-        if ((pusatkan || !sudahMemusat) && fiturTerakhir.length) {
-            const batas = batasGrup(grup.bidang);
+        const jumlah = fiturTampil().length;
+        if ((pusatkan || !sudahMemusat) && jumlah) {
+            const batas = batasTampil();
             if (batas.isValid()) {
                 sudahMemusat = true;
-                peta.fitBounds(batas.pad(.05));
+                pusatkanKe(batas);
             }
         }
 
-        info.textContent = fiturTerakhir.length
-            ? (data.terpotong
-                ? 'Ditampilkan ' + Sip.angka(fiturTerakhir.length) + ' bidang (terpotong pada batas muat). Persempit saringan untuk melihat sisanya.'
-                : 'Ditampilkan ' + Sip.angka(fiturTerakhir.length) + ' bidang.')
+        info.textContent = jumlah
+            ? 'Ditampilkan ' + Sip.angka(jumlah) + ' geometri'
+                + (terpotong ? ' (terpotong pada batas muat; persempit saringan).' : '.')
             : 'Tidak ada bidang pada saringan ini.';
+    }
+
+    function gayaBlok(p) {
+        return p.batas_perkiraan
+            ? { color: '#a06a12', weight: 2, opacity: .9, fillOpacity: 0, dashArray: '7 5' }
+            : { color: '#14603a', weight: 2, opacity: .95, fillOpacity: 0 };
     }
 
     async function muatBlok() {
         const data = await Sip.api('api/bidang.php', { query: { lapisan: 'blok' } });
         grup.blok.clearLayers();
         (data.features || []).forEach((f) => {
-            L.geoJSON(f, {
-                style: { color: '#14603a', weight: 2, dashArray: '6 4', fillOpacity: 0 }
-            }).bindTooltip(f.properties.kode, { sticky: true }).addTo(grup.blok);
+            const lap = L.geoJSON(f, { pane: 'pane-blok', style: () => gayaBlok(f.properties) });
+            lap.bindTooltip(
+                f.properties.kode + ' — ' + (f.properties.batas_perkiraan ? 'batas perkiraan' : 'batas ukur'),
+                { sticky: true }
+            ).addTo(grup.blok);
+
+            const tengah = lap.getBounds().getCenter();
+            L.marker(tengah, {
+                icon: L.divIcon({
+                    className: 'label-blok',
+                    html: '<span>' + Sip.esc(f.properties.kode) + '</span>',
+                    iconSize: [0, 0]
+                }),
+                interactive: false, keyboard: false
+            }).addTo(grup.blok);
         });
     }
 
@@ -449,7 +664,8 @@ $naskah = <<<'JS'
         grup.batas.clearLayers();
         (data.features || []).forEach((f) => {
             L.geoJSON(f, {
-                style: { color: '#1f4e79', weight: 2, dashArray: '8 5', fillOpacity: 0 },
+                pane: 'pane-batas',
+                style: { color: '#1f4e79', weight: 2.4, dashArray: '8 5', fillOpacity: 0 },
                 interactive: false
             }).addTo(grup.batas);
         });
@@ -460,7 +676,9 @@ $naskah = <<<'JS'
         grup.laporan.clearLayers();
         (data.features || []).forEach((f) => {
             const p = f.properties;
-            L.circleMarker(f.geometry.coordinates.reverse(), {
+            const koordinat = f.geometry.coordinates;
+            L.circleMarker([Number(koordinat[1]), Number(koordinat[0])], {
+                pane: 'pane-laporan',
                 radius: 7, color: '#b42318', fillColor: '#ffd9d3', fillOpacity: .9, weight: 2
             }).bindPopup(
                 '<strong>' + Sip.esc(p.nomor) + '</strong><p>' + Sip.esc(p.kategori) + ' — ' + Sip.esc(p.status) + '</p>'
@@ -475,6 +693,12 @@ $naskah = <<<'JS'
         else peta.removeLayer(grup[nama]);
     }
 
+    function perbaruiZoom() {
+        const wadah = peta.getContainer();
+        wadah.classList.toggle('peta-dekat', peta.getZoom() >= ZOOM_LABEL);
+        wadah.classList.toggle('tanpa-label-blok', !setelan.labelBlok);
+    }
+
     function terapkanSetelan() {
         document.getElementById('petaDasar').value = setelan.dasar;
         document.getElementById('modeWarna').value = setelan.warna;
@@ -482,7 +706,9 @@ $naskah = <<<'JS'
         slider.value = setelan.kepekatan;
         document.getElementById('nilaiKepekatan').textContent = setelan.kepekatan + '%';
         document.getElementById('labelBidang').checked = setelan.label;
+        document.getElementById('labelBlok').checked = setelan.labelBlok;
         document.getElementById('tampilBidang').checked = setelan.bidang;
+        document.getElementById('tampilLain').checked = setelan.lain;
         document.getElementById('tampilBlok').checked = setelan.blok;
         document.getElementById('tampilBatas').checked = setelan.batas;
         const kotakLaporan = document.getElementById('tampilLaporan');
@@ -491,9 +717,11 @@ $naskah = <<<'JS'
         pakaiDasar(setelan.dasar);
         gambarLegenda();
         aktifkan('bidang', setelan.bidang);
+        aktifkan('lain', setelan.lain);
         aktifkan('blok', setelan.blok);
         aktifkan('batas', setelan.batas);
         aktifkan('laporan', setelan.laporan);
+        perbaruiZoom();
         if (setelan.blok && !grup.blok.getLayers().length) {
             muatBlok().catch((err) => Sip.pesan(err.message, 'gagal'));
         }
@@ -505,15 +733,52 @@ $naskah = <<<'JS'
         }
     }
 
+    function gagalMuat(err) {
+        Sip.pesan(err.message, 'gagal');
+        info.textContent = 'Data bidang gagal dimuat.';
+    }
+
+    function segarkanTanpaMuat() {
+        segarkanTampilan();
+        const jumlah = fiturTampil().length;
+        if (!setelan.bidang && !setelan.lain) {
+            info.textContent = 'Kedua lapisan bidang dimatikan. Nyalakan salah satu di atas peta.';
+        } else {
+            info.textContent = jumlah
+                ? 'Ditampilkan ' + Sip.angka(jumlah) + ' geometri' + (terpotong ? ' (terpotong).' : '.')
+                : 'Tidak ada bidang pada saringan ini.';
+        }
+    }
+
     document.getElementById('tampilBidang').addEventListener('change', (e) => {
         setelan.bidang = e.target.checked;
         simpanSetelan();
         aktifkan('bidang', setelan.bidang);
+        if (!setelan.bidang) { segarkanTanpaMuat(); return; }
+        if (dataLapisan.tanah === null || filterLapisan.tanah !== kunciFilter('tanah')) {
+            info.textContent = 'Mengambil geometri bidang…';
+            muatLapisan('tanah').then(segarkanTanpaMuat).catch(gagalMuat);
+        } else {
+            segarkanTanpaMuat();
+        }
+    });
+    document.getElementById('tampilLain').addEventListener('change', (e) => {
+        setelan.lain = e.target.checked;
+        simpanSetelan();
+        aktifkan('lain', setelan.lain);
+        if (!setelan.lain) { segarkanTanpaMuat(); return; }
+        if (dataLapisan.lain === null || filterLapisan.lain !== kunciFilter('lain')) {
+            info.textContent = 'Mengambil geometri obyek non-tanah…';
+            muatLapisan('lain').then(segarkanTanpaMuat).catch(gagalMuat);
+        } else {
+            segarkanTanpaMuat();
+        }
     });
     document.getElementById('tampilBlok').addEventListener('change', (e) => {
         setelan.blok = e.target.checked;
         simpanSetelan();
         aktifkan('blok', setelan.blok);
+        gambarLegenda();
         if (setelan.blok && !grup.blok.getLayers().length) {
             muatBlok().catch((err) => Sip.pesan(err.message, 'gagal'));
         }
@@ -522,6 +787,7 @@ $naskah = <<<'JS'
         setelan.batas = e.target.checked;
         simpanSetelan();
         aktifkan('batas', setelan.batas);
+        gambarLegenda();
         if (setelan.batas && !grup.batas.getLayers().length) {
             muatBatas().catch((err) => Sip.pesan(err.message, 'gagal'));
         }
@@ -562,15 +828,20 @@ $naskah = <<<'JS'
     sliderKepekatan.addEventListener('change', simpanSetelan);
 
     document.getElementById('labelBidang').addEventListener('change', (e) => {
-        if (e.target.checked && fiturTerakhir.length > BATAS_LABEL) {
+        if (e.target.checked && fiturTampil().length > BATAS_LABEL) {
             e.target.checked = false;
-            Sip.pesan('Tampilan memuat ' + Sip.angka(fiturTerakhir.length)
+            Sip.pesan('Tampilan memuat ' + Sip.angka(fiturTampil().length)
                 + ' bidang. Persempit saringan sebelum menampilkan label kode.', 'info');
             return;
         }
         setelan.label = e.target.checked;
         simpanSetelan();
         pasangLabel();
+    });
+    document.getElementById('labelBlok').addEventListener('change', (e) => {
+        setelan.labelBlok = e.target.checked;
+        simpanSetelan();
+        perbaruiZoom();
     });
 
     document.getElementById('simpanTampilan').addEventListener('click', () => {
@@ -588,35 +859,38 @@ $naskah = <<<'JS'
         setelan = Object.assign({}, BAWAAN);
         simpanSetelan();
         terapkanSetelan();
-        pasangLabel();
         sudahMemusat = false;
-        muatBidang(true).catch((err) => {
-            Sip.pesan(err.message, 'gagal');
-            info.textContent = 'Data bidang gagal dimuat.';
-        });
+        muatBidang(true).catch(gagalMuat);
     });
 
     daftar.addEventListener('click', (e) => {
         const tombol = e.target.closest('[data-lompat]');
         if (!tombol) return;
         const id = Number(tombol.dataset.lompat);
-        const fitur = fiturTerakhir.find((f) => f.properties.id === id);
-        if (!fitur) return;
-        const batas = L.geoJSON(fitur).getBounds();
-        peta.flyToBounds(batas.pad(.6), { duration: .5 });
+        const terdaftar = tampil.get(id);
+        if (!terdaftar) return;
+        const batas = terdaftar.lapisan.getBounds();
+        if (batas && batas.isValid()) {
+            peta.flyToBounds(batas.pad(.6), { duration: .5 });
+            tandaAktif(id);
+        }
     });
 
     const form = document.getElementById('formSaring');
     form.addEventListener('submit', (e) => {
         e.preventDefault();
-        muatBidang(true).catch((err) => { Sip.pesan(err.message, 'gagal'); info.textContent = 'Data bidang gagal dimuat.'; });
+        muatBidang(true).catch(gagalMuat);
     });
-    form.addEventListener('reset', () => setTimeout(() => muatBidang(true), 0));
+    form.addEventListener('reset', () => setTimeout(() => muatBidang(true).catch(gagalMuat), 0));
 
     document.getElementById('pasangkanSemua').addEventListener('click', () => {
-        const batas = batasGrup(grup.bidang);
-        peta.flyToBounds(batas.isValid() ? batas.pad(.05) : peta.getBounds(), { duration: .5 });
+        const batasBlok = batasGrup(grup.blok);
+        const batas = batasBlok.isValid() ? batasBlok : batasTampil();
+        if (batas.isValid()) peta.flyToBounds(batas.pad(.04), { duration: .5 });
     });
+
+    peta.on('zoomend', perbaruiZoom);
+    L.control.scale({ imperial: false, position: 'bottomleft', maxWidth: 120 }).addTo(peta);
 
     if (setelan.tampilan && typeof setelan.tampilan.lat === 'number' && typeof setelan.tampilan.lon === 'number') {
         peta.setView([setelan.tampilan.lat, setelan.tampilan.lon], setelan.tampilan.zoom || SIP.peta.zoom);
@@ -624,10 +898,7 @@ $naskah = <<<'JS'
     }
     terapkanSetelan();
 
-    muatBidang().catch((err) => {
-        Sip.pesan(err.message, 'gagal');
-        info.textContent = 'Data bidang gagal dimuat.';
-    });
+    muatBidang().catch(gagalMuat);
 })();
 </script>
 JS;
