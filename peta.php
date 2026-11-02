@@ -23,10 +23,9 @@ $hak = daftar_jenis_hak();
 
 $ringkas = db_one(
     "SELECT COUNT(*) AS total,
-            COALESCE(SUM(tipe = 'tanah'), 0) AS tanah,
-            COALESCE(SUM(tipe = 'lain'), 0) AS lain
+            COALESCE(SUM(tipe = 'tanah'), 0) AS tanah
      FROM bidang WHERE status NOT IN ('dihapus', 'duplikat')"
-) ?? ['total' => 0, 'tanah' => 0, 'lain' => 0];
+) ?? ['total' => 0, 'tanah' => 0];
 $jmlLaporan = $kelola ? (int) db_value('SELECT COUNT(*) FROM laporan') : 0;
 
 sip_header('Peta pertanahan', 'peta', ['leaflet' => true]);
@@ -34,7 +33,7 @@ sip_judul(
     'Pemetaan',
     'Peta bidang tanah desa',
     'Klik bidang untuk melihat pemilik, jenis hak, dan status PBB-nya. '
-        . 'Warna bawaan mengikuti blok peta; obyek non-tanah dimatikan agar persil tanah terbaca.'
+        . 'Warna bawaan mengikuti blok peta.'
 );
 ?>
 
@@ -45,7 +44,6 @@ sip_judul(
                 <div>
                     <h2>Lapisan peta</h2>
                     <p>Sumber: <?= e(angka((int) $ringkas['tanah'])) ?> bidang tanah &middot;
-                        <?= e(angka((int) $ringkas['lain'])) ?> obyek non-tanah &middot;
                         <?= e(count($blok)) ?> blok</p>
                 </div>
                 <div class="baris-tombol">
@@ -60,11 +58,6 @@ sip_judul(
                     <input type="checkbox" id="tampilBidang" autocomplete="off" checked>
                     <i style="background:#1f9d4d"></i>Bidang tanah
                     <b><?= e(angka((int) $ringkas['tanah'])) ?></b>
-                </label>
-                <label class="chip-lapisan">
-                    <input type="checkbox" id="tampilLain" autocomplete="off">
-                    <i style="background:#8a7a66"></i>Obyek non-tanah
-                    <b><?= e(angka((int) $ringkas['lain'])) ?></b>
                 </label>
                 <label class="chip-lapisan">
                     <input type="checkbox" id="tampilBlok" autocomplete="off" checked>
@@ -209,7 +202,6 @@ sip_judul(
                 atau buka halaman daftar bidang untuk melihat semua.
             </p>
             <p class="petunjuk">
-                Obyek non-tanah adalah jalan, saluran, dan anotasi peta yang ikut terdigitasi.
                 Digitasi batas bidang dilakukan di perangkat GIS lalu dimuat ulang melalui
                 menu impor data; peta ini tidak untuk menggambar batas baru.
             </p>
@@ -241,7 +233,7 @@ $naskah = <<<'JS'
         if (s.dasar !== 'jalan' && s.dasar !== 'satelit') s.dasar = BAWAAN.dasar;
         if (MODE.indexOf(s.warna) < 0) s.warna = BAWAAN.warna;
         s.kepekatan = Math.max(0, Math.min(60, Number(s.kepekatan) || 0));
-        ['label', 'labelBlok', 'bidang', 'lain', 'blok', 'batas', 'laporan'].forEach((k) => { s[k] = !!s[k]; });
+        ['label', 'labelBlok', 'bidang', 'blok', 'batas', 'laporan'].forEach((k) => { s[k] = !!s[k]; });
         return s;
     }
 
@@ -379,7 +371,6 @@ $naskah = <<<'JS'
                 });
         } else if (setelan.warna === 'tipe') {
             baris.push(butir(WARNA.hijau, 'Bidang tanah', hitungDengan((p) => p.tipe === 'tanah')));
-            baris.push(butir(WARNA.lain, 'Obyek non-tanah', hitungDengan((p) => p.tipe !== 'tanah')));
         } else if (setelan.warna === 'pbb') {
             baris.push(butir(WARNA.hijau, 'PBB lunas', hitungDengan((p) => p.pbb === 'Lunas')));
             baris.push(butir(WARNA.kuning, 'PBB sebagian', hitungDengan((p) => p.pbb === 'Sebagian')));
@@ -607,10 +598,9 @@ $naskah = <<<'JS'
         terpotong = false;
         const tugas = [];
         if (setelan.bidang) tugas.push(muatLapisan('tanah'));
-        if (setelan.lain) tugas.push(muatLapisan('lain'));
         if (!tugas.length) {
             segarkanTampilan();
-            info.textContent = 'Kedua lapisan bidang dimatikan. Nyalakan salah satu di atas peta.';
+            info.textContent = 'Lapisan bidang dimatikan. Nyalakan di atas peta.';
             return;
         }
         await Promise.all(tugas);
@@ -727,7 +717,6 @@ $naskah = <<<'JS'
         document.getElementById('labelBidang').checked = setelan.label;
         document.getElementById('labelBlok').checked = setelan.labelBlok;
         document.getElementById('tampilBidang').checked = setelan.bidang;
-        document.getElementById('tampilLain').checked = setelan.lain;
         document.getElementById('tampilBlok').checked = setelan.blok;
         document.getElementById('tampilBatas').checked = setelan.batas;
         const kotakLaporan = document.getElementById('tampilLaporan');
@@ -736,7 +725,6 @@ $naskah = <<<'JS'
         pakaiDasar(setelan.dasar);
         gambarLegenda();
         aktifkan('bidang', setelan.bidang);
-        aktifkan('lain', setelan.lain);
         aktifkan('blok', setelan.blok);
         aktifkan('batas', setelan.batas);
         aktifkan('laporan', setelan.laporan);
@@ -777,18 +765,6 @@ $naskah = <<<'JS'
         if (dataLapisan.tanah === null || filterLapisan.tanah !== kunciFilter('tanah')) {
             info.textContent = 'Mengambil geometri bidang…';
             muatLapisan('tanah').then(segarkanTanpaMuat).catch(gagalMuat);
-        } else {
-            segarkanTanpaMuat();
-        }
-    });
-    document.getElementById('tampilLain').addEventListener('change', (e) => {
-        setelan.lain = e.target.checked;
-        simpanSetelan();
-        aktifkan('lain', setelan.lain);
-        if (!setelan.lain) { segarkanTanpaMuat(); return; }
-        if (dataLapisan.lain === null || filterLapisan.lain !== kunciFilter('lain')) {
-            info.textContent = 'Mengambil geometri obyek non-tanah…';
-            muatLapisan('lain').then(segarkanTanpaMuat).catch(gagalMuat);
         } else {
             segarkanTanpaMuat();
         }
