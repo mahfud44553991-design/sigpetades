@@ -150,7 +150,7 @@ try {
 
     // ------------------------------------------------------------------ GeoJSON lapisan bidang
     if ($lapisan === 'bidang') {
-        $maks = max(100, min(20000, (int) (get_str('maks') ?: 6000)));
+        $maks = max(100, min(50000, (int) (get_str('maks') ?: 6000)));
         $baris = db_all(
             "SELECT b.id, b.kode, b.tipe, b.nib, b.nis, b.nomor_daftar, b.luas_m2, b.status,
                     b.pusat_lon, b.pusat_lat,
