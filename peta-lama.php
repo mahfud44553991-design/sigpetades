@@ -18,9 +18,9 @@ $meta = is_file($berkasMeta) ? json_decode((string) file_get_contents($berkasMet
 $rentang = is_array($meta['extent'] ?? null) ? $meta['extent'] : null;
 $jumlah = static fn (string $kunci): int => (int) ($meta['layers'][$kunci]['features'] ?? 0);
 
-sip_header('Peta DXF lama', 'peta', ['leaflet' => true]);
+sip_header('Peta Induk', 'peta-lama', ['leaflet' => true]);
 sip_judul(
-    'Arsip pemetaan',
+    'Peta Induk',
     'Peta DXF Desa Gedong',
     'Layer MASTER.dxf hasil konversi dari aplikasi lama. Koordinatnya lokal hasil pengukuran, '
         . 'bukan titik GPS, sehingga tidak ditumpuk di atas peta jalan atau citra satelit.'
