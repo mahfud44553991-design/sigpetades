@@ -1,0 +1,37 @@
+Laporan Jumlah Bidang per Blok
+Desa Gedong, Kecamatan Patean, Kabupaten Kendal
+Tanggal: 2026-11-04 06:32
+==================================================
+
+No.    Blok       Jumlah Bidang
+------------------------------
+2      BLOK 2     317
+3      BLOK 3     280
+4      BLOK 4     131
+5      BLOK 5     80
+6      BLOK 6     182
+7      BLOK 7     90
+8      BLOK 8     190
+9      BLOK 9     173
+10     BLOK 10    233
+12     BLOK 12    276
+13     BLOK 13    205
+14     BLOK 14    149
+15     BLOK 15    154
+16     BLOK 16    137
+17     BLOK 17    120
+18     BLOK 18    69
+19     BLOK 19    172
+20     BLOK 20    152
+21     BLOK 21    296
+22     BLOK 22    101
+23     BLOK 23    238
+24     BLOK 24    190
+25     BLOK 25    267
+26     BLOK 26    193
+------------------------------
+       TOTAL      4395
+
+Bidang tanpa blok: 2
+Total blok: 24
+Total bidang: 4397
