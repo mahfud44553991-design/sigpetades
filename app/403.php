@@ -2,7 +2,6 @@
 /** Halaman penolakan akses. Di-include oleh wajib_masuk() lewat halaman_tolak(). */
 $pengguna = $pengguna ?? pengguna_aktif();
 $halaman = [
-    'index.php'   => 'Dasbor',
     'peta.php'    => 'Peta',
     'bidang.php'  => 'Bidang tanah',
     'sppt.php'    => 'e-SPPT / PBB',
@@ -30,7 +29,7 @@ $halaman = [
             membutuhkan akses tersebut.
         </p>
         <div class="baris-tombol">
-            <a class="tombol" href="<?= e(sip_url('index.php')) ?>">Ke dasbor</a>
+            <a class="tombol" href="<?= e(sip_url('beranda.php')) ?>">Ke beranda</a>
             <a class="tombol tombol-utama" href="<?= e(sip_url('peta.php')) ?>">Buka peta</a>
         </div>
         <p class="catatan-kecil">

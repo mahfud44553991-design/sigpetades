@@ -4,7 +4,7 @@ declare(strict_types=1);
 require __DIR__ . '/app/bootstrap.php';
 
 if (sudah_masuk()) {
-    redirect('index.php');
+    redirect('beranda.php');
 }
 
 $galat = '';
@@ -23,7 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         unset($_SESSION['setelah_login']);
         // Hanya boleh ke path relatif situs sendiri, tidak ke URL luar.
         if ($tujuan === '' || !str_starts_with($tujuan, '/') || str_starts_with($tujuan, '//')) {
-            $tujuan = sip_url('index.php');
+            $tujuan = sip_url('beranda.php');
         } else {
             $tujuan = rtrim(sip_base_url(), '/') . $tujuan;
         }

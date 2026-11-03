@@ -28,7 +28,7 @@ try {
             masuk($pengguna);
             audit('buat', 'pengguna', (string) $pengguna['id'], 'Super Admin pertama dibuat');
             flash_set('berhasil', 'Akun Super Admin dibuat. Silakan lanjutkan dengan mengimpor data desa.');
-            redirect('index.php');
+            redirect('beranda.php');
         }
     }
 } catch (RuntimeException $error) {

@@ -192,6 +192,27 @@ sip_judul(
                 <button class="tombol" type="button" id="simpanTampilan">Simpan tampilan peta</button>
             </div>
             <p class="petunjuk">Pusat dan zoom disimpan setelah tombol ditekan. Pengaturan tidak mengubah data desa.</p>
+            <?php if ($pengguna): ?>
+            <hr style="margin: 1rem 0; border: none; border-top: 1px solid var(--garis);">
+            <div class="lapangan">
+                <label for="namaPreset">Nama preset</label>
+                <input type="text" id="namaPreset" placeholder="Contoh: Tampilan blok 5" maxlength="100">
+            </div>
+            <div class="baris-tombol">
+                <button class="tombol tombol-kecil" type="button" id="simpanPresetDb">Simpan ke database</button>
+            </div>
+            <div class="lapangan jarak-atas">
+                <label for="pilihPreset">Preset tersimpan</label>
+                <select id="pilihPreset">
+                    <option value="">— pilih preset —</option>
+                </select>
+            </div>
+            <div class="baris-tombol">
+                <button class="tombol tombol-kecil" type="button" id="muatPreset">Muat</button>
+                <button class="tombol tombol-kecil tombol-bahaya" type="button" id="hapusPreset">Hapus</button>
+            </div>
+            <p class="petunjuk">Preset database bisa dimuat dari browser mana saja setelah login.</p>
+            <?php endif; ?>
         </section>
 
         <section class="kartu">
@@ -396,7 +417,7 @@ $naskah = <<<'JS'
             baris.push('<span><i class="contoh-batas-blok-perkiraan"></i>Batas blok perkiraan</span>');
         }
         if (setelan.batas) {
-            baris.push('<span><i class="contoh-batas-desa"></i>Batas desa (010500)</span>');
+            baris.push('<span><i class="contoh-batas-desa"></i>Batas desa (33240400080)</span>');
         }
         document.getElementById('legendaPeta').innerHTML = baris.join('');
     }
@@ -849,6 +870,96 @@ $naskah = <<<'JS'
         simpanSetelan();
         Sip.pesan('Tampilan peta disimpan di peramban ini.');
     });
+
+    // Preset database (hanya untuk pengguna login)
+    if (SIP.masuk) {
+    const elNamaPreset = document.getElementById('namaPreset');
+    const elPilihPreset = document.getElementById('pilihPreset');
+    let daftarPreset = [];
+
+    async function muatDaftarPreset() {
+        try {
+            const hasil = await Sip.api('api/preset.php');
+            daftarPreset = hasil.preset || [];
+            elPilihPreset.innerHTML = '<option value="">— pilih preset —</option>';
+            daftarPreset.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.id;
+                opt.textContent = p.nama;
+                elPilihPreset.appendChild(opt);
+            });
+        } catch (e) { /* abaikan galat */ }
+    }
+
+    document.getElementById('simpanPresetDb').addEventListener('click', async () => {
+        const nama = elNamaPreset.value.trim();
+        if (!nama) {
+            Sip.pesan('Nama preset wajib diisi.', 'gagal');
+            return;
+        }
+        const data = Object.assign({}, setelan);
+        try {
+            const id = elPilihPreset.value ? Number(elPilihPreset.value) : null;
+            const hasil = await Sip.api('api/preset.php', {
+                method: 'POST',
+                json: { aksi: 'simpan', id, nama, data }
+            });
+            Sip.pesan(hasil.pesan || 'Preset disimpan.');
+            elNamaPreset.value = '';
+            await muatDaftarPreset();
+        } catch (e) {
+            Sip.pesan(e.message || 'Gagal menyimpan preset.', 'gagal');
+        }
+    });
+
+    document.getElementById('muatPreset').addEventListener('click', async () => {
+        const id = elPilihPreset.value;
+        if (!id) {
+            Sip.pesan('Pilih preset yang akan dimuat.', 'gagal');
+            return;
+        }
+        try {
+            const hasil = await Sip.api('api/preset.php', { query: { id } });
+            const preset = hasil.preset;
+            if (!preset || !preset.data) {
+                Sip.pesan('Data preset tidak valid.', 'gagal');
+                return;
+            }
+            setelan = Object.assign({}, BAWAAN, preset.data);
+            simpanSetelan();
+            terapkanSetelan();
+            if (setelan.tampilan && typeof setelan.tampilan.lat === 'number') {
+                peta.setView([setelan.tampilan.lat, setelan.tampilan.lon], setelan.tampilan.zoom || SIP.peta.zoom);
+                sudahMemusat = true;
+            }
+            muatBidang(true).catch(gagalMuat);
+            Sip.pesan('Preset "' + preset.nama + '" dimuat.');
+        } catch (e) {
+            Sip.pesan(e.message || 'Gagal memuat preset.', 'gagal');
+        }
+    });
+
+    document.getElementById('hapusPreset').addEventListener('click', async () => {
+        const id = elPilihPreset.value;
+        if (!id) {
+            Sip.pesan('Pilih preset yang akan dihapus.', 'gagal');
+            return;
+        }
+        if (!confirm('Hapus preset ini? Tindakan tidak bisa dibatalkan.')) return;
+        try {
+            const hasil = await Sip.api('api/preset.php', {
+                method: 'POST',
+                json: { aksi: 'hapus', id: Number(id) }
+            });
+            Sip.pesan(hasil.pesan || 'Preset dihapus.');
+            await muatDaftarPreset();
+        } catch (e) {
+            Sip.pesan(e.message || 'Gagal menghapus preset.', 'gagal');
+        }
+    });
+
+    muatDaftarPreset();
+    }
 
     document.getElementById('aturUlangPengaturan').addEventListener('click', () => {
         setelan = Object.assign({}, BAWAAN);

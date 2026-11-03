@@ -147,7 +147,7 @@ sip_header('Beranda', 'beranda', ['penuh' => true, 'leaflet' => true]);
 
             <div class="hero-tindak">
                 <?php if ($masuk): ?>
-                    <a class="tombol tombol-utama tombol-besar" href="<?= e(sip_url('index.php')) ?>">Buka dasbor</a>
+                    <a class="tombol tombol-utama tombol-besar" href="<?= e(sip_url('peta.php')) ?>">Buka peta</a>
                 <?php else: ?>
                     <a class="tombol tombol-utama tombol-besar" href="<?= e(sip_url('login.php')) ?>">Masuk perangkat desa</a>
                 <?php endif; ?>

@@ -81,7 +81,6 @@ function sip_header(string $judul, string $aktif = '', array $opsi = []): void
             <?php if ($pengguna === null): ?>
                 <a class="tombol tombol-utama" href="<?= e(sip_url('login.php')) ?>">Masuk</a>
             <?php else: ?>
-                <a class="tautan-dasbor<?= $aktif === 'dasbor' ? ' aktif' : '' ?>" href="<?= e(sip_url('index.php')) ?>">Dasbor</a>
                 <span class="akun">
                     <span class="inisial"><?= e(mb_strtoupper(mb_substr($pengguna['nama_lengkap'], 0, 1, 'UTF-8'), 'UTF-8')) ?></span>
                     <span class="akun-teks">

@@ -90,7 +90,7 @@ try {
             'features' => [[
                 'type' => 'Feature',
                 'geometry' => ['type' => 'LineString', 'coordinates' => $garis],
-                'properties' => ['label' => 'Batas desa', 'sumber' => '010500'],
+                'properties' => ['label' => 'Batas desa', 'sumber' => '33240400080'],
             ]],
         ]);
     }
@@ -113,7 +113,7 @@ try {
                 'geometry' => $geometry,
                 'properties' => [
                     'id' => (int) $bl['id'],
-                    'kode' => $bl['kode'],
+                    'kode' => 'BLOK ' . str_pad((string) $bl['nomor'], 2, '0', STR_PAD_LEFT),
                     'nomor' => $bl['nomor'] === null ? null : (int) $bl['nomor'],
                     'batas_tersedia' => (int) $bl['batas_tersedia'] === 1,
                     'batas_perkiraan' => (int) $bl['batas_perkiraan'] === 1,
