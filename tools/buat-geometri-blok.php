@@ -4,6 +4,7 @@ require_once __DIR__ . '/../app/bootstrap.php';
 
 $blok_kode = $argv[1] ?? 'BLOK 3';
 
+// Get all field polygon vertices for this block
 $baris = db_all(
     'SELECT ST_AsText(geom) AS wkt FROM bidang WHERE blok_id = (SELECT id FROM blok WHERE kode = ?) AND tipe = \'tanah\'',
     [$blok_kode]
@@ -14,28 +15,37 @@ if (!$baris) {
     exit(1);
 }
 
+echo "Mengumpulkan titik dari " . count($baris) . " bidang\n";
+
 $kumpulan = [];
 foreach ($baris as $b) {
     if (preg_match('/POLYGON\s*\(\(([^)]+)\)\)/', $b['wkt'], $m)) {
         $titik = explode(',', $m[1]);
         foreach ($titik as $t) {
             $t = trim($t);
-            if ($t && !in_array($t, $kumpulan)) {
+            if ($t) {
                 $kumpulan[] = $t;
             }
         }
     }
 }
 
-echo "Mengumpulkan " . count($kumpulan) . " titik unik dari " . count($baris) . " bidang\n";
+echo "Total titik: " . count($kumpulan) . "\n";
 
+// Convert to coordinate pairs
+$titik = array_map(function ($p) {
+    [$x, $y] = explode(' ', $p);
+    return [(float) $x, (float) $y];
+}, $kumpulan);
+
+// Remove duplicates
+$titik = array_unique($titik, SORT_REGULAR);
+
+echo "Titik unik: " . count($titik) . "\n";
+
+// Convex hull
 function convexHull(array $points): array {
-    $pts = array_map(function ($p) {
-        [$x, $y] = explode(' ', $p);
-        return [(float) $x, (float) $y];
-    }, $points);
-
-    $pts = array_unique($pts, SORT_REGULAR);
+    $pts = array_values($points);
     $n = count($pts);
     if ($n < 3) return $pts;
 
@@ -69,15 +79,36 @@ function convexHull(array $points): array {
     return array_merge($lower, $upper);
 }
 
-$hull = convexHull($kumpulan);
-$hull[] = $hull[0];
+$hull = convexHull($titik);
+
+// Add small buffer
+$centroid = [0, 0];
+foreach ($hull as $p) {
+    $centroid[0] += $p[0];
+    $centroid[1] += $p[1];
+}
+$centroid[0] /= count($hull);
+$centroid[1] /= count($hull);
+
+$buffer = 0.0005;
+$hullBuffered = array_map(function ($p) use ($centroid, $buffer) {
+    $dx = $p[0] - $centroid[0];
+    $dy = $p[1] - $centroid[1];
+    $dist = sqrt($dx * $dx + $dy * $dy);
+    if ($dist == 0) return $p;
+    return [
+        $p[0] + ($dx / $dist) * $buffer,
+        $p[1] + ($dy / $dist) * $buffer
+    ];
+}, $hull);
+
+$hullBuffered[] = $hullBuffered[0];
 
 $wkt = 'MULTIPOLYGON(((' . implode(',', array_map(function ($p) {
     return $p[0] . ' ' . $p[1];
-}, $hull)) . ')))';
+}, $hullBuffered)) . ')))';
 
-echo "Convex hull: " . count($hull) . " titik\n";
-echo "WKT: $wkt\n";
+echo "Convex hull dengan buffer: " . count($hullBuffered) . " titik\n";
 
 db_exec(
     'UPDATE blok SET geom = ST_GeomFromText(?) WHERE kode = ?',
