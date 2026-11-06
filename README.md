@@ -384,8 +384,9 @@ sebagai satu garis tutup** (`sumber_perkiraan = garis luar MASTER.dxf`,
 `batas 3 15 25 17 18 7 9 5 4 16 6 14 12 26 24 20 10 13 23 --tegas --terapkan`
 pada 19 Okt 2026. **BLOK 19, 21 dan 22 sudah dibentuk ulang menjadi satu bagian**
 pada 6 Nov 2026 dengan penyangga yang dipotong batas blok resmi di sekelilingnya
-(rinciannya di 3.8a). Anggota ketiganya sekarang 295 / 486 / 124 bidang setelah
-18 bidang di luar batas dipindahkan ke blok yang memuatnya (3.8b).
+(rinciannya di 3.8a). Anggota BLOK 19 / 21 / 22 sekarang **274 / 520 / 124**
+bidang setelah 18 bidang di luar batas dipindahkan ke blok yang memuatnya (3.8b)
+dan batas BLOK 21 diperluas memuat `G01684` (3.8g).
 **BLOK 2 dan 8** masih berupa gabungan persis bidang anggotanya
 (`sumber_perkiraan = gabungan bidang anggota`).
 
@@ -684,6 +685,66 @@ Cadangan: `D:\backup\sigpetades\perbaikan-g01684-20261106\sebelum-perbaiki-g0168
 checksum tabel identik, `sppt` hanya beda urutan baris InnoDB — MD5 isi
 deterministiknya sama). Diff live vs cadangan setelah perbaikan: tepat 1 baris
 berubah. WKT sebelum/sesudah: `storage\perbaiki-poligon-G01684-20261106-123614.json`.
+
+### 3.8g Batas BLOK 21 diperluas memuat G01684 (6 Nov 2026)
+
+Setelah poligon G01684 sah di 3.8f, petugas memilih **membentuk ulang batas
+BLOK 21** ketimbang mengembalikan bidang itu ke BLOK 19. Koridor 10 m dari bidang
+ke BLOK 21 tidak bisa dipakai: koridor itu hanya memotong BLOK 19 (1.016,84 m²;
+93,5 m garis tengahnya di dalam BLOK 19), dan setiap potongan selebar 6–12 m
+memutus serpihan barat BLOK 19 dari badan utamanya karena **G01684 adalah satu-
+satunya penyambungnya** — `BLOK 19 − G01684` sudah pecah menjadi tiga bagian
+(168.779,7 + 17.629,5 + 0,0 m²).
+
+Karena itu BLOK 21 menyerap sekaligus G01684, serpihan barat BLOK 19, dan bidang
+tepi di antaranya. Bentuknya memakai tepi bidang yang sudah ada, tanpa garis
+buatan baru:
+
+- serapan **24.879,56 m²** = 21.265,58 m² dari BLOK 19 (G01684 3.636,05 +
+  serpihan barat 17.629,53) + 2.525,13 m² tanah di luar blok mana pun +
+  1.088,85 m² yang memang sudah di BLOK 21;
+- BLOK 19 **190.045,32 → 168.779,74 m²** (−21.265,58), BLOK 21
+  **183.106,09 → 206.896,80 m²** (+23.790,71);
+- keduanya tetap **satu bagian** (`ST_NumGeometries` = 1, `ST_IsSimple` = 1;
+  171 dan 1.045 titik), tumpang tindih **0 m²** dengan seluruh 23 blok lain;
+- G01684 **100% di dalam BLOK 21**; sisa di luar hanya serpihan pembulatan
+  koordinat 0,00009 m²;
+- `sumber_perkiraan` BLOK 19 = `gabungan bidang anggota; lidah dipotong; barat
+  ke BLOK 21`, BLOK 21 = `gabungan bidang anggota + penyangga 10 m; serapan
+  G01684`; `jumlah_bidang_estimasi` 274 dan 520.
+
+Keanggotaan dipindahkan dalam transaksi yang sama: **33 bidang** —
+**19 dari BLOK 19** dan **14 dari BLOK 23** (beberapa di antaranya kembar:
+`HM-199D K3`/`DXF-020100-0383`, `HM-134B`/`DXF-020100-0147`,
+`HM-331B`/`DXF-020100-1511`, `HM-202D K3`/`DXF-020100-2168`). Semuanya ≥96,6%
+luasnya di dalam area serapan; hanya `DXF-020100-G02045` berstatus `aktif`,
+sisanya `perlu_verifikasi`. Anggota menjadi **274** (BLOK 19), **520** (BLOK 21),
+dan **460** (BLOK 23); jumlah bidang, hak, blok, dan SPPT tidak berubah
+(8.103 / 8.102 / 24 / 3.794). Tidak ada rujukan `bidang_id` di `objek_pajak`
+untuk ke-33 bidang.
+
+Pemeriksaan pascaperubahan: persentase setiap bidang BLOK 23 terhadap BLOK 21
+**identik sebelum dan sesudah** (tidak ada bidang melintang baru); serpihan
+bidang BLOK 20/22/25 (≤0,35%) yang dulu jatuh di lidah BLOK 19 kini jatuh di
+BLOK 21 dengan persentase sama. Lima bidang BLOK 21 masih melintang di garis
+batas seperti sebelumnya: `HM-1313` 58,1%, `HM-1314` 80,1%, `HM-1320` 94,1%,
+`HM-1321` 95,5%, dan `HM-1201` 99,4% (terakhir sudah 99,4% di BLOK 21 sejak
+sebelumnya, tercatat BLOK 23).
+
+Audit **#2916–#2919** (dua baris `bidang` per blok asal, dua baris `blok`).
+Uji asap API: `api/bidang.php?lapisan=blok` → HTTP 200, 24 fitur,
+`estimasi_bidang` BLOK 19 = 274 dan BLOK 21 = 520 (hanya diuji di tingkat API,
+bukan tangkapan layar browser).
+
+Cadangan di `D:\backup\sigpetades\b21-g01684-20261106\` (di luar repo):
+
+| berkas | waktu | ukuran | SHA-256 | uji restore |
+|---|---|---|---|---|
+| `sebelum-b21-g01684-20261106.sql` | 6 Nov 2026 13:01 | 9.384.918 byte | `065f4edfc0d6f45375d86949b32ddada40f7f5aaf66f61cf99e34bdcb8d1b4e2` | `uji_b21_20261106`: hitungan sama, `ST_Equals` kedua blok = 1 |
+| `setelah-b21-g01684-20261106.sql` | 6 Nov 2026 13:07 | 9.386.419 byte | `7cf967a47268c251506e9f5f9d3a4a7cf3f80cfd6f0721722c47a2d205246518` | `uji_b21_after_20261106`: 21 tabel, 24 blok, 8.103 bidang, 8.102 hak, 3.794 SPPT, audit #2919, `ST_Equals` kedua blok = 1 |
+
+Kedua basis data uji dihapus setelah pemeriksaan. WKT sebelum/sesudah dan daftar
+33 bidang: `storage\ubah-batas-b21-G01684-20261106-130450.json`.
 
 ### 3.9 Bidang kembar (status duplikat)
 
