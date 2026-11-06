@@ -609,6 +609,36 @@ Cadangan: `D:\backup\sigpetades\hapus-g02005-20261106\sebelum-hapus-g02005-20261
 `ST_Equals` cocok). Diff live vs restore: tepat 1 bidang + 1 hak hilang,
 0 baris baru.
 
+### 3.8e Lidah BLOK 19 dipotong mengikuti tepi bidang (6 Nov 2026)
+
+Penyangga 25 m pada 3.8a meninggalkan **lidah** di barat daya BLOK 19 yang mengisi
+cekungan BLOK 20 resmi dan menyentuh BLOK 21 sepanjang 155,7 m. Setelah ditelusuri,
+tumpang tindih dengan kedua blok itu memang **0 m²** — keduanya hanya berimpit —
+tetapi bentuk lidah itu menutupi tanah kosong yang secara resmi milik BLOK 20.
+Sesuai keputusan petugas, lidah dipotong **mengikuti tepi bidang anggota**:
+
+1. Ambil kotak selatan lintang **-7,0926** (bujur 110,0600–110,0652).
+2. Di dalam kotak, batas dibentuk dari gabungan **11 bidang anggota** yang
+   berpotongan dengan kotak, lalu dipotong BLOK 20 dan BLOK 21.
+3. Di luar kotak, batas lama dipertahankan; keduanya digabung menjadi satu
+   `MULTIPOLYGON`.
+
+Hasil: luas **196.958,37 → 190.045,32 m²** (susut 6.913,06 m², −3,5%), tetap
+**satu bagian**, tumpang tindih **0 m²** dengan seluruh 23 blok lain. Kontak
+BLOK 21 turun **155,7 → 14,2 m** (hanya di tempat `DXF-020100-G02004` memang
+melintas), kontak BLOK 20 tetap 834,9 m. Tidak ada bidang anggota yang terpotong
+>1 m²; satu-satunya bidang yang masih di luar batas adalah **G02004 77,89 m²**
+(3,4%), yang memang sudah di luar sebelum pemotongan. Jumlah bidang, hak, blok,
+dan SPPT tidak berubah (8.103 / 8.102 / 24 / 3.794; BLOK 19 tetap 294 anggota).
+
+`sumber_perkiraan` BLOK 19 menjadi `gabungan bidang anggota; lidah dipotong`,
+audit **#2913**. Cadangan: `D:\backup\sigpetades\lidah-20261106\sebelum-potong-lidah-20261106.sql`
+(diuji restore ke `uji_lidah_20261106`: 24 blok, 8.103 bidang, 8.102 hak,
+3.794 SPPT, audit #2912; checksum 17 tabel sama kecuali `sppt` yang berbeda hanya
+karena urutan baris InnoDB — isi deterministiknya identik, `ST_Equals` BLOK 19
+cocok) dan `storage\potong-lidah-BLOK-19-20261106-120939.json` (WKT sebelum dan
+sesudah).
+
 ### 3.9 Bidang kembar (status duplikat)
 
 Sebagian bidang tercatat lebih dari satu kali dengan **poligon yang persis sama**.
