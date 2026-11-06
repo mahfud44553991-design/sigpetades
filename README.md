@@ -632,12 +632,15 @@ melintas), kontak BLOK 20 tetap 834,9 m. Tidak ada bidang anggota yang terpotong
 dan SPPT tidak berubah (8.103 / 8.102 / 24 / 3.794; BLOK 19 tetap 294 anggota).
 
 `sumber_perkiraan` BLOK 19 menjadi `gabungan bidang anggota; lidah dipotong`,
-audit **#2913**. Cadangan: `D:\backup\sigpetades\lidah-20261106\sebelum-potong-lidah-20261106.sql`
-(diuji restore ke `uji_lidah_20261106`: 24 blok, 8.103 bidang, 8.102 hak,
-3.794 SPPT, audit #2912; checksum 17 tabel sama kecuali `sppt` yang berbeda hanya
-karena urutan baris InnoDB — isi deterministiknya identik, `ST_Equals` BLOK 19
-cocok) dan `storage\potong-lidah-BLOK-19-20261106-120939.json` (WKT sebelum dan
-sesudah).
+audit **#2913**. WKT sebelum dan sesudah tersimpan di
+`storage\potong-lidah-BLOK-19-20261106-120939.json`. Dump pra-potong
+(`lidah-20261106\sebelum-potong-lidah-20261106.sql`, dulu diuji restore ke
+`uji_lidah_20261106`: 24 blok, 8.103 bidang, 8.102 hak, 3.794 SPPT, audit #2912,
+`ST_Equals` BLOK 19 cocok) **dihapus atas permintaan petugas**; sebagai gantinya
+dibuat dump kondisi sesudah pemotongan:
+`D:\backup\sigpetades\kondisi-20261106-1222\sigpetades_gedong-20261106-1222.sql`
+(9.382.391 byte; diuji restore ke `uji_kondisi_20261106`: 24 blok, 8.103 bidang,
+8.102 hak, 3.794 SPPT, audit #2913, `ST_Equals` BLOK 19 cocok).
 
 ### 3.9 Bidang kembar (status duplikat)
 
