@@ -384,8 +384,10 @@ sebagai satu garis tutup** (`sumber_perkiraan = garis luar MASTER.dxf`,
 `batas 3 15 25 17 18 7 9 5 4 16 6 14 12 26 24 20 10 13 23 --tegas --terapkan`
 pada 19 Okt 2026. **BLOK 19, 21 dan 22 sudah dibentuk ulang menjadi satu bagian**
 pada 6 Nov 2026 dengan penyangga yang dipotong batas blok resmi di sekelilingnya
-(rinciannya di 3.8a). **BLOK 2 dan 8** masih berupa gabungan persis bidang
-anggotanya (`sumber_perkiraan = gabungan bidang anggota`).
+(rinciannya di 3.8a). Anggota ketiganya sekarang 295 / 486 / 124 bidang setelah
+18 bidang di luar batas dipindahkan ke blok yang memuatnya (3.8b).
+**BLOK 2 dan 8** masih berupa gabungan persis bidang anggotanya
+(`sumber_perkiraan = gabungan bidang anggota`).
 
 Alasan penyaringannya: garis luar hanya dipasang pada blok yang bidangnya ikut
 tertutup ≥80 %. BLOK 2 tidak dipasang karena garis luar yang cocok ke blok itu
@@ -508,7 +510,7 @@ jatuh di luar bidangnya sendiri sebelum penyangga dihitung). Dua di antaranya
 kembar persis lintas blok — `DXF-020100-2562` = `DXF-020100-G01456` dan
 `DXF-020100-2563` = `DXF-020100-G01455` — sehingga satu salinan selalu berada di
 luar salah satu blok sampai petugas memilih salinan yang dibuang lewat
-`impor.php duplikat <kode>`.
+`impor.php duplikat <kode>`. Kedelapan belas bidang itu diselesaikan pada 3.8b.
 
 Cadangan WKT lama per blok ada di `storage\batas-kira-BLOK-{19,21,22}-20261106-1115*.json`,
 daftar pemindahan di `D:\backup\sigpetades\blok-20261106\rencana-pindah-20261106.tsv`,
@@ -519,6 +521,47 @@ Catatan: perintah `kira` bawaan belum bisa dipakai untuk ketiga blok ini.
 `wktKeMultipolygon()` menolaknya, sehingga `impor.php kira 19` berhenti dengan
 "Batas blok harus poligon". Pembentukan ulang di atas memakai skrip sementara
 yang membuang komponen garis/titik dari hasil gabungan.
+
+### 3.8b Bidang di luar batas dipindahkan (6 Nov 2026)
+
+Delapan belas bidang yang tercatat di luar batas pada 3.8a diselesaikan dengan
+memindahkan bidang ke blok yang benar-benar memuatnya, bukan dengan memperbesar
+batas. Untuk BLOK 19 jalan itu tidak mungkin: kesembilan bidangnya berada
+**121,6 m** di seberang BLOK 20 (blok resmi) dan 100% di dalam batas BLOK 21,
+jadi batas BLOK 19 tidak dapat meraihnya tanpa menembus BLOK 20.
+
+- BLOK 19 → BLOK 21: 9 bidang (`DXF-020100-2925`, `-2939`, `-2941`, `-2944`,
+  `G02014`, `G02028`, `G02179`, `G02184`, `G03188`), seluruh luasnya di BLOK 21.
+- BLOK 22 → BLOK 21: 6 bidang (`DXF-020100-2562`, `-2563`, `HM-1313`,
+  `HM-1314`, `HM-1320`, `HM-1343`); pusatnya di BLOK 21 dan 58–100% luasnya
+  sudah di sana.
+- Tetap di BLOK 22: 3 bidang (`DXF-020100-0011` 99,7%, `G02144` dan `HM-1410`
+  100% luasnya di dalam BLOK 22). Titik tengah ketiganya jatuh di luar bidangnya
+  sendiri karena bentuknya cekung, jadi angka "di luar" pada 3.8a adalah
+  kekeliruan ukur titik tengah, bukan bidang yang benar-benar di luar.
+- Sekalian dikoreksi: `DXF-020100-G02059` (100% di dalam BLOK 20 resmi, tetapi
+  tercatat BLOK 21) dipindah ke BLOK 20; `HM-1321` (95% di BLOK 21, tercatat
+  BLOK 22) dipindah ke BLOK 21. Suntingan manual petugas pukul 11:27 yang
+  memindahkan `DXF-020100-G01684` dari BLOK 19 ke BLOK 21 dikembalikan ke
+  BLOK 19 karena bidang itu 100% di dalam BLOK 19 dan 54 m dari BLOK 21
+  (audit #2904 dan #2907).
+
+Keanggotaan akhir: BLOK 19 **295**, BLOK 20 **364**, BLOK 21 **486**, BLOK 22
+**124** bidang. Ketiga batas tetap **satu bagian** dan tidak bertumpang tindih
+(0 m²), jadi jumlah bidang, hak, dan audit tidak berubah selain 4 baris audit
+pemindahan (#2905–#2908).
+
+Masih ada tujuh bidang yang sebagian kecilnya di luar batas bloknya (5–46%):
+`G01708` (31,8% di BLOK 19) dan `G01451` (54,4% di BLOK 22) bentuknya
+**memotong diri sendiri** sehingga luas dan irisannya tidak dapat dipercaya;
+`G02005` (88,2% di BLOK 19), `HM-1313`/`HM-1314`/`HM-1320` (58–94% di BLOK 21)
+dan `G02459` (93,1% di BLOK 22) melintang di garis batas karena batas mengikuti
+penyangga, bukan tepi bidang. Perbaikan keduanya menuntut pembentukan ulang
+batas mengikuti tepi bidang dan penyembuhan poligon rusak — pekerjaan terpisah.
+
+Cadangan: `D:\backup\sigpetades\blok-20261106\sebelum-pindah15-20261106.sql`
+(diuji restore ke basis data sementara `uji_pindah15`: 8.104 bidang, 8.103 hak,
+24 blok, 2.902 audit saat itu) dan `storage\ubah-blok-ke-BLOK-{19,20,21}-20261106-11*.json`.
 
 ### 3.9 Bidang kembar (status duplikat)
 
