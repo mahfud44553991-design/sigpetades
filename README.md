@@ -551,12 +551,12 @@ Keanggotaan akhir: BLOK 19 **295**, BLOK 20 **364**, BLOK 21 **486**, BLOK 22
 (0 m²), jadi jumlah bidang, hak, dan audit tidak berubah selain 5 baris audit
 pemindahan (#2905–#2909).
 
-Masih ada lima bidang yang sebagian kecilnya di luar batas bloknya (5–46%):
-`G02005` (88,2% di BLOK 19), `HM-1313`/`HM-1314`/`HM-1320` (58–94% di BLOK 21)
-dan `G02459` (93,1% di BLOK 22) melintang di garis batas karena batas mengikuti
-penyangga, bukan tepi bidang. Dua bidang rusak yang sebelumnya ikut terdaftar
-(`G01708` dan `G01451`) sudah diperbaiki di 3.8c. Perbaikan kelima bidang ini
-menuntut pembentukan ulang batas mengikuti tepi bidang — pekerjaan terpisah.
+Masih ada empat bidang yang sebagian kecilnya di luar batas bloknya (5–46%):
+`HM-1313`/`HM-1314`/`HM-1320` (58–94% di BLOK 21) dan `G02459` (93,1% di
+BLOK 22) melintang di garis batas karena batas mengikuti penyangga, bukan tepi
+bidang. Dua bidang rusak (`G01708`, `G01451`) sudah diperbaiki di 3.8c, dan
+`G02005` ternyata duplikat sehingga dihapus di 3.8d. Perbaikan keempat bidang
+ini menuntut pembentukan ulang batas mengikuti tepi bidang — pekerjaan terpisah.
 
 Cadangan: `D:\backup\sigpetades\blok-20261106\sebelum-pindah15-20261106.sql`
 (diuji restore ke basis data sementara `uji_pindah15`: 8.104 bidang, 8.103 hak,
@@ -588,6 +588,26 @@ Cadangan: `D:\backup\sigpetades\poligon-20261106\sebelum-perbaiki-poligon-202611
 (diuji restore ke `uji_poligon_20261106`: 8.104 bidang, 8.103 hak, 2.907 audit;
 `ST_Equals` cocok untuk kedua bidang). Diff live vs restore: tepat 2 baris
 berubah, 0 bertambah/hilang.
+
+### 3.8d Duplikat G02005 dihapus (6 Nov 2026)
+
+Audit kelima bidang straddler menunjukkan hanya `G02005` yang benar-benar
+duplikat: tumpang **99,9% timbal-balik** dengan `HM-199D K3` (BLOK 23,
+`perlu_verifikasi`, Hak Milik, pemilik SUWARDI) dan `DXF-020100-0383`
+(tanpa pemilik). Empat lainnya — `HM-1313`, `HM-1314`, `HM-1320`, `G02459` —
+tidak punya kembaran (tumpang maksimal 0,3% selain poligon desa) dan tetap
+dipertahankan sebagai bidang unik.
+
+`G02005` (id 22222, 3.371,99 m², BLOK 19) dihapus permanen; hak 23521 ikut
+terhapus lewat cascade. Tidak ada rujukan NOP, laporan, peralihan, atau Buku C
+(0 baris), dan pemilik SUWARDI sudah tercatat pada keeper. Audit #2912.
+Total menjadi **8.103 bidang, 8.102 hak**; 3.794 objek pajak tidak berubah;
+BLOK 19 tinggal 294 anggota (geometri blok tidak berubah).
+
+Cadangan: `D:\backup\sigpetades\hapus-g02005-20261106\sebelum-hapus-g02005-20261106.sql`
+(diuji restore ke `uji_hapus_g02005`: 8.104 bidang, 8.103 hak, 2.909 audit;
+`ST_Equals` cocok). Diff live vs restore: tepat 1 bidang + 1 hak hilang,
+0 baris baru.
 
 ### 3.9 Bidang kembar (status duplikat)
 
