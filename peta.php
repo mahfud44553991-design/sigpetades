@@ -61,13 +61,9 @@ sip_judul(
                     <b><?= e(angka((int) $ringkas['tanah'])) ?></b>
                 </label>
                 <label class="chip-lapisan">
-                    <input type="checkbox" id="tampilBlok" autocomplete="off" checked>
-                    <i class="contoh-batas-blok"></i>Batas blok
-                    <b><?= e(count($blok)) ?></b>
-                </label>
-                <label class="chip-lapisan">
-                    <input type="checkbox" id="tampilBatas" autocomplete="off" checked>
-                    <i class="contoh-batas-desa"></i>Batas desa
+                    <input type="checkbox" id="tampilLain" autocomplete="off">
+                    <i style="background:#8a7a66"></i>Obyek non-tanah
+                    <b><?= e(angka((int) ($ringkas['total'] - $ringkas['tanah']))) ?></b>
                 </label>
                 <?php if ($kelola): ?>
                     <label class="chip-lapisan">
@@ -266,7 +262,7 @@ $naskah = <<<'JS'
         try { localStorage.setItem(KUNCI, JSON.stringify(setelan)); } catch (e) { /* mode privat */ }
     }
 
-    const peta = L.map('peta', { preferCanvas: true }).setView([SIP.peta.lat, SIP.peta.lon], SIP.peta.zoom);
+    const peta = L.map('peta').setView([SIP.peta.lat, SIP.peta.lon], SIP.peta.zoom);
     peta.attributionControl.setPrefix('');
 
     // Panes menentukan urutan gambar tanpa bergantung urutan addLayer:
@@ -620,7 +616,14 @@ $naskah = <<<'JS'
         info.textContent = 'Mengambil geometri bidang…';
         terpotong = false;
         const tugas = [];
-        if (setelan.bidang) tugas.push(muatLapisan('tanah'));
+        if (setelan.bidang) {
+            tugas.push(muatLapisan('tanah'));
+            aktifkan('bidang', true);
+        } else aktifkan('bidang', false);
+        if (setelan.lain) {
+            tugas.push(muatLapisan('lain'));
+            aktifkan('lain', true);
+        } else aktifkan('lain', false);
         if (!tugas.length) {
             segarkanTampilan();
             info.textContent = 'Lapisan bidang dimatikan. Nyalakan di atas peta.';
@@ -738,25 +741,17 @@ $naskah = <<<'JS'
         document.getElementById('nilaiKepekatan').textContent = setelan.kepekatan + '%';
         document.getElementById('labelBidang').checked = setelan.label;
         document.getElementById('labelBlok').checked = setelan.labelBlok;
-        document.getElementById('tampilBidang').checked = setelan.bidang;
-        document.getElementById('tampilBlok').checked = setelan.blok;
-        document.getElementById('tampilBatas').checked = setelan.batas;
+        const kotakBidang = document.getElementById('tampilBidang');
+        if (kotakBidang) kotakBidang.checked = setelan.bidang;
+        const kotakLain = document.getElementById('tampilLain');
+        if (kotakLain) kotakLain.checked = setelan.lain;
         const kotakLaporan = document.getElementById('tampilLaporan');
         if (kotakLaporan) kotakLaporan.checked = setelan.laporan;
 
         pakaiDasar(setelan.dasar);
         gambarLegenda();
-        aktifkan('bidang', setelan.bidang);
-        aktifkan('blok', setelan.blok);
-        aktifkan('batas', setelan.batas);
         aktifkan('laporan', setelan.laporan);
         perbaruiZoom();
-        if (setelan.blok && !grup.blok.getLayers().length) {
-            muatBlok().catch((err) => Sip.pesan(err.message, 'gagal'));
-        }
-        if (setelan.batas && !grup.batas.getLayers().length) {
-            muatBatas().catch((err) => Sip.pesan(err.message, 'gagal'));
-        }
         if (kotakLaporan && setelan.laporan && !grup.laporan.getLayers().length) {
             muatLaporan().catch((err) => Sip.pesan(err.message, 'gagal'));
         }
@@ -779,36 +774,34 @@ $naskah = <<<'JS'
         }
     }
 
-    document.getElementById('tampilBidang').addEventListener('change', (e) => {
-        setelan.bidang = e.target.checked;
-        simpanSetelan();
-        aktifkan('bidang', setelan.bidang);
-        if (!setelan.bidang) { segarkanTanpaMuat(); return; }
-        if (dataLapisan.tanah === null || filterLapisan.tanah !== kunciFilter('tanah')) {
-            info.textContent = 'Mengambil geometri bidang…';
-            muatLapisan('tanah').then(segarkanTanpaMuat).catch(gagalMuat);
-        } else {
-            segarkanTanpaMuat();
-        }
-    });
-    document.getElementById('tampilBlok').addEventListener('change', (e) => {
-        setelan.blok = e.target.checked;
-        simpanSetelan();
-        aktifkan('blok', setelan.blok);
-        gambarLegenda();
-        if (setelan.blok && !grup.blok.getLayers().length) {
-            muatBlok().catch((err) => Sip.pesan(err.message, 'gagal'));
-        }
-    });
-    document.getElementById('tampilBatas').addEventListener('change', (e) => {
-        setelan.batas = e.target.checked;
-        simpanSetelan();
-        aktifkan('batas', setelan.batas);
-        gambarLegenda();
-        if (setelan.batas && !grup.batas.getLayers().length) {
-            muatBatas().catch((err) => Sip.pesan(err.message, 'gagal'));
-        }
-    });
+    const kotakBidang = document.getElementById('tampilBidang');
+    if (kotakBidang) {
+        kotakBidang.addEventListener('change', (e) => {
+            setelan.bidang = e.target.checked;
+            simpanSetelan();
+            aktifkan('bidang', setelan.bidang);
+            if (setelan.bidang && !dataLapisan.tanah) {
+                muatLapisan('tanah').catch(gagalMuat);
+            } else {
+                segarkanTanpaMuat();
+            }
+        });
+    }
+
+    const kotakLain = document.getElementById('tampilLain');
+    if (kotakLain) {
+        kotakLain.addEventListener('change', (e) => {
+            setelan.lain = e.target.checked;
+            simpanSetelan();
+            aktifkan('lain', setelan.lain);
+            if (setelan.lain && !dataLapisan.lain) {
+                muatLapisan('lain').catch(gagalMuat);
+            } else {
+                segarkanTanpaMuat();
+            }
+        });
+    }
+
     const kotakLaporan = document.getElementById('tampilLaporan');
     if (kotakLaporan) {
         kotakLaporan.addEventListener('change', (e) => {
@@ -1007,6 +1000,10 @@ $naskah = <<<'JS'
     }
     terapkanSetelan();
 
+    aktifkan('blok', true);
+    aktifkan('batas', true);
+    muatBlok().catch((err) => console.warn('Blok gagal dimuat:', err));
+    muatBatas().catch((err) => console.warn('Batas gagal dimuat:', err));
     muatBidang().catch(gagalMuat);
 })();
 </script>
