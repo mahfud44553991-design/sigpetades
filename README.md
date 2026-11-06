@@ -551,17 +551,43 @@ Keanggotaan akhir: BLOK 19 **295**, BLOK 20 **364**, BLOK 21 **486**, BLOK 22
 (0 m²), jadi jumlah bidang, hak, dan audit tidak berubah selain 5 baris audit
 pemindahan (#2905–#2909).
 
-Masih ada tujuh bidang yang sebagian kecilnya di luar batas bloknya (5–46%):
-`G01708` (31,8% di BLOK 19) dan `G01451` (54,4% di BLOK 22) bentuknya
-**memotong diri sendiri** sehingga luas dan irisannya tidak dapat dipercaya;
+Masih ada lima bidang yang sebagian kecilnya di luar batas bloknya (5–46%):
 `G02005` (88,2% di BLOK 19), `HM-1313`/`HM-1314`/`HM-1320` (58–94% di BLOK 21)
 dan `G02459` (93,1% di BLOK 22) melintang di garis batas karena batas mengikuti
-penyangga, bukan tepi bidang. Perbaikan keduanya menuntut pembentukan ulang
-batas mengikuti tepi bidang dan penyembuhan poligon rusak — pekerjaan terpisah.
+penyangga, bukan tepi bidang. Dua bidang rusak yang sebelumnya ikut terdaftar
+(`G01708` dan `G01451`) sudah diperbaiki di 3.8c. Perbaikan kelima bidang ini
+menuntut pembentukan ulang batas mengikuti tepi bidang — pekerjaan terpisah.
 
 Cadangan: `D:\backup\sigpetades\blok-20261106\sebelum-pindah15-20261106.sql`
 (diuji restore ke basis data sementara `uji_pindah15`: 8.104 bidang, 8.103 hak,
 24 blok, 2.902 audit saat itu) dan `storage\ubah-blok-ke-BLOK-{19,20,21}-20261106-11*.json`.
+
+### 3.8c Poligon rusak G01708 dan G01451 diperbaiki (6 Nov 2026)
+
+Cincin kedua bidang ini berisi beberapa loop yang diulang dan saling menumpuk,
+bukan sekadar bowtie: `DXF-020100-G01708` memuat loop `DXF-020100-2209` dua kali
+ditambah `-2210` dan `-2203`, sedangkan `DXF-020100-G01451` memuat satu loop di
+dalam loop lain. Karena itu luas gambarnya palsu — G01708 6.583,93 m² melebihi
+convex hull-nya sendiri (5.698,16 m²). Geometri diganti dengan gabungan loop sah
+(fill nonzero), lalu `luas_m2`, `pusat_lon`, dan `pusat_lat` disesuaikan:
+
+- `G01708`: 6.583,93 → **4.339,14 m²** (cincin 12 titik)
+- `G01451`: 746,53 → **576,45 m²** (cincin 14 titik)
+
+Keduanya kini tidak melebihi convex hull dan tidak ada segmen bersilangan
+(0 persilangan; `ST_Intersection(geom, geom)` sama dengan luas gambar). Audit
+#2910 dan #2911; jumlah bidang, hak, dan blok tidak berubah.
+
+Catatan duplikat: bentuk hasil perbaikan G01708 menutup persis `-2209` + `-2210`
++ `-2203` (nama pemegangnya pun gabungan BADI / MUHLISIN / NUR MIFTAHUL
+HASANAH), sedangkan G01451 menimpa `HM-1411` + `G02145`. Keduanya karena itu
+kandidat hapus pada pekerjaan duplikat berikutnya, belum dihapus karena menunggu
+keputusan petugas.
+
+Cadangan: `D:\backup\sigpetades\poligon-20261106\sebelum-perbaiki-poligon-20261106.sql`
+(diuji restore ke `uji_poligon_20261106`: 8.104 bidang, 8.103 hak, 2.907 audit;
+`ST_Equals` cocok untuk kedua bidang). Diff live vs restore: tepat 2 baris
+berubah, 0 bertambah/hilang.
 
 ### 3.9 Bidang kembar (status duplikat)
 
