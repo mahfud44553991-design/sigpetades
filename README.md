@@ -642,6 +642,12 @@ dibuat dump kondisi sesudah pemotongan:
 (9.382.391 byte; diuji restore ke `uji_kondisi_20261106`: 24 blok, 8.103 bidang,
 8.102 hak, 3.794 SPPT, audit #2913, `ST_Equals` BLOK 19 cocok).
 
+Manifest dump (berkasnya di luar repo, tidak di-commit):
+
+| basis data | waktu dump | ukuran | SHA-256 |
+|---|---|---|---|
+| `sipetades_gedong` | 6 Nov 2026 12:22 | 9.382.391 byte | `560fddbbfde4e8a6b7fa67491ec336ecae9d1efb1edac55bfab284e981b099a5` |
+
 ### 3.9 Bidang kembar (status duplikat)
 
 Sebagian bidang tercatat lebih dari satu kali dengan **poligon yang persis sama**.
