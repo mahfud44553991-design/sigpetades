@@ -544,7 +544,8 @@ jadi batas BLOK 19 tidak dapat meraihnya tanpa menembus BLOK 20.
   BLOK 22) dipindah ke BLOK 21. Suntingan manual petugas pukul 11:27 yang
   memindahkan `DXF-020100-G01684` dari BLOK 19 ke BLOK 21 dikembalikan ke
   BLOK 19 karena bidang itu 100% di dalam BLOK 19 dan 54 m dari BLOK 21
-  (audit #2904 dan #2907).
+  (audit #2904 dan #2907). Petugas mengulangi pemindahan itu pukul 12:28
+  (audit #2914); geometrinya lalu dirapikan dulu di 3.8f sebelum batas diputuskan.
 
 Keanggotaan akhir: BLOK 19 **295**, BLOK 20 **364**, BLOK 21 **486**, BLOK 22
 **124** bidang. Ketiga batas tetap **satu bagian** dan tidak bertumpang tindih
@@ -647,6 +648,42 @@ Manifest dump (berkasnya di luar repo, tidak di-commit):
 | basis data | waktu dump | ukuran | SHA-256 |
 |---|---|---|---|
 | `sipetades_gedong` | 6 Nov 2026 12:22 | 9.382.391 byte | `560fddbbfde4e8a6b7fa67491ec336ecae9d1efb1edac55bfab284e981b099a5` |
+| `sipetades_gedong` | 6 Nov 2026 12:32 | 9.383.585 byte | `ed67cc3c2b63085a5e769c27a7ac4dc6f832a942749e5220e09c84136e4b17f7` |
+
+### 3.8f Poligon G01684 diperbaiki (6 Nov 2026)
+
+Petugas memindahkan `DXF-020100-G01684` (RUKINEM / SD N I GEDONG) dari BLOK 19 ke
+BLOK 21 lagi pada pukul 12:28 (audit #2914), padahal bidang itu **100% di dalam
+BLOK 19 dan 53,7 m dari BLOK 21** — pemindahan 11:27 yang sama sudah dikembalikan
+di 3.8b. Sebelum batas diputuskan, petugas meminta geometrinya dirapikan dulu.
+
+Ternyata cincinnya **spiral**, bukan sekadar berulang: jalur dari titik bersama B
+menuju cuping timur dilintasi **tiga kali** (dua maju, satu mundur) sehingga luas
+yang dilaporkan kebetulan tetap benar — loop yang berlawanan arah saling
+menghapus. Luas gambarnya 3.636,05 m², jadi `luas_m2` yang tercatat (3.636,31)
+memang sesuai. Cincin dipecah menjadi loop sederhana (cuping timur 2.777,40 m²
+dan cuping barat 858,65 m²), keduanya **tidak bertumpang** dan digabung menjadi
+satu `POLYGON` 16 titik:
+
+- luas tetap **3.636,05 m²**, `luas_m2` 3.636,31 → **3.636,05**;
+- `ST_IsSimple` = 1, 0 segmen bersilangan, `ST_Intersection(geom, geom)` sama
+  dengan luas gambar, dan luas ≤ convex hull (5.907,13 m²);
+- bentuk gambar **tidak berubah** (`ST_SymDifference` lama vs baru = 0,00 m²);
+- `pusat_lon`/`pusat_lat` 110,0645364 / -7,0924629; audit **#2915**.
+
+Keanggotaan **tetap BLOK 21** (487 anggota; BLOK 19 293), karena keputusan batas
+belum diambil. Bentuk yang sudah sah ini tetap 100% di dalam BLOK 19 dan tidak
+menyentuh BLOK 21, jadi opsi yang tersisa: kembalikan ke BLOK 19, atau bentuk
+ulang batas BLOK 21 mengikuti tepi bidang. Tumpang 23,6% dengan
+`DXF-020100-0282` (RUKINEM, `perlu_verifikasi`) sudah ada sebelum perbaikan dan
+tidak berubah.
+
+Cadangan: `D:\backup\sigpetades\perbaikan-g01684-20261106\sebelum-perbaiki-g01684-20261106.sql`
+(diuji restore ke `uji_g01684_20261106`: 24 blok, 8.103 bidang, 8.102 hak,
+3.794 SPPT, audit #2914; `ST_Equals` G01684/BLOK 19/BLOK 21 cocok; 16/17
+checksum tabel identik, `sppt` hanya beda urutan baris InnoDB — MD5 isi
+deterministiknya sama). Diff live vs cadangan setelah perbaikan: tepat 1 baris
+berubah. WKT sebelum/sesudah: `storage\perbaiki-poligon-G01684-20261106-123614.json`.
 
 ### 3.9 Bidang kembar (status duplikat)
 
