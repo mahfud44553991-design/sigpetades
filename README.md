@@ -384,9 +384,10 @@ sebagai satu garis tutup** (`sumber_perkiraan = garis luar MASTER.dxf`,
 `batas 3 15 25 17 18 7 9 5 4 16 6 14 12 26 24 20 10 13 23 --tegas --terapkan`
 pada 19 Okt 2026. **BLOK 19, 21 dan 22 sudah dibentuk ulang menjadi satu bagian**
 pada 6 Nov 2026 dengan penyangga yang dipotong batas blok resmi di sekelilingnya
-(rinciannya di 3.8a). Anggota BLOK 19 / 21 / 22 sekarang **274 / 520 / 124**
-bidang setelah 18 bidang di luar batas dipindahkan ke blok yang memuatnya (3.8b)
-dan batas BLOK 21 diperluas memuat `G01684` (3.8g).
+(rinciannya di 3.8a). Anggota BLOK 19 / 21 / 22 sekarang **274 / 556 / 124**
+bidang setelah 18 bidang di luar batas dipindahkan ke blok yang memuatnya (3.8b),
+batas BLOK 21 diperluas memuat `G01684` (3.8g), lalu jalur antara BLOK 21 dan
+BLOK 23 diisi sampai garis BLOK 23 (3.8h).
 **BLOK 2 dan 8** masih berupa gabungan persis bidang anggotanya
 (`sumber_perkiraan = gabungan bidang anggota`).
 
@@ -745,6 +746,70 @@ Cadangan di `D:\backup\sigpetades\b21-g01684-20261106\` (di luar repo):
 
 Kedua basis data uji dihapus setelah pemeriksaan. WKT sebelum/sesudah dan daftar
 33 bidang: `storage\ubah-batas-b21-G01684-20261106-130450.json`.
+
+### 3.8h Jalur BLOK 21–BLOK 23 diisi sampai garis BLOK 23 (6 Nov 2026)
+
+Di antara tepi timur BLOK 21 dan tepi barat BLOK 23 tersisa **jalur putih tanpa
+blok seluas 15.795,40 m²** sepanjang ±470 m (lebar 0–40 m). Sekitar 30 bidang di
+jalur itu tercatat sebagai anggota BLOK 23/BLOK 25, padahal 0 % luasnya berada di
+blok aslinya. Petugas memilih **mengisi seluruh jalur** sehingga BLOK 21 menyentuh
+garis resmi BLOK 23 dan tidak ada lagi bidang putih di antaranya.
+
+Bentuk batasnya disusun dari irisan dua penyangga 60 m (BLOK 21 dan BLOK 23)
+dikurangi kedua blok — jalur itu sendiri — lalu digabung dengan BLOK 21 dan
+seluruh bidang yang terpotong tepi jalur, memakai `polygon-clipping` dan
+dinormalisasi ulang:
+
+- **bidang diserap utuh 36 baris** (34 dari BLOK 23, 2 dari BLOK 25; beberapa
+  kembar: `HM-94B`/`DXF-020100-0083`/`G02423`, `HM-204D K3`/`DXF-020100-0341`/
+  `G02422`, `HM-C41`/`DXF-020100-1459`/`G01674`). Bidang yang hanya terpotong
+  sebagian ikut utuh mengikuti tepinya: `HM-1205` 78,1 %, `HM-1213` 50,7 %,
+  `HM-1211` 27,1 %, `HM-1212` 11,8 %, `HM-1210` 90,6 %, `G01682` 84,3 %,
+  `G01673` 92,7 %; sisanya ≥90 %. Penyerapan utuh menambah 3.090,38 m² di luar
+  jalur (tepi bidang), jadi luas akhir 225.782,59 m² — bukan 222.692 m² seperti
+  perkiraan awal.
+- **6 bidang dikecualikan** karena memang berada di blok asalnya dan hanya
+  menyentuh jalur <2 %: `HM-0883` (BLOK 24) 0,5 %, `HM-1097` 2,0 %, `HM-1096`
+  0,9 %, `DXF-BIDANG-HM-01113` 0,4 %, `DXF-020100-G01958` 0,4 %,
+  `DXF-020100-G01951` 0,4 %. Tepi jalur dipotong mengikuti tepi keenam bidang itu,
+  jadi **0 m²** dari keenamnya masuk BLOK 21 dan tidak ada bidang melintang baru.
+
+Hasil:
+
+- BLOK 21 **206.896,80 → 225.782,59 m²** (+18.885,79; +9,13 %); **satu bagian**
+  (`ST_NumGeometries` = 1, `ST_IsSimple` = 1, cincin luar 480 titik) dengan
+  4 lubang: lubang lama 146,13 m² dan tiga lekuk BLOK 23 (883,12 + 165,80 +
+  33,52 m²). Lekuk itu adalah jari-jari BLOK 23 yang menjorok; bidang anggotanya
+  tetap di BLOK 23 sehingga batas kedua blok saling mengunci tanpa tumpang tindih.
+- tumpang tindih **0 m²** dengan seluruh 23 blok lain; kontak garis dengan
+  BLOK 23 naik **85,2 → 268,2 m** (maksimum yang bisa dicapai karena sebagian
+  tepi BLOK 23 menjorok dan sisa mulut jalur membuka ke tanah kosong).
+- anggota BLOK 21 **520 → 556**, BLOK 23 **460 → 426**, BLOK 25 **395 → 393**;
+  jumlah bidang, hak, blok, dan SPPT tidak berubah (8.103 / 8.102 / 24 / 3.794).
+- `sumber_perkiraan` BLOK 21 = `jalur BLOK 23 diserap + bidang tepi; G01684`,
+  `jumlah_bidang_estimasi` = 556, `maks_jarak_estimasi_m` dikosongkan (batas tidak
+  lagi memakai penyangga).
+
+Pemeriksaan pascaperubahan: 36/36 bidang yang dipindah ≥99,9 % di dalam BLOK 21;
+keenam bidang yang dikecualikan tepat **0 m²**; 111 bidang blok lain sudah
+menumpang BLOK 21 sebelum perubahan dan tidak bertambah selain serpihan
+pembulatan koordinat (`HM-0884` 0,224 m², tiga bidang 0,01 m²). Semua anggota
+tetap utuh — tidak ada bidang melintang baru.
+
+Audit **#2920–#2922** (dua baris `bidang` per blok asal, satu baris `blok`). Uji
+asap API: `api/bidang.php?lapisan=blok` → HTTP 200, 24 fitur,
+`estimasi_bidang` BLOK 21 = 556 (hanya diuji di tingkat API, bukan tangkapan
+layar browser).
+
+Cadangan di `D:\backup\sigpetades\b21-b23-20261106\` (di luar repo):
+
+| berkas | waktu | ukuran | SHA-256 | uji restore |
+|---|---|---|---|---|
+| `sebelum-b21-b23-20261106.sql` | 6 Nov 2026 13:48 | 9.386.069 byte | `6d109d5867e443bea27598b2a347ccb1e23070c9029130e0e5a36e81f95ed033` | `uji_b21b23_20261106`: 21 tabel, 24 blok, 8.103 bidang, 8.102 hak, 3.794 SPPT, audit #2919, luas BLOK 21 206.896,80 m², 520 anggota |
+| `setelah-b21-b23-20261106.sql` | 6 Nov 2026 13:52 | 9.439.730 byte | `5fc1783097a5587b0e3a13cf6857772fba4dfc6700212e27dfcd5d32e9bf0007` | `uji_b21b23_after_20261106`: angka sama dengan live, audit #2922, luas 225.782,59 m², 556 anggota, `ST_Equals` BLOK 21 = 1 |
+
+Kedua basis data uji dihapus setelah pemeriksaan. WKT sebelum/sesudah dan daftar
+36 bidang: `storage\ubah-batas-b21-b23-20261106-135031.json`.
 
 ### 3.9 Bidang kembar (status duplikat)
 
