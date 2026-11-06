@@ -4,7 +4,7 @@ declare(strict_types=1);
 /**
  * Pemasangan data lapangan. Hanya Super Admin.
  *
- *   POST aksi=impor  sumber=semua|blok|bidang|sppt|sppt-dump|buku-c  [reset=1]
+ *   POST aksi=impor  sumber=semua|blok|bidang|sppt|digitasi|sppt-dump|buku-c  [reset=1]
  *
  * Halaman ini hanya membungkus tools/lib-impor.php supaya import bisa dijalankan
  * dari browser tanpa shell. `php tools/impor.php semua` tetap jalan dan hasilnya
@@ -38,6 +38,11 @@ const SUMBER_IMPOR = [
         'nama' => 'SPPT dari CSV',
         'catatan' => 'Berkas CSV dibaca dari folder files/data excel.',
         'bisa_reset' => true,
+    ],
+    'digitasi' => [
+        'nama' => 'Daftar bidang hasil digitasi (CSV)',
+        'catatan' => 'Menambahkan poligon, luas, nomor hak, nama pemilik, dan penggunaan dari CSV. Bidang baru ditandai perlu verifikasi dan bloknya perlu ditetapkan.',
+        'bisa_reset' => false,
     ],
     'sppt-dump' => [
         'nama' => 'Objek pajak dari dump lama',
@@ -77,6 +82,7 @@ function daftar_berkas(string $sumber): array
 {
     $pola = match ($sumber) {
         'sppt' => SIP_ROOT . '/files/data excel/*.csv',
+        'digitasi' => SIP_ROOT . '/files/data excel/*bidang*.csv',
         'gang' => SIP_ROOT . '/files/peta gang/*.geojson',
         default => null,
     };
@@ -106,6 +112,12 @@ function jalankan_impor(string $sumber, bool $reset, ?string $berkas): array
                 throw new RuntimeException('Berkas CSV tidak ditemukan di files/data excel.');
             }
             return [imporSpptCsv($berkas, null, $reset)];
+
+        case 'digitasi':
+            if ($berkas === null || !is_file($berkas)) {
+                throw new RuntimeException('Berkas CSV bidang tidak ditemukan di files/data excel.');
+            }
+            return [imporDaftarDigitasiCsv($berkas)];
 
         case 'gang':
             if ($berkas === null || !is_file($berkas)) {
@@ -175,8 +187,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
         }
 
         $berkas = null;
-        if (in_array($sumber, ['sppt', 'gang'], true)) {
-            $namaIsian = $sumber === 'gang' ? 'berkas_gang' : 'berkas_csv';
+        if (in_array($sumber, ['sppt', 'digitasi', 'gang'], true)) {
+            $namaIsian = match ($sumber) {
+                'gang' => 'berkas_gang',
+                'digitasi' => 'berkas_digitasi',
+                default => 'berkas_csv',
+            };
             $indeks = post_int($namaIsian);
             $berkas = $indeks === null ? null : (daftar_berkas($sumber)[$indeks] ?? null);
         }
@@ -212,6 +228,7 @@ $log = $_SESSION['impor_log'] ?? null;
 unset($_SESSION['impor_log']);
 
 $csvTersedia = daftar_berkas('sppt');
+$digitasiTersedia = daftar_berkas('digitasi');
 $gangTersedia = daftar_berkas('gang');
 $masterDxf = SIP_ROOT . '/files/master peta/MASTER.dxf';
 $jumlah = hitunganTabel();
@@ -261,7 +278,7 @@ sip_header('Pemasangan data', 'pengguna');
                                     <option value="<?= e($kode) ?>"><?= e($opsi['nama']) ?></option>
                                 <?php endforeach; ?>
                             </select>
-                            <p class="petunjuk">Sumber "SPPT dari CSV" memakai daftar CSV; sumber "Poligon gang" memakai daftar GeoJSON di folder files/peta gang. Sumber lain membaca berkas baku aplikasi.</p>
+                            <p class="petunjuk">SPPT dan daftar bidang digitasi memakai CSV dari files/data excel; poligon gang memakai GeoJSON dari files/peta gang. Impor daftar bidang tidak menghapus data lama.</p>
                         </div>
                         <div class="lapangan">
                             <label for="berkas_csv">Berkas CSV SPPT</label>
@@ -273,6 +290,17 @@ sip_header('Pemasangan data', 'pengguna');
                                 <?php endforeach; endif; ?>
                             </select>
                             <p class="petunjuk">Daftar isinya dibaca dari files/data excel, bukan dari ketikan pengguna.</p>
+                        </div>
+                        <div class="lapangan">
+                            <label for="berkas_digitasi">Berkas CSV daftar bidang</label>
+                            <select class="pilih-kecil" id="berkas_digitasi" name="berkas_digitasi">
+                                <?php if ($digitasiTersedia === []): ?>
+                                    <option value="">(belum ada CSV)</option>
+                                <?php else: foreach ($digitasiTersedia as $indeks => $path): ?>
+                                    <option value="<?= (int) $indeks ?>"><?= e(basename($path)) ?></option>
+                                <?php endforeach; endif; ?>
+                            </select>
+                            <p class="petunjuk">CSV wajib memuat kolom id_bidang dan geojson_boundary (Polygon); kode yang sudah ada akan dilewati.</p>
                         </div>
                         <div class="lapangan">
                             <label for="berkas_gang">Berkas GeoJSON gang</label>
@@ -288,7 +316,7 @@ sip_header('Pemasangan data', 'pengguna');
                     </div>
                     <label class="cek">
                         <input type="checkbox" name="reset" value="1">
-                        <span>Kosongkan tabel terkait dulu. Data hasil impor sebelumnya ikut terbuang.</span>
+                        <span>Kosongkan tabel terkait dulu. Data hasil impor sebelumnya ikut terbuang. Tidak berlaku untuk daftar bidang digitasi.</span>
                     </label>
                     <div class="baris-tombol jarak-atas">
                         <button class="tombol tombol-utama" type="submit">Jalankan impor</button>

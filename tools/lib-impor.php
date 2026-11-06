@@ -344,6 +344,512 @@ function imporBidang(string $path, string $tipe, bool $reset = true, int $batasL
     ];
 }
 
+/** Layer peta induk yang boleh dijadikan bidang. */
+const LAPISAN_POLIGON_PETA_INDUK = [
+    '010500' => ['berkas' => '010500.geojson', 'nama' => '010500'],
+    '020100' => ['berkas' => '020100.geojson', 'nama' => '020100'],
+    '020400' => ['berkas' => '020400.geojson', 'nama' => '020400'],
+    'batas-blok' => ['berkas' => 'batas-blok.geojson', 'nama' => 'BATAS BLOK'],
+    'bidang-hm' => ['berkas' => 'bidang-hm.geojson', 'nama' => 'BIDANG HM'],
+    'calon-bidang' => ['berkas' => 'calon-bidang.geojson', 'nama' => 'CALON BIDANG'],
+    'hm' => ['berkas' => 'hm.geojson', 'nama' => 'HM'],
+    'lb-lai' => ['berkas' => 'lb-lai.geojson', 'nama' => 'lb_lai'],
+];
+
+/**
+ * Susun bidang tertutup dari jaringan LineString yang ujung-ujungnya tersambung.
+ * Garis yang tidak menjadi batas poligon tertutup tidak menghasilkan bidang.
+ *
+ * @return array{poligon:array<int, array{geometry:array}>, garis_tidak_terpakai:int}
+ */
+function poligonDariGarisPetaInduk(array $features, float $toleransi = 0.1): array
+{
+    $nodes = [];
+    $buckets = [];
+    $edges = [];
+    $garisAsal = 0;
+    $nodeUntuk = static function (array $point) use (&$nodes, &$buckets, $toleransi): int {
+        $cellX = (int) floor($point[0] / $toleransi);
+        $cellY = (int) floor($point[1] / $toleransi);
+        for ($dx = -1; $dx <= 1; $dx++) {
+            for ($dy = -1; $dy <= 1; $dy++) {
+                foreach ($buckets[($cellX + $dx) . ':' . ($cellY + $dy)] ?? [] as $candidate) {
+                    if (hypot($nodes[$candidate]['point'][0] - $point[0], $nodes[$candidate]['point'][1] - $point[1])
+                        <= $toleransi) {
+                        return $candidate;
+                    }
+                }
+            }
+        }
+
+        $id = count($nodes);
+        $nodes[$id] = ['point' => $point, 'halves' => []];
+        $buckets[$cellX . ':' . $cellY][] = $id;
+        return $id;
+    };
+
+    foreach ($features as $featureIndex => $feature) {
+        $geometry = $feature['geometry'] ?? [];
+        if (($geometry['type'] ?? '') !== 'LineString') {
+            continue;
+        }
+        $garisAsal++;
+        $coordinates = $geometry['coordinates'] ?? [];
+        if (!is_array($coordinates) || count($coordinates) < 2) {
+            continue;
+        }
+        $points = [];
+        foreach ($coordinates as $point) {
+            if (!is_array($point) || count($point) < 2
+                || !is_numeric($point[0]) || !is_numeric($point[1])
+                || !is_finite((float) $point[0]) || !is_finite((float) $point[1])) {
+                $points = [];
+                break;
+            }
+            $points[] = [(float) $point[0], (float) $point[1]];
+        }
+        if (count($points) < 2) {
+            continue;
+        }
+
+        $from = $nodeUntuk($points[0]);
+        $to = $nodeUntuk($points[count($points) - 1]);
+        if ($from === $to && count($points) < 4) {
+            continue;
+        }
+        $points[0] = $nodes[$from]['point'];
+        $points[count($points) - 1] = $nodes[$to]['point'];
+        $edgeId = count($edges);
+        $edges[$edgeId] = ['from' => $from, 'to' => $to, 'points' => $points, 'source' => (int) $featureIndex];
+        $forwardId = count($edges) * 2 - 2;
+        $reverseId = $forwardId + 1;
+        $nodes[$from]['halves'][] = $forwardId;
+        $nodes[$to]['halves'][] = $reverseId;
+    }
+
+    $halves = [];
+    foreach ($edges as $edgeId => $edge) {
+        $points = $edge['points'];
+        $halves[] = [
+            'edge' => $edgeId,
+            'from' => $edge['from'],
+            'to' => $edge['to'],
+            'reverse' => false,
+            'twin' => $edgeId * 2 + 1,
+            'angle' => atan2($points[1][1] - $points[0][1], $points[1][0] - $points[0][0]),
+        ];
+        $last = count($points) - 1;
+        $halves[] = [
+            'edge' => $edgeId,
+            'from' => $edge['to'],
+            'to' => $edge['from'],
+            'reverse' => true,
+            'twin' => $edgeId * 2,
+            'angle' => atan2($points[$last - 1][1] - $points[$last][1], $points[$last - 1][0] - $points[$last][0]),
+        ];
+    }
+    foreach ($nodes as &$node) {
+        usort($node['halves'], static fn(int $a, int $b): int => $halves[$a]['angle'] <=> $halves[$b]['angle']);
+    }
+    unset($node);
+
+    $visited = [];
+    $polygons = [];
+    $usedSources = [];
+    foreach ($halves as $start => $_half) {
+        if (isset($visited[$start])) {
+            continue;
+        }
+        $current = $start;
+        $ring = [];
+        $cycleEdges = [];
+        $closed = false;
+        for ($step = 0, $limit = count($halves) + 1; $step < $limit; $step++) {
+            if (isset($visited[$current])) {
+                $closed = $current === $start;
+                break;
+            }
+            $visited[$current] = true;
+            $half = $halves[$current];
+            $edge = $edges[$half['edge']];
+            $points = $half['reverse'] ? array_reverse($edge['points']) : $edge['points'];
+            $ring = $ring === [] ? $points : array_merge($ring, array_slice($points, 1));
+            $cycleEdges[$edge['source']] = true;
+
+            $outgoing = $nodes[$half['to']]['halves'];
+            $twinIndex = array_search($half['twin'], $outgoing, true);
+            if ($twinIndex === false || $outgoing === []) {
+                break;
+            }
+            $current = $outgoing[($twinIndex - 1 + count($outgoing)) % count($outgoing)];
+        }
+        if (!$closed || count($ring) < 4) {
+            continue;
+        }
+        $ring[count($ring) - 1] = $ring[0];
+        $areaSigned = 0.0;
+        for ($i = 0, $last = count($ring) - 1; $i < $last; $i++) {
+            $areaSigned += $ring[$i][0] * $ring[$i + 1][1] - $ring[$i + 1][0] * $ring[$i][1];
+        }
+        if ($areaSigned <= 40.0) {
+            continue;
+        }
+        foreach ($cycleEdges as $source => $_) {
+            $usedSources[$source] = true;
+        }
+        $polygons[] = ['geometry' => ['type' => 'Polygon', 'coordinates' => [$ring]]];
+    }
+
+    return [
+        'poligon' => $polygons,
+        'garis_tidak_terpakai' => max(0, $garisAsal - count($usedSources)),
+    ];
+}
+
+/**
+ * Buat bidang tanah perlu-verifikasi dari semua Polygon dalam satu layer peta induk.
+ * Koordinat meter lokal diubah ke WGS84; kode deterministik dan uji tumpang
+ * dengan ukuran sebanding mencegah impor ulang atau duplikasi lintas layer.
+ *
+ * @return array<string, mixed>
+ */
+function imporPoligonPetaInduk(string $lapisan): array
+{
+    if (!isset(LAPISAN_POLIGON_PETA_INDUK[$lapisan])) {
+        throw new RuntimeException('Layer peta induk tidak diizinkan sebagai sumber bidang.');
+    }
+
+    $sumber = LAPISAN_POLIGON_PETA_INDUK[$lapisan];
+    $path = SIP_ROOT . '/files/sig-pertanahan-gedong-lokal/data/dxf-layers/' . $sumber['berkas'];
+    $features = geojsonBaca($path);
+    $garisTerbentuk = [];
+    $garisTidakTerpakai = 0;
+    if ($lapisan === '020100') {
+        $hasilGaris = poligonDariGarisPetaInduk($features);
+        $garisTerbentuk = $hasilGaris['poligon'];
+        $garisTidakTerpakai = $hasilGaris['garis_tidak_terpakai'];
+    }
+    $idJenisHak = db_value('SELECT id FROM jenis_hak WHERE kode = ?', [JENIS_HAK_DEFAULT]);
+    if ($idJenisHak === null) {
+        throw new RuntimeException('Jenis hak BLM tidak ada. Jalankan sql/01_skema.sql.');
+    }
+
+    $pdo = db();
+    $sudah = [];
+    foreach ($pdo->query('SELECT kode FROM bidang')->fetchAll(PDO::FETCH_COLUMN) as $kode) {
+        $sudah[(string) $kode] = true;
+    }
+    $sisipBidang = $pdo->prepare(
+        'INSERT INTO bidang
+            (kode, tipe, luas_m2, status, sumber, catatan, geom, pusat_lon, pusat_lat)
+         VALUES (?, \'tanah\', ?, \'perlu_verifikasi\', ?, ?, ST_GeomFromText(?, 4326), ?, ?)'
+    );
+    $sisipHak = $pdo->prepare(
+        'INSERT INTO hak (bidang_id, jenis_hak_id, catatan) VALUES (?, ?, ?)'
+    );
+
+    $dibuat = 0;
+    $dilewati = 0;
+    $bukanPoligon = 0;
+    $jumlahGalat = 0;
+    $galat = [];
+    $geometriImpor = [];
+
+    foreach ($features as $indeks => $feature) {
+        $geometry = $feature['geometry'] ?? [];
+        if (($geometry['type'] ?? '') === 'Polygon') {
+            $geometriImpor[] = [
+                'kode' => 'DXF-' . strtoupper($lapisan) . '-' . str_pad((string) ($indeks + 1), 5, '0', STR_PAD_LEFT),
+                'geometry' => $geometry,
+            ];
+        } elseif (($geometry['type'] ?? '') !== 'LineString' || $lapisan !== '020100') {
+            $bukanPoligon++;
+        }
+    }
+    foreach ($garisTerbentuk as $indeks => $poligon) {
+        $geometriImpor[] = [
+            'kode' => 'DXF-' . strtoupper($lapisan) . '-G' . str_pad((string) ($indeks + 1), 5, '0', STR_PAD_LEFT),
+            'geometry' => $poligon['geometry'],
+        ];
+    }
+
+    foreach ($geometriImpor as $calon) {
+        $kode = $calon['kode'];
+        if (isset($sudah[$kode])) {
+            $dilewati++;
+            continue;
+        }
+
+        try {
+            $geometry = $calon['geometry'];
+            $koordinat = $geometry['coordinates'] ?? null;
+            if (!is_array($koordinat) || $koordinat === []) {
+                throw new RuntimeException('Poligon tidak memiliki cincin koordinat.');
+            }
+
+            $luas = 0.0;
+            $geojsonWgs84 = $geometry;
+            foreach ($koordinat as $nomorCincin => $cincin) {
+                if (!is_array($cincin) || count($cincin) < 4) {
+                    throw new RuntimeException('Cincin poligon kurang dari empat titik.');
+                }
+                $cincinMeter = [];
+                foreach ($cincin as $titik) {
+                    if (!is_array($titik) || count($titik) < 2
+                        || !is_numeric($titik[0]) || !is_numeric($titik[1])
+                        || !is_finite((float) $titik[0]) || !is_finite((float) $titik[1])) {
+                        throw new RuntimeException('Koordinat lokal poligon tidak sah.');
+                    }
+                    $cincinMeter[] = [(float) $titik[0], (float) $titik[1]];
+                }
+                $luasCincin = poligonLuas($cincinMeter);
+                $luas += $nomorCincin === 0 ? $luasCincin : -$luasCincin;
+                $geojsonWgs84['coordinates'][$nomorCincin] = array_map(
+                    static fn(array $titik): array => dxfKeWgs84((float) $titik[0], (float) $titik[1]),
+                    $cincin
+                );
+            }
+            if ($luas <= 0) {
+                throw new RuntimeException('Luas poligon tidak positif.');
+            }
+
+            $wkt = geojsonKeWkt($geojsonWgs84);
+            if ($wkt === null || !str_starts_with($wkt, 'POLYGON(')) {
+                throw new RuntimeException('Poligon gagal dikonversi ke WGS84.');
+            }
+            $wktPoligon = 'POLYGON' . substr($wkt, strlen('POLYGON'));
+            $duplikat = db_one(
+                'SELECT kode FROM bidang
+                  WHERE status <> \'dihapus\'
+                    AND MBRIntersects(geom, ST_GeomFromText(?, 4326))
+                    AND ST_Area(ST_Intersection(geom, ST_GeomFromText(?, 4326)))
+                        >= 0.95 * ST_Area(ST_GeomFromText(?, 4326))
+                    AND ST_Area(ST_Intersection(geom, ST_GeomFromText(?, 4326)))
+                        >= 0.95 * ST_Area(geom)
+                  LIMIT 1',
+                [$wktPoligon, $wktPoligon, $wktPoligon, $wktPoligon]
+            );
+            if ($duplikat !== null) {
+                $dilewati++;
+                continue;
+            }
+
+            $pusat = wktPusat($pdo, $wktPoligon);
+            db_transaksi(static function (PDO $connect) use (
+                $sisipBidang, $sisipHak, $kode, $luas, $lapisan, $wktPoligon, $pusat, $idJenisHak, $sumber
+            ): void {
+                $sisipBidang->execute([
+                    $kode,
+                    $luas,
+                    'peta-' . $lapisan,
+                    'Dibuat dari layer peta induk ' . $sumber['nama'] . '; perlu verifikasi dan penetapan blok.',
+                    $wktPoligon,
+                    $pusat['lon'],
+                    $pusat['lat'],
+                ]);
+                $sisipHak->execute([
+                    (int) $connect->lastInsertId(),
+                    (int) $idJenisHak,
+                    'Jenis hak belum dikonfirmasi; dibuat dari layer peta induk ' . $sumber['nama'] . '.',
+                ]);
+            });
+            $sudah[$kode] = true;
+            $dibuat++;
+        } catch (Throwable $error) {
+            $jumlahGalat++;
+            if (count($galat) < 40) {
+                $galat[] = $kode . ': ' . $error->getMessage();
+            }
+        }
+    }
+
+    return [
+        'jenis' => 'bidang-peta-induk',
+        'lapisan' => $lapisan,
+        'nama_lapisan' => $sumber['nama'],
+        'dibuat' => $dibuat,
+        'dilewati' => $dilewati,
+        'bukan_poligon' => $bukanPoligon,
+        'jumlah_galat' => $jumlahGalat,
+        'poligon_dari_garis' => count($garisTerbentuk),
+        'garis_tidak_menutup' => $garisTidakTerpakai,
+        'galat' => $galat,
+    ];
+}
+
+/**
+ * Tambahkan bidang dari CSV hasil digitasi yang menyimpan poligon GeoJSON
+ * pada kolom geojson_boundary. Baris yang gagal tidak membatalkan baris lain.
+ */
+function imporDaftarDigitasiCsv(string $path): array
+{
+    if (!is_file($path)) {
+        throw new RuntimeException('Berkas CSV bidang tidak ditemukan.');
+    }
+    $handle = fopen($path, 'r');
+    if ($handle === false) {
+        throw new RuntimeException('Berkas CSV bidang gagal dibuka.');
+    }
+
+    try {
+        $kepala = fgetcsv($handle);
+        if (!is_array($kepala)) {
+            throw new RuntimeException('Baris pertama CSV harus berisi nama kolom.');
+        }
+
+        $indeks = [];
+        foreach ($kepala as $posisi => $nama) {
+            $nama = (string) $nama;
+            if ($posisi === 0) {
+                $nama = preg_replace('/^\xEF\xBB\xBF/', '', $nama) ?? $nama;
+            }
+            $namaBersih = strtolower(trim((string) preg_replace('/[^a-z0-9_]/i', '_', $nama)));
+            if ($namaBersih !== '') {
+                $indeks[$namaBersih] = $posisi;
+            }
+        }
+        foreach (['id_bidang', 'geojson_boundary'] as $wajib) {
+            if (!isset($indeks[$wajib])) {
+                throw new RuntimeException('Kolom "' . $wajib . '" wajib ada pada CSV bidang.');
+            }
+        }
+
+        $pdo = db();
+        $idJenisHak = db_value('SELECT id FROM jenis_hak WHERE kode = ?', [JENIS_HAK_DEFAULT]);
+        if ($idJenisHak === null) {
+            throw new RuntimeException('Jenis hak BLM tidak ada. Jalankan sql/01_skema.sql.');
+        }
+
+        $penggunaan = [];
+        foreach (db_all('SELECT id, nama FROM jenis_penggunaan WHERE aktif = 1') as $baris) {
+            $kunci = mb_strtolower(trim((string) $baris['nama']), 'UTF-8');
+            $penggunaan[$kunci] = (int) $baris['id'];
+        }
+        $aliasPenggunaan = [
+            'perumahan' => 'pemukiman',
+            'perdagangan/ruko' => 'perdagangan / jasa',
+        ];
+        $sisipBidang = $pdo->prepare(
+            'INSERT INTO bidang
+                (kode, tipe, jenis_penggunaan_id, luas_m2, status, sumber, catatan, geom, pusat_lon, pusat_lat)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ST_GeomFromText(?, 4326), ?, ?)'
+        );
+        $sisipHak = $pdo->prepare(
+            'INSERT INTO hak (bidang_id, jenis_hak_id, no_sertifikat, pemegang_nama, catatan)
+             VALUES (?, ?, ?, ?, ?)'
+        );
+
+        $dibuat = 0;
+        $dilewati = 0;
+        $tanpaPenggunaan = 0;
+        $galat = [];
+        $nomorBaris = 1;
+        while (($baris = fgetcsv($handle)) !== false) {
+            $nomorBaris++;
+            if ($baris === [null] || $baris === ['']) {
+                continue;
+            }
+            $data = csvKeAsosiasi($indeks, $baris);
+            $kode = trim((string) ($data['id_bidang'] ?? ''));
+            try {
+                if ($kode === '' || strlen($kode) > 32) {
+                    throw new RuntimeException('id_bidang wajib diisi dan maksimal 32 karakter.');
+                }
+                if (db_value('SELECT id FROM bidang WHERE kode = ?', [$kode]) !== null) {
+                    $dilewati++;
+                    continue;
+                }
+
+                $geojson = json_decode((string) ($data['geojson_boundary'] ?? ''), true);
+                if (!is_array($geojson) || ($geojson['type'] ?? '') !== 'Polygon') {
+                    throw new RuntimeException('geojson_boundary harus berisi geometri Polygon.');
+                }
+                $cincin = $geojson['coordinates'] ?? null;
+                if (!is_array($cincin) || $cincin === []) {
+                    throw new RuntimeException('Poligon tidak memiliki cincin koordinat.');
+                }
+                foreach ($cincin as $ring) {
+                    if (!is_array($ring) || count($ring) < 4) {
+                        throw new RuntimeException('Setiap cincin poligon harus memiliki minimal empat titik.');
+                    }
+                    foreach ($ring as $titik) {
+                        if (!is_array($titik) || count($titik) < 2
+                            || !is_numeric($titik[0]) || !is_numeric($titik[1])
+                            || !is_finite((float) $titik[0]) || !is_finite((float) $titik[1])
+                            || abs((float) $titik[0]) > 180 || abs((float) $titik[1]) > 90) {
+                            throw new RuntimeException('Koordinat poligon harus berupa bujur/lintang WGS84 yang sah.');
+                        }
+                    }
+                }
+                $wkt = geojsonKeWkt($geojson);
+                if ($wkt === null) {
+                    throw new RuntimeException('Geometri poligon tidak sah atau kosong.');
+                }
+
+                $luasTeks = trim((string) ($data['luas_m2'] ?? ''));
+                if ($luasTeks !== '' && (!is_numeric($luasTeks) || (float) $luasTeks <= 0)) {
+                    throw new RuntimeException('luas_m2 harus berupa angka lebih besar dari nol.');
+                }
+                $nama = trim((string) ($data['pemilik'] ?? ''));
+                $noHak = trim((string) ($data['no_hak'] ?? ''));
+                if (mb_strlen($nama, 'UTF-8') > 150 || mb_strlen($noHak, 'UTF-8') > 60) {
+                    throw new RuntimeException('pemilik maksimal 150 karakter dan no_hak maksimal 60 karakter.');
+                }
+
+                $namaPenggunaan = mb_strtolower(trim((string) ($data['penggunaan'] ?? '')), 'UTF-8');
+                $namaPenggunaan = $aliasPenggunaan[$namaPenggunaan] ?? $namaPenggunaan;
+                $idPenggunaan = $penggunaan[$namaPenggunaan] ?? null;
+                $penggunaanTidakDikenal = trim((string) ($data['penggunaan'] ?? '')) !== '' && $idPenggunaan === null;
+                $pusat = wktPusat($pdo, $wkt);
+
+                db_transaksi(static function (PDO $connect) use (
+                    $sisipBidang, $sisipHak, $kode, $idPenggunaan, $luasTeks, $wkt, $pusat,
+                    $idJenisHak, $noHak, $nama
+                ): void {
+                    $sisipBidang->execute([
+                        $kode,
+                        'tanah',
+                        $idPenggunaan,
+                        $luasTeks === '' ? null : (float) $luasTeks,
+                        'perlu_verifikasi',
+                        'csv-digitasi',
+                        'Impor CSV digitasi; blok belum ditetapkan.',
+                        $wkt,
+                        $pusat['lon'],
+                        $pusat['lat'],
+                    ]);
+                    $sisipHak->execute([
+                        (int) $connect->lastInsertId(),
+                        (int) $idJenisHak,
+                        $noHak === '' ? null : $noHak,
+                        $nama === '' ? null : $nama,
+                        'Dibawa dari CSV hasil digitasi; perlu verifikasi petugas.',
+                    ]);
+                });
+                $dibuat++;
+                if ($penggunaanTidakDikenal) {
+                    $tanpaPenggunaan++;
+                }
+            } catch (Throwable $error) {
+                $dilewati++;
+                if (count($galat) < 40) {
+                    $galat[] = 'Baris ' . $nomorBaris . ' (' . ($kode ?: 'tanpa id_bidang') . '): ' . $error->getMessage();
+                }
+            }
+        }
+
+        return [
+            'jenis' => 'daftar-bidang-digitasi',
+            'dibuat' => $dibuat,
+            'dilewati' => $dilewati,
+            'penggunaan_tidak_dikenal' => $tanpaPenggunaan,
+            'galat' => $galat,
+        ];
+    } finally {
+        fclose($handle);
+    }
+}
+
 // ---------------------------------------------------------------------------
 // 3. SPPT / PBB dari CSV
 // ---------------------------------------------------------------------------

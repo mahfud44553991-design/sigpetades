@@ -7,6 +7,7 @@ declare(strict_types=1);
  *
  *   GET api/peta-lama.php?lapisan=020100
  *   GET api/peta-lama.php?lapisan=batas-blok
+ *   GET api/peta-lama.php?lapisan=batas-blok-mentah
  *   GET api/peta-lama.php?lapisan=batas-perairan
  *   GET api/peta-lama.php?lapisan=tn-nama
  *   GET api/peta-lama.php?lapisan=bidang-hm   (juga hm, optimalisasi-hm, lb-lai,
@@ -24,6 +25,7 @@ wajib_masuk();
 const LAPISAN_PETA_LAMA = [
     '020100'         => '020100.geojson',
     'batas-blok'     => 'batas-blok.geojson',
+    'batas-blok-mentah' => 'batas-blok.geojson',
     'batas-perairan' => 'batas-perairan.geojson',
     'tn-nama'        => 'tn-nama.geojson',
     'bidang-hm'      => 'bidang-hm.geojson',
@@ -42,6 +44,67 @@ const LAPISAN_PETA_LAMA = [
 $lapisan = get_str('lapisan');
 if (!isset(LAPISAN_PETA_LAMA[$lapisan])) {
     json_error('Lapisan peta lama tidak dikenal.', 404);
+}
+
+if ($lapisan === 'batas-blok') {
+    require_once __DIR__ . '/../tools/lib-impor.php';
+    $barisBlok = db_all(
+        'SELECT id, kode, nomor, batas_tersedia, batas_perkiraan, sumber_perkiraan,
+                jumlah_bidang_estimasi, ST_AsGeoJSON(geom) AS geojson
+         FROM blok ORDER BY nomor, kode'
+    );
+    $fitur = [];
+    $keDxf = static function (array $titik): array {
+        $lon = DXF_KE_WGS84['lon'];
+        $lat = DXF_KE_WGS84['lat'];
+        $a = $lon[1];
+        $b = $lon[2];
+        $c = $lat[1];
+        $d = $lat[2];
+        $determinan = $a * $d - $b * $c;
+        if (abs($determinan) < 1e-20) {
+            throw new RuntimeException('Transformasi koordinat DXF tidak dapat dibalik.');
+        }
+        $x = (float) $titik[0] - $lon[0];
+        $y = (float) $titik[1] - $lat[0];
+        return [
+            ($d * $x - $b * $y) / $determinan,
+            ($a * $y - $c * $x) / $determinan,
+        ];
+    };
+    $ubahKoordinat = static function (array $koordinat) use (&$ubahKoordinat, $keDxf): array {
+        if (count($koordinat) >= 2 && is_numeric($koordinat[0]) && is_numeric($koordinat[1])) {
+            return $keDxf($koordinat);
+        }
+        return array_map($ubahKoordinat, $koordinat);
+    };
+
+    foreach ($barisBlok as $blok) {
+        $geometri = json_decode((string) $blok['geojson'], true);
+        if (!is_array($geometri) || !isset($geometri['type'], $geometri['coordinates'])) {
+            continue;
+        }
+        $fitur[] = [
+            'type' => 'Feature',
+            'geometry' => [
+                'type' => $geometri['type'],
+                'coordinates' => $ubahKoordinat($geometri['coordinates']),
+            ],
+            'properties' => [
+                'id' => (int) $blok['id'],
+                'kode' => (string) $blok['kode'],
+                'nomor' => $blok['nomor'] === null ? null : (int) $blok['nomor'],
+                'closed' => true,
+                'batas_tersedia' => (bool) $blok['batas_tersedia'],
+                'batas_perkiraan' => (bool) $blok['batas_perkiraan'],
+                'sumber' => (string) ($blok['sumber_perkiraan'] ?? ''),
+                'estimasi_bidang' => $blok['jumlah_bidang_estimasi'] === null
+                    ? null : (int) $blok['jumlah_bidang_estimasi'],
+            ],
+        ];
+    }
+
+    json_response(['type' => 'FeatureCollection', 'features' => $fitur]);
 }
 
 $berkas = __DIR__ . '/../files/sig-pertanahan-gedong-lokal/data/dxf-layers/' . LAPISAN_PETA_LAMA[$lapisan];

@@ -97,6 +97,16 @@ atau dari browser setelah masuk sebagai Super Admin: **Manajemen akun →
 Pemasangan data** (`pasang.php`). Keduanya memakai `tools/lib-impor.php` yang
 sama, jadi hasilnya identik.
 
+Super Admin juga dapat menjalankan impor GeoJSON **Bidang tanah** dari panel
+Daftar bidang. Aksi itu tidak mereset tabel: kode yang sudah ada dilewati.
+
+Menu **Daftar bidang hasil digitasi (CSV)** juga tersedia di halaman Pemasangan
+data. Letakkan CSV pada `files\data excel\` dengan kolom `id_bidang` dan
+`geojson_boundary` (GeoJSON `Polygon`), lalu pilih berkas tersebut di menu.
+Impor ini menambahkan kode baru tanpa menghapus bidang yang sudah ada; baris
+duplikat dilewati, dan bidang baru ditandai `perlu_verifikasi` tanpa blok
+sampai petugas menetapkannya.
+
 Perintah yang tersedia:
 
 ```
@@ -1814,6 +1824,12 @@ Yang dikerjakan:
   jatuh ke bidang di bawahnya. Legenda mendapat contoh garis putus-putus
   "Batas desa (010500)". Lapisan ini tidak ikut `fitBounds` awal — pemusatan
   tetap mengikuti sebaran bidang dari saringan.
+- Layer **BATAS BLOK** di `peta-lama.php` menampilkan 24 geometri batas dari
+  tabel `blok`; 19 batas ukur memakai garis hijau solid dan 5 batas perkiraan
+  memakai garis cokelat putus-putus. Kotak centang **Ruas acuan BATAS BLOK**
+  menampilkan 72 fitur DXF mentah sebagai overlay oranye putus-putus untuk
+  perbandingan. Ruas mentah adalah referensi saja dan tidak mengubah geometri
+  atau status batas di basis data.
 
 Berkas GeoJSON lapisan DXF berada di bawah `files/` yang di-.gitignore, jadi
 pada salinan baru batas desa baru tampil setelah konversi DXF dijalankan sekali;
@@ -2326,6 +2342,10 @@ tidak lagi memaksa merah di semua mode — pada mode status ia berwarna kuning
 tua, dan legenda menuliskan jumlah tiap kategori dari fitur yang benar-benar
 tampil.
 
+Halaman **`peta-blok.php`** menampilkan khusus batas semua blok. Klik blok
+untuk melihat status batas dan estimasi jumlah bidang; batas perkiraan memakai
+garis putus-putus. Halaman peta bidang menyediakan tautan ke peta blok.
+
 **Batas blok dan label.** Garis blok diukur tampil hijau tua solid, blok
 perkiraan tampil cokelat putus-putus; nama blok dipasang sebagai `divIcon`
 di titik tengah dan hanya terlihat pada zoom ≥ 14, bisa dimatikan lewat
@@ -2601,12 +2621,22 @@ _lama/          berkas sistem sebelumnya — diarsipkan, tidak dipakai
 ```
 
 Halaman di akar: `beranda.php` (halaman depan publik, satu-satunya yang boleh dibaca
-tanpa akun), `index.php` (dasbor perangkat desa), `peta.php`, `peta-lama.php` (penampil
+tanpa akun), `index.php` (dasbor perangkat desa), `peta.php`, `peta-blok.php` (peta batas blok),
+`peta-lama.php` (penampil
 15 layer DXF arsip `files/sig-pertanahan-gedong-lokal`, koordinat lokal), `bidang.php`, `sppt.php`,
 `buku-c.php`, `peralihan.php`, `laporan.php`, `pengaturan.php` (cadangan/ekspor/impor/
 kosongkan, hanya Super Admin), `pengguna.php`, `pasang.php`,
 `dokumen.php`, `login.php`, `logout.php`, `setup.php`. Akar situs (`/`) ditulis ulang
 ke `beranda.php`, baik pada `.htaccess` maupun `tools/server.php`.
+
+Pada `peta-lama.php`, Super Admin dapat memilih satu dari delapan layer sumber
+untuk membuat bidang tanah. Semua poligon pada layer pilihan diimpor, termasuk
+batas desa (`010500`) dan batas blok. Khusus layer `020100`, garis yang ujungnya
+tersambung disusun menjadi poligon tertutup; garis yang tidak membentuk bidang
+tertutup dilewati. Konversi koordinat DXF ke WGS84 berdasarkan transformasi
+perkiraan, sehingga setiap bidang baru berstatus **perlu verifikasi**, belum
+memiliki blok, dan memakai jenis hak sementara BLM. Kode impor stabil dan
+bidang bergeometri hampir sama dilewati saat impor ulang.
 
 ---
 

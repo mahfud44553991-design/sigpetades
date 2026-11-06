@@ -28,8 +28,61 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
     wajib_masuk(PERAN_PENGELOLA);
     wajib_csrf();
 
-    $idBidang = post_int('id');
     $aksi = post_str('aksi');
+    if ($aksi === 'impor-bidang-tanah') {
+        wajib_masuk([PERAN_SUPER]);
+        require_once __DIR__ . '/tools/lib-impor.php';
+        $sumberBidang = [
+            'tanah' => ['berkas' => SIP_ROOT . '/bidang_tanah.geojson', 'tipe' => 'tanah'],
+            'lain' => ['berkas' => SIP_ROOT . '/bidang_lain.geojson', 'tipe' => 'lain'],
+        ];
+        $pilihan = post_str('berkas_bidang');
+        if (!isset($sumberBidang[$pilihan])) {
+            flash_set('gagal', 'Pilih berkas bidang yang akan diimpor.');
+            redirect('bidang.php');
+        }
+        set_time_limit(0);
+        $sumber = $sumberBidang[$pilihan];
+        $hasil = imporBidang($sumber['berkas'], $sumber['tipe'], false);
+        $jumlahBaru = (int) ($hasil['dibuat'] ?? 0);
+        $galat = (array) ($hasil['galat'] ?? []);
+        audit('impor', 'bidang', 'bidang-' . $pilihan . '-geojson',
+            'Impor ' . basename($sumber['berkas']) . ' tanpa reset',
+            null,
+            array_merge(array_diff_key($hasil, ['galat' => 1]), ['jumlah_galat' => count($galat)])
+        );
+        if ($galat !== []) {
+            flash_set('gagal', angka($jumlahBaru) . ' bidang baru diimpor; '
+                . angka(count($galat)) . ' baris bermasalah. ' . implode(' ', array_slice($galat, 0, 3)));
+        } else {
+            flash_set('berhasil', angka($jumlahBaru) . ' bidang baru diimpor dari '
+                . basename($sumber['berkas']) . '; kode yang sudah ada dilewati.');
+        }
+        redirect('bidang.php');
+    }
+
+    if ($aksi === 'hapus-semua-digitasi' || $aksi === 'hapus-semua-jenis') {
+        wajib_masuk([PERAN_SUPER]);
+        $jenisHapus = post_str('jenis_hapus');
+        $hapusTanah = $aksi === 'hapus-semua-jenis' && $jenisHapus === 'tanah';
+        if ($aksi === 'hapus-semua-jenis' && !in_array($jenisHapus, ['digitasi', 'tanah'], true)) {
+            flash_set('gagal', 'Jenis bidang untuk dihapus tidak dikenal.');
+            redirect('bidang.php');
+        }
+        $kondisi = $hapusTanah ? "tipe = 'tanah'" : "sumber = 'csv-digitasi'";
+        $labelHapus = $hapusTanah ? 'semua bidang bertipe tanah' : 'hasil impor CSV digitasi';
+        $jumlahHapus = db_transaksi(static fn(PDO $pdo): int => db_exec("DELETE FROM bidang WHERE {$kondisi}"));
+        if ($jumlahHapus > 0) {
+            audit('hapus', 'bidang', $hapusTanah ? 'tipe-tanah' : 'csv-digitasi',
+                'Hapus ' . $labelHapus, null, ['jumlah' => $jumlahHapus]);
+        }
+        flash_set('berhasil', $jumlahHapus > 0
+            ? angka($jumlahHapus) . ' ' . $labelHapus . ' dihapus.'
+            : 'Tidak ada ' . $labelHapus . ' untuk dihapus.');
+        redirect('bidang.php');
+    }
+
+    $idBidang = post_int('id');
     $sebelum = $idBidang === null ? null : db_one(
         'SELECT id, kode, nib, nis, nomor_daftar, status, dusun_id, blok_id, jenis_penggunaan_id, luas_m2, catatan
          FROM bidang WHERE id = ?',
@@ -712,17 +765,85 @@ $query = [
     'dusun'  => get_str('dusun'),
     'hak'    => get_str('hak'),
     'status' => get_str('status'),
-    'tipe'   => get_str('tipe'),
+    'tipe'   => get_str('tipe', 'tanah'),
 ];
 if ($query['status'] !== '' && !isset(STATUS_BIDANG[$query['status']])) {
     $query['status'] = '';
 }
+if (!in_array($query['tipe'], ['semua', 'tanah', 'lain'], true)) {
+    $query['tipe'] = 'tanah';
+}
 [$halaman, $perHalaman] = batas_halaman(get_int('halaman'), get_int('per_halaman'), 100);
+$queryTautan = array_filter($query, static fn($v) => $v !== '');
+
+if (get_str('ekspor') === 'csv') {
+    [$where, $param] = bidang_filter($query);
+    $joinEkspor = '
+        FROM bidang b
+        LEFT JOIN blok bl              ON bl.id = b.blok_id
+        LEFT JOIN dusun du             ON du.id = b.dusun_id
+        LEFT JOIN jenis_penggunaan jp  ON jp.id = b.jenis_penggunaan_id
+        LEFT JOIN hak h                ON h.bidang_id = b.id
+        LEFT JOIN jenis_hak jh         ON jh.id = h.jenis_hak_id
+        LEFT JOIN (
+            SELECT bidang_id,
+                   GROUP_CONCAT(DISTINCT nama_wp ORDER BY nama_wp SEPARATOR " / ") AS nama_wp,
+                   GROUP_CONCAT(DISTINCT nop ORDER BY nop SEPARATOR " / ") AS nop
+            FROM objek_pajak
+            WHERE bidang_id IS NOT NULL
+            GROUP BY bidang_id
+        ) o ON o.bidang_id = b.id';
+    $jumlahEkspor = (int) db_value('SELECT COUNT(DISTINCT b.id) ' . $joinEkspor . ' ' . $where, $param);
+    $baris = db_query(
+        'SELECT b.kode, b.tipe, b.status, bl.kode AS blok, du.nama AS dusun,
+                jp.nama AS penggunaan, b.luas_m2, b.nib, b.nis, b.nomor_daftar,
+                jh.kode AS jenis_hak, h.pemegang_nama, h.no_sertifikat, h.no_hak_pakai,
+                o.nama_wp, o.nop,
+                (SELECT s.status_bayar FROM sppt s
+                  JOIN objek_pajak op ON op.nop = s.nop
+                  WHERE op.bidang_id = b.id
+                  ORDER BY s.tahun_pajak DESC LIMIT 1) AS status_bayar,
+                b.pusat_lat, b.pusat_lon, b.sumber, b.catatan, ST_AsText(b.geom) AS geometri_wkt
+         ' . $joinEkspor . ' ' . $where . '
+         ORDER BY b.kode LIMIT 50000',
+        $param
+    );
+    audit('ekspor', 'bidang', 'hasil-digitasi', $jumlahEkspor . ' bidang diunduh sebagai CSV');
+
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename="bidang-digitasi-' . date('Ymd-Hi') . '.csv"');
+    header('Cache-Control: no-store');
+    $keluaran = fopen('php://output', 'wb');
+    fwrite($keluaran, "\xEF\xBB\xBF");
+    fputcsv($keluaran, [
+        'Kode', 'Tipe', 'Status', 'Blok', 'Dusun', 'Penggunaan', 'Luas m2',
+        'NIB', 'NIS', 'Nomor daftar 080201', 'Jenis hak', 'Pemegang',
+        'Nomor sertifikat', 'Nomor hak pakai', 'Wajib pajak', 'NOP', 'Status PBB',
+        'Lintang', 'Bujur', 'Sumber data', 'Catatan', 'Geometri WKT',
+    ], ';');
+    $kolomTeks = [0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 19, 20, 21];
+    while ($baris !== false && ($row = $baris->fetch(PDO::FETCH_NUM)) !== false) {
+        foreach ($kolomTeks as $index) {
+            if (is_string($row[$index]) && preg_match('/^\s*[=+\-@\t\r]/', $row[$index])) {
+                $row[$index] = "'" . $row[$index];
+            }
+        }
+        fputcsv($keluaran, $row, ';');
+    }
+    fclose($keluaran);
+    exit;
+}
+
 $daftar = daftar_bidang($query, $halaman, $perHalaman);
 $daftarBlok = db_all('SELECT kode FROM blok ORDER BY nomor, kode');
 $hakTersedia = daftar_jenis_hak();
+$jumlahDigitasi = $pengguna['peran'] === PERAN_SUPER
+    ? (int) db_value("SELECT COUNT(*) FROM bidang WHERE sumber = 'csv-digitasi'")
+    : 0;
+$jumlahTanah = $pengguna['peran'] === PERAN_SUPER
+    ? (int) db_value("SELECT COUNT(*) FROM bidang WHERE tipe = 'tanah'")
+    : 0;
 
-$queryTautan = array_filter($query, static fn($v) => $v !== '');
 sip_header('Bidang tanah', 'bidang');
 sip_judul('Bidang tanah', 'Daftar bidang hasil digitasi',
     'Pencarian mencakup kode bidang, NIB peta, nama pemegang hak, nama wajib pajak, dan NOP.');
@@ -732,6 +853,7 @@ sip_judul('Bidang tanah', 'Daftar bidang hasil digitasi',
     <header class="kepala-kartu">
         <div><h2>Saringan</h2><p><?= e(angka($daftar['total'])) ?> bidang cocok dengan kondisi ini</p></div>
         <div class="baris-tombol">
+            <a class="tombol tombol-kecil" href="<?= e(sip_url('bidang.php', array_merge($queryTautan, ['ekspor' => 'csv']))) ?>">Ekspor CSV</a>
             <a class="tombol tombol-kecil" href="<?= e(sip_url('peta.php', $queryTautan)) ?>">Lihat di peta</a>
             <a class="tombol tombol-kecil" href="<?= e(sip_url('bidang.php')) ?>">Bersihkan</a>
         </div>
@@ -781,7 +903,7 @@ sip_judul('Bidang tanah', 'Daftar bidang hasil digitasi',
             <div class="lapangan">
                 <label class="label-blok" for="s-tipe">Tipe</label>
                 <select id="s-tipe" name="tipe">
-                    <option value="">Tanah &amp; lainnya</option>
+                    <option value="semua" <?= $query['tipe'] === 'semua' ? 'selected' : '' ?>>Tanah &amp; lainnya</option>
                     <option value="tanah" <?= $query['tipe'] === 'tanah' ? 'selected' : '' ?>>Tanah saja</option>
                     <option value="lain" <?= $query['tipe'] === 'lain' ? 'selected' : '' ?>>Bangunan / lainnya</option>
                 </select>
@@ -796,6 +918,33 @@ sip_judul('Bidang tanah', 'Daftar bidang hasil digitasi',
 <section class="kartu jarak-atas">
     <header class="kepala-kartu">
         <div><h2>Bidang tanah</h2><p>Halaman <?= e($halaman) ?> &middot; <?= e($perHalaman) ?> baris per halaman</p></div>
+        <?php if ($pengguna['peran'] === PERAN_SUPER): ?>
+            <form method="post" action="<?= e(sip_url('bidang.php')) ?>"
+                  class="baris-tombol"
+                  data-konfirmasi="Impor berkas GeoJSON yang dipilih tanpa menghapus data yang ada? Kode bidang yang sudah ada akan dilewati.">
+                <?= csrf_input() ?>
+                <input type="hidden" name="aksi" value="impor-bidang-tanah">
+                <select class="pilih-kecil" name="berkas_bidang" aria-label="Berkas GeoJSON bidang yang akan diimpor">
+                    <option value="tanah">bidang_tanah.geojson</option>
+                    <option value="lain">bidang_lain.geojson</option>
+                </select>
+                <button class="tombol tombol-kecil" type="submit">Impor Bidang tanah</button>
+            </form>
+            <form method="post" action="<?= e(sip_url('bidang.php')) ?>" class="baris-tombol"
+                  data-konfirmasi="Hapus semua bidang dari jenis yang dipilih? Catatan hak ikut terhapus; tautan laporan, peralihan, Buku C, dan objek pajak akan dilepas. Tindakan ini tidak dapat dibatalkan.">
+                <?= csrf_input() ?>
+                <input type="hidden" name="aksi" value="hapus-semua-jenis">
+                <select class="pilih-kecil" id="jenis-hapus-bidang" name="jenis_hapus"
+                    aria-label="Jenis bidang yang dihapus">
+                    <option value="digitasi">Daftar bidang hasil digitasi (<?= e(angka($jumlahDigitasi)) ?>)</option>
+                    <option value="tanah">Bidang tanah (<?= e(angka($jumlahTanah)) ?>)</option>
+                </select>
+                <button class="tombol tombol-kecil tombol-bahaya" type="submit"
+                    <?= $jumlahDigitasi === 0 && $jumlahTanah === 0 ? 'disabled' : '' ?>>
+                    Hapus semua
+                </button>
+            </form>
+        <?php endif; ?>
     </header>
     <div class="gulir-tabel">
         <table>

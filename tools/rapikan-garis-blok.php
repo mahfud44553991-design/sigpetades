@@ -41,6 +41,8 @@ declare(strict_types=1);
  *   php tools/rapikan-garis-blok.php 3 --rinci       (tampilkan keputusan tiap sambungan)
  *   php tools/rapikan-garis-blok.php 3 --keluaran=cek.geojson
  *                                                    (tulis calon hasil untuk dilihat di peta)
+ *   php tools/rapikan-garis-blok.php 3 --dari-bidang --satukan
+ *                                                    (bangun ulang dari seluruh bidang anggota)
  */
 
 require_once __DIR__ . '/lib-impor.php';
@@ -60,6 +62,7 @@ $paksa = in_array('--paksa', $argv, true);
 $biarkanTumpang = in_array('--biarkan-tumpang', $argv, true);
 $abaikanJalan = in_array('--abaikan-jalan', $argv, true);
 $satukan = in_array('--satukan', $argv, true);
+$dariBidang = in_array('--dari-bidang', $argv, true);
 $rinci = in_array('--rinci', $argv, true);
 $toleransi = RAPIKAN_TOLERANSI_M;
 $lubangMaks = RAPIKAN_LUBANG_MAKS_M2;
@@ -809,14 +812,33 @@ foreach ($nomor as $satuNomor) {
         fwrite(STDERR, "Blok nomor {$satuNomor} tidak ditemukan.\n");
         exit(1);
     }
-    $geo = json_decode((string) $baris['geojson'], true);
-    if (!is_array($geo)) {
+    $geoLama = json_decode((string) $baris['geojson'], true);
+    if (!is_array($geoLama)) {
         fwrite(STDERR, "Geometri blok {$baris['kode']} kosong.\n");
         exit(1);
     }
-    $poligon = rapiPoligonDariGeoJson($geo);
-    $skala = rapiSkala($poligon);
-    $sebelum = rapiStatistik($poligon, $skala);
+    $poligonLama = rapiPoligonDariGeoJson($geoLama);
+    $skala = rapiSkala($poligonLama);
+    $sebelum = rapiStatistik($poligonLama, $skala);
+    $poligon = $poligonLama;
+    if ($dariBidang) {
+        $bidang = db_query(
+            'SELECT ST_AsGeoJSON(geom) AS geojson FROM bidang WHERE blok_id = ? AND geom IS NOT NULL',
+            [(int) $baris['id']]
+        )->fetchAll();
+        $poligonBidang = [];
+        foreach ($bidang as $barisBidang) {
+            $geoBidang = json_decode((string) $barisBidang['geojson'], true);
+            if (!is_array($geoBidang)) {
+                throw new RuntimeException("Geometri bidang anggota {$baris['kode']} tidak terbaca.");
+            }
+            array_push($poligonBidang, ...rapiPoligonDariGeoJson($geoBidang));
+        }
+        if ($poligonBidang === []) {
+            throw new RuntimeException("Tidak ada geometri bidang anggota untuk {$baris['kode']}.");
+        }
+        $poligon = rapiLarutkan($poligonBidang);
+    }
 
     $larut = rapiLarutkan($poligon);
     $hasil = [];
@@ -894,6 +916,9 @@ foreach ($nomor as $satuNomor) {
             && $rapatStat['jembatan'] === 0
             && $sesudah['titik'] >= $sebelum['titik'] * 0.98
             && abs($selisih) < 0.0005);
+    if ($dariBidang) {
+        $rapi = false;
+    }
     if ($satukan && $sebelum['bagian'] > 1) {
         $rapi = false;
     }
@@ -903,7 +928,7 @@ foreach ($nomor as $satuNomor) {
         'skala' => $skala,
         'sebelum' => $sebelum,
         'sesudah' => $sesudah,
-        'geo_lama' => $geo,
+        'geo_lama' => $geoLama,
         'hasil' => $hasil,
         'wkt' => $wkt,
         'lubang_dibuang' => $lubangDibuang,
@@ -920,6 +945,9 @@ echo "Toleransi {$toleransi} m, lubang dibuang bila ≤ {$lubangMaks} m², "
     . 'jembatan sampai ' . rapiAngkaTeks($rapat, 0) . " m.\n";
 if ($satukan) {
     echo "Mode satukan: uji jalan dan uji wilayah blok dimatikan, tumpang tidak dipotong.\n";
+}
+if ($dariBidang) {
+    echo "Sumber geometri: union seluruh geometri bidang yang terdaftar pada blok; status perkiraan tidak diubah.\n";
 }
 echo "\n";
 foreach ($rencana as $r) {
@@ -1039,6 +1067,7 @@ foreach ($kerjakan as $r) {
             'lubang_maks_m2' => $lubangMaks,
             'rapat_m' => $rapat,
             'satukan' => $satukan,
+            'dari_bidang' => $dariBidang,
             'jembatan' => $r['rapat']['jembatan'],
             'dilewati_jalan' => $r['rapat']['jalan'],
             'dilewati_blok' => $r['rapat']['blok'],

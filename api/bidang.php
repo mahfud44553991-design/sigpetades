@@ -152,7 +152,7 @@ try {
     if ($lapisan === 'bidang') {
         $maks = max(100, min(50000, (int) (get_str('maks') ?: 6000)));
         $baris = db_all(
-            "SELECT b.id, b.kode, b.tipe, b.nib, b.nis, b.nomor_daftar, b.luas_m2, b.status,
+            "SELECT b.id, b.kode, b.tipe, b.nib, b.nis, b.nomor_daftar, b.luas_m2, b.status, b.sumber,
                     b.pusat_lon, b.pusat_lat,
                     bl.kode AS blok, du.nama AS dusun, jp.nama AS penggunaan,
                     jh.kode AS hak_kode, jh.nama AS hak_nama, h.pemegang_nama,
@@ -167,7 +167,10 @@ try {
 
         // Kandidat blok hanya dihitung untuk bidang yang belum ber-blok, supaya
         // muatan 4.000+ bidang tidak menambah puluhan ribu kueri.
-        $tanpaBlok = array_values(array_filter($baris, static fn(array $b): bool => $b['blok'] === null));
+        $tanpaBlok = array_values(array_filter(
+            $baris,
+            static fn(array $b): bool => $b['blok'] === null && $b['sumber'] !== 'peta-020100'
+        ));
         $kandidat = kandidat_blok_bidang($tanpaBlok);
 
         $fitur = [];

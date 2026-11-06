@@ -48,6 +48,7 @@ sip_judul(
                 </div>
                 <div class="baris-tombol">
                     <button class="tombol tombol-kecil" type="button" id="pasangkanSemua">Seluruh desa</button>
+                    <a class="tombol tombol-kecil" href="<?= e(sip_url('peta-blok.php')) ?>">Peta blok</a>
                     <a class="tombol tombol-kecil" href="<?= e(sip_url('bidang.php')) ?>">Daftar bidang</a>
                     <a class="tombol tombol-kecil" href="<?= e(sip_url('peta-lama.php')) ?>">Peta DXF lama</a>
                 </div>
@@ -181,11 +182,12 @@ sip_judul(
             <div class="lapangan">
                 <label for="kepekatan">Kepekatan isian bidang</label>
                 <div class="kepekatan-baris">
-                    <input id="kepekatan" type="range" min="0" max="60" step="1" value="38">
-                    <output id="nilaiKepekatan" for="kepekatan">38%</output>
+                    <input id="kepekatan" type="range" min="45" max="80" step="1" value="55">
+                    <output id="nilaiKepekatan" for="kepekatan">55%</output>
                 </div>
+                <p class="petunjuk">Warna bidang tetap terlihat pada tingkat kepekatan minimum 45%.</p>
             </div>
-            <label class="cek jarak-atas"><input type="checkbox" id="labelBidang" autocomplete="off"> Tampilkan kode bidang</label>
+            <label class="cek jarak-atas"><input type="checkbox" id="labelBidang" autocomplete="off"> Tampilkan nama pemegang (kode jika belum tersedia)</label>
             <label class="cek"><input type="checkbox" id="labelBlok" autocomplete="off" checked> Tampilkan nama blok</label>
             <p class="petunjuk">Nama blok hanya tampil pada zoom dekat (14 ke atas) agar tidak bertumpuk.</p>
             <div class="baris-tombol jarak-atas">
@@ -237,7 +239,7 @@ $naskah = <<<'JS'
     'use strict';
     const KUNCI = 'sip.peta.pengaturan.v2';
     const BAWAAN = {
-        dasar: 'jalan', warna: 'blok', kepekatan: 38, label: false, labelBlok: true,
+        dasar: 'jalan', warna: 'blok', kepekatan: 55, label: false, labelBlok: true,
         bidang: true, lain: false, blok: true, batas: true, laporan: false, tampilan: null
     };
     const MODE = ['blok', 'tipe', 'hak', 'pbb', 'status'];
@@ -253,7 +255,7 @@ $naskah = <<<'JS'
         const s = Object.assign({}, BAWAAN, isi);
         if (s.dasar !== 'jalan' && s.dasar !== 'satelit') s.dasar = BAWAAN.dasar;
         if (MODE.indexOf(s.warna) < 0) s.warna = BAWAAN.warna;
-        s.kepekatan = Math.max(0, Math.min(60, Number(s.kepekatan) || 0));
+        s.kepekatan = Math.max(45, Math.min(80, Number(s.kepekatan) || 0));
         ['label', 'labelBlok', 'bidang', 'blok', 'batas', 'laporan'].forEach((k) => { s[k] = !!s[k]; });
         return s;
     }
@@ -350,7 +352,7 @@ $naskah = <<<'JS'
         const lain = p.tipe !== 'tanah';
         return {
             color: warna, weight: lain ? 0.7 : 1.1, opacity: lain ? .7 : .9,
-            fillColor: warna, fillOpacity: lain ? isi * .3 : isi,
+            fillColor: warna, fillOpacity: isi,
             dashArray: lain ? '3 4' : null
         };
     }
@@ -358,6 +360,7 @@ $naskah = <<<'JS'
     const daftar = document.getElementById('daftarBidang');
     const info = document.getElementById('infoMuat');
     const hitung = document.getElementById('hitungTampil');
+    const formSaring = document.getElementById('formSaring');
     const dataLapisan = { tanah: null, lain: null };
     const filterLapisan = { tanah: null, lain: null };
     const tampil = new Map();
@@ -414,7 +417,6 @@ $naskah = <<<'JS'
 
         if (setelan.blok) {
             baris.push('<span><i class="contoh-batas-blok"></i>Batas blok ukur</span>');
-            baris.push('<span><i class="contoh-batas-blok-perkiraan"></i>Batas blok perkiraan</span>');
         }
         if (setelan.batas) {
             baris.push('<span><i class="contoh-batas-desa"></i>Batas desa (33240400080)</span>');
@@ -518,14 +520,14 @@ $naskah = <<<'JS'
             setelan.label = false;
             simpanSetelan();
             document.getElementById('labelBidang').checked = false;
-            Sip.pesan('Label kode dimatikan karena tampilan memuat lebih dari '
+            Sip.pesan('Label bidang dimatikan karena tampilan memuat lebih dari '
                 + Sip.angka(BATAS_LABEL) + ' bidang. Persempit saringan untuk memakainya.', 'info');
         }
         tampil.forEach((v) => {
             if (v.tipe !== 'tanah') return;
             v.lapisan.unbindTooltip();
             if (setelan.label) {
-                v.lapisan.bindTooltip(v.fitur.properties.kode, {
+                v.lapisan.bindTooltip(v.fitur.properties.pemegang || v.fitur.properties.kode, {
                     permanent: true, direction: 'center', className: 'label-bidang', opacity: 1
                 });
                 v.lapisan.openTooltip();
@@ -551,7 +553,7 @@ $naskah = <<<'JS'
     }
 
     function isianSaring() {
-        const f = document.getElementById('formSaring');
+        const f = formSaring;
         const blok = f.blok.value;
         return {
             cari: f.cari.value.trim(),
@@ -643,22 +645,21 @@ $naskah = <<<'JS'
     }
 
     function gayaBlok(p) {
-        return p.batas_perkiraan
-            ? { color: '#a06a12', weight: 2, opacity: .9, fillOpacity: 0, dashArray: '7 5' }
-            : { color: '#14603a', weight: 2, opacity: .95, fillOpacity: 0 };
+        return { color: '#14603a', weight: 2, opacity: .95, fillOpacity: 0 };
     }
 
     async function muatBlok() {
         const data = await Sip.api('api/bidang.php', { query: { lapisan: 'blok' } });
         grup.blok.clearLayers();
         (data.features || []).forEach((f) => {
-            const lap = L.geoJSON(f, { pane: 'pane-blok', style: () => gayaBlok(f.properties) });
-            lap.bindTooltip(
-                f.properties.kode + ' — ' + (f.properties.batas_perkiraan ? 'batas perkiraan' : 'batas ukur'),
-                { sticky: true }
-            ).addTo(grup.blok);
+            const geometri = L.geoJSON(f, { pane: 'pane-blok' });
+            if (!f.properties.batas_perkiraan) {
+                geometri.setStyle(gayaBlok(f.properties));
+                geometri.bindTooltip(f.properties.kode + ' — batas ukur', { sticky: true })
+                    .addTo(grup.blok);
+            }
 
-            const tengah = lap.getBounds().getCenter();
+            const tengah = geometri.getBounds().getCenter();
             L.marker(tengah, {
                 icon: L.divIcon({
                     className: 'label-blok',
@@ -847,7 +848,7 @@ $naskah = <<<'JS'
         if (e.target.checked && fiturTampil().length > BATAS_LABEL) {
             e.target.checked = false;
             Sip.pesan('Tampilan memuat ' + Sip.angka(fiturTampil().length)
-                + ' bidang. Persempit saringan sebelum menampilkan label kode.', 'info');
+                + ' bidang. Persempit saringan sebelum menampilkan label bidang.', 'info');
             return;
         }
         setelan.label = e.target.checked;
@@ -982,7 +983,7 @@ $naskah = <<<'JS'
         }
     });
 
-    const form = document.getElementById('formSaring');
+    const form = formSaring;
     form.addEventListener('submit', (e) => {
         e.preventDefault();
         muatBidang(true).catch(gagalMuat);

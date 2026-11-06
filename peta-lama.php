@@ -10,6 +10,7 @@ declare(strict_types=1);
  */
 
 require __DIR__ . '/app/bootstrap.php';
+require_once __DIR__ . '/tools/lib-impor.php';
 
 $pengguna = wajib_masuk();
 
@@ -17,6 +18,61 @@ $berkasMeta = __DIR__ . '/files/sig-pertanahan-gedong-lokal/data/dxf-layers/meta
 $meta = is_file($berkasMeta) ? json_decode((string) file_get_contents($berkasMeta), true) : null;
 $rentang = is_array($meta['extent'] ?? null) ? $meta['extent'] : null;
 $jumlah = static fn (string $kunci): int => (int) ($meta['layers'][$kunci]['features'] ?? 0);
+$jumlahBatasBlok = (int) db_value('SELECT COUNT(*) FROM blok');
+$blokPerkiraan = db_all('SELECT nomor, kode FROM blok WHERE batas_perkiraan = 1 ORDER BY nomor');
+
+if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+    wajib_masuk([PERAN_SUPER]);
+    wajib_csrf();
+
+    $lapisan = post_str('lapisan_bidang');
+    try {
+        set_time_limit(0);
+        $hasil = imporPoligonPetaInduk($lapisan);
+        audit(
+            'impor',
+            'bidang',
+            'peta-induk-' . $lapisan,
+            'Buat bidang dari semua poligon layer peta induk ' . $hasil['nama_lapisan'],
+            null,
+            array_diff_key($hasil, ['galat' => 1])
+        );
+        if ($hasil['jumlah_galat'] > 0) {
+            flash_set('gagal', angka((int) $hasil['dibuat']) . ' bidang dibuat; '
+                . angka((int) $hasil['jumlah_galat']) . ' poligon bermasalah. '
+                . implode(' ', array_slice($hasil['galat'], 0, 3)));
+        } else {
+            $ringkasan = angka((int) $hasil['dibuat']) . ' bidang dibuat dari layer '
+                . $hasil['nama_lapisan'] . '; ' . angka((int) $hasil['dilewati'])
+                . ' poligon duplikat dilewati.';
+            if ((int) $hasil['poligon_dari_garis'] > 0) {
+                $ringkasan .= ' ' . angka((int) $hasil['poligon_dari_garis'])
+                    . ' poligon disusun dari garis; ' . angka((int) $hasil['garis_tidak_menutup'])
+                    . ' garis tidak membentuk bidang tertutup dan dilewati.';
+            }
+            if ((int) $hasil['bukan_poligon'] > 0) {
+                $ringkasan .= ' ' . angka((int) $hasil['bukan_poligon'])
+                    . ' geometri non-poligon tidak diimpor.';
+            }
+            flash_set('berhasil', $ringkasan);
+        }
+    } catch (Throwable $error) {
+        flash_set('gagal', 'Pembuatan bidang gagal: ' . $error->getMessage());
+    }
+    redirect('peta-lama.php');
+}
+
+$jumlahPoligonLayer = [
+    '010500' => (int) ($meta['layers']['010500']['types']['polygon'] ?? 0),
+    '020100' => (int) ($meta['layers']['020100']['types']['polygon'] ?? 0),
+    '020400' => (int) ($meta['layers']['020400']['types']['polygon'] ?? 0),
+    'batas-blok' => (int) ($meta['layers']['BATAS BLOK']['types']['polygon'] ?? 0),
+    'bidang-hm' => (int) ($meta['layers']['BIDANG HM']['types']['polygon'] ?? 0),
+    'calon-bidang' => (int) ($meta['layers']['CALON BIDANG']['features'] ?? 0),
+    'hm' => (int) ($meta['layers']['HM']['types']['polygon'] ?? 0),
+    'lb-lai' => (int) ($meta['layers']['lb_lai']['types']['polygon'] ?? 0),
+];
+$jumlahPoligonLayer['020100'] = (int) ($meta['layers']['020100']['features'] ?? 0);
 
 sip_header('Peta Induk', 'peta-lama', ['leaflet' => true]);
 sip_judul(
@@ -36,6 +92,15 @@ sip_judul(
                     <p>Sumber: files/sig-pertanahan-gedong-lokal/data/dxf-layers</p>
                 </div>
                 <div class="baris-tombol">
+                    <select class="pilih-kecil" id="fokusBlokPerkiraan"
+                            data-transformasi="<?= e(json_encode(DXF_KE_WGS84, JSON_UNESCAPED_SLASHES)) ?>"
+                            aria-label="Pilih blok perkiraan untuk difokuskan">
+                        <option value="">Pilih blok perkiraan</option>
+                        <?php foreach ($blokPerkiraan as $bl): ?>
+                            <option value="<?= e((string) $bl['nomor']) ?>"><?= e($bl['kode']) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <button class="tombol tombol-kecil" type="button" id="fokusBlokPerkiraanBtn">Fokus blok</button>
                     <button class="tombol tombol-kecil" type="button" id="pusatkanLama">Pusatkan</button>
                     <a class="tombol tombol-kecil" href="<?= e(sip_url('peta.php')) ?>">Peta bidang</a>
                 </div>
@@ -48,7 +113,9 @@ sip_judul(
             <div class="legenda">
                 <span><i style="background:#bed7e8"></i>Bidang tertutup</span>
                 <span><i style="background:#5b7893"></i>Garis terbuka</span>
-                <span><i style="background:#c18d2c"></i>Batas blok</span>
+                <span><i style="background:#14603a"></i>Batas blok ukur</span>
+                <span><i style="background:#a06a12"></i>Batas blok perkiraan</span>
+                <span><i style="background:#c2410c"></i>Ruas DXF mentah (referensi)</span>
                 <span><i style="background:#087b83"></i>Teks perairan / nama</span>
                 <span><i style="background:#3fa383"></i>Bidang HM</span>
                 <span><i style="background:#166534"></i>Garis HM</span>
@@ -62,6 +129,46 @@ sip_judul(
     </div>
 
     <aside>
+        <?php if ($pengguna['peran'] === PERAN_SUPER): ?>
+            <section class="kartu">
+                <header class="kepala-kartu">
+                    <div><h2>Buat bidang dari layer</h2><p>Salin semua poligon tertutup dari satu layer ke daftar bidang.</p></div>
+                </header>
+                <div class="isi-kartu">
+                    <form method="post" action="<?= e(sip_url('peta-lama.php')) ?>"
+                          data-konfirmasi="Buat bidang tanah dari semua poligon pada layer yang dipilih? Khusus 020100, garis yang tersambung menjadi poligon tertutup juga dibuatkan bidang; garis terbuka dilewati. Baris baru perlu diverifikasi dan tidak mendapat blok otomatis. Poligon yang sudah ada atau hampir sama akan dilewati.">
+                        <?= csrf_input() ?>
+                        <div class="lapangan">
+                            <label for="lapisan-bidang">Layer sumber</label>
+                            <select class="pilih-kecil" id="lapisan-bidang" name="lapisan_bidang">
+                                <?php foreach (LAPISAN_POLIGON_PETA_INDUK as $kunci => $sumber): ?>
+                                    <option value="<?= e($kunci) ?>">
+                                        <?= e($sumber['nama']) ?> (<?= e(angka($jumlahPoligonLayer[$kunci] ?? 0)) ?>
+                                        <?= $kunci === '020100' ? 'fitur bidang &amp; garis' : 'poligon' ?>)
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <p class="petunjuk">
+                            Koordinat lokal DXF akan dikonversi ke WGS84. Bidang baru berstatus
+                            <strong>perlu verifikasi</strong>, tanpa blok dan jenis hak sementara BLM.
+                            Kode dibuat otomatis; impor ulang melewati kode dan poligon yang sudah ada.
+                        </p>
+                        <p class="petunjuk">
+                            Semua poligon layer terpilih dibuat sebagai bidang, termasuk 010500 (batas desa)
+                            dan BATAS BLOK. Gunakan hanya jika geometri layer tersebut memang ingin dimasukkan
+                            ke daftar bidang.
+                        </p>
+                        <p class="petunjuk">
+                            Khusus 020100, garis yang tersambung menjadi cincin tertutup juga disusun menjadi
+                            poligon. Garis terbuka yang tidak membentuk bidang tertutup dilewati.
+                        </p>
+                        <button class="tombol tombol-utama jarak-atas" type="submit">Buat bidang dari layer</button>
+                    </form>
+                </div>
+            </section>
+        <?php endif; ?>
+
         <section class="kartu">
             <header class="kepala-kartu">
                 <div><h2>Tampilkan layer</h2><p>Layer terbesar dimuat lebih dulu</p></div>
@@ -70,7 +177,11 @@ sip_judul(
                 <label class="cek"><input type="checkbox" data-lapisan="020100" checked>
                     020100 — bidang &amp; garis (<?= e(angka($jumlah('020100'))) ?>)</label>
                 <label class="cek"><input type="checkbox" data-lapisan="batas-blok">
-                    Batas blok (<?= e(angka($jumlah('BATAS BLOK'))) ?>)</label>
+                    Batas blok (<?= e(angka($jumlahBatasBlok)) ?>)</label>
+                <p class="petunjuk">24 batas blok terdaftar. Lima batas perkiraan ditandai garis putus-putus.</p>
+                <label class="cek"><input type="checkbox" data-lapisan="batas-blok-mentah">
+                    Ruas acuan BATAS BLOK (<?= e(angka($jumlah('BATAS BLOK'))) ?>)</label>
+                <p class="petunjuk">72 fitur DXF mentah sebagai referensi saja; ruas ini belum memastikan batas ukur tertutup.</p>
                 <label class="cek"><input type="checkbox" data-lapisan="batas-perairan">
                     Teks batas perairan (<?= e(angka($jumlah('BATAS PERAIRAN'))) ?>)</label>
                 <label class="cek"><input type="checkbox" data-lapisan="tn-nama">
@@ -149,6 +260,7 @@ $naskah = <<<'JS'
 
     const info = document.getElementById('infoLama');
     const grup = {};
+    const sorotanBlok = L.featureGroup().addTo(peta);
     const memuat = new Set();
 
     function ikonLabel(teks, kelas) {
@@ -217,10 +329,23 @@ $naskah = <<<'JS'
         if (nama === 'batas-blok') {
             return L.geoJSON(data, {
                 style: (f) => ({
-                    color: '#c18d2c',
-                    weight: (f.properties && f.properties.closed) ? 3 : 1.7,
+                    color: f.properties && f.properties.batas_perkiraan ? '#a06a12' : '#14603a',
+                    weight: (f.properties && f.properties.batas_perkiraan) ? 2.4 : 2,
                     opacity: .95,
-                    fillOpacity: .02
+                    fillColor: '#5b9b74',
+                    fillOpacity: .06,
+                    dashArray: f.properties && f.properties.batas_perkiraan ? '7 5' : null
+                })
+            });
+        }
+        if (nama === 'batas-blok-mentah') {
+            return L.geoJSON(data, {
+                style: () => ({
+                    color: '#c2410c',
+                    weight: 1.2,
+                    opacity: .8,
+                    dashArray: '3 5',
+                    fillOpacity: 0
                 })
             });
         }
@@ -266,7 +391,61 @@ $naskah = <<<'JS'
         if (b.isValid()) peta.fitBounds(b.pad(.025));
     }
 
+    async function fokusBlokPerkiraan() {
+        const pemilih = document.getElementById('fokusBlokPerkiraan');
+        const nomor = Number(pemilih.value);
+        if (!Number.isInteger(nomor) || nomor <= 0) {
+            Sip.pesan('Pilih blok perkiraan terlebih dahulu.', 'gagal');
+            return;
+        }
+
+        const data = await Sip.api('api/bidang.php', { query: { lapisan: 'blok' } });
+        const fitur = (data.features || []).find((f) => Number(f.properties.nomor) === nomor);
+        if (!fitur || !fitur.geometry) {
+            throw new Error('Geometri BLOK ' + nomor + ' tidak ditemukan.');
+        }
+
+        const transformasi = JSON.parse(pemilih.dataset.transformasi);
+        const lon = transformasi.lon;
+        const lat = transformasi.lat;
+        const determinan = lon[1] * lat[2] - lon[2] * lat[1];
+        if (!Number.isFinite(determinan) || determinan === 0) {
+            throw new Error('Transformasi koordinat DXF tidak valid.');
+        }
+
+        const bounds = L.latLngBounds([]);
+        function tambahKoordinat(koordinat) {
+            if (typeof koordinat[0] === 'number') {
+                const dLon = koordinat[0] - lon[0];
+                const dLat = koordinat[1] - lat[0];
+                const x = (dLon * lat[2] - lon[2] * dLat) / determinan;
+                const y = (lon[1] * dLat - dLon * lat[1]) / determinan;
+                bounds.extend([y, x]);
+                return [x, y];
+            }
+            return koordinat.map(tambahKoordinat);
+        }
+        const geometriLokal = {
+            type: fitur.geometry.type,
+            coordinates: tambahKoordinat(fitur.geometry.coordinates)
+        };
+        if (!bounds.isValid()) {
+            throw new Error('Batas koordinat BLOK ' + nomor + ' tidak dapat dihitung.');
+        }
+
+        sorotanBlok.clearLayers();
+        L.geoJSON(Object.assign({}, fitur, { geometry: geometriLokal }), {
+            style: { color: '#dc2626', weight: 4, opacity: 1, fillColor: '#ef4444', fillOpacity: .08 }
+        }).addTo(sorotanBlok);
+        peta.fitBounds(bounds.pad(.12), { maxZoom: 1 });
+        document.getElementById('infoLama').textContent =
+            'Peta difokuskan ke BLOK ' + nomor + '. Garis acuan tetap perlu dicocokkan secara visual.';
+    }
+
     document.getElementById('pusatkanLama').addEventListener('click', pusatkan);
+    document.getElementById('fokusBlokPerkiraanBtn').addEventListener('click', () => {
+        fokusBlokPerkiraan().catch((err) => Sip.pesan(err.message, 'gagal'));
+    });
 
     const kotak = Array.from(document.querySelectorAll('[data-lapisan]'));
     kotak.forEach((k) => {
