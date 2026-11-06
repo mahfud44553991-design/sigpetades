@@ -548,8 +548,8 @@ jadi batas BLOK 19 tidak dapat meraihnya tanpa menembus BLOK 20.
 
 Keanggotaan akhir: BLOK 19 **295**, BLOK 20 **364**, BLOK 21 **486**, BLOK 22
 **124** bidang. Ketiga batas tetap **satu bagian** dan tidak bertumpang tindih
-(0 m²), jadi jumlah bidang, hak, dan audit tidak berubah selain 4 baris audit
-pemindahan (#2905–#2908).
+(0 m²), jadi jumlah bidang, hak, dan audit tidak berubah selain 5 baris audit
+pemindahan (#2905–#2909).
 
 Masih ada tujuh bidang yang sebagian kecilnya di luar batas bloknya (5–46%):
 `G01708` (31,8% di BLOK 19) dan `G01451` (54,4% di BLOK 22) bentuknya
