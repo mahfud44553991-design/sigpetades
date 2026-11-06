@@ -378,24 +378,27 @@ anggotanya; tanpa argumen perintah ini berlaku ke semua blok:
 D:\xampp\php\php.exe tools\impor.php kira --tepat --terapkan
 ```
 
-**Kondisi basis data sekarang: 19 blok memakai garis luar MASTER.dxf sebagai
-satu garis tutup** (`sumber_perkiraan = garis luar MASTER.dxf`,
+**Kondisi basis data sekarang (6 Nov 2026): 19 blok memakai garis luar MASTER.dxf
+sebagai satu garis tutup** (`sumber_perkiraan = garis luar MASTER.dxf`,
 `batas_tersedia = 1`, `ST_NumGeometries = 1`), dipasang dengan
 `batas 3 15 25 17 18 7 9 5 4 16 6 14 12 26 24 20 10 13 23 --tegas --terapkan`
-pada 19 Okt 2026. Sisanya — **BLOK 2, 8, 19, 21, 22** — masih berupa gabungan
-persis bidang anggotanya (`sumber_perkiraan = gabungan bidang anggota`).
+pada 19 Okt 2026. **BLOK 19, 21 dan 22 sudah dibentuk ulang menjadi satu bagian**
+pada 6 Nov 2026 dengan penyangga yang dipotong batas blok resmi di sekelilingnya
+(rinciannya di 3.8a). **BLOK 2 dan 8** masih berupa gabungan persis bidang
+anggotanya (`sumber_perkiraan = gabungan bidang anggota`).
 
 Alasan penyaringannya: garis luar hanya dipasang pada blok yang bidangnya ikut
 tertutup ≥80 %. BLOK 2 tidak dipasang karena garis luar yang cocok ke blok itu
 hanya memuat 25 dari 213 bidangnya (12 %) dan luasnya 58 % lebih kecil dari
-gabungan bidangnya — jelas bukan batasnya. BLOK 8, 19, 21 dan 22 memang tidak
-punya garis luar di peta dasar.
+gabungan bidangnya — jelas bukan batasnya. BLOK 8 memang tidak punya garis luar
+di peta dasar; BLOK 19, 21 dan 22 pun tidak, jadi batasnya dibentuk dari bidang
+anggota (3.8a).
 
-Kelima blok itu **ditinggalkan dengan sengaja**, bukan terlewat: satu-satunya cara
+BLOK 2 dan 8 **ditinggalkan dengan sengaja**, bukan terlewat: satu-satunya cara
 otomatis yang tersedia untuk memaksanya jadi satu garis terbukti menambah tanah
 yang tidak dimiliki bidang mana pun (lihat dua cara yang gagal di bawah). Bila
 nanti garis nyanya sudah didigitasi dari peta lapangan, pasang lewat
-`impor.php batas 2 8 19 21 22 --tegas --terapkan` seperti 19 blok lainnya.
+`impor.php batas 2 8 --tegas --terapkan` seperti 19 blok lainnya.
 
 Langkah sebelumnya, ketika kedua puluh empat blok sempat dijadikan gabungan
 persis (348 bagian, tidak ada satu pun blok satu garis), masih bisa dikembalikan
@@ -469,6 +472,53 @@ Keenam perintah menulis cadangan sebelum mengubah apa pun —
 sisipan, bidang yang ditandai, daftar bidang beserta `blok_id` lamanya, atau
 ruas dan kelas jalan yang memotong) —
 dan mencatat perubahannya ke `audit_log`.
+
+### 3.8a BLOK 19, 21 dan 22 dibentuk ulang (6 Nov 2026)
+
+Ketiga blok ini tidak punya garis luar di peta dasar, jadi batasnya berasal dari
+bidang anggotanya. Ketika ribuan bidang lapisan `020100` diaktifkan 5 Nov 2026,
+keanggotaan ketiga blok naik (365/485/135 bidang) sementara batasnya masih
+gabungan bidang lama — akibatnya ratusan bidang berada di luar batasnya.
+Perbaikannya dua tahap:
+
+1. **Anggota dirapikan.** 79 bidang dipindahkan ke blok yang menaunginya:
+   75 bidang yang titik tengahnya di dalam batas blok resmi lain
+   (73 → BLOK 23, 2 → BLOK 20) dan 4 serpihan yang seluruh areanya di dalam
+   BLOK 23/24. Sisanya menjadi 304 / 471 / 131 bidang (`impor.php ubah-blok`).
+2. **Batas dibentuk ulang menjadi satu bagian.** Gabungan bidang anggota
+   diselubungi penyangga 25 m (BLOK 19), 10 m (BLOK 21) dan 15 m (BLOK 22),
+   lalu dipotong batas blok resmi yang bersinggungan supaya tepinya berimpit
+   dengan garis blok sebelahnya. Bagian terbesar diambil sebagai satu-satunya
+   bagian; BLOK 19 memerlukan 25 m karena kelompok bidangnya baru menyatu pada
+   penyangga sebesar itu. Ketiga batas perkiraan juga saling dipotong — blok
+   dengan penyangga lebih rapat memegang pita tanah yang diperebutkan — sehingga
+   tidak ada tumpang-tindih di antara ketiganya.
+
+| blok | anggota | penyangga | luas batas | berimpit dengan |
+|---|---|---|---|---|
+| BLOK 19 | 304 | 25 m | 196.958 m² | 14 (722 m), 18 (284 m), 20 (835 m), 23 (13 m), 24 (614 m) |
+| BLOK 21 | 471 | 10 m | 183.106 m² | 20 (743 m) |
+| BLOK 22 | 131 | 15 m | 84.293 m² | 23 (79 m) |
+
+Bidang yang tetap di luar batas baru: BLOK 19 **9** bidang (gugus terpisah
+±2.087 m², 146 m dari anggota terdekat), BLOK 22 **9** bidang, BLOK 21 **0**.
+Sebagian besar sudah `perlu_verifikasi`; lima bidang aktif BLOK 19 dan satu
+bidang aktif BLOK 22 ikut di luar karena bentuknya cekung (titik tengahnya sudah
+jatuh di luar bidangnya sendiri sebelum penyangga dihitung). Dua di antaranya
+kembar persis lintas blok — `DXF-020100-2562` = `DXF-020100-G01456` dan
+`DXF-020100-2563` = `DXF-020100-G01455` — sehingga satu salinan selalu berada di
+luar salah satu blok sampai petugas memilih salinan yang dibuang lewat
+`impor.php duplikat <kode>`.
+
+Cadangan WKT lama per blok ada di `storage\batas-kira-BLOK-{19,21,22}-20261106-1115*.json`,
+daftar pemindahan di `D:\backup\sigpetades\blok-20261106\rencana-pindah-20261106.tsv`,
+dan WKT hasilnya di folder yang sama.
+
+Catatan: perintah `kira` bawaan belum bisa dipakai untuk ketiga blok ini.
+`wktGabung()` dapat mengembalikan `GEOMETRYCOLLECTION` dan
+`wktKeMultipolygon()` menolaknya, sehingga `impor.php kira 19` berhenti dengan
+"Batas blok harus poligon". Pembentukan ulang di atas memakai skrip sementara
+yang membuang komponen garis/titik dari hasil gabungan.
 
 ### 3.9 Bidang kembar (status duplikat)
 
