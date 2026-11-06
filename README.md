@@ -778,9 +778,12 @@ Hasil:
 
 - BLOK 21 **206.896,80 → 225.782,59 m²** (+18.885,79; +9,13 %); **satu bagian**
   (`ST_NumGeometries` = 1, `ST_IsSimple` = 1, cincin luar 480 titik) dengan
-  4 lubang: lubang lama 146,13 m² dan tiga lekuk BLOK 23 (883,12 + 165,80 +
-  33,52 m²). Lekuk itu adalah jari-jari BLOK 23 yang menjorok; bidang anggotanya
-  tetap di BLOK 23 sehingga batas kedua blok saling mengunci tanpa tumpang tindih.
+  4 lubang seluas 1.228,56 m². Semula lubang itu disangka jari BLOK 23;
+  pengukuran 6 Nov 14:00 membuktikan **tidak ada blok lain yang menutupinya**:
+  lubang 1 (146,12 m²) seluruhnya `HM-1216`, lubang 2 (883,12 m²) `HM-1230`
+  553,37 + `DXF-020100-2952` 223,45 + 106,30 m² kosong, lubang 3 (165,80 m²)
+  dan lubang 4 (33,52 m²) kosong. Ketiga bidang itu tetap tercatat di blok
+  asalnya (lihat tindak lanjut 14:04).
 - tumpang tindih **0 m²** dengan seluruh 23 blok lain; kontak garis dengan
   BLOK 23 naik **85,2 → 268,2 m** (maksimum yang bisa dicapai karena sebagian
   tepi BLOK 23 menjorok dan sisa mulut jalur membuka ke tanah kosong).
@@ -801,6 +804,19 @@ asap API: `api/bidang.php?lapisan=blok` → HTTP 200, 24 fitur,
 `estimasi_bidang` BLOK 21 = 556 (hanya diuji di tingkat API, bukan tangkapan
 layar browser).
 
+**Tindak lanjut 14:04 — keempat lubang ditutup.** Petugas memilih "isi semua
+lubang" karena lubang tampil sebagai bercak terang di dalam hijau BLOK 21.
+Cincin dalam dibuang sehingga BLOK 21 menjadi satu poligon padat: 225.782,59 →
+**227.011,16 m²** (+1.228,57), tetap **satu bagian**, `ST_IsSimple` = 1,
+**0 lubang**, 0 m² tumpang tindih dengan 23 blok lain, dan tepi luar tidak
+berubah (0 m² bagian lama hilang). `jumlah_bidang_estimasi` tetap 556;
+keanggotaan tidak dipindah — `HM-1216` dan `HM-1230` tetap tercatat di BLOK 23
+dan `DXF-020100-2952` tanpa blok, sesuai pilihan petugas (sama seperti 111
+bidang lain yang sudah menumpang BLOK 21). `sumber_perkiraan` = `jalur BLOK 23
+diserap + bidang tepi; G01684; lubang ditutup`. Audit **#2923**. Rollback:
+`storage\isi-lubang-b21-20261106-140448.json` (WKT sebelum/sesudah).
+Uji asap API ulang: HTTP 200, 24 fitur, `estimasi_bidang` BLOK 21 = 556.
+
 Cadangan di `D:\backup\sigpetades\b21-b23-20261106\` (di luar repo):
 
 | berkas | waktu | ukuran | SHA-256 | uji restore |
@@ -810,6 +826,15 @@ Cadangan di `D:\backup\sigpetades\b21-b23-20261106\` (di luar repo):
 
 Kedua basis data uji dihapus setelah pemeriksaan. WKT sebelum/sesudah dan daftar
 36 bidang: `storage\ubah-batas-b21-b23-20261106-135031.json`.
+
+Cadangan tindak lanjut di `D:\backup\sigpetades\isi-lubang-b21-20261106\`:
+
+| berkas | waktu | ukuran | SHA-256 | uji restore |
+|---|---|---|---|---|
+| `sebelum-isi-lubang-20261106.sql` | 6 Nov 2026 14:03 | 9.439.730 byte | `92fdbe54a46cb0bf731a7471cc3bf1da6c01ca27ab5b54ad13bea49b80b0ccfb` | `uji_isi_lubang_20261106`: 24 blok, 8.103 bidang, 8.102 hak, audit #2922, BLOK 21 225.782,59 m², 4 lubang, 556 anggota |
+| `setelah-isi-lubang-20261106.sql` | 6 Nov 2026 14:05 | 9.436.790 byte | `1440f1be1cd9d941928ff4e2b9788f3dc6906c01dfb10a31ff00801521b2e89a` | `uji_isi_lubang_after_20261106`: 24 blok, 8.103 bidang, 8.102 hak, audit #2923, BLOK 21 227.011,16 m², 0 lubang, 556 anggota |
+
+Kedua basis data uji tindak lanjut juga dihapus.
 
 ### 3.9 Bidang kembar (status duplikat)
 
