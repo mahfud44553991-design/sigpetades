@@ -387,7 +387,10 @@ pada 6 Nov 2026 dengan penyangga yang dipotong batas blok resmi di sekelilingnya
 (rinciannya di 3.8a). Anggota BLOK 19 / 21 / 22 sekarang **274 / 556 / 124**
 bidang setelah 18 bidang di luar batas dipindahkan ke blok yang memuatnya (3.8b),
 batas BLOK 21 diperluas memuat `G01684` (3.8g), lalu jalur antara BLOK 21 dan
-BLOK 23 diisi sampai garis BLOK 23 (3.8h).
+BLOK 23 diisi sampai garis BLOK 23 (3.8h). **BLOK 21 ditetapkan sebagai batas
+blok tersedia** pada 6 Nov 2026 14:13 (`batas_tersedia = 1`,
+`batas_perkiraan = 0`, estimasi dikosongkan), sehingga tinggal **BLOK 19 dan
+BLOK 22** yang masih berstatus perkiraan.
 **BLOK 2 dan 8** masih berupa gabungan persis bidang anggotanya
 (`sumber_perkiraan = gabungan bidang anggota`).
 
@@ -817,6 +820,17 @@ diserap + bidang tepi; G01684; lubang ditutup`. Audit **#2923**. Rollback:
 `storage\isi-lubang-b21-20261106-140448.json` (WKT sebelum/sesudah).
 Uji asap API ulang: HTTP 200, 24 fitur, `estimasi_bidang` BLOK 21 = 556.
 
+**Tindak lanjut 14:13 — BLOK 21 ditetapkan sebagai batas blok tersedia.**
+Petugas memutuskan batas padat ini menjadi batas resmi, jadi baris blok diubah:
+`batas_tersedia` 0 → **1**, `batas_perkiraan` 1 → **0**, `sumber_perkiraan` =
+`gabungan bidang anggota + jalur BLOK 23; ditetapkan`, `jumlah_bidang_estimasi`
+556 → **NULL**, `maks_jarak_estimasi_m` tetap NULL. Geometri tidak berubah
+(227.011,16 m², 0 lubang, 0 m² tumpang tindih). Audit **#2924**. Rollback:
+`storage\batas-tersedia-b21-20261106-141302.json`. Uji asap API: HTTP 200,
+24 fitur, BLOK 21 `batas_tersedia = true`, `batas_perkiraan = false`,
+`estimasi_bidang = null`. Dengan ini tersisa **BLOK 19 dan BLOK 22** yang masih
+`batas_perkiraan = 1`.
+
 Cadangan di `D:\backup\sigpetades\b21-b23-20261106\` (di luar repo):
 
 | berkas | waktu | ukuran | SHA-256 | uji restore |
@@ -835,6 +849,15 @@ Cadangan tindak lanjut di `D:\backup\sigpetades\isi-lubang-b21-20261106\`:
 | `setelah-isi-lubang-20261106.sql` | 6 Nov 2026 14:05 | 9.436.790 byte | `1440f1be1cd9d941928ff4e2b9788f3dc6906c01dfb10a31ff00801521b2e89a` | `uji_isi_lubang_after_20261106`: 24 blok, 8.103 bidang, 8.102 hak, audit #2923, BLOK 21 227.011,16 m², 0 lubang, 556 anggota |
 
 Kedua basis data uji tindak lanjut juga dihapus.
+
+Cadangan penetapan status di `D:\backup\sigpetades\batas-tersedia-b21-20261106\`:
+
+| berkas | waktu | ukuran | SHA-256 | uji restore |
+|---|---|---|---|---|
+| `sebelum-batas-tersedia-20261106.sql` | 6 Nov 2026 14:12 | 9.436.790 byte | `2ddec2b8d874861c3389a1c9fb846a913b94d6be0657ce1b43d6ca719d726bae` | `uji_batas_tersedia_20261106`: 24 blok, 8.103 bidang, 8.102 hak, audit #2923, BLOK 21 `0/1/556`, 227.011,16 m² |
+| `setelah-batas-tersedia-20261106.sql` | 6 Nov 2026 14:13 | 9.437.246 byte | `39e8def37f698f895a78a1e63bbb94ce69b6269fa1af3daa932f436774aa665f` | `uji_batas_tersedia_after_20261106`: 24 blok, 8.103 bidang, 8.102 hak, audit #2924, BLOK 21 `1/0/NULL`, 227.011,16 m² |
+
+Kedua basis data uji penetapan status juga dihapus.
 
 ### 3.9 Bidang kembar (status duplikat)
 
