@@ -3491,6 +3491,41 @@ database uji sudah dihapus. Sisa 10 baris BLM kembar (7.426 m²) masih `lain` da
 menunggu keputusan terpisah; id 7511 (`DXF-020100-1997`, 55 m²) ber-`blok_id=6`
 padahal pusatnya di BLOK 2 juga belum diputuskan.
 
+### 3.39 Sepuluh bidang BLM kembar ikut dikonversi ke BLOK 2 (7 Nov 2026)
+
+Atas permintaan pengguna, sepuluh baris BLM tanpa nama yang **persis** menimpa
+(`ST_Equals=1`, jarak pusat 0,00 m) sepuluh baris HM hasil §3.38 juga diubah
+`tipe='lain'` → `'tanah'`. `blok_id` sudah 10, `status` tetap `perlu_verifikasi`,
+dan `catatan` ditambah "...; geometri identik dengan bidang HM pasangannya."
+Id: 11804, 11801, 11811, 11816, 11825, 11822, 11820, 11830, 12089, 13106
+(total 7.426,00 m²). Tidak ada geometri, luas, hak, NOP, atau SPPT yang berubah.
+
+**Konsekuensi yang diterima:** BLOK 2 kini memuat **10 pasang bidang tanah
+tumpang tindih persis** (HM bernama + BLM tanpa nama). Pasangan itu tetap
+`ST_Equals=1` dan terhitung dua kali dalam luas kotor, sehingga 300 bidang tanah
+BLOK 2 (25.665,67 m²) sama dengan **290 poligon unik**. Keduanya masih
+`perlu_verifikasi` karena keputusan mana yang dipertahankan (tandai `duplikat`
+atau hapus salah satu) belum diambil.
+
+Hasil: bidang tanah BLOK 2 **290 → 300**, non-tanah **111 → 101** (69.109,13 m²);
+total live bidang tanah **3.810 → 3.820** dan non-tanah **4.291 → 4.281**
+(`tanah/aktif` 3.247, `tanah/perlu_verifikasi` 573, `lain/aktif` 1,
+`lain/perlu_verifikasi` 4.280). Audit: 10 baris `audit_log`
+(id 3021–3030), satu per bidang.
+`GET api/bidang.php?cari=DXF-020100-0456` menjawab 200 dengan `tipe` `tanah`,
+`blok` `BLOK 2`, `hak` `BLM`.
+
+Cadangan penuh sebelum menulis:
+`D:\backup\sigpetades\konversi-blm-blok2-20261107\sipetades_gedong-sebelum-konversi-blm-20261107.sql`
+(10.832.784 byte; SHA-256 `544e4c8fe681feb4cf3440923e0f46ff1d87e621940a7b58a7edc0ab5e056046`,
+tercatat di `SHA256.txt`). Uji restore ke `sipetades_restore_20261107c` cocok:
+18 tabel dengan jumlah baris identik dan MD5 geometri 11804/13106/22968 sama;
+database uji sudah dihapus.
+
+Belum diputuskan: cara menyelesaikan 10 pasang duplikat persis di atas; id 7511
+(`DXF-020100-1997`, 55 m²) yang ber-`blok_id=6` padahal pusatnya di BLOK 2; dan
+±25.000 m² rongga BLOK 2 yang tidak punya poligon `lain` sebagai sumber.
+
 ---
 
 ## 4. Berkas SPPT dari Excel
