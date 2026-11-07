@@ -131,7 +131,7 @@ CREATE TABLE `blok` (
   `nomor`                smallint(6) DEFAULT NULL,
   `nama`                 varchar(80) NOT NULL DEFAULT '',
   `dusun_id`             smallint(6) DEFAULT NULL,
-  `geom`                 multipolygon NOT NULL,
+  `geom`                 multipolygon DEFAULT NULL,
   `batas_tersedia`       tinyint(1) NOT NULL DEFAULT 1,
   `batas_perkiraan`      tinyint(1) NOT NULL DEFAULT 0,
   `sumber_perkiraan`     varchar(60) DEFAULT NULL,
@@ -142,7 +142,6 @@ CREATE TABLE `blok` (
                                      ON UPDATE current_timestamp(),
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_blok_kode` (`kode`),
-  SPATIAL KEY `spn_blok_geom` (`geom`),
   KEY `idx_blok_dusun` (`dusun_id`),
   CONSTRAINT `fk_blok_dusun` FOREIGN KEY (`dusun_id`)
     REFERENCES `dusun` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
