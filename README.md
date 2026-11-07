@@ -391,8 +391,12 @@ BLOK 23 diisi sampai garis BLOK 23 (3.8h). **BLOK 21 ditetapkan sebagai batas
 blok tersedia** pada 6 Nov 2026 14:13 (`batas_tersedia = 1`,
 `batas_perkiraan = 0`, estimasi dikosongkan); **BLOK 19 dan BLOK 22 menyusul
 pada 14:23**, sehingga **seluruh 24 blok** kini `batas_perkiraan = 0`.
-**BLOK 2 dan 8** masih berupa gabungan persis bidang anggotanya
-(`sumber_perkiraan = gabungan bidang anggota`).
+**BLOK 2** masih berupa gabungan persis bidang anggotanya
+(`sumber_perkiraan = gabungan bidang anggota`). BLOK 8 awalnya sama, lalu
+batas geometrinya **dikosongkan** 7 Nov 2026 (`geom = NULL`, 3.8k) dan
+**dibuat ulang sebagai batas perkiraan** pukul 12:24 (3.8l), sehingga kembali
+**24 blok** bergeometri dan BLOK 8 kini satu-satunya blok
+`batas_perkiraan = 1`.
 
 Alasan penyaringannya: garis luar hanya dipasang pada blok yang bidangnya ikut
 tertutup ≥80 %. BLOK 2 tidak dipasang karena garis luar yang cocok ke blok itu
@@ -973,6 +977,103 @@ Kedua basis data uji dihapus. Rollback geometri:
 luas, pusat, tipe). Urutan rollback: kembalikan 25 geometri dulu, baru
 `ALTER TABLE bidang MODIFY geom POLYGON NOT NULL`. Rencana per bidang:
 `rencana-perbaiki25-20261107.tsv` di folder cadangan yang sama.
+
+### 3.8k Geometri batas BLOK 8 dikosongkan (7 Nov 2026)
+
+Petugas meminta BLOK 8 tidak lagi digambar di peta. Pilihan yang diambil
+**hanya mengosongkan batas**: baris `blok` tetap ada, seluruh **271 bidang**
+(85 `aktif` + 186 `perlu_verifikasi`) dan **159 objek pajak** tetap menjadi
+anggota BLOK 8, tetapi `blok.geom` diisi `NULL`. Tiga bidang terakhir masuk
+lewat penyuntingan UI pukul 12.09–12.12 (audit **#2972–#2974**: `2519`,
+`2949`, `G01185`), sehingga anggota naik dari 268 (3.8j) menjadi 271.
+Penanda `batas_tersedia = 1`, `batas_perkiraan = 0` dan
+`sumber_perkiraan = 'Pengesahan resmi dikonfirmasi pengguna'` dibiarkan:
+lapisan peta melewati baris bergeometri kosong, jadi blok ini tidak tergambar
+tanpa perlu mengubah penandanya.
+
+Keadaan sebelum: `id = 19`, satu bagian, luas **125.693,68 m²**, WKT 7.862
+karakter. Karena `blok.geom` bertipe `MULTIPOLYGON NOT NULL` dan memiliki
+`SPATIAL KEY spn_blok_geom`, pengosongan menuntut perubahan skema:
+
+```
+ALTER TABLE blok DROP INDEX spn_blok_geom, MODIFY geom MULTIPOLYGON NULL;
+```
+
+`MODIFY ... NULL` ditolak `ERROR 1252 (All parts of a SPATIAL index must be
+NOT NULL)` bila indeks masih ada, jadi indeks dilepas dalam `ALTER` yang sama.
+Sesudahnya: kolom `NULL`-boleh, indeks spasial `blok` tidak ada lagi (tabel ini
+hanya 24 baris, pencarian blok tetap memakai kunci primer/dusun), dan **23 blok
+lain masih bergeometri**. `sql/01_skema.sql` disesuaikan
+(`multipolygon DEFAULT NULL`, `SPATIAL KEY spn_blok_geom` dihapus).
+
+Audit **#2975** (`objek='blok'`, `objek_id='19'`) menyimpan WKT dan luas
+sebelum di `data_sebelum` serta penanda dan jumlah anggota di `data_sesudah`.
+Uji asap: `api/bidang.php?lapisan=blok` HTTP 200 dengan **23 fitur** dan BLOK 8
+tidak ada di daftar; `api/bidang.php?lapisan=bidang&limit=5` HTTP 200 dengan
+6.000 fitur (batas bawaan); `peta.php` tetap mengalihkan ke halaman masuk bila
+belum ada sesi. Jumlah data tidak berubah: **8.103 bidang, 8.102 hak, 24 blok,
+3.794 objek pajak**. Kueri yang memakai `blok.geom` (mis. pencarian blok
+terdekat di `app/data.php`) kini melewati BLOK 8 dan memakai blok lain
+terdekat.
+
+Cadangan di `D:\backup\sigpetades\blok8-tanpa-geometri-20261107\` (di luar repo):
+
+| berkas | waktu | ukuran | SHA-256 | uji restore |
+|---|---|---|---|---|
+| `sebelum-kosongkan-geom-blok8-20261107.sql` | 7 Nov 2026 12:07 | 9.488.306 byte | `b9b17b3bda5614dda929245af58e7630867579b45e5dd60ef1e48beb2d97846f` | `uji_blok8_nogeom_20261107`: 8.103 bidang, 8.102 hak, 24 blok, audit #2970, BLOK 8 bergeometri, anggota 268 |
+| `sesudah-kosongkan-geom-blok8-20261107.sql` | 7 Nov 2026 12:16 | 9.497.479 byte | `56545d6670b4ee86bb888a212d8c9faea9826549ee5823d96dbc0951ca8c537d` | `uji_blok8_nogeom_after_20261107`: 8.103 bidang, 8.102 hak, 24 blok, 1 blok tanpa geometri, anggota 271, 159 objek pajak, audit #2975, kolom `NULL`-boleh, indeks spasial 0 |
+
+Kedua basis data uji dihapus. Rollback: `storage\kosongkan-geom-blok8-20261107.json`
+berisi WKT sebelum. Urutannya isi geometri dahulu
+(`UPDATE blok SET geom = ST_GeomFromText(<wkt>, 4326) WHERE id = 19`), baru
+`ALTER TABLE blok MODIFY geom MULTIPOLYGON NOT NULL, ADD SPATIAL KEY
+spn_blok_geom (geom)` — `ALTER` tidak bisa dipakai selama masih ada baris
+`NULL`.
+
+### 3.8l Batas perkiraan BLOK 8 dibuat (7 Nov 2026)
+
+Sesudah batasnya dikosongkan di 3.8k, petugas meminta **geometri perkiraan**
+untuk BLOK 8. Metodenya mengikuti pola BLOK 19/21/22 (3.8a): 271 bidang
+anggota digabung, diselubungi **15 m**, lalu dipotong **23 batas blok lain**
+supaya tidak menutupi blok resmi. Hasilnya **264.515,65 m²** dalam **1 bagian**
+(`MultiPolygon`, `ST_IsSimple = 1`) dengan **1 lubang 1.558,48 m²** dan
+**0 m² tumpang** dengan 23 blok. Lubang itu bukan milik blok lain (irisan dengan
+ke-23 blok = 0 m²): ia rongga tertutup yang sudah ada di selubung bidang
+anggota. Catatan: `ST_NumInteriorRings` pada `MULTIPOLYGON` mengembalikan `NULL`
+di MariaDB 10.4, jadi angka lubang diukur lewat
+`ST_NumInteriorRings(ST_GeometryN(geom,1))` — hitungan awal "0 lubang" keliru.
+**238 bidang** utuh di dalam; **11 bidang** terpotong 0,57–3,52 m² (total
+**21,05 m²**); 22 sisanya terpotong di bawah 0,5 m²; **0 pusat bidang** di luar.
+
+Dua bentuk lain diukur dan tidak dipakai:
+
+| kandidat | luas (m²) | bagian | tumpang blok lain (m²) |
+|---|---|---|---|
+| gabungan tepat bidang | 246.106,55 | 8 | 15,73 (`BLOK 9`) |
+| selubung 15 m tanpa potong | 295.747,16 | 1 + 1 lubang | 31.232,14 pada 6 blok |
+| **selubung 15 m dipotong** | **264.515,65** | **1 + 1 lubang** | **0** |
+
+Penanda baris blok: `batas_tersedia = 0`, `batas_perkiraan = 1`,
+`sumber_perkiraan = 'gabungan bidang anggota + penyangga 15 m; potong blok resmi'`
+(59 karakter), `jumlah_bidang_estimasi = 271`, `maks_jarak_estimasi_m = 15`.
+Audit **#2976**; rollback `storage\batas-kira-blok8-20261107.json` (isi
+`geom = NULL` dan penanda resmi lama `batas_tersedia=1`, `batas_perkiraan=0`,
+`sumber_perkiraan='Pengesahan resmi dikonfirmasi pengguna'`, estimasi `NULL`).
+Pratinjau ketiga kandidat: `storage\pratinjau-batas-kira-b8-20261107.png`;
+panel biru versi besar (1200×2009): `storage\pratinjau-batas-kira-b8-biru-20261107.png`.
+
+Uji asap `api/bidang.php?lapisan=blok`: HTTP 200, **24 fitur**, BLOK 08
+`batas_perkiraan=true`, `batas_tersedia=false`, `estimasi_bidang=271`,
+geometri `MultiPolygon` 1 bagian. Anggota **271 bidang / 159 objek pajak** dan
+total **8.103 bidang / 8.102 hak / 24 blok / 3.794 objek pajak** tidak berubah.
+
+Cadangan sesudah di `D:\backup\sigpetades\batas-kira-blok8-20261107\` (di luar
+repo): `sesudah-batas-kira-blok8-20261107.sql`, 7 Nov 2026 12:24, 9.511.698
+byte, SHA-256 `7a1fe2bdc5351879a7cf0bb3a4af247f33cceb82297fb9ad022639f84d38be98`,
+diuji restore ke `uji_batas_kira_b8_20261107` (angka sama, audit #2976, luas
+264.515,65 m², 1 bagian + 1 lubang, penanda perkiraan) lalu DB uji dihapus. Keadaan
+sebelum perubahan ini adalah dump `sesudah-kosongkan-geom-blok8-20261107.sql`
+di folder 3.8k yang sudah diuji restore.
 
 ### 3.9 Bidang kembar (status duplikat)
 
