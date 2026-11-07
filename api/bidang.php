@@ -7,6 +7,8 @@ declare(strict_types=1);
  *   GET api/bidang.php?lapisan=bidang   -> GeoJSON FeatureCollection
  *   GET api/bidang.php?lapisan=blok     -> GeoJSON blok peta
  *   GET api/bidang.php?lapisan=batas    -> GeoJSON garis batas desa (lapisan 010500)
+ *   GET api/bidang.php?lapisan=jalan    -> garis jalan OpenStreetMap, dipotong di tepi bidang
+ *   GET api/bidang.php?lapisan=sungai   -> garis perairan hasil sambung label DXF + titik lepas
  *   GET api/bidang.php?lapisan=laporan  -> GeoJSON titik laporan (hanya pengelola)
  *   GET api/bidang.php?cari=&dusun=     -> daftar ringkas untuk tabel/pencarian
  *   GET api/bidang.php?tanpa_blok=1     -> hanya bidang yang belum punya blok
@@ -92,6 +94,84 @@ try {
                 'geometry' => ['type' => 'LineString', 'coordinates' => $garis],
                 'properties' => ['label' => 'Batas desa', 'sumber' => '33240400080'],
             ]],
+        ]);
+    }
+
+    // ------------------------------------------------------------------ jalan & sungai
+    // MASTER.dxf tidak menyimpan bentuk jalan maupun sungai — lapisan BATAS JALAN dan
+    // BATAS PERAIRAN hanya berisi teks. Garis jalan diambil dari unduhan Overpass di
+    // files/master peta/jalan_osm.json lalu dipotong di tepi bidang; label perairan DXF
+    // disambung menjadi garis oleh app/peta-rapi.php.
+    require_once __DIR__ . '/../app/peta-rapi.php';
+
+    if ($lapisan === 'jalan') {
+        $berkas = SIP_ROOT . '/files/master peta/jalan_osm.json';
+        if (!is_file($berkas)) {
+            json_error('Data jalan OpenStreetMap belum ada di files/master peta/jalan_osm.json.', 404);
+        }
+        $data = json_decode((string) file_get_contents($berkas), true);
+        $ruas = [];
+        foreach (($data['elements'] ?? []) as $el) {
+            $titik = [];
+            foreach (($el['geometry'] ?? []) as $p) {
+                if (!isset($p['lon'], $p['lat'])) {
+                    continue;
+                }
+                $titik[] = [(float) $p['lon'], (float) $p['lat']];
+            }
+            if (count($titik) < 2) {
+                continue;
+            }
+            $ruas[] = [
+                'id' => (int) ($el['id'] ?? 0),
+                'kelas' => (string) ($el['tags']['highway'] ?? ''),
+                'nama' => (string) ($el['tags']['name'] ?? ''),
+                'titik' => $titik,
+            ];
+        }
+        $fitur = peta_jalan_rapi($ruas);
+        json_response(['type' => 'FeatureCollection', 'jumlah' => count($fitur), 'features' => $fitur]);
+    }
+
+    if ($lapisan === 'sungai') {
+        require_once __DIR__ . '/../tools/lib-impor.php';
+        $berkas = SIP_ROOT . '/files/sig-pertanahan-gedong-lokal/data/dxf-layers/batas-perairan.geojson';
+        if (!is_file($berkas)) {
+            json_error('Berkas label perairan DXF tidak ditemukan.', 404);
+        }
+        $data = json_decode((string) file_get_contents($berkas), true);
+        $meta = json_decode((string) @file_get_contents(SIP_ROOT
+            . '/files/sig-pertanahan-gedong-lokal/data/dxf-layers/metadata.json'), true);
+        $extent = is_array($meta['extent'] ?? null) ? $meta['extent'] : null;
+        $label = [];
+        foreach (($data['features'] ?? []) as $f) {
+            $teks = trim((string) ($f['properties']['label'] ?? ''));
+            $koordinat = $f['geometry']['coordinates'] ?? null;
+            if ($teks === '' || !is_array($koordinat) || count($koordinat) < 2) {
+                continue;
+            }
+            $atas = strtoupper($teks);
+            if (str_starts_with($atas, 'JALAN')) {
+                continue; // dua label perairan di DXF sebenarnya menyebut jalan
+            }
+            $x = (float) $koordinat[0];
+            $y = (float) $koordinat[1];
+            if ($extent !== null && ($x < $extent['min_x'] || $x > $extent['max_x']
+                    || $y < $extent['min_y'] || $y > $extent['max_y'])) {
+                continue; // dua label SALURAN memakai sistem koordinat lain
+            }
+            $jenis = preg_match('/^(KALI|SUNGAI)/', $atas) ? 'Sungai'
+                : (preg_match('/SALURAN|SLURAN|IRIGASI|GOT|DRAIN/', $atas) ? 'Saluran' : 'Perairan lain');
+            [$lon, $lat] = dxfKeWgs84($x, $y);
+            $label[] = ['lon' => $lon, 'lat' => $lat, 'nama' => $teks, 'jenis' => $jenis];
+        }
+        $rapi = peta_sungai_rapi($label, (string) @filemtime($berkas));
+        $fitur = array_merge($rapi['garis'], $rapi['titik']);
+        json_response([
+            'type' => 'FeatureCollection',
+            'jumlah' => count($fitur),
+            'label' => count($label),
+            'features' => $fitur,
         ]);
     }
 

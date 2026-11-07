@@ -65,6 +65,16 @@ sip_judul(
                     <i style="background:#8a7a66"></i>Obyek non-tanah
                     <b><?= e(angka((int) ($ringkas['total'] - $ringkas['tanah']))) ?></b>
                 </label>
+                <label class="chip-lapisan">
+                    <input type="checkbox" id="tampilJalan" autocomplete="off" checked>
+                    <i style="background:#8b7b68"></i>Jalan
+                    <b id="jumlahJalan"></b>
+                </label>
+                <label class="chip-lapisan">
+                    <input type="checkbox" id="tampilSungai" autocomplete="off" checked>
+                    <i style="background:#087b83"></i>Sungai &amp; saluran
+                    <b id="jumlahSungai"></b>
+                </label>
                 <?php if ($kelola): ?>
                     <label class="chip-lapisan">
                         <input type="checkbox" id="tampilLaporan" autocomplete="off">
@@ -236,11 +246,13 @@ $naskah = <<<'JS'
     const KUNCI = 'sip.peta.pengaturan.v2';
     const BAWAAN = {
         dasar: 'jalan', warna: 'blok', kepekatan: 55, label: false, labelBlok: true,
-        bidang: true, lain: false, blok: true, batas: true, laporan: false, tampilan: null
+        bidang: true, lain: false, blok: true, batas: true, laporan: false,
+        jalan: true, sungai: true, tampilan: null
     };
     const MODE = ['blok', 'tipe', 'hak', 'pbb', 'status'];
     const BATAS_LABEL = 1500;
     const ZOOM_LABEL = 14;
+    const ZOOM_LABEL_SUNGAI = 16;
 
     function bacaSetelan() {
         let isi = {};
@@ -252,7 +264,7 @@ $naskah = <<<'JS'
         if (s.dasar !== 'jalan' && s.dasar !== 'satelit') s.dasar = BAWAAN.dasar;
         if (MODE.indexOf(s.warna) < 0) s.warna = BAWAAN.warna;
         s.kepekatan = Math.max(45, Math.min(80, Number(s.kepekatan) || 0));
-        ['label', 'labelBlok', 'bidang', 'blok', 'batas', 'laporan'].forEach((k) => { s[k] = !!s[k]; });
+        ['label', 'labelBlok', 'bidang', 'blok', 'batas', 'laporan', 'jalan', 'sungai'].forEach((k) => { s[k] = !!s[k]; });
         return s;
     }
 
@@ -266,8 +278,8 @@ $naskah = <<<'JS'
     peta.attributionControl.setPrefix('');
 
     // Panes menentukan urutan gambar tanpa bergantung urutan addLayer:
-    // batas desa paling bawah, lalu blok, obyek non-tanah, bidang tanah.
-    const PANES = { batas: 405, blok: 410, lain: 415, tanah: 420, laporan: 430 };
+    // jalan dan sungai paling bawah, lalu batas desa, blok, non-tanah, bidang tanah.
+    const PANES = { jalan: 402, sungai: 403, batas: 405, blok: 410, lain: 415, tanah: 420, laporan: 430 };
     Object.keys(PANES).forEach((nama) => {
         const pane = peta.createPane('pane-' + nama);
         pane.style.zIndex = String(PANES[nama]);
@@ -277,7 +289,8 @@ $naskah = <<<'JS'
 
     const grup = {
         bidang: L.layerGroup(), lain: L.layerGroup(), blok: L.layerGroup(),
-        batas: L.layerGroup(), laporan: L.layerGroup()
+        batas: L.layerGroup(), laporan: L.layerGroup(),
+        jalan: L.layerGroup(), sungai: L.layerGroup()
     };
 
     const dasar = {
@@ -416,6 +429,12 @@ $naskah = <<<'JS'
         }
         if (setelan.batas) {
             baris.push('<span><i class="contoh-batas-desa"></i>Batas desa (33240400080)</span>');
+        }
+        if (setelan.jalan) {
+            baris.push('<span><i style="background:#8b7b68"></i>Jalan (OpenStreetMap)</span>');
+        }
+        if (setelan.sungai) {
+            baris.push('<span><i style="background:#087b83"></i>Nama sungai / saluran (DXF)</span>');
         }
         document.getElementById('legendaPeta').innerHTML = baris.join('');
     }
@@ -576,7 +595,7 @@ $naskah = <<<'JS'
         const kunci = tipe === 'tanah' ? 'bidang' : 'lain';
         L.geoJSON({ type: 'FeatureCollection', features: fitur }, {
             pane: 'pane-' + (tipe === 'tanah' ? 'tanah' : 'lain'),
-            style: gayaBidang,
+            style: (f) => gayaBidang(f.properties),
             onEachFeature: (f, l) => {
                 const p = f.properties;
                 tampil.set(p.id, { lapisan: l, fitur: f, tipe });
@@ -687,6 +706,84 @@ $naskah = <<<'JS'
         });
     }
 
+    // Jalan dari unduhan OpenStreetMap dipotong di tepi bidang; label BATAS
+    // PERAIRAN di DXF tidak menyimpan garis, jadi garis sungai disambung dari
+    // titik nama di sela bidang. Label terisolasi tetap tampil sebagai titik.
+    const NAMA_KELAS_JALAN = {
+        primary: 'jalan utama', secondary: 'jalan utama', tertiary: 'jalan penghubung',
+        residential: 'jalan permukiman', living_street: 'jalan permukiman',
+        service: 'jalan servis', unclassified: 'jalan lain', track: 'jalan tanah'
+    };
+
+    function gayaJalan(p) {
+        const tebal = {
+            primary: 3.4, secondary: 2.8, tertiary: 2.3, residential: 1.6,
+            living_street: 1.5, service: 1.3, unclassified: 1.5, track: 1.2
+        }[p.kelas] || 1.2;
+        return { color: '#8b7b68', weight: tebal, opacity: .85, lineCap: 'round' };
+    }
+
+    async function muatJalan() {
+        const data = await Sip.api('api/bidang.php', { query: { lapisan: 'jalan' } });
+        grup.jalan.clearLayers();
+        const fitur = data.features || [];
+        L.geoJSON({ type: 'FeatureCollection', features: fitur }, {
+            pane: 'pane-jalan',
+            style: (f) => gayaJalan(f.properties),
+            onEachFeature: (f, l) => {
+                const p = f.properties;
+                l.bindTooltip((p.nama ? Sip.esc(p.nama) + ' — ' : '')
+                    + (NAMA_KELAS_JALAN[p.kelas] || p.kelas), { sticky: true, className: 'jalan-label' });
+            }
+        }).addTo(grup.jalan);
+        const angka = document.getElementById('jumlahJalan');
+        if (angka) angka.textContent = Sip.angka(fitur.length);
+    }
+
+    function keteranganSungai(p) {
+        const jenis = p.jenis === 'Saluran' ? 'saluran' : 'sungai';
+        let teks = p.nama ? Sip.esc(p.nama) + ' — ' + jenis : jenis.charAt(0).toUpperCase() + jenis.slice(1);
+        if (p.panjang_m) teks += ' · ±' + Sip.angka(Math.round(p.panjang_m / 10) * 10) + ' m';
+        return teks;
+    }
+
+    async function muatSungai() {
+        const data = await Sip.api('api/bidang.php', { query: { lapisan: 'sungai' } });
+        grup.sungai.clearLayers();
+        const fitur = data.features || [];
+        const garis = fitur.filter((f) => f.geometry.type === 'LineString');
+        if (garis.length) {
+            L.geoJSON({ type: 'FeatureCollection', features: garis }, {
+                pane: 'pane-sungai',
+                style: () => ({ color: '#087b83', weight: 1.6, opacity: .8, lineCap: 'round' }),
+                onEachFeature: (f, l) => {
+                    l.bindTooltip(keteranganSungai(f.properties), { sticky: true, className: 'water-label' });
+                    if (!f.properties.nama) return;
+                    const jalur = l.getLatLngs();
+                    L.marker(jalur[Math.floor(jalur.length / 2)], {
+                        pane: 'pane-sungai', interactive: false, keyboard: false,
+                        icon: L.divIcon({
+                            className: 'label-sungai',
+                            html: '<span>' + Sip.esc(f.properties.nama) + '</span>',
+                            iconSize: [0, 0]
+                        })
+                    }).addTo(grup.sungai);
+                }
+            }).addTo(grup.sungai);
+        }
+        fitur.filter((f) => f.geometry.type === 'Point').forEach((f) => {
+            const p = f.properties;
+            const koordinat = f.geometry.coordinates;
+            L.circleMarker([Number(koordinat[1]), Number(koordinat[0])], {
+                pane: 'pane-sungai', radius: 2.6, weight: 1,
+                color: '#087b83', fillColor: '#087b83', fillOpacity: .7
+            }).bindTooltip(keteranganSungai(p), { className: 'water-label', direction: 'top' })
+                .addTo(grup.sungai);
+        });
+        const angka = document.getElementById('jumlahSungai');
+        if (angka) angka.textContent = Sip.angka(fitur.length);
+    }
+
     async function muatLaporan() {
         const data = await Sip.api('api/bidang.php', { query: { lapisan: 'laporan' } });
         grup.laporan.clearLayers();
@@ -729,6 +826,7 @@ $naskah = <<<'JS'
     function perbaruiZoom() {
         const wadah = peta.getContainer();
         wadah.classList.toggle('peta-dekat', peta.getZoom() >= ZOOM_LABEL);
+        wadah.classList.toggle('peta-dekat-sungai', peta.getZoom() >= ZOOM_LABEL_SUNGAI);
         wadah.classList.toggle('tanpa-label-blok', !setelan.labelBlok);
         rapikanLabelBlok();
     }
@@ -747,10 +845,22 @@ $naskah = <<<'JS'
         if (kotakLain) kotakLain.checked = setelan.lain;
         const kotakLaporan = document.getElementById('tampilLaporan');
         if (kotakLaporan) kotakLaporan.checked = setelan.laporan;
+        const kotakJalan = document.getElementById('tampilJalan');
+        if (kotakJalan) kotakJalan.checked = setelan.jalan;
+        const kotakSungai = document.getElementById('tampilSungai');
+        if (kotakSungai) kotakSungai.checked = setelan.sungai;
 
         pakaiDasar(setelan.dasar);
         gambarLegenda();
         aktifkan('laporan', setelan.laporan);
+        aktifkan('jalan', setelan.jalan);
+        aktifkan('sungai', setelan.sungai);
+        if (setelan.jalan && !grup.jalan.getLayers().length) {
+            muatJalan().catch((err) => console.warn('Jalan gagal dimuat:', err));
+        }
+        if (setelan.sungai && !grup.sungai.getLayers().length) {
+            muatSungai().catch((err) => console.warn('Sungai gagal dimuat:', err));
+        }
         perbaruiZoom();
         if (kotakLaporan && setelan.laporan && !grup.laporan.getLayers().length) {
             muatLaporan().catch((err) => Sip.pesan(err.message, 'gagal'));
@@ -810,6 +920,32 @@ $naskah = <<<'JS'
             aktifkan('laporan', setelan.laporan);
             if (setelan.laporan && !grup.laporan.getLayers().length) {
                 muatLaporan().catch((err) => Sip.pesan(err.message, 'gagal'));
+            }
+        });
+    }
+
+    const kotakJalan = document.getElementById('tampilJalan');
+    if (kotakJalan) {
+        kotakJalan.addEventListener('change', (e) => {
+            setelan.jalan = e.target.checked;
+            simpanSetelan();
+            aktifkan('jalan', setelan.jalan);
+            gambarLegenda();
+            if (setelan.jalan && !grup.jalan.getLayers().length) {
+                muatJalan().catch((err) => Sip.pesan(err.message, 'gagal'));
+            }
+        });
+    }
+
+    const kotakSungai = document.getElementById('tampilSungai');
+    if (kotakSungai) {
+        kotakSungai.addEventListener('change', (e) => {
+            setelan.sungai = e.target.checked;
+            simpanSetelan();
+            aktifkan('sungai', setelan.sungai);
+            gambarLegenda();
+            if (setelan.sungai && !grup.sungai.getLayers().length) {
+                muatSungai().catch((err) => Sip.pesan(err.message, 'gagal'));
             }
         });
     }

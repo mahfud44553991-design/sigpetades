@@ -300,6 +300,14 @@ input[readonly], input:disabled, select:disabled, textarea:disabled { background
     font-size: 9.5px; font-weight: 700; color: #22392f;
 }
 .label-bidang::before { display: none; }
+.label-sungai { background: none; border: 0; pointer-events: none; }
+.label-sungai span {
+    position: absolute; left: 0; top: 0; transform: translate(-50%, -50%);
+    display: inline-block; padding: 1px 5px; border-radius: 999px;
+    background: rgba(255, 255, 255, .82); border: 1px solid rgba(8, 123, 131, .3);
+    color: #087b83; font-size: 8.5px; font-weight: 700; white-space: nowrap;
+}
+#peta:not(.peta-dekat-sungai) .label-sungai { display: none; }
 .cad-label {
     background: transparent; border: 0;
     color: #172c28; font-size: 10px; font-weight: 700; white-space: nowrap;

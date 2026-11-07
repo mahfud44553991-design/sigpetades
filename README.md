@@ -3062,8 +3062,9 @@ non-tanah" tidak lagi bermakna karena seluruh obyek kini bertipe `tanah`.
 Tiap lapisan memakai satu
 `L.geoJSON` dengan `onEachFeature`, bukan satu per bidang.
 
-**Urutan gambar memakai pane**, bukan urutan `addLayer`: batas desa 405, blok
-410, obyek non-tanah 415, bidang tanah 420, titik laporan 430. Pane batas desa
+**Urutan gambar memakai pane**, bukan urutan `addLayer`: jalan 402, nama
+sungai 403, batas desa 405, blok 410, obyek non-tanah 415, bidang tanah 420,
+titik laporan 430. Pane batas desa
 diberi `pointer-events: none` supaya garis keliling tidak menghalangi klik
 bidang di bawahnya.
 
@@ -3273,6 +3274,93 @@ kosong.
 Cadangan `storage/cadangan/sebelum-lain-ke-tanah-20261102-065555-9d46.sql`
 (5.110.392 byte, 17 tabel), satu baris `audit_log` (`aksi=ubah`, `objek=bidang`,
 `objek_id='tipe'`).
+
+### 3.35 Lapisan jalan dan nama sungai di peta (7 Nov 2026)
+
+Petugas meminta peta menampilkan jalan dan sungai. MASTER.dxf tidak menyimpan
+bentuk keduanya: lapisan `BATAS JALAN` berisi 620 label teks (626 titik) dan
+`BATAS PERAIRAN` 279 label teks, tanpa satu pun garis. Jadi sumbernya dipisah:
+
+- **Jalan** memakai unduhan Overpass yang sudah dipakai untuk memotong batas
+  blok, `files/master peta/jalan_osm.json` (`way["highway"]`, 376 ruas, 5.626
+  titik). `api/bidang.php?lapisan=jalan` mengubahnya menjadi `LineString`
+  dengan atribut `kelas` dan `nama`; tebal garis mengikuti kelas (primary
+  3,4 px sampai track 1,2 px).
+- **Sungai** tetap dari label DXF
+  `files/sig-pertanahan-gedong-lokal/data/dxf-layers/batas-perairan.geojson`,
+  diterjemahkan ke WGS84 dengan `dxfKeWgs84()`. Dua label `SALURAN` dibuang
+  karena koordinatnya milik sistem lain (x 526.789, y 1.431.976 — jauh di luar
+  extent MASTER) dan dua label `JALAN` dibuang karena salah lapisan. Sisanya
+  **275 titik**: 112 sungai (label `SUNGAI`/`KALI`) dan 163 saluran (termasuk
+  salah tulis `SLURAN`). **Tidak ada garis tepi air** — yang tampil titik nama;
+  nama lengkap muncul sebagai tooltip dan label permanen baru aktif pada
+  zoom ≥ 16 supaya tidak bertumpuk.
+
+Keduanya tampil di `peta.php` dan `peta-blok.php` lewat chip "Jalan" dan
+"Sungai & saluran", bawaannya hidup, dan pilihannya tersimpan di peramban.
+Pane-nya 402 dan 403, di bawah batas desa (405), blok (410), dan bidang (420)
+supaya klik persil tidak terhalang.
+
+**Bug lama ikut diperbaiki.** `gayaBidang` dipasang langsung sebagai `style`
+pada `L.geoJSON`, padahal Leaflet 1.9.4 mengirim objek *feature*, bukan
+`properties`. Akibatnya seluruh bidang tampil abu-abu `#9aa8a2` sampai kursor
+melewatinya, walaupun legenda menjanjikan warna per blok. Kini
+`style: (f) => gayaBidang(f.properties)`; di peramban, muatan awal menunjukkan
+25 rona blok (sebelumnya 1) dan lebar jalan beragam 1,2–3,4 px.
+
+Tidak ada perubahan basis data. Bila `jalan_osm.json` belum ada, endpoint
+mengembalikan 404 dengan pesan agar berkas diunduh dari Overpass.
+
+Verifikasi: `lapisan=jalan` 376 fitur, bbox 110,0391–110,1044 / −7,1188…−7,0595
+sesuai berkas sumber; `lapisan=sungai` 275 fitur, bbox 110,0572–110,0807 /
+−7,0988…−7,0772 (di dalam desa). Chip menampilkan angka yang sama; mematikan
+chip mengeluarkan grup dari peta dan menyalakannya lagi memasukkannya kembali
+tanpa memuat ulang data. Tangkapan layar tidak bisa diambil karena permukaan
+peramban dalam aplikasi sedang tersembunyi, jadi pemeriksaan dilakukan lewat
+DOM (jumlah `path` tiap pane, atribut `stroke`, warna isian, kelas zoom).
+
+### 3.35a Jalan dipotong di tepi bidang, sungai disambung jadi garis (7 Nov 2026)
+
+Dua keluhan lanjutan atas §3.35: garis jalan menembus bidang, dan "sungai"
+hanya berupa titik nama. Keduanya dirapikan helper baru `app/peta-rapi.php`
+yang hanya membaca basis data; `api/bidang.php` memanggilnya untuk lapisan
+`jalan` dan `sungai`.
+
+**Jalan dipotong di tepi bidang.** Setiap ruas OSM ditelusuri tiap 0,75 m;
+potongan yang titik tengahnya di dalam bidang dibuang, sisanya disambung,
+disederhanakan Douglas–Peucker 1,2 m, dan serpihan di bawah 6 m dibuang supaya
+tidak menjadi bintik. Indeks bidang memakai grid 0,002° dan ray casting, lubang
+poligon ikut dihitung. Hasil: 376 ruas 102,95 km menjadi **446 potongan
+89,79 km** — jalan hanya tampil di sela dan tepi bidang. Atribut `id`,
+`kelas`, `nama`, dan `bagian` tetap dikirim, jadi tooltip nama/kelas tidak
+berubah.
+
+**Sungai disambung jadi garis.** 275 label DXF dirangkai: dua tetangga terdekat
+dalam 140 m, pohon rentang minimum Kruskal, lalu jalur terpanjang (diameter
+pohon) sebagai urutan garis. Bila garis lurus antar label memotong bidang,
+rutenya dicari dengan A* pada grid 2 m (margin 80 m, jalan memutar maksimal 3×
+garis lurus + 40 m). Sesudah dihaluskan (Laplacian dua putaran; titik yang
+masuk bidang ditolak), potongan yang masih menembus bidang dicari ulang. Hasil:
+**11 garis (197 label, 10,25 km) + 6 titik lepas**. Sisa 19,6% sampel garis
+masih di dalam bidang karena 14 label (5,1%) memang berada di dalam bidang dan
+tidak ada geometri air sebagai acuan; garis tetap diarahkan lewat sela bidang.
+Nama hanya dipakai bila ada label yang bukan kata umum (`SALURAN`, `SLURAN`,
+`SUNGAI`, `KALI`, …): kini "KALI SARI" dan "KALI BLUKAR". Tooltip menampilkan
+nama, jenis, dan panjang; label permanen aktif pada zoom ≥ 16.
+
+**Simpanan sementara.** Hasil mahal disimpan di `storage/cache/`
+(`peta-jalan-rapi.json`, `peta-sungai-rapi.json`) dengan kunci
+`v3-<md5(jumlah|max(diubah_pada)|max(id) bidang)>` (sungai menambah mtime
+berkas label); perubahan bidang atau naiknya `PETA_RAPI_VERSI` memaksa hitung
+ulang. Terukur: sungai dari cache 0,045 dtk, jalan hitung segar 0,83 dtk.
+Berkas cache tidak ikut git.
+
+`muatSungai` di `peta.php` dan `peta-blok.php` kini menggambar `LineString`
+(#087b83, 1,6 px) dan tetap menampilkan titik lepas; chip "Sungai & saluran"
+menghitung 17 fitur. Verifikasi DOM: pane 402 berisi 446 `path`, pane 403
+berisi 17 `path` + 2 label "KALI SARI"; pada zoom 16 kelas
+`peta-dekat-sungai` aktif dan kedua label tampil. Tidak ada perubahan basis
+data.
 
 ---
 

@@ -26,12 +26,27 @@ sip_judul(
         </div>
     </header>
 
+    <div class="lapisan-peta" role="group" aria-label="Lapisan peta">
+        <label class="chip-lapisan">
+            <input type="checkbox" id="tampilJalanBlok" autocomplete="off" checked>
+            <i style="background:#8b7b68"></i>Jalan
+            <b id="jumlahJalanBlok"></b>
+        </label>
+        <label class="chip-lapisan">
+            <input type="checkbox" id="tampilSungaiBlok" autocomplete="off" checked>
+            <i style="background:#087b83"></i>Sungai &amp; saluran
+            <b id="jumlahSungaiBlok"></b>
+        </label>
+    </div>
+
     <div class="peta-wadah">
         <div id="petaBlok" class="peta" aria-label="Peta batas blok Desa Gedong"></div>
     </div>
     <div class="legenda">
         <span><i style="background:#14603a"></i>Batas blok ukur</span>
         <span><i style="background:#a06a12"></i>Batas blok perkiraan (garis putus-putus)</span>
+        <span><i style="background:#8b7b68"></i>Jalan (OpenStreetMap)</span>
+        <span><i style="background:#087b83"></i>Nama sungai / saluran (DXF)</span>
     </div>
     <p class="petunjuk" id="infoPetaBlok">Memuat batas blok…</p>
 </section>
@@ -52,6 +67,74 @@ $naskah = <<<'JS'
     }).addTo(peta);
 
     const grup = L.featureGroup().addTo(peta);
+    const grupJalan = L.layerGroup().addTo(peta);
+    const grupSungai = L.layerGroup().addTo(peta);
+
+    ['jalan', 'sungai', 'blok'].forEach((nama, i) => {
+        const pane = peta.createPane('pane-' + nama);
+        pane.style.zIndex = String(402 + i * 4);
+    });
+
+    const NAMA_KELAS_JALAN = {
+        primary: 'jalan utama', secondary: 'jalan utama', tertiary: 'jalan penghubung',
+        residential: 'jalan permukiman', living_street: 'jalan permukiman',
+        service: 'jalan servis', unclassified: 'jalan lain', track: 'jalan tanah'
+    };
+
+    function gayaJalan(p) {
+        const tebal = {
+            primary: 3.4, secondary: 2.8, tertiary: 2.3, residential: 1.6,
+            living_street: 1.5, service: 1.3, unclassified: 1.5, track: 1.2
+        }[p.kelas] || 1.2;
+        return { color: '#8b7b68', weight: tebal, opacity: .85, lineCap: 'round' };
+    }
+
+    async function muatJalan() {
+        const data = await Sip.api('api/bidang.php', { query: { lapisan: 'jalan' } });
+        grupJalan.clearLayers();
+        const fitur = data.features || [];
+        L.geoJSON({ type: 'FeatureCollection', features: fitur }, {
+            pane: 'pane-jalan',
+            style: (f) => gayaJalan(f.properties),
+            onEachFeature: (f, l) => {
+                const p = f.properties;
+                l.bindTooltip((p.nama ? Sip.esc(p.nama) + ' — ' : '')
+                    + (NAMA_KELAS_JALAN[p.kelas] || p.kelas), { sticky: true, className: 'jalan-label' });
+            }
+        }).addTo(grupJalan);
+        document.getElementById('jumlahJalanBlok').textContent = Sip.angka(fitur.length);
+    }
+
+    function keteranganSungai(p) {
+        const jenis = p.jenis === 'Saluran' ? 'saluran' : 'sungai';
+        let teks = p.nama ? Sip.esc(p.nama) + ' — ' + jenis : jenis.charAt(0).toUpperCase() + jenis.slice(1);
+        if (p.panjang_m) teks += ' · ±' + Sip.angka(Math.round(p.panjang_m / 10) * 10) + ' m';
+        return teks;
+    }
+
+    async function muatSungai() {
+        const data = await Sip.api('api/bidang.php', { query: { lapisan: 'sungai' } });
+        grupSungai.clearLayers();
+        const fitur = data.features || [];
+        const garis = fitur.filter((f) => f.geometry.type === 'LineString');
+        if (garis.length) {
+            L.geoJSON({ type: 'FeatureCollection', features: garis }, {
+                pane: 'pane-sungai',
+                style: () => ({ color: '#087b83', weight: 1.6, opacity: .8, lineCap: 'round' }),
+                onEachFeature: (f, l) => l.bindTooltip(keteranganSungai(f.properties),
+                    { sticky: true, className: 'water-label' })
+            }).addTo(grupSungai);
+        }
+        fitur.filter((f) => f.geometry.type === 'Point').forEach((f) => {
+            const koordinat = f.geometry.coordinates;
+            L.circleMarker([Number(koordinat[1]), Number(koordinat[0])], {
+                pane: 'pane-sungai', radius: 2.6, weight: 1,
+                color: '#087b83', fillColor: '#087b83', fillOpacity: .7
+            }).bindTooltip(keteranganSungai(f.properties), { className: 'water-label', direction: 'top' })
+                .addTo(grupSungai);
+        });
+        document.getElementById('jumlahSungaiBlok').textContent = Sip.angka(fitur.length);
+    }
 
     function nomorBlok(kode) {
         const hasil = String(kode || '').match(/(\d+)/);
@@ -84,6 +167,7 @@ $naskah = <<<'JS'
             const p = f.properties;
             const warna = warnaBlok(p.kode);
             const layer = L.geoJSON(f, {
+                pane: 'pane-blok',
                 style: {
                     color: p.batas_perkiraan ? '#a06a12' : warna,
                     weight: p.batas_perkiraan ? 2.5 : 2,
@@ -106,6 +190,27 @@ $naskah = <<<'JS'
             info.textContent = 'Belum ada geometri batas blok untuk ditampilkan.';
         }
     }
+
+    function pasangLapisan(nama, grupLapisan, muat) {
+        const kotak = document.getElementById(nama);
+        if (!kotak) return;
+        kotak.addEventListener('change', (e) => {
+            if (e.target.checked) {
+                grupLapisan.addTo(peta);
+                if (!grupLapisan.getLayers().length) muat().catch(gagalLapisan);
+            } else {
+                peta.removeLayer(grupLapisan);
+            }
+        });
+        if (kotak.checked && !grupLapisan.getLayers().length) muat().catch(gagalLapisan);
+    }
+
+    function gagalLapisan(err) {
+        Sip.pesan(err.message, 'gagal');
+    }
+
+    pasangLapisan('tampilJalanBlok', grupJalan, muatJalan);
+    pasangLapisan('tampilSungaiBlok', grupSungai, muatSungai);
 
     document.getElementById('pasangkanSemuaBlok').addEventListener('click', () => {
         const batas = grup.getBounds();
