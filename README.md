@@ -3526,6 +3526,56 @@ Belum diputuskan: cara menyelesaikan 10 pasang duplikat persis di atas; id 7511
 (`DXF-020100-1997`, 55 m²) yang ber-`blok_id=6` padahal pusatnya di BLOK 2; dan
 ±25.000 m² rongga BLOK 2 yang tidak punya poligon `lain` sebagai sumber.
 
+### 3.40 Rongga BLOK 3 diisi 38 bidang dari objek non-tanah (7 Nov 2026)
+
+Atas permintaan pengguna, rongga BLOK 3 (blok id 18, 188.262,91 m²) diukur dengan
+cara yang sama seperti BLOK 2 lalu diisi dari lapisan non-tanah. BLOK 3 memuat 250
+bidang tanah terpasang (139 `aktif` + 111 `perlu_verifikasi`) seluas 161.340,76 m²
+kotor; 43 pasang saling tumpang ±11.850,24 m² sehingga cakupan unik ±149.491 m²
+(79,4%). Sampel grid 5 m (7.524 titik di dalam blok) menemukan **1.502 titik kosong
+≈37.550 m² (19,9%)**; 1.170 titik (≈29.250 m²) di antaranya sudah tertutup objek
+non-tanah, 332 titik (≈8.300 m²) tidak punya poligon sumber.
+
+Dari 242 objek `lain` yang berpusat di blok, **175 (≈124.164 m²) duplikat ≥95%**
+bidang tanah yang sudah ada dan 67 berada di rongga. Dua objek di rongga
+(6413 `HM-63B`, 12136 `DXF-020100-0899`) ternyata 99,8% berada di BLOK 5 sehingga
+tidak dihitung. Dari 62 kandidat sisanya, **24 adalah kembar persis** baris BLM
+tanpa nama (`ST_Equals=1`, MD5 geometri sama) dari 24 baris HM/KDH bernama,
+sehingga tinggal **38 objek unik, 28.939,13 m²** (24 HM/KDH berpasangan + 14 HM
+tunggal; 37 bernama + 1 tanpa nama; termasuk 1 KDH fasilitas umum 4.654,44 m²).
+Ke-38 objek tidak saling tumpang dan tidak punya NOP/SPPT.
+
+Yang diterapkan: **38 baris unik** diubah `tipe='lain'` → `'tanah'`; `blok_id`
+tetap 18, `status` tetap `perlu_verifikasi`, dan `catatan` ditambah
+"Dikonversi dari non-tanah ke bidang tanah BLOK 3 pada 7 Nov 2026." setelah
+catatan lama "Blok diperkirakan otomatis, belum dicek lapangan." **24 baris BLM
+kembar tidak disentuh** agar tidak lahir duplikat baru seperti di BLOK 2. Id yang
+dikonversi: 5516, 5517, 5781, 5793, 6002, 6113, 6124, 6125, 6135, 6136, 6137,
+6138, 6139, 6146, 6148, 6151, 6156, 6157, 6160, 6162, 6166, 6175, 6176, 6178,
+6207, 6208, 7212, 7456, 7457, 7514, 7518, 7523, 7975, 7977, 7978, 7979, 8036,
+8051. Tidak ada geometri, luas, hak, NOP, atau SPPT yang berubah
+(MD5 geometri 6113 tetap `51cbdcef…`).
+
+Hasil: bidang tanah BLOK 3 **250 → 288**, non-tanah **240 → 202**; total live
+bidang tanah **3.820 → 3.858** (3.247 `aktif` + 611 `perlu_verifikasi`) dan
+non-tanah **4.281 → 4.243** (1 `aktif` + 4.242 `perlu_verifikasi`); baris `bidang`
+tetap 8.103 (termasuk 2 `tanah/dihapus`). Audit: 38 baris `audit_log`
+(id 3036–3073), satu per bidang.
+`GET api/bidang.php?cari=HM-370D` menjawab 200 dengan `tipe` `tanah`, `blok`
+`BLOK 3`; pasangan BLM `DXF-020100-0599` tetap `tipe` `lain`.
+
+Cadangan penuh sebelum menulis:
+`D:\backup\sigpetades\konversi-blok3-20261107\sipetades_gedong-sebelum-konversi-blok3-20261107.sql`
+(10.838.734 byte; SHA-256 `7f4cb16587e459068973538343be23ce547f3d96677cc4b9e41a85045b30514d`,
+tercatat di `SHA256.txt`). Uji restore ke `sipetades_restore_20261107d` cocok:
+22 objek (18 tabel + 4 view) dengan jumlah baris identik dan MD5 geometri
+6113/5517/13106/22968 sama; database uji sudah dihapus.
+
+Belum diputuskan: 24 baris BLM kembar tetap `lain` dan sekarang menimpa persis
+bidang tanah pasangannya (bisa dikonversi atau dibersihkan terpisah); 6413/12136
+yang berpusat di BLOK 3 tetapi 99,8% di BLOK 5; dan 332 titik (≈8.300 m²) rongga
+BLOK 3 tanpa poligon sumber.
+
 ---
 
 ## 4. Berkas SPPT dari Excel
