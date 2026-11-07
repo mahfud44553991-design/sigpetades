@@ -886,6 +886,39 @@ Cadangan penetapan status BLOK 19/22 di
 
 Kedua basis data uji penetapan BLOK 19/22 juga dihapus.
 
+### 3.8i Bidang BLOK 3 di luar geometrinya dipindah ke BLOK 8 (7 Nov 2026)
+
+Petugas meminta bidang yang tercatat BLOK 3 tetapi berada **di luar geometri
+BLOK 3** dipindahkan ke BLOK 8. Dari 519 anggota BLOK 3, **29 bidang** ternyata
+0 % di dalam BLOK 3: semuanya menggerombol di lahan tanpa blok pada
+110,0726–110,0763 BT / -7,0815 s.d. -7,0792 LS, di antara BLOK 3 (utara),
+BLOK 7 (barat daya), BLOK 8 (selatan), dan BLOK 9 (barat). Kelompok ini hanya
+**menyentuh tepi** BLOK 7/8/9 (jarak 0 m) tanpa tumpang 1 m² pun, dan berjarak
+3,6 m dari BLOK 3. Ke-29 bidang (4 aktif, 25 perlu verifikasi; 54.743,63 m²)
+dipindah dengan `UPDATE bidang SET blok_id = 19` dalam satu transaksi; geometri,
+status, dan hak tidak disentuh. Anggota BLOK 3 519 → **490**, BLOK 8 239 →
+**268**; total tetap 8.103 bidang, 8.102 hak, 24 blok, 3.794 SPPT. Audit
+**#2944** (`objek_id='BLOK 3'`, daftar 29 kode di keterangan). Rollback:
+`storage\pindah-blok3-ke-blok8-20261107.json`.
+
+Catatan penting: karena kelompok ini berada di *lahan tanpa blok*, bidang-bidang
+tersebut **tetap 0 % di dalam geometri BLOK 8** sesudah dipindah — penugasan ini
+bersifat administratif sesuai keputusan petugas, bukan hasil pengukuran
+kandung. Batas BLOK 3 dan BLOK 8 tidak diubah (187.414,62 dan 125.693,68 m²).
+Sisa 17 bidang BLOK 3 yang terpotong tepi (89,5–99,9 % di dalam) **tidak**
+dipindah karena masih tergolong anggota sah; yang paling mencolok
+`DXF-020100-G00609` (89,5 %).
+
+Cadangan di `D:\backup\sigpetades\blok3-luar-20261107\` (di luar repo):
+
+| berkas | waktu | ukuran | SHA-256 | uji restore |
+|---|---|---|---|---|
+| `sebelum-pindah29-20261107.sql` | 7 Nov 2026 11:41 | 9.454.258 byte | `9c43e4e57a609d3a5e69ff20bff06e87189119276e77eff32a651d6399435b14` | `uji_b3luar_20261107`: 24 blok, 8.103 bidang, 8.102 hak, 3.794 SPPT, audit #2943, BLOK 3/8 519/239; `ST_Equals` seluruh bidang & blok = 1 |
+| `sesudah-pindah29-20261107.sql` | 7 Nov 2026 11:42 | 9.458.010 byte | `9d7d41b7ed302157d40e967587cc87fb2d57cd37c13cec3d40587b77dc20ae21` | `uji_b3luar_after_20261107`: 24 blok, 8.103 bidang, 8.102 hak, 3.794 SPPT, audit #2944, BLOK 3/8 490/268; `ST_Equals` seluruh bidang = 1, `blok_id` identik |
+
+Kedua basis data uji dihapus setelah pemeriksaan. Daftar 29 bidang:
+`rencana-pindah29-20261107.tsv` di folder cadangan yang sama.
+
 ### 3.9 Bidang kembar (status duplikat)
 
 Sebagian bidang tercatat lebih dari satu kali dengan **poligon yang persis sama**.
