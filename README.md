@@ -3449,6 +3449,48 @@ tercatat di `SHA256.txt`). Uji restore ke database sementara
 `sipetades_restore_20261107` cocok: 18 tabel dengan jumlah baris identik dan MD5
 geometri 22968 sama; database uji sudah dihapus.
 
+### 3.38 Rongga BLOK 2 diisi 28 bidang dari objek non-tanah (7 Nov 2026)
+
+Atas permintaan pengguna, rongga BLOK 2 (blok id 10) diukur lalu diisi dari
+lapisan non-tanah. Luas blok ±256.425 m²; di dalamnya ada 262 bidang tanah
+(248.481,63 m² kotor, 27 pasang saling tumpang ±31.918 m² sehingga cakupan unik
+±213.000 m²). Sampel grid 5 m (10.099 titik di dalam blok) menemukan **1.710
+titik kosong ≈43.300 m² (16,9%)** yang tidak tercakup bidang tanah mana pun.
+
+Lapisan `lain` yang berpusat di blok berisi 141 objek (95.417,89 m²): **103 objek
+(69.752 m²)** tertutup ≥95% oleh bidang tanah yang sudah ada (duplikat lapisan),
+**38 objek (25.666 m²)** mengisi rongga, mengisi ±18.300 m² dari rongga itu.
+Kedelapan-puluh delapan objek tersebut semuanya ber-`hak` (HM), 25 bernama,
+0 NOP/SPPT. Sepuluh di antaranya berpasangan **persis** (`ST_Equals=1`, jarak
+pusat 0,00 m) dengan baris BLM tanpa nama hasil impor 5 Nov 2026.
+
+Yang diterapkan: **28 baris HM** (17 objek unik bernama, 10 baris HM berpasangan,
+dan 1 baris HM tanpa nama ber-nomor daftar `01972`) diubah `tipe='lain'` →
+`'tanah'`, `blok_id` → 10 (id 10057 semula NULL), `status` tetap
+`perlu_verifikasi`, dan `catatan` ditambah "Dikonversi dari non-tanah ke bidang
+tanah BLOK 2 pada 7 Nov 2026." Sepuluh baris BLM kembar **tidak disentuh** —
+mengubah keduanya akan membuat bidang tanah ganda. Id yang dikonversi:
+5967, 5970, 5978, 5983, 5984, 5990, 5992, 5993, 5997, 6004, 6344, 7974, 7982,
+7997, 8043, 8044, 8045, 8433, 8438, 8439, 8442, 8446, 8448, 8449, 8462, 8463,
+8464, 10057 (total 18.239,67 m²). Tidak ada geometri, luas, hak, NOP, atau SPPT
+yang berubah.
+
+Hasil: bidang tanah BLOK 2 **262 → 290**, non-tanah **138 → 111**; total live
+bidang tanah **3.782 → 3.810** dan non-tanah **4.319 → 4.291**
+(`tanah/perlu_verifikasi` 535 → 563, `lain/perlu_verifikasi` 4.318 → 4.290).
+Audit: 28 baris `audit_log` (id 2990–3017), satu per bidang.
+`GET api/bidang.php?cari=DXF-020100-2530` menjawab 200 dengan `tipe` `tanah`,
+`blok` `BLOK 2`.
+
+Cadangan penuh sebelum menulis:
+`D:\backup\sigpetades\konversi-blok2-20261107\sipetades_gedong-sebelum-konversi-blok2-20261107.sql`
+(10.813.168 byte; SHA-256 `fc8c5ae2b11abe5e2f30d25648509d18a0af41993525cb7a56e56492c9f8ab28`,
+tercatat di `SHA256.txt`). Uji restore ke `sipetades_restore_20261107b` cocok:
+18 tabel dengan jumlah baris identik dan MD5 geometri 5970/8044/22968 sama;
+database uji sudah dihapus. Sisa 10 baris BLM kembar (7.426 m²) masih `lain` dan
+menunggu keputusan terpisah; id 7511 (`DXF-020100-1997`, 55 m²) ber-`blok_id=6`
+padahal pusatnya di BLOK 2 juga belum diputuskan.
+
 ---
 
 ## 4. Berkas SPPT dari Excel
