@@ -3571,10 +3571,44 @@ tercatat di `SHA256.txt`). Uji restore ke `sipetades_restore_20261107d` cocok:
 22 objek (18 tabel + 4 view) dengan jumlah baris identik dan MD5 geometri
 6113/5517/13106/22968 sama; database uji sudah dihapus.
 
-Belum diputuskan: 24 baris BLM kembar tetap `lain` dan sekarang menimpa persis
-bidang tanah pasangannya (bisa dikonversi atau dibersihkan terpisah); 6413/12136
-yang berpusat di BLOK 3 tetapi 99,8% di BLOK 5; dan 332 titik (≈8.300 m²) rongga
-BLOK 3 tanpa poligon sumber.
+Tindak lanjut: 24 baris BLM kembar kemudian ditandai `duplikat` (lihat §3.41).
+Masih terbuka: 6413/12136 yang berpusat di BLOK 3 tetapi 99,8% di BLOK 5; dan
+332 titik (≈8.300 m²) rongga BLOK 3 tanpa poligon sumber.
+
+### 3.41 Dua puluh empat BLM kembar BLOK 3 ditandai duplikat (7 Nov 2026)
+
+Atas permintaan pengguna, 24 baris BLM tanpa nama yang geometrinya identik dengan
+24 bidang tanah hasil §3.40 diubah `status='perlu_verifikasi'` → `'duplikat'`.
+`tipe` tetap `lain`, `blok_id` tetap 18, dan `catatan` ditambah "Ditandai
+duplikat pada 7 Nov 2026; geometri identik dengan bidang tanah <kode>." Id:
+11537, 11538, 11695, 11828, 11923, 11934, 11935, 11945, 11946, 11949, 11951,
+11953, 11957, 11958, 11961, 11963, 11966, 11974, 11975, 11977, 12002, 12642,
+12781, 12782 (20.462,96 m²). Ke-24 pasangan tetap `ST_Equals=1`; tidak ada
+geometri, luas, hak, NOP, atau SPPT yang berubah.
+
+Karena `bidang_filter()` di `app/data.php` menyembunyikan `duplikat` dan `dihapus`
+secara default, ke-24 baris hilang dari peta, daftar, dan pencarian; tampil lagi
+dengan `status=duplikat`. Hasil: non-tanah BLOK 3 **202 → 178
+`perlu_verifikasi` + 24 `duplikat`**; global non-tanah **4.243 → 4.218
+`perlu_verifikasi` + 24 `duplikat`** (`lain/aktif` tetap 1), bidang tanah tetap
+3.858, total baris 8.103. Audit: 24 baris `audit_log` (id 3099–3122).
+
+Uji API: `GET api/bidang.php?lapisan=bidang&blok=BLOK 3` tidak lagi memuat
+id 11537; dengan `status=duplikat` id itu muncul. `cari=DXF-020100-0599` tanpa
+filter menjawab `jumlah: 0`, dengan `status=duplikat` menjawab `jumlah: 1`
+(`status` `duplikat`).
+
+Cadangan penuh sebelum menulis:
+`D:\backup\sigpetades\duplikat-blm-blok3-20261107\sipetades_gedong-sebelum-duplikat-blm-20261107.sql`
+(10.859.597 byte; SHA-256 `a14f77d525175def7338bef0b3babc0444609e6c2dc0e98a254becd9c14e1e28`,
+tercatat di `SHA256.txt`). Uji restore ke `sipetades_restore_20261107e` cocok:
+22 objek (18 tabel + 4 view) dengan jumlah baris identik dan MD5 geometri
+11923/6113 sama; database uji sudah dihapus.
+
+Sisa di lapisan non-tanah BLOK 3 (178 baris): 60 pasang kembar lain (120 baris,
+99.363,36 m²) yang berada di bawah bidang tanah lama dan 58 duplikat tunggal
+≥95% (25.612,98 m²), belum ditandai; ditambah 6413/12136 milik BLOK 5 dan 332
+titik (≈8.300 m²) rongga tanpa poligon sumber.
 
 ---
 
