@@ -184,7 +184,7 @@ CREATE TABLE `bidang` (
   `status`              enum('aktif','perlu_verifikasi','duplikat','dihapus') NOT NULL DEFAULT 'aktif',
   `sumber`              varchar(40) NOT NULL DEFAULT 'master',
   `catatan`             text DEFAULT NULL,
-  `geom`                polygon NOT NULL,
+  `geom`                geometry NOT NULL,
   `pusat_lon`           decimal(10,7) DEFAULT NULL,
   `pusat_lat`           decimal(10,7) DEFAULT NULL,
   `dibuat_pada`         timestamp NOT NULL DEFAULT current_timestamp(),
