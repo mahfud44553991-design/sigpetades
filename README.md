@@ -3114,6 +3114,23 @@ Setelan peramban memakai kunci baru `sip.peta.pengaturan.v2`; setelan lama
 (`v1`) sengaja diabaikan agar pengguna tidak mewarisi mode `bidang/blok/batas`
 yang sudah tidak ada.
 
+### 3.29a Peta bidang dibuka pada tampilan seluruh desa (7 Nov 2026)
+
+Sebelumnya peta dibuka pada pusat/zoom bawaan (`peta_zoom_awal`, zoom 15), lalu
+"ditimpa" oleh batas bidang yang termuat; hasil akhirnya bergantung pada
+urutan muat blok dan bidang sehingga kadang hanya sebagian desa yang tampak.
+Kini `batasSeluruhDesa()` memakai sebaran semua blok (cadangan: bidang yang
+tampil) dan `pasangkanSeluruhDesa()` dipakai bersama oleh tombol "Seluruh
+desa" dan pemuatan awal. `muatBlok` memasang tampilan seluruh desa begitu blok
+siap; `muatBidang` hanya memasang pandangan sementara ke bidang bila blok
+belum termuat, supaya pandangan tidak terkunci ke bidang saja. "Simpan
+tampilan" tetap diutamakan bila ada, dan saringan yang diterapkan tetap
+memperbesar ke hasilnya.
+
+Verifikasi DOM (Chrome, jendela 429×440): setelah muat ulang berulang,
+24/24 label blok berada di dalam peta dan skala menunjukkan 1 km; saringan
+BLOK 2 mengecil ke skala 200 m; tombol "Seluruh desa" mengembalikan 24/24.
+
 ### 3.30 Tautan NOP PBB ke bidang: 128 pasangan nama persis
 
 `tools/impor.php calon <blok>` sudah menyusun calon NOP seblok untuk tiap

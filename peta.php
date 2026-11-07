@@ -456,6 +456,20 @@ $naskah = <<<'JS'
         return b;
     }
 
+    // Seluruh desa = sebaran 25 blok; bidang bisa lebih sempit karena saringan.
+    function batasSeluruhDesa() {
+        const b = batasGrup(grup.blok);
+        return b.isValid() ? b : batasTampil();
+    }
+
+    function pasangkanSeluruhDesa(kilat) {
+        const batas = batasSeluruhDesa();
+        if (!batas.isValid()) return false;
+        if (kilat) peta.flyToBounds(batas.pad(.04), { duration: .5 });
+        else peta.fitBounds(batas.pad(.04));
+        return true;
+    }
+
     function ringkas(t) {
         return t && t.length > 60 ? t.slice(0, 60) + '…' : (t || '');
     }
@@ -652,12 +666,16 @@ $naskah = <<<'JS'
         segarkanTampilan();
 
         const jumlah = fiturTampil().length;
-        if ((pusatkan || !sudahMemusat) && jumlah) {
-            const batas = batasTampil();
-            if (batas.isValid()) {
-                sudahMemusat = true;
-                pusatkanKe(batas);
+        if (!sudahMemusat && jumlah) {
+            // Blok bisa belum selesai dimuat; biarkan blok yang memasang
+            // tampilan seluruh desa begitu siap, jangan kunci ke bidang saja.
+            if (grup.blok.getLayers().length) {
+                if (pasangkanSeluruhDesa(false)) sudahMemusat = true;
+            } else {
+                pusatkanKe(batasTampil());
             }
+        } else if (pusatkan && jumlah) {
+            pusatkanKe(batasTampil());
         }
 
         info.textContent = jumlah
@@ -692,6 +710,8 @@ $naskah = <<<'JS'
             }).addTo(grup.blok);
         });
         rapikanLabelBlok();
+        // Buka peta langsung pada tampilan seluruh desa, bukan pusat bawaan.
+        if (!sudahMemusat && pasangkanSeluruhDesa(false)) sudahMemusat = true;
     }
 
     async function muatBatas() {
@@ -1120,9 +1140,7 @@ $naskah = <<<'JS'
     form.addEventListener('reset', () => setTimeout(() => muatBidang(true).catch(gagalMuat), 0));
 
     document.getElementById('pasangkanSemua').addEventListener('click', () => {
-        const batasBlok = batasGrup(grup.blok);
-        const batas = batasBlok.isValid() ? batasBlok : batasTampil();
-        if (batas.isValid()) peta.flyToBounds(batas.pad(.04), { duration: .5 });
+        pasangkanSeluruhDesa(true);
     });
 
     peta.on('zoomend', perbaruiZoom);
