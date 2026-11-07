@@ -3298,6 +3298,11 @@ Cadangan `storage/cadangan/sebelum-lain-ke-tanah-20261102-065555-9d46.sql`
 (5.110.392 byte, 17 tabel), satu baris `audit_log` (`aksi=ubah`, `objek=bidang`,
 `objek_id='tipe'`).
 
+**Catatan 7 Nov 2026.** Pernyataan "obyek non-tanah **3.341 → 0**" di atas tidak
+lagi menggambarkan isi basis data: live kini memuat **4.318 baris `lain`**
+(`dibuat_pada` 19 Okt 2.352, 20 Okt 384, 5 Nov 1.582, 6 Nov 1). Satu di antaranya
+poligon batas blok yang sempat ikut bertipe `tanah`; koreksinya ada di §3.37.
+
 ### 3.35 Lapisan jalan dan nama sungai di peta (7 Nov 2026)
 
 Petugas meminta peta menampilkan jalan dan sungai. MASTER.dxf tidak menyimpan
@@ -3411,6 +3416,38 @@ muat ulang halaman menampilkan preset pada daftar; "Muat" menjawab
 `Preset "Uji preset 7 Nov" dimuat.`; "Hapus" mengosongkan tabel dan daftar
 kembali ke `— pilih preset —`. Tidak ada pesan galat di konsol. POST tanpa sesi
 tetap 401 seperti mestinya. Baris uji sudah dihapus, tabel kembali kosong.
+
+### 3.37 DXF-BATAS-BLOK-00050: batas blok, bukan bidang tanah (7 Nov 2026)
+
+Satu baris `bidang` hasil impor layer peta induk `BATAS BLOK` — id **22968**,
+`DXF-BATAS-BLOK-00050`, 124.589,12 m² — bertipe `tanah`, jadi ikut terhitung
+sebagai bidang tanah meski geometrinya adalah garis luar **BLOK 17**: hanya pusat
+BLOK 17 (blok id 21) yang jatuh di dalamnya, `blok_id` NULL, dan di dalamnya
+berdiri 91 bidang tanah serta 107 obyek non-tanah.
+
+Kolom `status` tidak punya nilai "batas blok" — enum-nya hanya `aktif`,
+`perlu_verifikasi`, `duplikat`, `dihapus` — sedangkan pembeda tanah/non-tanah ada
+di kolom `tipe` (`tanah`/`lain`). Koreksi karena itu dilakukan di `tipe`:
+`tanah` → `lain`, `status` tetap `perlu_verifikasi`, dan `catatan` diisi
+"Batas blok (BLOK 17), bukan bidang tanah; tipe dikoreksi dari tanah menjadi lain
+pada 7 Nov 2026." `blok_id` sengaja tetap NULL supaya poligon batas tidak dihitung
+sebagai anggota blok, dan baris `hak` id 27601 (jenis BLM, tanpa pemegang) tidak
+disentuh.
+
+Hasil: bidang tanah di peta **3.783 → 3.782**, obyek non-tanah **4.318 → 4.319**;
+rinciannya `tanah/perlu_verifikasi` 536 → 535 dan `lain/perlu_verifikasi`
+4.317 → 4.318. Jumlah baris `bidang` tetap 8.103, luas dan geometri tidak berubah
+(MD5 `ST_AsBinary` = `ed54c82efe835747a9c0cb2222226879` sebelum dan sesudah).
+`GET api/bidang.php?cari=DXF-BATAS-BLOK-00050` menjawab 200 dengan `tipe` `lain`.
+Satu baris `audit_log` baru: id 2989, `aksi=ubah`, `objek=bidang`,
+`objek_id='22968'`.
+
+Cadangan penuh sebelum menulis:
+`D:\backup\sigpetades\batas-blok-22968-20261107\sipetades_gedong-sebelum-batas-blok-20261107.sql`
+(10.812.689 byte; SHA-256 `b797e847c9fa24724347f4142c6c1909c91ae52dac504fede3366bbfa8fea1e4`,
+tercatat di `SHA256.txt`). Uji restore ke database sementara
+`sipetades_restore_20261107` cocok: 18 tabel dengan jumlah baris identik dan MD5
+geometri 22968 sama; database uji sudah dihapus.
 
 ---
 
