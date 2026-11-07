@@ -3610,6 +3610,60 @@ Sisa di lapisan non-tanah BLOK 3 (178 baris): 60 pasang kembar lain (120 baris,
 ≥95% (25.612,98 m²), belum ditandai; ditambah 6413/12136 milik BLOK 5 dan 332
 titik (≈8.300 m²) rongga tanpa poligon sumber.
 
+### 3.42 Enam puluh pasang kembar non-tanah BLOK 3 dihapus (7 Nov 2026)
+
+Atas permintaan pengguna, 120 baris non-tanah BLOK 3 yang membentuk 60 pasang
+geometri identik dihapus fisik (`DELETE FROM bidang`), bukan ditandai. Syarat
+yang dipenuhi sebelum hapus: setiap pasangan `ST_Equals=1` dan
+`MD5(ST_AsBinary(geom))` sama, tidak ada id yang muncul di lebih dari satu
+pasangan, dan **99,29–99,99%** luas tiap baris sudah tertutup bidang tanah.
+Komposisi `jenis_hak`: 60 BLM + 59 HM + 1 KDH; total luas poligon yang dihapus
+99.363,36 m². Id: 5560, 5622, 5753, 5769, 5783, 5785, 5792, 6009, 6114, 6115,
+6116, 6117, 6118, 6119, 6121, 6122, 6123, 6126, 6127, 6128, 6129, 6130, 6131,
+6132, 6133, 6134, 6140, 6142, 6147, 6150, 6152, 6154, 6155, 6158, 6159, 6161,
+6163, 6167, 6168, 6169, 6170, 6171, 6173, 6174, 6177, 6203, 6209, 6211, 6214,
+6215, 6216, 6218, 6219, 6220, 6346, 7453, 7455, 7506, 7973, 8035, 11566, 11614,
+11680, 11692, 11696, 11697, 11701, 11833, 11924, 11925, 11926, 11927, 11928,
+11929, 11931, 11932, 11933, 11936, 11937, 11938, 11939, 11940, 11941, 11942,
+11943, 11944, 11947, 11948, 11950, 11952, 11954, 11955, 11956, 11959, 11960,
+11962, 11964, 11967, 11968, 11969, 11970, 11971, 11972, 11973, 11976, 12001,
+12003, 12004, 12005, 12006, 12007, 12008, 12009, 12010, 12090, 12779, 12780,
+12789, 13100, 13111.
+
+Pemeriksaan dependensi: 120 baris `hak` terhapus lewat `ON DELETE CASCADE`;
+`objek_pajak`, `laporan`, `peralihan`, dan `buku_c` tidak punya baris yang
+menunjuk ke-120 bidang ini (semuanya `ON DELETE SET NULL`), dan setelah hapus
+tidak ada `hak` yatim.
+
+Satu-satunya nama yang akan hilang: 6147 `HM-521D` memegang "AGUS WANTORO /
+JUMADI", sedangkan bidang tanah pasangannya 21564 hanya "JUMADI". Sebelum hapus,
+`hak` id 22863 (bidang 21564) diubah `pemegang_nama` menjadi "AGUS WANTORO /
+JUMADI" dan `catatan` ditambah "Alias pemilik dari poligon non-tanah 6147
+HM-521D: AGUS WANTORO (geometri duplikat dihapus 2026-11-07)."; perubahan itu
+punya baris audit sendiri.
+
+Hasil: total bidang **8.103 → 7.983**; non-tanah BLOK 3 `perlu_verifikasi`
+**178 → 58**; global non-tanah `perlu_verifikasi` **4.218 → 4.098** (`lain/aktif`
+tetap 1), `duplikat` tetap 24, bidang tanah tetap 3.858, baris `hak` 8.101 →
+7.981. Tidak ada `bidang` yang masih berpasangan identik di BLOK 3. Audit: 120
+baris `hapus` (id 3131–3250) + 1 baris `ubah` hak (id 3130), `pengguna_id` NULL.
+
+Uji API: lapisan `GET api/bidang.php?lapisan=bidang&maks=50000` memuat 7.957
+fitur (3.858 tanah + 4.099 non-tanah = 26 baris `duplikat`/`dihapus`
+tersembunyi); `cari=DXF-020100-0046` menjawab `jumlah: 0` karena barisnya sudah
+tidak ada; `cari=DXF-020100-0002&status=duplikat` tetap `jumlah: 1`.
+
+Cadangan penuh sebelum menulis:
+`D:\backup\sigpetades\hapus-kembar-blok3-20261107\sipetades_gedong-sebelum-hapus-kembar-20261107.sql`
+(10.873.812 byte; SHA-256 `0c842bc004df5044dc2250127c6b8ef27c98d50aadc90fe25c67d9db9f53472f`,
+tercatat di `SHA256.txt`). Uji restore ke `sipetades_restore_20261107f` cocok:
+22 objek (18 tabel + 4 view) dengan jumlah baris identik dan MD5 geometri blok
+1/2/3/5/16/18–24 sama; database uji sudah dihapus.
+
+Sisa non-tanah BLOK 3: 58 duplikat tunggal ≥95% (25.612,98 m²) yang belum
+ditandai, ditambah 6413/12136 yang 99,8% berada di BLOK 5 dan 332 titik
+(≈8.300 m²) rongga tanpa poligon sumber.
+
 ---
 
 ## 4. Berkas SPPT dari Excel
