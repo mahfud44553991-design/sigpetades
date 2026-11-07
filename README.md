@@ -3119,15 +3119,21 @@ yang sudah tidak ada.
 Sebelumnya peta dibuka pada pusat/zoom bawaan (`peta_zoom_awal`, zoom 15), lalu
 "ditimpa" oleh batas bidang yang termuat; hasil akhirnya bergantung pada
 urutan muat blok dan bidang sehingga kadang hanya sebagian desa yang tampak.
-Kini `batasSeluruhDesa()` memakai sebaran semua blok (cadangan: bidang yang
-tampil) dan `pasangkanSeluruhDesa()` dipakai bersama oleh tombol "Seluruh
-desa" dan pemuatan awal. `muatBlok` memasang tampilan seluruh desa begitu blok
-siap; `muatBidang` hanya memasang pandangan sementara ke bidang bila blok
-belum termuat, supaya pandangan tidak terkunci ke bidang saja. "Simpan
-tampilan" tetap diutamakan bila ada, dan saringan yang diterapkan tetap
+
+Kini batas desa dihitung sekali di server dari `blok.geom` (min/max koordinat
+GeoJSON semua blok) dan dikirim ke halaman lewat `sip_footer(['data' =>
+['desa' => …]])`. Skrip peta menjalankan `fitBounds` atas batas itu begitu peta
+dibuat, jadi halaman langsung terbuka pada seluruh desa tanpa menunggu API blok
+maupun bidang. `batasSeluruhDesa()`/`pasangkanSeluruhDesa()` tetap dipakai
+tombol "Seluruh desa" dan "Atur ulang"; saringan yang diterapkan tetap
 memperbesar ke hasilnya.
 
-Verifikasi DOM (Chrome, jendela 429×440): setelah muat ulang berulang,
+Pusat/zoom yang disimpan tombol "Simpan tampilan peta" **tidak lagi dipulihkan
+otomatis** saat halaman dibuka — pembukaan selalu seluruh desa. Nilai tersimpan
+itu hanya dipakai bila preset dimuat (aksi eksplisit).
+
+Verifikasi DOM (Chrome, jendela 429×440): setelah muat ulang berulang, data
+`SIP.data.desa` berisi `[110.05517154, -7.0987192, 110.08537448, -7.07381737]`,
 24/24 label blok berada di dalam peta dan skala menunjukkan 1 km; saringan
 BLOK 2 mengecil ke skala 200 m; tombol "Seluruh desa" mengembalikan 24/24.
 

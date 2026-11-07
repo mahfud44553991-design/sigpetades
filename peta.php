@@ -21,6 +21,35 @@ $blok = db_all('SELECT kode, nomor FROM blok ORDER BY nomor, kode');
 $dusun = daftar_dusun();
 $hak = daftar_jenis_hak();
 
+// Batas seluruh desa dihitung di server supaya peta langsung terbuka pada
+// seluruh desa, tanpa menunggu lapisan blok selesai dimuat lewat API.
+$batasDesa = (static function (): ?array {
+    $minX = $minY = INF;
+    $maxX = $maxY = -INF;
+    $telusuri = static function ($titik) use (&$telusuri, &$minX, &$minY, &$maxX, &$maxY): void {
+        if (!is_array($titik)) {
+            return;
+        }
+        if (isset($titik[0], $titik[1]) && is_numeric($titik[0]) && is_numeric($titik[1])) {
+            $minX = min($minX, (float) $titik[0]);
+            $minY = min($minY, (float) $titik[1]);
+            $maxX = max($maxX, (float) $titik[0]);
+            $maxY = max($maxY, (float) $titik[1]);
+            return;
+        }
+        foreach ($titik as $anak) {
+            $telusuri($anak);
+        }
+    };
+    foreach (db_all('SELECT ST_AsGeoJSON(geom) AS geojson FROM blok WHERE geom IS NOT NULL') as $baris) {
+        $geo = json_decode((string) $baris['geojson'], true);
+        if (is_array($geo) && isset($geo['coordinates'])) {
+            $telusuri($geo['coordinates']);
+        }
+    }
+    return is_finite($minX) ? [$minX, $minY, $maxX, $maxY] : null;
+})();
+
 $ringkas = db_one(
     "SELECT COUNT(*) AS total,
             COALESCE(SUM(tipe = 'tanah'), 0) AS tanah
@@ -199,7 +228,7 @@ sip_judul(
             <div class="baris-tombol jarak-atas">
                 <button class="tombol" type="button" id="simpanTampilan">Simpan tampilan peta</button>
             </div>
-            <p class="petunjuk">Pusat dan zoom disimpan setelah tombol ditekan. Pengaturan tidak mengubah data desa.</p>
+            <p class="petunjuk">Pusat dan zoom disimpan setelah tombol ditekan. Peta tetap dibuka pada tampilan seluruh desa.</p>
             <?php if ($pengguna): ?>
             <hr style="margin: 1rem 0; border: none; border-top: 1px solid var(--garis);">
             <div class="lapangan">
@@ -375,6 +404,14 @@ $naskah = <<<'JS'
     const tampil = new Map();
     let terpotong = false;
     let sudahMemusat = false;
+
+    // Peta langsung dibuka pada seluruh desa memakai batas yang sudah dihitung
+    // server; tampilan tersimpan hanya dipakai saat preset dimuat.
+    const batasAwal = SIP.data && Array.isArray(SIP.data.desa) ? SIP.data.desa : null;
+    if (batasAwal && batasAwal.length === 4) {
+        peta.fitBounds(L.latLngBounds([batasAwal[1], batasAwal[0]], [batasAwal[3], batasAwal[2]]).pad(.04));
+        sudahMemusat = true;
+    }
 
     function fiturTampil() {
         const hasil = [];
@@ -1148,10 +1185,6 @@ $naskah = <<<'JS'
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(rapikanLabelBlok);
     L.control.scale({ imperial: false, position: 'bottomleft', maxWidth: 120 }).addTo(peta);
 
-    if (setelan.tampilan && typeof setelan.tampilan.lat === 'number' && typeof setelan.tampilan.lon === 'number') {
-        peta.setView([setelan.tampilan.lat, setelan.tampilan.lon], setelan.tampilan.zoom || SIP.peta.zoom);
-        sudahMemusat = true;
-    }
     terapkanSetelan();
 
     aktifkan('blok', true);
@@ -1163,4 +1196,4 @@ $naskah = <<<'JS'
 </script>
 JS;
 
-sip_footer(['leaflet' => true, 'kaki' => $naskah]);
+sip_footer(['leaflet' => true, 'kaki' => $naskah, 'data' => ['desa' => $batasDesa]]);
