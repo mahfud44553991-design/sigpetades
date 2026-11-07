@@ -919,6 +919,61 @@ Cadangan di `D:\backup\sigpetades\blok3-luar-20261107\` (di luar repo):
 Kedua basis data uji dihapus setelah pemeriksaan. Daftar 29 bidang:
 `rencana-pindah29-20261107.tsv` di folder cadangan yang sama.
 
+### 3.8j 25 poligon rusak BLOK 8 dirapikan (7 Nov 2026)
+
+Pemeriksaan ulang BLOK 8 sesudah pemindahan di 3.8i menemukan **25 bidang**
+bercincin menyilang diri (`ST_IsSimple = 0`), semuanya berstatus `aktif` dan
+total tercatat **97.412,86 m²**. Cincinnya bukan spiral seperti `G01684` (3.8f),
+melainkan beberapa cuping yang dihubungkan garis lompatan, sehingga setiap
+bidang dipecah menurut cupingnya: **23 bidang menjadi satu `POLYGON`** (termasuk
+`G00954` setelah bagian berluas 0 dibuang) dan **2 bidang memang multi-bagian**:
+
+| bidang | bagian | luas per bagian (m²) | jarak antar-bagian |
+|---|---|---|---|
+| `DXF-020100-G00827` | 2 | 1.909,95 + 3.646,12 | 52,12 m |
+| `DXF-020100-G01156` | 3 | 300,04 + 1.912,05 + 568,33 | 28,70 m |
+
+Normalisasi dipilih dengan menggabungkan cincin apa adanya (`union`), bukan
+memecah cincin menjadi loop lalu digabung: pemecahan loop membesarkan luas 7
+bidang dan menambah bagian. Bentuk gambar dipertahankan — `ST_SymDifference`
+lama vs baru **0,000 m²** untuk 24 bidang dan **0,001 m²** untuk `G00954`;
+`ST_IsSimple = 1` untuk ke-25 bidang; **0 bidang rusak** tersisa di BLOK 8.
+`luas_m2` disesuaikan ke luas gambar (97.412,86 → **97.405,02 m²**, −7,84 m² atau
+0,008 %); `pusat_lon`/`pusat_lat` dihitung ulang dari centroid. Luas gambar
+seluruh anggota BLOK 8 tidak berubah: **414.409,14 m²** (268 anggota; total
+`luas_m2` 414.453,35 → 414.445,51 m²).
+
+Karena kolom `bidang.geom` bertipe `POLYGON`, dua bidang multi-bagian tidak bisa
+disimpan. Petugas memilih **mengubah tipe kolom menjadi `GEOMETRY`**. Uji di
+basis data klon lebih dulu: `MODIFY geom MULTIPOLYGON` ditolak
+(`ERROR 1366 Incorrect MULTIPOLYGON value`), sedangkan `MODIFY geom GEOMETRY`
+berhasil **tanpa menulis ulang 8.103 nilai** dan indeks spasial
+`spn_bidang_geom` tetap. Sesudah perubahan: **8.101 `POLYGON` + 2
+`MULTIPOLYGON`**; `sql/01_skema.sql` ikut disesuaikan. Audit **#2945** mencatat
+perubahan kolom (`objek='basis_data'`, `objek_id='bidang.geom'`) dan audit
+**#2946–#2970** mencatat 25 bidang satu per satu. Uji asap
+`api/bidang.php?lapisan=bidang`: HTTP 200, 6.000 fitur (batas bawaan), tipe
+`Polygon` dan `MultiPolygon`.
+
+Kedua bidang multi-bagian masih tercatat sebagai **kandidat duplikat** pada
+`catatan` bawaannya dan tiap cupingnya menumpang bidang lain; penanganan
+duplikat itu di luar perbaikan geometri ini. Di blok lain masih ada **317 bidang
+rusak** yang belum disentuh (terbanyak BLOK 25 = 36, BLOK 2 = 35, BLOK 13 = 29,
+BLOK 9 = 26).
+
+Cadangan di `D:\backup\sigpetades\poligon-b8-20261107\` (di luar repo):
+
+| berkas | waktu | ukuran | SHA-256 | uji restore |
+|---|---|---|---|---|
+| `sebelum-perbaiki-poligon-b8-20261107.sql` | 7 Nov 2026 11:46 | 9.458.010 byte | `e26e0a0bd3f97fd3b59fb7303105416414936a8d286cbc5318a3142d81e44b3d` | `uji_poligon_b8_20261107`: 8.103 bidang, 8.102 hak, 24 blok, 3.794 SPPT, audit #2944, BLOK 8 rusak 25; `ST_Equals` seluruh bidang & blok = 1 |
+| `sesudah-perbaiki-poligon-b8-20261107.sql` | 7 Nov 2026 12:00 | 9.488.306 byte | `19d971cb0b0cb37e14a864a177b904a93cb681082bea9e25994ffad8c6d633a6` | `uji_poligon_b8_after_20261107`: 21 tabel, angka sama, audit #2970, BLOK 8 rusak 0, 2 `MULTIPOLYGON` + 8.101 `POLYGON`, 25 WKT identik dengan live |
+
+Kedua basis data uji dihapus. Rollback geometri:
+`storage\perbaiki-poligon-b8-20261107.json` (25 baris: WKT sebelum/sesudah,
+luas, pusat, tipe). Urutan rollback: kembalikan 25 geometri dulu, baru
+`ALTER TABLE bidang MODIFY geom POLYGON NOT NULL`. Rencana per bidang:
+`rencana-perbaiki25-20261107.tsv` di folder cadangan yang sama.
+
 ### 3.9 Bidang kembar (status duplikat)
 
 Sebagian bidang tercatat lebih dari satu kali dengan **poligon yang persis sama**.
