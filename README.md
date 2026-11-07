@@ -394,10 +394,11 @@ pada 14:23**, sehingga **seluruh 24 blok** kini `batas_perkiraan = 0`.
 **BLOK 2** masih berupa gabungan persis bidang anggotanya
 (`sumber_perkiraan = gabungan bidang anggota`). BLOK 8 awalnya sama, lalu
 batas geometrinya **dikosongkan** 7 Nov 2026 (`geom = NULL`, 3.8k) dan
-**dibuat ulang sebagai batas perkiraan** pukul 12:24 (3.8l), lalu lubang
-1.558,48 m² di dalamnya **ditutup** pukul 12:37 (3.8m), sehingga kembali
-**24 blok** bergeometri dan BLOK 8 kini satu-satunya blok
-`batas_perkiraan = 1`. Anggota BLOK 8 **272 bidang** setelah `G01129`
+**dibuat ulang sebagai batas perkiraan** pukul 12:24 (3.8l), lubang
+1.558,48 m² di dalamnya **ditutup** pukul 12:37 (3.8m), lalu batas itu
+**ditetapkan sebagai batas blok tersedia** pukul 13:18 (3.8o). Kini **24
+blok** bergeometri dan **seluruhnya** `batas_tersedia = 1` /
+`batas_perkiraan = 0`. Anggota BLOK 8 **272 bidang** setelah `G01129`
 dipindahkan dari BLOK 9 (3.8n).
 
 Alasan penyaringannya: garis luar hanya dipasang pada blok yang bidangnya ikut
@@ -1106,7 +1107,8 @@ anggota tetap di dalam, dan lubang lama kini terkurung penuh
 Audit **#2977**; rollback `storage\lubang-b8-20261107.json` (WKT lama + SQL
 pembatalan). Uji asap `api/bidang.php?lapisan=blok`: HTTP 200, **24 fitur**,
 BLOK 08 `MultiPolygon` dengan `batas_perkiraan=true`, `batas_tersedia=false`,
-`estimasi_bidang=271` (kini 272 setelah 3.8n). Anggota **271 bidang / 159 objek pajak** dan total
+`estimasi_bidang=271` (kini 272 setelah 3.8n, lalu dikosongkan saat batas
+ditetapkan di 3.8o). Anggota **271 bidang / 159 objek pajak** dan total
 **8.103 bidang / 8.102 hak / 24 blok / 3.794 objek pajak** tidak berubah.
 
 Cadangan di `D:\backup\sigpetades\lubang-b8-20261107\` (di luar repo):
@@ -1161,6 +1163,45 @@ Cadangan di `D:\backup\sigpetades\bidang-blok8-20261107\` (di luar repo):
 (diuji restore: audit #2979, `blok_id=19`, estimasi 272, 272/365 anggota);
 kedua DB uji dihapus. SQL pembatalan ada di `rollback-g01129.json` pada folder
 yang sama.
+
+### 3.8o Batas BLOK 8 ditetapkan sebagai batas tersedia (7 Nov 2026)
+
+Perintah petugas **"tetapkan blok 08"** dijalankan pukul 13:18, mengikuti
+konvensi yang dipakai BLOK 19/21/22: flag dibalik **dan** kolom estimasi
+dibersihkan, bukan hanya membalik penanda. Prasyarat diukur lebih dulu:
+geometri **1 bagian, 0 lubang**, `ST_IsSimple = 1`, 266.074,13 m²,
+**0 m² tumpang** dengan 23 blok lain, dan **272/272 anggota ≥99 % di dalam**
+(semua pusat bidang di dalam). Transaksi:
+
+```sql
+UPDATE blok
+   SET batas_tersedia = 1, batas_perkiraan = 0,
+       jumlah_bidang_estimasi = NULL, maks_jarak_estimasi_m = NULL,
+       sumber_perkiraan = 'gabungan bidang anggota + penyangga 15 m; ditetapkan',
+       diubah_pada = NOW()
+ WHERE id = 19 AND kode = 'BLOK 8'
+   AND batas_tersedia = 0 AND batas_perkiraan = 1;
+```
+
+Geometri **tidak disentuh** (MD5 WKT tetap
+`91e8a2880407d4ff22c957a40b3dfe42`, 266.074,13 m²); `sumber_perkiraan`
+52 karakter. Audit **#2980**. Hasil: **24/24 blok** `batas_tersedia = 1`,
+`SUM(batas_perkiraan) = 0`; uji asap `api/bidang.php?lapisan=blok` HTTP 200,
+**24 fitur**, BLOK 08 `batas_tersedia=true`, `batas_perkiraan=false`,
+`estimasi_bidang=null` — jadi garisnya tampil penuh (tidak putus-putus) dan
+legenda "Batas ukur tersedia" berlaku. Catatan penting: garis yang ditetapkan
+tetap hasil **selubung 15 m dipotong blok resmi**, bukan garis ukur dari DXF;
+penetapan ini administratif dan tidak mengubah bentuk.
+
+Cadangan di `D:\backup\sigpetades\batas-tersedia-b8-20261107\` (di luar repo):
+`sebelum-tetapkan-b8-20261107.sql` 9.526.779 byte, SHA-256
+`fefa2b2ba3407dc0ab15777fbcfd14ddb55274f3f3de936e34baa76e85a38aa1`
+(diuji restore: flag `0/1`, estimasi 272, audit #2979) dan
+`sesudah-tetapkan-b8-20261107.sql` 9.527.454 byte, SHA-256
+`81ef402b5a94949143911b22a17bc0d69070b8243acd93c6337c55a72da36dc0`
+(diuji restore: flag `1/0`, estimasi NULL, audit #2980, 24 tersedia / 0
+perkiraan); kedua DB uji dihapus. SQL pembatalan ada di
+`rollback-tetapkan-b8.json`.
 
 ### 3.9 Bidang kembar (status duplikat)
 
