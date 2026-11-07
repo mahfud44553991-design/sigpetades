@@ -24,10 +24,10 @@ USE `sipetades_gedong`;
 -- ----------------------------------------------------------------------------
 -- 1. TABEL HAPUS DULU (urut terbalik supaya foreign key tidak mengganggu)
 -- ----------------------------------------------------------------------------
-DROP TABLE IF EXISTS `audit_log`, `pembayaran`, `sppt`, `objek_pajak`,
-  `laporan`, `peralihan`, `buku_c`, `hak`, `pemegang`, `bidang`, `blok`,
-  `dusun`, `jenis_hak`, `jenis_peralihan`, `jenis_penggunaan`, `setelan`,
-  `pengguna`;
+DROP TABLE IF EXISTS `audit_log`, `preset_peta`, `pembayaran`, `sppt`,
+  `objek_pajak`, `laporan`, `peralihan`, `buku_c`, `hak`, `pemegang`,
+  `bidang`, `blok`, `dusun`, `jenis_hak`, `jenis_peralihan`,
+  `jenis_penggunaan`, `setelan`, `pengguna`;
 
 -- ----------------------------------------------------------------------------
 -- 2. PENGGUNA & HAK AKSES
@@ -119,6 +119,21 @@ CREATE TABLE `setelan` (
                             ON UPDATE current_timestamp(),
   PRIMARY KEY (`kunci`),
   CONSTRAINT `fk_setelan_pengguna` FOREIGN KEY (`diubah_oleh`)
+    REFERENCES `pengguna` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `preset_peta` (
+  `id`          int(11) NOT NULL AUTO_INCREMENT,
+  `nama`        varchar(120) NOT NULL,
+  `data_json`   json NOT NULL,
+  `dibuat_oleh` int(11) DEFAULT NULL,
+  `dibuat_pada` timestamp NOT NULL DEFAULT current_timestamp(),
+  `diubah_pada` timestamp NOT NULL DEFAULT current_timestamp()
+                          ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_preset_nama` (`nama`),
+  KEY `idx_preset_pembuat` (`dibuat_oleh`),
+  CONSTRAINT `fk_preset_pengguna` FOREIGN KEY (`dibuat_oleh`)
     REFERENCES `pengguna` (`id`) ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

@@ -75,7 +75,7 @@ SIG_DB_HOST  SIG_DB_PORT  SIG_DB_NAME  SIG_DB_USER  SIG_DB_PASSWORD
 D:\xampp\mysql\bin\mysql.exe -u root < sql\01_skema.sql
 ```
 
-`01_skema.sql` membuat database `sipetades_gedong` lalu membangun 17 tabel beserta
+`01_skema.sql` membuat database `sipetades_gedong` lalu membangun 18 tabel beserta
 data acuan (dusun, jenis hak, jenis penggunaan, jenis peralihan, setelan desa).
 Akun Super Admin dibuat terpisah sesudahnya — lewat `setup.php` atau
 `02_akun_awal.sql`; lihat 3.5.
@@ -3385,6 +3385,33 @@ berisi 17 `path` + 2 label "KALI SARI"; pada zoom 16 kelas
 `peta-dekat-sungai` aktif dan kedua label tampil. Tidak ada perubahan basis
 data.
 
+### 3.36 API preset peta: tabel `preset_peta` dipasang (7 Nov 2026)
+
+Keluhan "galat `api/preset.php` 500" ternyata bukan kesalahan kode: tabel
+`preset_peta` yang dipakai endpoint itu tidak pernah ada — baik di basis data
+`sipetades_gedong` maupun di `sql/01_skema.sql` — sehingga setiap GET dan POST
+berakhir di blok `catch` dan dijawab 500. Tabel kini dibuat lewat migrasi
+idempoten `sql/03_preset_peta.sql` dan ikut didefinisikan di `sql/01_skema.sql`
+(kini **18 tabel**).
+
+Kolom: `id`, `nama` varchar(120), `data_json` json, `dibuat_oleh` (FK ke
+`pengguna`, `ON DELETE SET NULL`), `dibuat_pada`, `diubah_pada`. Tidak ada data
+peta yang berubah; satu-satunya perubahan data adalah tabel baru yang kosong.
+
+Sebelumnya basis data dicadangkan penuh ke
+`D:\backup\sigpetades\preset-peta-20261107\sipetades_gedong-sebelum-preset-20261107.sql`
+(10,8 MB; SHA-256 `c9b1c61bab27b6dfa490b0752ad0099585bc4a6e0b621f763ef63a0995255211`,
+tercatat juga di `SHA256.txt`). Uji restore ke database sementara
+`sipetades_gedong_uji_20261107` cocok: 21 objek (17 tabel + 4 view) dengan
+jumlah baris tabel kunci identik; database uji sudah dihapus.
+
+Verifikasi browser (sesi masuk): `GET api/preset.php` menjawab 200
+`{"preset":[]}`; "Simpan ke database" menulis satu baris (pembuat id 1);
+muat ulang halaman menampilkan preset pada daftar; "Muat" menjawab
+`Preset "Uji preset 7 Nov" dimuat.`; "Hapus" mengosongkan tabel dan daftar
+kembali ke `— pilih preset —`. Tidak ada pesan galat di konsol. POST tanpa sesi
+tetap 401 seperti mestinya. Baris uji sudah dihapus, tabel kembali kosong.
+
 ---
 
 ## 4. Berkas SPPT dari Excel
@@ -3442,12 +3469,13 @@ terbuka jaringan.
 app/            bootstrap, config, db, auth+CSRF, helper, layout, query data
   data.php      satu-satunya tempat SQL pembacaan (dipakai halaman dan API)
   lib-pengaturan.php  mesin kartu Pengaturan: mysqldump/mysql, ekspor-impor JSON, kosongkan
-api/            endpoint JSON (bidang, sppt, buku-c, laporan, statistik, peta-lama)
+api/            endpoint JSON (bidang, sppt, buku-c, laporan, statistik, preset, peta-lama)
 assets/css/     app.css — seluruh gaya, tanpa framework
 assets/img/     beranda-latar.jpg — latar foto beranda (1600 px, 178 KB)
                 masuk-latar.jpg — pita bawah Gambar Antarmuka.png, latar halaman masuk (1672 px, 144 KB)
 assets/js/      app.js — helper `Sip.*`, modal, tab, konfirmasi formulir
-sql/            01_skema.sql (struktur + data acuan), 02_akun_awal.sql (Super Admin pertama, tanpa sandi bawaan)
+sql/            01_skema.sql (struktur + data acuan), 02_akun_awal.sql (Super Admin pertama, tanpa sandi bawaan),
+                03_preset_peta.sql (migrasi tabel preset peta untuk basis data yang sudah berjalan)
 tools/          impor.php (CLI: impor + gabung blok), lib-impor.php (pustaka impor),
                 ekspor.php (laporan lengkap CSV),
                 fit-transform-dxf.php (turunkan ulang transformasi DXF),
@@ -3633,3 +3661,7 @@ benar di halaman pengaturan.
 **Tautan PDF Buku C memberi 404.** Berkas harus bernama persis
 `<nomor>.pdf` di folder arsip, karena `nomor` Buku C sekaligus dipakai sebagai
 nama berkas dan tidak boleh diubah dari halaman web.
+
+**`api/preset.php` menjawab 500.** Tabel `preset_peta` belum ada. Jalankan
+`D:\xampp\mysql\bin\mysql.exe -u root sipetades_gedong < sql\03_preset_peta.sql`
+(aman diulang; hanya membuat tabel itu, tidak menyentuh tabel lain).
