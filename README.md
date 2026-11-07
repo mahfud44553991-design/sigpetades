@@ -394,7 +394,8 @@ pada 14:23**, sehingga **seluruh 24 blok** kini `batas_perkiraan = 0`.
 **BLOK 2** masih berupa gabungan persis bidang anggotanya
 (`sumber_perkiraan = gabungan bidang anggota`). BLOK 8 awalnya sama, lalu
 batas geometrinya **dikosongkan** 7 Nov 2026 (`geom = NULL`, 3.8k) dan
-**dibuat ulang sebagai batas perkiraan** pukul 12:24 (3.8l), sehingga kembali
+**dibuat ulang sebagai batas perkiraan** pukul 12:24 (3.8l), lalu lubang
+1.558,48 m² di dalamnya **ditutup** pukul 12:37 (3.8m), sehingga kembali
 **24 blok** bergeometri dan BLOK 8 kini satu-satunya blok
 `batas_perkiraan = 1`.
 
@@ -1043,7 +1044,8 @@ anggota. Catatan: `ST_NumInteriorRings` pada `MULTIPOLYGON` mengembalikan `NULL`
 di MariaDB 10.4, jadi angka lubang diukur lewat
 `ST_NumInteriorRings(ST_GeometryN(geom,1))` — hitungan awal "0 lubang" keliru.
 **238 bidang** utuh di dalam; **11 bidang** terpotong 0,57–3,52 m² (total
-**21,05 m²**); 22 sisanya terpotong di bawah 0,5 m²; **0 pusat bidang** di luar.
+**21,05 m²**); 22 sisanya terpotong di bawah 0,5 m²; **0 pusat bidang** di luar. Lubang tersebut kemudian **ditutup**
+pukul 12:37 atas permintaan petugas (3.8m).
 
 Dua bentuk lain diukur dan tidak dipakai:
 
@@ -1060,7 +1062,8 @@ Audit **#2976**; rollback `storage\batas-kira-blok8-20261107.json` (isi
 `geom = NULL` dan penanda resmi lama `batas_tersedia=1`, `batas_perkiraan=0`,
 `sumber_perkiraan='Pengesahan resmi dikonfirmasi pengguna'`, estimasi `NULL`).
 Pratinjau ketiga kandidat: `storage\pratinjau-batas-kira-b8-20261107.png`;
-panel biru versi besar (1200×2009): `storage\pratinjau-batas-kira-b8-biru-20261107.png`.
+panel biru versi besar (1200×2009): `storage\pratinjau-batas-kira-b8-biru-20261107.png`
+(dirender ulang sesudah lubang ditutup, 3.8m).
 
 Uji asap `api/bidang.php?lapisan=blok`: HTTP 200, **24 fitur**, BLOK 08
 `batas_perkiraan=true`, `batas_tersedia=false`, `estimasi_bidang=271`,
@@ -1074,6 +1077,47 @@ diuji restore ke `uji_batas_kira_b8_20261107` (angka sama, audit #2976, luas
 264.515,65 m², 1 bagian + 1 lubang, penanda perkiraan) lalu DB uji dihapus. Keadaan
 sebelum perubahan ini adalah dump `sesudah-kosongkan-geom-blok8-20261107.sql`
 di folder 3.8k yang sudah diuji restore.
+
+### 3.8m Lubang BLOK 8 ditutup (7 Nov 2026)
+
+Petugas meminta **"tutup lubang 1.558,48 m² di BLOK 8"** sesudah lubang itu
+terlihat pada pratinjau 3.8l. Lubangnya bukan milik blok lain (irisan dengan
+ke-23 blok = 0 m²), jadi penutupannya tidak menambah tumpang dengan blok mana pun.
+Caranya: cincin luar bagian satu-satunya dipakai apa adanya, cincin dalam
+dibuang, hasilnya tetap `MultiPolygon` satu bagian —
+
+```sql
+UPDATE blok
+   SET geom = ST_GeomFromText(CONCAT('MULTIPOLYGON((', SUBSTRING(
+                ST_AsText(ST_ExteriorRing(ST_GeometryN(geom,1))),11), '))'),4326),
+       diubah_pada = NOW()
+ WHERE id = 19 AND kode = 'BLOK 8';
+```
+
+Hasilnya **266.074,13 m²** (264.515,65 + 1.558,48), **1 bagian, 0 lubang**,
+`ST_IsSimple = 1`, WKT 6.135 karakter, MD5 WKT `91e8a2880407d4ff22c957a40b3dfe42`.
+Cincin luarnya **tidak berubah** (MD5 `4aab5f894ace230d880e4ecc967bb87f` sama
+sebelum dan sesudah), **0 m² tumpang** dengan 23 blok, **271 pusat bidang**
+anggota tetap di dalam, dan lubang lama kini terkurung penuh
+(`ST_Contains(geom, lubang_lama) = 1`). Penanda perkiraan
+(`batas_tersedia=0`, `batas_perkiraan=1`, `jumlah_bidang_estimasi=271`,
+`maks_jarak_estimasi_m=15`) dan `sumber_perkiraan` dibiarkan seperti 3.8l.
+Audit **#2977**; rollback `storage\lubang-b8-20261107.json` (WKT lama + SQL
+pembatalan). Uji asap `api/bidang.php?lapisan=blok`: HTTP 200, **24 fitur**,
+BLOK 08 `MultiPolygon` dengan `batas_perkiraan=true`, `batas_tersedia=false`,
+`estimasi_bidang=271`. Anggota **271 bidang / 159 objek pajak** dan total
+**8.103 bidang / 8.102 hak / 24 blok / 3.794 objek pajak** tidak berubah.
+
+Cadangan di `D:\backup\sigpetades\lubang-b8-20261107\` (di luar repo):
+`sebelum-tutup-lubang-20261107.sql` 9.511.698 byte, SHA-256
+`78420e5eed1e7737b79968fb7982510732a236825e18ef2fc0d07415d9bebe56`
+(diuji restore ke `uji_lubang_b8_20261107`: audit #2976, 264.515,65 m²,
+1 lubang) dan `sesudah-tutup-lubang-20261107.sql` 9.526.250 byte, SHA-256
+`1b70cb3c608fafd433004f91a6687841a99322632e50e82385fd90ee7e84372a`
+(diuji restore ke `uji_lubang_b8_after_20261107`: audit #2977, 266.074,13 m²,
+0 lubang, 271 anggota); kedua DB uji dihapus. Pratinjau panel biru besar
+`storage\pratinjau-batas-kira-b8-biru-20261107.png` sudah dirender ulang tanpa
+lubang; pratinjau tiga kandidat tetap arsip keputusan 3.8l.
 
 ### 3.9 Bidang kembar (status duplikat)
 
