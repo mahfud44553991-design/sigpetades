@@ -397,7 +397,8 @@ batas geometrinya **dikosongkan** 7 Nov 2026 (`geom = NULL`, 3.8k) dan
 **dibuat ulang sebagai batas perkiraan** pukul 12:24 (3.8l), lalu lubang
 1.558,48 m² di dalamnya **ditutup** pukul 12:37 (3.8m), sehingga kembali
 **24 blok** bergeometri dan BLOK 8 kini satu-satunya blok
-`batas_perkiraan = 1`.
+`batas_perkiraan = 1`. Anggota BLOK 8 **272 bidang** setelah `G01129`
+dipindahkan dari BLOK 9 (3.8n).
 
 Alasan penyaringannya: garis luar hanya dipasang pada blok yang bidangnya ikut
 tertutup ≥80 %. BLOK 2 tidak dipasang karena garis luar yang cocok ke blok itu
@@ -1105,7 +1106,7 @@ anggota tetap di dalam, dan lubang lama kini terkurung penuh
 Audit **#2977**; rollback `storage\lubang-b8-20261107.json` (WKT lama + SQL
 pembatalan). Uji asap `api/bidang.php?lapisan=blok`: HTTP 200, **24 fitur**,
 BLOK 08 `MultiPolygon` dengan `batas_perkiraan=true`, `batas_tersedia=false`,
-`estimasi_bidang=271`. Anggota **271 bidang / 159 objek pajak** dan total
+`estimasi_bidang=271` (kini 272 setelah 3.8n). Anggota **271 bidang / 159 objek pajak** dan total
 **8.103 bidang / 8.102 hak / 24 blok / 3.794 objek pajak** tidak berubah.
 
 Cadangan di `D:\backup\sigpetades\lubang-b8-20261107\` (di luar repo):
@@ -1118,6 +1119,48 @@ Cadangan di `D:\backup\sigpetades\lubang-b8-20261107\` (di luar repo):
 0 lubang, 271 anggota); kedua DB uji dihapus. Pratinjau panel biru besar
 `storage\pratinjau-batas-kira-b8-biru-20261107.png` sudah dirender ulang tanpa
 lubang; pratinjau tiga kandidat tetap arsip keputusan 3.8l.
+
+### 3.8n DXF-020100-G01129 dipindahkan ke BLOK 8 (7 Nov 2026)
+
+Petugas melaporkan empat bidang "belum masuk" BLOK 8:
+`DXF-020100-G01176`, `HM-0486`, `DXF-020100-G03307`, dan `DXF-020100-G01129`.
+Pengukuran menunjukkan keempatnya memang berada di dalam geometri BLOK 8
+(99,47–100 % luas), tetapi **tiga sudah menjadi anggota** — `G01176` (id 21886,
+389,21 m²), `G03307` (id 22853, 2.113,32 m²), dan `HM-0486` (id 20104, status
+`perlu_verifikasi`, 2.723,15 m²). Hanya **`G01129` (id 21864, `aktif`)** yang
+masih tercatat BLOK 9 (id 6): 408,85 dari 411,03 m² (**99,47 %**) di dalam BLOK 8,
+sedangkan di batas resmi BLOK 9 hanya **0,99 m²**; tidak ada blok lain yang
+beririsan. Daftar/peta BLOK 8 karena itu memuat tiga bidang itu tetapi tidak
+G01129 (lapisan tanah 137 bidang).
+
+Atas izin tertulis pengguna, `blok_id` dipindah dan penghitung estimasi
+diselaraskan dalam satu transaksi:
+
+```sql
+UPDATE bidang SET blok_id = 19, diubah_pada = NOW()
+ WHERE id = 21864 AND kode = 'DXF-020100-G01129' AND blok_id = 6;
+UPDATE blok SET jumlah_bidang_estimasi = 272, diubah_pada = NOW()
+ WHERE id = 19 AND jumlah_bidang_estimasi = 271;
+```
+
+Audit **#2978** (bidang 21864) dan **#2979** (blok 19). Anggota BLOK 8
+**271 → 272**, BLOK 9 **366 → 365**; geometri BLOK 8 tidak disentuh
+(MD5 WKT tetap `91e8a2880407d4ff22c957a40b3dfe42`). Uji API
+`api/bidang.php?lapisan=bidang&blok=BLOK 8`: lapisan `tanah` **137 → 138**
+(memuat G01129 dengan `blok = "BLOK 8"`, `terpotong=false`), lapisan `lain`
+tetap 134. Sisa 22 bidang lain yang pusatnya di dalam BLOK 8 tetap bukan
+anggota (21 berstatus `perlu_verifikasi` dan `DXF-020100-G00819` yang hanya
+48,57 % di dalam) — belum dipindah sesuai keputusan pengguna.
+
+Cadangan di `D:\backup\sigpetades\bidang-blok8-20261107\` (di luar repo):
+`sebelum-pindah-g01129-20261107.sql` 9.526.250 byte, SHA-256
+`d9993356ba9156d746dd1f7e8341f989dbb94300bb3d2c78f4f0b28c7608b94b`
+(diuji restore: audit #2977, 271 anggota B8, 366 anggota B9) dan
+`sesudah-pindah-g01129-20261107.sql` 9.526.779 byte, SHA-256
+`6b5d8b95fa7286b6ed921f49a00779836a737bba8e8733035bfca81b59f80355`
+(diuji restore: audit #2979, `blok_id=19`, estimasi 272, 272/365 anggota);
+kedua DB uji dihapus. SQL pembatalan ada di `rollback-g01129.json` pada folder
+yang sama.
 
 ### 3.9 Bidang kembar (status duplikat)
 
