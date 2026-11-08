@@ -3664,6 +3664,50 @@ Sisa non-tanah BLOK 3: 58 duplikat tunggal ≥95% (25.612,98 m²) yang belum
 ditandai, ditambah 6413/12136 yang 99,8% berada di BLOK 5 dan 332 titik
 (≈8.300 m²) rongga tanpa poligon sumber.
 
+### 3.43 Dua puluh satu geometri unik BLOK 8 dijadikan bidang tanah (8 Nov 2026)
+
+Audit BLOK 8 (blok id 19, 267.275,88 m², `batas_tersedia=1`) menemukan 272
+bidang: 138 tanah (85 aktif + 53 perlu) dan 134 non-tanah (133 perlu + 1 aktif).
+Tanah kotor 227.266,23 m² dengan 12 pasang tumpang tindih 17.760,63 m² (cakupan
+unik ≈209.505 m² = 78,4%). Grid 5 m: 10.699 titik di dalam blok; 8.435 (78,8%)
+tertutup tanah, 1.536 (≈38.400 m²) hanya non-tanah, dan 728 (≈18.200 m²)
+kosong tanpa poligon.
+
+Dari 134 non-tanah: 105 (36 BLM + 69 HM, 140.048,93 m²) tertutup tanah ≥95%;
+29 kandidat rongga (9 BLM + 20 HM, 53.736,38 m²); di antaranya 8 BLM kembar
+persis dari HM (`ST_Equals=1`, MD5 sama). Atas permintaan pengguna, 21 geometri
+unik (20 HM + 12105 BLM, 38.122,06 m²) diubah `tipe='lain'` → `'tanah'`,
+`blok_id` tetap 19, `status` tetap, dan `catatan` ditambah "Dikonversi dari
+non-tanah ke bidang tanah BLOK 8 pada 8 Nov 2026." Id: 6369, 6373, 6380, 6389,
+6392, 6393, 6395, 6396, 6398, 6752, 7458, 7460, 7461, 7481, 7485, 7494, 7498,
+7500, 8033, 10050, 12105. Tidak ada geometri, luas, hak, NOP, atau SPPT yang
+berubah. 10050 `DXF-020100-2949` adalah satu-satunya baris non-tanah `aktif`
+(yang lain `perlu_verifikasi`), sehingga setelah konversi menjadi tanah `aktif`.
+
+Hasil: bidang tanah BLOK 8 **138 → 159**, non-tanah **134 → 113** (44 BLM + 69
+HM); global bidang tanah **3.858 → 3.879** (aktif 3.247 → 3.248, perlu 611 →
+631), non-tanah perlu **4.218 → 4.078**, non-tanah aktif 1 → 0, `duplikat` tetap
+24, total baris tetap 7.983. Audit: 21 baris `ubah` (id 3252–3272),
+`pengguna_id` NULL.
+
+Uji API: lapisan penuh `GET api/bidang.php?lapisan=bidang&maks=50000` memuat
+7.957 fitur (3.879 tanah + 4.078 non-tanah); `blok=BLOK 8` memuat 272 fitur
+(159 tanah + 113 non-tanah); `cari=DXF-020100-0855` menjawab `jumlah: 1`,
+`tipe=tanah`, `blok=BLOK 8`.
+
+Cadangan penuh sebelum menulis:
+`D:\backup\sigpetades\konversi-blok8-20261108\sipetades_gedong-sebelum-konversi-blok8-20261108.sql`
+(10.837.807 byte; SHA-256 `1a1381c8b81e0e4e6b79589453025f071e0a6d231dbb1d861ed3d4fde16d3d99`,
+tercatat di `SHA256.txt`). Uji restore ke `sipetades_restore_20261108a` cocok:
+22 objek (18 tabel + 4 view) dengan jumlah baris identik dan MD5 geometri blok
+1/2/3/5/6/18–24 sama; database uji sudah dihapus.
+
+Belum ditangani: 8 BLM kandidat kembar (12117, 12119, 12102, 12122, 12121,
+12124, 12109, 12120; 15.614,30 m²) yang sekarang identik dengan bidang tanah
+baru; 105 duplikat ≥95% (36 BLM + 69 HM); 6376 `HM-951D K3` (BLOK 6, 895,02 m²)
+tetap non-tanah padahal 12105 kembarnya kini tanah; 8034 `DXF-020100-2520`
+(BLOK 6, 268,72 m²) di rongga; serta ±18.200 m² rongga tanpa poligon sumber.
+
 ---
 
 ## 4. Berkas SPPT dari Excel
