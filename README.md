@@ -3742,6 +3742,65 @@ Sisa BLOK 8: 105 duplikat ≥95% (36 BLM + 69 HM) belum ditandai; 6376
 `HM-951D K3` (BLOK 6) dan 8034 `DXF-020100-2520` (BLOK 6) di rongga; ±18.200 m²
 rongga tanpa poligon sumber.
 
+### 3.45 Seratus lima duplikat ≥95% BLOK 8 dihapus setelah lima nama digabung (8 Nov 2026)
+
+Atas permintaan pengguna "hapus seluruh 105 baris setelah gabungkan 5 nama unik
+ke bidang 17895", 105 baris non-tanah BLOK 8 dengan cakupan bidang tanah ≥95%
+dihapus fisik (`DELETE FROM bidang`), bukan ditandai. Syarat yang dipenuhi:
+setiap baris `status='perlu_verifikasi'`, `tipe='lain'`, `blok_id=19`, dan luas
+tertutup ≥95% (rentang 99,21–199,94%; penjumlahan irisan dapat melebihi 100%
+bila beberapa bidang tanah saling tumpang tindih). Dependensi hanya 105 baris
+`hak` (`ON DELETE CASCADE`); `objek_pajak`, `buku_c`, `laporan`, dan `peralihan`
+nol baris (`ON DELETE SET NULL`). Komposisi: 36 BLM (47.980,00 m²) + 69 HM
+(91.458,17 m²), total 140.048,92 m². Id: 5518, 6195, 6196, 6197, 6198, 6199,
+6200, 6201, 6374, 6377, 6378, 6379, 6381, 6382, 6383, 6384, 6385, 6386, 6387,
+6388, 6390, 6391, 6394, 6397, 6399, 6400, 6549, 6550, 6556, 6558, 6559, 6560,
+7405, 7459, 7462, 7463, 7464, 7465, 7466, 7467, 7468, 7469, 7470, 7471, 7472,
+7473, 7474, 7475, 7476, 7477, 7478, 7479, 7480, 7482, 7483, 7484, 7486, 7487,
+7488, 7489, 7490, 7491, 7492, 7493, 7495, 7496, 7497, 7499, 8445, 11993, 11994,
+11995, 11996, 11997, 11998, 11999, 12101, 12103, 12104, 12106, 12107, 12108,
+12110, 12111, 12112, 12113, 12114, 12115, 12116, 12118, 12123, 12125, 12205,
+12236, 12237, 12238, 12239, 12240, 12241, 12242, 12243, 12245, 12246, 12247,
+12783.
+
+Struktur: 28 pasang kembar persis sesama non-tanah (56 baris; 28 HM bernama ↔
+28 BLM DXF tanpa nama), satu baris (8445 HM SUTRISNO) kembar persis bidang tanah
+22738 `DXF-020100-G03135`, sisanya duplikat dekat ≥95%. Dari 69 HM, 66 bernama
+dan 3 tanpa nama (6383, 6391, 7497).
+
+Lima nama hanya ada di baris yang dihapus dan menutup bidang tanah 17895
+`DXF-020100-G00479` yang pemegangnya kosong: SUPARIYEM (7469), SUBUR (7476),
+SARJO SARMIIN (7477), PUJIONO (7479), ADMO SUPAT (7490). Sebelum hapus, `hak`
+id 19194 (bidang 17895) diubah `pemegang_nama` NULL → "SUPARIYEM / SUBUR /
+SARJO SARMIIN / PUJIONO / ADMO SUPAT" dan `catatan` ditambah alias kelima
+poligon; perubahan itu punya baris audit sendiri (id 3298). Empat nama lain
+(SUPARI, SUPIYAH, RUKIYAH, MISRO) sudah ada di bidang BLOK 8 lain sehingga
+tidak digabung.
+
+Hasil: total bidang **7.983 → 7.878**; baris `hak` **7.981 → 7.876**; global
+non-tanah `perlu_verifikasi` **4.070 → 3.965**, `duplikat` tetap 32; bidang
+tanah tetap 3.879 (3.248 aktif + 631 perlu). BLOK 8 kini 159 tanah + 8
+`duplikat` = 167 baris, tanpa non-tanah `perlu_verifikasi`. Audit: 105 baris
+`hapus` (id 3299–3403) + 1 baris `ubah` hak (id 3298), `pengguna_id` NULL;
+tidak ada `hak` yatim dan tidak ada lagi baris non-tanah BLOK 8 dengan cakupan
+≥95%.
+
+Uji API: lapisan penuh memuat 7.844 fitur (3.879 tanah + 3.965 non-tanah = 34
+baris `duplikat`/`dihapus` tersembunyi); `cari=DXF-020100-1973` menjawab
+`jumlah: 0`; `cari=DXF-020100-0859&status=duplikat` tetap `jumlah: 1`.
+
+Cadangan penuh sebelum menulis:
+`D:\backup\sigpetades\tandai-duplikat-105-blok8-20261108\sipetades_gedong-20261108.sql`
+(10.859.245 byte; SHA-256 `a94443cd0d37ad8014e9be05ec130689719952452720104abef81633d3c7ef53`,
+tercatat di `SHA256.txt`). Uji restore ke `sipetades_restore_20261108c` cocok:
+22 objek (18 tabel + 4 view) dengan jumlah baris identik dan MD5 geometri per
+blok sama; database uji sudah dihapus. Dump sesudah:
+`sipetades_gedong-20261108-sesudah.sql` (10.829.595 byte; SHA-256
+`d664c4736ea6167a07151e9c9f699bbdc6004acb355c471169a3223886afb3f2`).
+
+Sisa BLOK 8: 6376 `HM-951D K3` (BLOK 6) dan 8034 `DXF-020100-2520` (BLOK 6)
+di rongga; ±18.200 m² rongga tanpa poligon sumber.
+
 ---
 
 ## 4. Berkas SPPT dari Excel
