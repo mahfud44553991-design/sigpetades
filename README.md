@@ -3851,6 +3851,39 @@ restore ke `sipetades_restore_calon_20261108` — jumlah `bidang`, `hak`, `blok`
 Dump sesudah: `sipetades_gedong-20261108-sesudah.sql` (9.621.370 byte; SHA-256
 `359fe76ddcca6130c1e29d5aae13fd8c67093d7c89d2a5ae56c849ed1c4b91ed`).
 
+### 3.47 Enam kandidat tertahan ditetapkan menyusul (8 Nov 2026)
+
+Atas permintaan pengguna "tambahkan juga 6 kandidat menjadi bidang baru",
+keenam kandidat yang ditahan pada §3.46 ditetapkan sebagai bidang. Sebelum
+menulis, keenamnya diperiksa ulang: belum ada di `bidang`, luas 181,52–553,70
+m², dan irisan dengan bidang hidup hanya 0,27–1,54% (irisan terbesar satu bidang
+2,66 m²) — sesuai dugaan bahwa bentuknya pita tipis yang mengelilingi persil
+hidup, bukan bidang tumpang tindih.
+
+Hasil: **6 bidang**, id **23.032–23.037**, total **2.331,76 m²**,
+`tipe='tanah'`, `status='perlu_verifikasi'`, `sumber='peta-calon-bidang'`,
+`blok_id` NULL, ditambah 6 baris `hak` BLM. Rincian: `00218` (181,52 m²;
+mengelilingi `HM-A129` dan `DXF-020100-0738`), `00250` (553,70;
+`DXF-020100-G00638`), `00259` (513,64; `DXF-020100-G02194`), `00306` (347,16;
+`DXF-020100-G02034`), `00591` (497,98; `HM-0052`), dan `00610` (237,76;
+`HM-0058`). Total bidang **7.941 → 7.947**; baris `hak` **7.939 → 7.945**.
+Audit id 3407 (`aksi='impor'`, `objek_id='peta-induk-calon-bidang-6'`) mencatat
+keenam id dan kode; baris itu sempat tercatat dengan `aksi` kosong karena
+`'tambah'` bukan nilai enum `audit_log`, lalu diganti ke `'impor'`.
+
+Dengan demikian seluruh 69 kandidat mandiri sudah masuk: 63 pada §3.46 dan 6 di
+sini. Uji API: `api/bidang.php?lapisan=bidang&cari=DXF-CALON-BIDANG` menjawab
+`jumlah: 69`, dan pencarian tiap kode `00218`–`00610` menjawab `jumlah: 1`.
+
+Cadangan penuh: `D:\backup\sigpetades\calon-bidang-tambahan-6-20261108\`.
+`sipetades_gedong-20261108-sebelum.sql` (10.882.778 byte; SHA-256
+`591a559493a68cfe66beece2a0ef93de568515da965d7eda78d45a35a1998ba0`) diuji
+restore ke `sipetades_restore_calon6_20261108` — jumlah `bidang`, `hak`, `blok`,
+`objek_pajak`, `audit_log`, dan `pengguna` identik, MD5 daftar bidang per blok
+dan total luas per blok sama; database uji sudah dihapus. Dump sesudah:
+`sipetades_gedong-20261108-sesudah.sql` (10.888.290 byte; SHA-256
+`134063615b0d73aa1f633b58ba2cd38e691f152ad8860f09422a4fd4b7a974c6`).
+
 ---
 
 ## 4. Berkas SPPT dari Excel
