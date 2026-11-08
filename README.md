@@ -4384,6 +4384,58 @@ diuji restore — `audit_log` 3.388, tanah BLOK 15 = 157, duplikat = 11; seluruh
 tabel sama kecuali `sppt` (checksum fisik; isi identik). Database uji sudah
 dihapus.
 
+### 3.59 Tiga belas bidang kosong BLOK 16 ditetapkan menjadi tanah (8 Nov 2026)
+
+BLOK 16 adalah `blok.id=4` (`nomor=16`), berisi **273 bidang**: 124 `tanah`
+aktif, 1 `tanah` `perlu_verifikasi` (5522, 0,02 m²), dan 148 `lain`
+`perlu_verifikasi`. Dari 148 objek `lain`, **123 sudah tertutup ≥95%** bidang
+tanah sehingga dibiarkan; **25 terbuka** diproses:
+
+- **13 bidang `lain` → `tanah`** (tetap `perlu_verifikasi`), total
+  **19.234,02 m²**:
+  - 12 HM: 5515 `HM-129C` (790 m²), 5564 `HM-123C` (5.011), 5726
+    `HM-229B` (1.854), 6654 `HM-420D K3` (2.120), 6681 `HM-326D K3`
+    (2.984), 6685 `HM-328D K3` (322), 6686 `HM-327D K3` (443), 6719
+    `HM-333D K3` (795), 6720 `HM-334D K3` (953), 6721 `HM-335D K3` (982),
+    6722 `HM-337D K3` (2.483), 6749 `HM-227B` (497).
+  - 1 DXF tunggal: 5522 `DXF-020100-0008` (0,02 m²).
+- **12 kembar DXF → `status='duplikat'`** (`tipe` tetap `lain`), total
+  **19.234,00 m²**, seluruhnya `ST_Equals` dengan keeper HM-nya: 11536
+  `DXF-020100-0001` ≡ 5515, 11568 `DXF-020100-0050` ≡ 5564, 11668
+  `DXF-020100-0212` ≡ 5726, 12329 `DXF-020100-1140` ≡ 6654, 12347
+  `DXF-020100-1167` ≡ 6681, 12349 `DXF-020100-1171` ≡ 6685, 12350
+  `DXF-020100-1172` ≡ 6686, 12371 `DXF-020100-1205` ≡ 6719, 12372
+  `DXF-020100-1206` ≡ 6720, 12373 `DXF-020100-1207` ≡ 6721, 12374
+  `DXF-020100-1208` ≡ 6722, 12392 `DXF-020100-1235` ≡ 6749.
+
+Tidak ada pengecualian di BLOK 16: DXF tunggal 5522 tidak memiliki kembaran
+di seluruh tabel — termasuk bidang berstatus `dihapus` — dan tidak ada objek
+terbuka lain. Satu-satunya bidang `dihapus` yang beririsan adalah batas desa
+16118, yang sudah dikecualikan dari perhitungan cakupan.
+
+Audit id **3448** (`objek_id='blok16-kosong-20261108'`). Keadaan akhir BLOK 16:
+`tanah` **138** (124 aktif + 14 `perlu_verifikasi`), `lain` **135** (123
+`perlu_verifikasi` + 12 `duplikat`); total tetap 273. Global: `bidang`
+**7.947**, `hak` **7.945**, tanah **4.153**, lain **3.794**; status `aktif`
+**3.319**, `perlu_verifikasi` **4.483**, `duplikat` **143**, `dihapus` **2**.
+Cakupan keeper di luar dirinya maksimum **0,61%**, dan 12/12 kembar tetap
+tertutup 100% oleh keeper-nya. Uji API `lapisan=bidang&blok=BLOK 16` menjawab
+**261 fitur**: 124 `tanah` aktif, 14 `tanah` `perlu_verifikasi`, 123 `lain`
+`perlu_verifikasi` (12 duplikat tersaring); `cari` `HM-129C` dan
+`DXF-020100-0008` menjawab `tipe: tanah`, `status: perlu_verifikasi`.
+
+Cadangan penuh: `D:\backup\sigpetades\blok16-kosong-20261108\`.
+`sebelum.sql` (9.705.569 byte; SHA-256
+`c27e55951d792ed8d9fe56477cbdb608502ad0e67bdf8071d8db74ecba5f01fa`) diuji
+restore ke `sipetades_coret_blok16` — `bidang` 7.947, `hak` 7.945, `blok` 24,
+`objek_pajak` 3.794, `sppt` 3.794, `audit_log` 3.388; jumlah baris dan
+`CHECKSUM TABLE` seluruh tabel identik, termasuk `sppt`. Dump sesudah
+`sesudah.sql` (9.710.018 byte; SHA-256
+`f744771d72e2daa5b53a7022f3c2ecd2e757e0755e9fc77af2f11d4ea284153b`) juga
+diuji restore — `audit_log` 3.389, tanah BLOK 16 = 138, duplikat = 12; seluruh
+tabel sama kecuali `sppt` (checksum fisik), isi `sppt` identik lewat dump
+`--skip-extended-insert` (3.794 baris, nol beda). Database uji sudah dihapus.
+
 ---
 
 ## 4. Berkas SPPT dari Excel
