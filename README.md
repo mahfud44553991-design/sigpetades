@@ -3884,6 +3884,61 @@ dan total luas per blok sama; database uji sudah dihapus. Dump sesudah:
 `sipetades_gedong-20261108-sesudah.sql` (10.888.290 byte; SHA-256
 `134063615b0d73aa1f633b58ba2cd38e691f152ad8860f09422a4fd4b7a974c6`).
 
+### 3.48 Enam puluh lima bidang calon diverifikasi menjadi aktif (8 Nov 2026)
+
+Atas permintaan pengguna "ubah status seluruh bidang sumber 'peta-calon-bidang'
+dari 'perlu_verifikasi' menjadi 'aktif'", **65 bidang** diubah dalam satu
+transaksi. Empat bidang calon sudah aktif lebih dulu lewat UI — 22.974, 22.975,
+22.986, 23.016 (audit 3409–3412) — sehingga seluruh **69** bidang
+`sumber='peta-calon-bidang'` (id 22.969–23.037) kini berstatus `aktif`.
+
+Status seluruh bidang sesudahnya: `aktif` **3.317**, `perlu_verifikasi`
+**4.596**, `duplikat` **32**, `dihapus` **2** (total tetap 7.947). Audit id
+**3413** (`aksi='ubah'`, `objek='bidang'`,
+`objek_id='peta-calon-bidang-aktif-20261108'`) memuat 65 id pada
+`data_sebelum` dan `data_sesudah`. Uji API:
+`api/bidang.php?lapisan=bidang&maks=200&cari=DXF-CALON-BIDANG` menjawab
+`jumlah: 69`, `terpotong: false`, dan seluruh fitur berstatus `aktif`.
+
+Cadangan penuh: `D:\backup\sigpetades\calon-bidang-aktif-20261108\`.
+`sipetades_gedong-20261108-sebelum.sql` (9.629.846 byte; SHA-256
+`38ca1c41382a6f7865356ea0c75702f44334ac786b50f12382bebc20d7addf05`) diuji
+restore ke `sipetades_restore_aktif_20261108` — jumlah `bidang` (7.947),
+`hak` (7.945), `blok` (24), `objek_pajak` (3.794), `sppt` (3.794), dan
+`audit_log` (3.353) identik; `CHECKSUM TABLE` sama kecuali `sppt` yang hanya
+berbeda checksum fisik (dump datanya identik selain baris komentar nama
+database). Database uji sudah dihapus. Dump sesudah:
+`sipetades_gedong-20261108-sesudah.sql` (9.630.208 byte; SHA-256
+`5199afab1ec4e22672f4c7e5d33a4a94476e2085b1268740d251022deeb0c33b`).
+
+### 3.49 Pemegang 65 bidang calon diisi dari label DXF (8 Nov 2026)
+
+Atas permintaan "terapkan jenis hak dan pemegang pada calon bidang aktif",
+`hak.pemegang_nama` diisi untuk **65** dari 69 bidang `peta-calon-bidang`.
+Nama diambil apa adanya dari label layer `tn_nama` MASTER.dxf yang titiknya
+berada di dalam poligon kandidat (4.409 label; pencocokan titik-dalam-poligon
+pada koordinat meter DXF). Jenis hak tidak diubah: seluruh 69 tetap **BLM**
+("Jenis hak tidak tercatat", id 7), sesuai pilihan pengguna — hanya `00736`
+yang memuat label NIB (`00774`), itu pun bukan bukti sertifikat.
+
+Empat bidang dibiarkan kosong: `00191`, `00296`, `00643` (tidak ada label) dan
+`00735` (label "MAKAM / GG", bukan nama orang). Nama disimpan tanpa
+penyeragaman ejaan/kapital (mis. `Suraningdyah`, `Ut Uila`). Jumlah baris `hak`
+tetap 7.945. Audit id **3414** (`aksi='ubah'`, `objek='hak'`,
+`objek_id='peta-calon-bidang-pemegang-20261108'`) memuat peta 65 id→nama di
+`data_sesudah` dan pemegang kosong di `data_sebelum`.
+
+Cadangan penuh: `D:\backup\sigpetades\calon-bidang-hak-20261108\`.
+`sipetades_gedong-20261108-sebelum.sql` (9.630.208 byte; SHA-256
+`2c5dd6653ff4e52713cc24c09c988ea67e3b69b261f49f01b4f59a080d3ee440`) diuji
+restore ke `sipetades_restore_hak_20261108` — jumlah `bidang` (7.947),
+`hak` (7.945), `blok` (24), `objek_pajak` (3.794), `sppt` (3.794), dan
+`audit_log` (3.354) identik, `CHECKSUM TABLE` sama untuk `bidang`, `hak`,
+`blok`, `objek_pajak`, dan `audit_log` (`sppt` hanya berbeda checksum fisik,
+isinya identik); database uji sudah dihapus. Dump sesudah:
+`sipetades_gedong-20261108-sesudah.sql` (9.632.339 byte; SHA-256
+`a7dbd94a7dd7c06a1429345433af15d19dc808c82c5382119e27ae7468a374de`).
+
 ---
 
 ## 4. Berkas SPPT dari Excel
