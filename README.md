@@ -3708,6 +3708,40 @@ baru; 105 duplikat ≥95% (36 BLM + 69 HM); 6376 `HM-951D K3` (BLOK 6, 895,02 m�
 tetap non-tanah padahal 12105 kembarnya kini tanah; 8034 `DXF-020100-2520`
 (BLOK 6, 268,72 m²) di rongga; serta ±18.200 m² rongga tanpa poligon sumber.
 
+### 3.44 Delapan BLM kembar BLOK 8 ditandai duplikat (8 Nov 2026)
+
+Atas permintaan pengguna, 8 baris BLM tanpa nama yang geometrinya identik dengan
+bidang tanah hasil §3.43 diubah `status='perlu_verifikasi'` → `'duplikat'`.
+`tipe` tetap `lain`, `blok_id` tetap 19, dan `catatan` ditambah "Ditandai
+duplikat pada 8 Nov 2026; geometri identik dengan bidang tanah <kode>."
+Pasangan (BLM → tanah): 12102 → 6373 `HM-945D K3`, 12109 → 6380 `HM-949D K3`,
+12117 → 6389 `HM-939D K3`, 12119 → 6392 `HM-933D K3`, 12120 → 6393
+`HM-932D K3`, 12121 → 6395 `HM-927D K3`, 12122 → 6396 `HM-930D K3`, 12124 →
+6398 `HM-931D K3` (15.614,30 m²). Semua pasangan `ST_Equals=1`; tidak ada
+geometri, luas, hak, NOP, atau SPPT yang berubah.
+
+Karena `bidang_filter()` menyembunyikan `duplikat` secara default, ke-8 baris
+hilang dari peta, daftar, dan pencarian; tampil lagi dengan `status=duplikat`.
+Hasil: non-tanah BLOK 8 **113 → 105 `perlu_verifikasi` + 8 `duplikat`** (36 BLM
++ 69 HM perlu); global non-tanah `perlu_verifikasi` **4.078 → 4.070**,
+`duplikat` **24 → 32**, bidang tanah tetap 3.879, total baris tetap 7.983.
+Audit: 8 baris `ubah` (id 3283–3290).
+
+Uji API: lapisan penuh 7.949 fitur (3.879 tanah + 4.070 non-tanah; 34 baris
+tersembunyi); `blok=BLOK 8` 264 fitur (159 + 105); `cari=DXF-020100-0875` tanpa
+filter menjawab `jumlah: 0`, dengan `status=duplikat` menjawab `jumlah: 1`.
+
+Cadangan penuh sebelum menulis:
+`D:\backup\sigpetades\duplikat-blm-blok8-20261108\sipetades_gedong-sebelum-duplikat-blm-blok8-20261108.sql`
+(10.853.425 byte; SHA-256 `5caee4877afe60ae5c57d7fa132e2dc5ab981c9dbebae8bb272e6ac2d4a75575`,
+tercatat di `SHA256.txt`). Uji restore ke `sipetades_restore_20261108b` cocok:
+22 objek (18 tabel + 4 view) dengan jumlah baris identik dan MD5 geometri blok
+1/2/3/5/6/18–24 sama; database uji sudah dihapus.
+
+Sisa BLOK 8: 105 duplikat ≥95% (36 BLM + 69 HM) belum ditandai; 6376
+`HM-951D K3` (BLOK 6) dan 8034 `DXF-020100-2520` (BLOK 6) di rongga; ±18.200 m²
+rongga tanpa poligon sumber.
+
 ---
 
 ## 4. Berkas SPPT dari Excel
