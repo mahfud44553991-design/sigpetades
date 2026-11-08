@@ -4268,6 +4268,67 @@ restore ke `sipetades_coret_blok13` — `bidang` 7.947, `hak` 7.945, `blok` 24,
 diuji restore — `audit_log` 3.386, tanah BLOK 13 = 188, duplikat = 28, seluruh
 checksum identik. Database uji sudah dihapus.
 
+### 3.57 Tiga puluh delapan bidang kosong BLOK 14 ditetapkan menjadi tanah (8 Nov 2026)
+
+BLOK 14 adalah `blok.id=13` (`nomor=14`), berisi **249 bidang**: 96 `tanah`
+aktif dan 153 `lain` `perlu_verifikasi`. Dari 153 objek `lain`, **112 sudah
+tertutup ≥95%** bidang tanah sehingga dibiarkan; **41 terbuka** diproses:
+
+- **38 bidang `lain` → `tanah`** (tetap `perlu_verifikasi`), total
+  **37.466,14 m²**:
+  - 3 HM: 5523 `HM-A46` (684 m²), 5531 `HM-1359D` (693), 7115 `HM-A38`
+    (242).
+  - 35 DXF tunggal: 8090 `DXF-020100-2576` (5.885,91 m²), 8101
+    `DXF-020100-2587` (2.280,11), 8105 `DXF-020100-2591` (1.867,32), 8113
+    `DXF-020100-2599` (1.703,33), 8115 `DXF-020100-2601` (1.644,37), 8117
+    `DXF-020100-2603` (1.606,30), 8124 `DXF-020100-2610` (1.457,35), 8126
+    `DXF-020100-2612` (1.438,28), 8128 `DXF-020100-2614` (1.398,79), 8131
+    `DXF-020100-2617` (1.351,76), 8138 `DXF-020100-2624` (1.173,66), 8139
+    `DXF-020100-2625` (1.157,60), 8140 `DXF-020100-2626` (1.143,74), 8151
+    `DXF-020100-2637` (966,64), 8156 `DXF-020100-2642` (935,08), 8171
+    `DXF-020100-2657` (785,97), 8177 `DXF-020100-2663` (764,66), 8182
+    `DXF-020100-2668` (749,74), 8184 `DXF-020100-2670` (740,12), 8185
+    `DXF-020100-2671` (730,69), 8187 `DXF-020100-2673` (723,00), 8193
+    `DXF-020100-2679` (695,46), 8197 `DXF-020100-2683` (638,47), 8200
+    `DXF-020100-2686` (628,91), 8201 `DXF-020100-2687` (623,09), 8204
+    `DXF-020100-2690` (610,25), 8227 `DXF-020100-2713` (456,52), 8236
+    `DXF-020100-2722` (390,01), 8239 `DXF-020100-2725` (362,42), 8242
+    `DXF-020100-2727` (337,29), 8255 `DXF-020100-2740` (245,87), 8279
+    `DXF-020100-2764` (141,86), 8296 `DXF-020100-2781` (119,20), 8424
+    `DXF-020100-2909` (71,46), 8429 `DXF-020100-2914` (21,91).
+- **3 kembar DXF → `status='duplikat'`** (`tipe` tetap `lain`), total
+  **1.619,00 m²**, seluruhnya `ST_Equals` dengan keeper HM-nya: 11541
+  `DXF-020100-0009` ≡ 5523, 11546 `DXF-020100-0017` ≡ 5531, 12598
+  `DXF-020100-1601` ≡ 7115.
+
+Tidak ada pengecualian di BLOK 14: 35 DXF tunggal tidak memiliki kembaran di
+seluruh tabel — termasuk bidang berstatus `dihapus` — dan tidak ada objek
+terbuka lain. Satu-satunya bidang `dihapus` yang beririsan adalah batas desa
+16118, yang sudah dikecualikan dari perhitungan cakupan.
+
+Audit id **3446** (`objek_id='blok14-kosong-20261108'`). Keadaan akhir BLOK 14:
+`tanah` **134** (96 aktif + 38 `perlu_verifikasi`), `lain` **115** (112
+`perlu_verifikasi` + 3 `duplikat`); total tetap 249. Global: `bidang`
+**7.947**, `hak` **7.945**, tanah **4.123**, lain **3.824**; status `aktif`
+**3.319**, `perlu_verifikasi` **4.506**, `duplikat` **120**, `dihapus` **2**.
+Cakupan keeper di luar dirinya maksimum **0,36%**, dan 3/3 kembar tetap
+tertutup 100% oleh keeper-nya. Uji API `lapisan=bidang&blok=BLOK 14` menjawab
+**246 fitur**: 96 `tanah` aktif, 38 `tanah` `perlu_verifikasi`, 112 `lain`
+`perlu_verifikasi` (3 duplikat tersaring); `cari` `HM-A46` dan
+`DXF-020100-2576` menjawab `tipe: tanah`, `status: perlu_verifikasi`.
+
+Cadangan penuh: `D:\backup\sigpetades\blok14-kosong-20261108\`.
+`sebelum.sql` (9.692.904 byte; SHA-256
+`7b5afb25920f51faa25f70da4757d2621846859546ba6b5991d239d642c27862`) diuji
+restore ke `sipetades_coret_blok14` — `bidang` 7.947, `hak` 7.945, `blok` 24,
+`objek_pajak` 3.794, `sppt` 3.794, `audit_log` 3.386; jumlah baris dan
+`CHECKSUM TABLE` seluruh tabel sama kecuali `sppt` (checksum fisik), dan isi
+`sppt` diverifikasi identik lewat dump `--skip-extended-insert` (3.794 baris,
+nol beda). Dump sesudah `sesudah.sql` (9.700.538 byte; SHA-256
+`d4f9e07f64589fc3c3e3c50d50c803307b0d002e463ea5120d3ba430884ccccc`) juga
+diuji restore — `audit_log` 3.387, tanah BLOK 14 = 134, duplikat = 3, dan
+seluruh checksum identik termasuk `sppt`. Database uji sudah dihapus.
+
 ---
 
 ## 4. Berkas SPPT dari Excel
