@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DXF to Image Converter</title>
+    <script src="https://cdn.jsdelivr.net/npm/dxf-parser@1.1.2/dist/dxf-parser.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+        }
+        .controls {
+            margin: 20px 0;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        button {
+            padding: 10px 20px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        #canvas-container {
+            border: 1px solid #ddd;
+            background: white;
+            position: relative;
+            width: 100%;
+            height: 600px;
+            overflow: hidden;
+        }
+        canvas {
+            display: block;
+        }
+        .info {
+            margin: 10px 0;
+            padding: 10px;
+            background: #e7f3ff;
+            border-left: 4px solid #2196F3;
+        }
+        input[type="file"] {
+            display: none;
+        }
+        .file-label {
+            padding: 10px 20px;
+            background: #28a745;
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .file-label:hover {
+            background: #218838;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>DXF to Image Converter</h1>
+        <div class="info">
+            Pilih file DXF, lalu klik "Download PNG" untuk menyimpan sebagai gambar.
+        </div>
+        <div class="controls">
+            <label for="file-input" class="file-label">Pilih File DXF</label>
+            <input type="file" id="file-input" accept=".dxf" />
+            <button id="download-btn" disabled>Download PNG</button>
+            <span id="file-name"></span>
+        </div>
+        <div id="canvas-container">
+            <canvas id="canvas"></canvas>
+        </div>
+    </div>
+
+    <script>
+        const fileInput = document.getElementById('file-input');
+        const downloadBtn = document.getElementById('download-btn');
+        const fileName = document.getElementById('file-name');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        let currentDxf = null;
+
+        fileInput.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            fileName.textContent = file.name;
+            const text = await file.text();
+            
+            try {
+                const parser = new DxfParser();
+                currentDxf = parser.parse(text);
+                renderDxf();
+                downloadBtn.disabled = false;
+            } catch (err) {
+                alert('Error parsing DXF: ' + err.message);
+                console.error(err);
+            }
+        });
+
+        function renderDxf() {
+            if (!currentDxf) return;
+
+            const container = document.getElementById('canvas-container');
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Calculate bounds
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            
+            function updateBounds(x, y) {
+                minX = Math.min(minX, x);
+                minY = Math.min(minY, y);
+                maxX = Math.max(maxX, x);
+                maxY = Math.max(maxY, y);
+            }
+
+            // Iterate through entities to find bounds
+            if (currentDxf.entities) {
+                currentDxf.entities.forEach(entity => {
+                    if (entity.type === 'LINE') {
+                        updateBounds(entity.vertices[0].x, entity.vertices[0].y);
+                        updateBounds(entity.vertices[1].x, entity.vertices[1].y);
+                    } else if (entity.type === 'CIRCLE' || entity.type === 'ARC') {
+                        const r = entity.radius;
+                        updateBounds(entity.center.x - r, entity.center.y - r);
+                        updateBounds(entity.center.x + r, entity.center.y + r);
+                    } else if (entity.type === 'LWPOLYLINE' || entity.type === 'POLYLINE') {
+                        entity.vertices.forEach(v => updateBounds(v.x, v.y));
+                    }
+                });
+            }
+
+            // Calculate scale and offset
+            const width = maxX - minX;
+            const height = maxY - minY;
+            const scale = Math.min(canvas.width / width, canvas.height / height) * 0.9;
+            const offsetX = (canvas.width - width * scale) / 2;
+            const offsetY = (canvas.height - height * scale) / 2;
+
+            function transform(x, y) {
+                return {
+                    x: (x - minX) * scale + offsetX,
+                    y: canvas.height - ((y - minY) * scale + offsetY)
+                };
+            }
+
+            // Draw entities
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 1;
+
+            if (currentDxf.entities) {
+                currentDxf.entities.forEach(entity => {
+                    if (entity.type === 'LINE') {
+                        const p1 = transform(entity.vertices[0].x, entity.vertices[0].y);
+                        const p2 = transform(entity.vertices[1].x, entity.vertices[1].y);
+                        ctx.beginPath();
+                        ctx.moveTo(p1.x, p1.y);
+                        ctx.lineTo(p2.x, p2.y);
+                        ctx.stroke();
+                    } else if (entity.type === 'CIRCLE') {
+                        const center = transform(entity.center.x, entity.center.y);
+                        const radius = entity.radius * scale;
+                        ctx.beginPath();
+                        ctx.arc(center.x, center.y, radius, 0, 2 * Math.PI);
+                        ctx.stroke();
+                    } else if (entity.type === 'ARC') {
+                        const center = transform(entity.center.x, entity.center.y);
+                        const radius = entity.radius * scale;
+                        const startAngle = (entity.startAngle || 0) * Math.PI / 180;
+                        const endAngle = (entity.endAngle || 360) * Math.PI / 180;
+                        ctx.beginPath();
+                        ctx.arc(center.x, center.y, radius, -endAngle, -startAngle, true);
+                        ctx.stroke();
+                    } else if (entity.type === 'LWPOLYLINE' || entity.type === 'POLYLINE') {
+                        if (entity.vertices.length > 0) {
+                            ctx.beginPath();
+                            const first = transform(entity.vertices[0].x, entity.vertices[0].y);
+                            ctx.moveTo(first.x, first.y);
+                            for (let i = 1; i < entity.vertices.length; i++) {
+                                const p = transform(entity.vertices[i].x, entity.vertices[i].y);
+                                ctx.lineTo(p.x, p.y);
+                            }
+                            if (entity.shape) {
+                                ctx.closePath();
+                            }
+                            ctx.stroke();
+                        }
+                    }
+                });
+            }
+        }
+
+        downloadBtn.addEventListener('click', () => {
+            if (!currentDxf) return;
+
+            const link = document.createElement('a');
+            link.download = fileInput.files[0].name.replace('.dxf', '.png');
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        });
+
+        // Resize handler
+        window.addEventListener('resize', () => {
+            if (currentDxf) {
+                renderDxf();
+            }
+        });
+    </script>
+</body>
+</html>

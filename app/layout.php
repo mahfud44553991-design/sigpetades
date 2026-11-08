@@ -12,6 +12,7 @@ function menu_utama(): array
     return [
         ['beranda.php',    'Beranda',    'beranda', null],
         ['peta.php',       'Peta',       'peta',    null],
+        ['digitasi.php',   'Digitasi',   'digitasi', null],
         ['peta-lama.php',  'Peta Induk', 'peta-lama', null],
         ['bidang.php',     'Bidang',     'bidang',  null],
         ['sppt.php',       'e-SPPT',     'sppt',    null],
