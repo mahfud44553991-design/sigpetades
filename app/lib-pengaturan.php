@@ -607,6 +607,117 @@ function impor_simpan(string $tmp, string $namaAsli): array
 }
 
 // ---------------------------------------------------------------------------
+// Impor SQL
+// ---------------------------------------------------------------------------
+
+/** Simpan berkas SQL unggahan ke storage/impor/. */
+function sql_impor_simpan(string $tmp, string $namaAsli): array
+{
+    if (!is_uploaded_file($tmp)) {
+        throw new RuntimeException('Berkas bukan hasil unggahan yang sah.');
+    }
+    if ((int) filesize($tmp) > pengaturan_maks_byte()) {
+        throw new RuntimeException('Berkas lebih besar dari ' . ukuran_berkas(pengaturan_maks_byte()) . '.');
+    }
+    $bersih = preg_replace('/[^A-Za-z0-9._-]/', '_', basename($namaAsli)) ?? 'berkas.sql';
+    if (!str_ends_with(strtolower($bersih), '.sql')) {
+        throw new RuntimeException('Yang diterima hanya berkas .sql.');
+    }
+    $nama = date('Ymd-His') . '-' . substr(sha1($bersih . microtime()), 0, 8) . '-' . $bersih;
+    $path = pengaturan_folder('impor') . '/' . $nama;
+    if (!move_uploaded_file($tmp, $path)) {
+        throw new RuntimeException('Berkas gagal dipindahkan ke folder penyimpanan.');
+    }
+    return ['nama' => $nama, 'path' => $path, 'byte' => (int) filesize($path)];
+}
+
+/** Baca sekilas isi berkas SQL untuk uji-kering: jumlah statement, tabel yang disentuh. */
+function sql_impor_uji(string $path): array
+{
+    if (!is_readable($path)) {
+        throw new RuntimeException('Berkas SQL tidak bisa dibaca.');
+    }
+    $mentah = file_get_contents($path);
+    if ($mentah === false) {
+        throw new RuntimeException('Berkas SQL tidak bisa dibaca.');
+    }
+
+    $ukuran = strlen($mentah);
+    $baris = substr_count($mentah, "\n") + 1;
+
+    // Ekstrak nama tabel dari statement SQL
+    $tabel = [];
+    if (preg_match_all('/(?:CREATE\s+TABLE|INSERT\s+INTO|UPDATE|DELETE\s+FROM|DROP\s+TABLE|ALTER\s+TABLE)\s+`?([a-z0-9_]+)`?/i', $mentah, $cocok)) {
+        $tabel = array_values(array_unique($cocok[1]));
+        sort($tabel);
+    }
+
+    // Hitung statement (dipisah oleh ;)
+    $statement = 0;
+    $bersih = preg_replace('/--[^\n]*|#[^\n]*|\/\*.*?\*\//s', '', $mentah);
+    if ($bersih !== null) {
+        $statement = substr_count($bersih, ';');
+    }
+
+    // Cuplikan 10 baris pertama
+    $barisArray = explode("\n", $mentah);
+    $cuplikan = implode("\n", array_slice($barisArray, 0, 10));
+
+    return [
+        'ukuran' => $ukuran,
+        'baris' => $baris,
+        'statement' => $statement,
+        'tabel' => $tabel,
+        'cuplikan' => $cuplikan,
+    ];
+}
+
+/** Jalankan berkas SQL lewat mysql.exe. Mengembalikan output dan kode exit. */
+function sql_impor_terapkan(string $path): array
+{
+    $bin = pengaturan_binari('mysql');
+    if ($bin === null) {
+        throw new RuntimeException('mysql.exe tidak ditemukan. Isi "bin" pada bagian db di app/config.php.');
+    }
+    if (!is_readable($path)) {
+        throw new RuntimeException('Berkas SQL tidak bisa dibaca.');
+    }
+
+    [$cnf, $bersihkan] = pengaturan_kredensial();
+    try {
+        $perintah = [
+            escapeshellarg($bin),
+            '--defaults-extra-file=' . escapeshellarg($cnf),
+            '--default-character-set=utf8mb4',
+            '--force',
+            escapeshellarg((string) sip_config('db.name')),
+        ];
+        $proses = proc_open(implode(' ', $perintah), [
+            0 => ['file', $path, 'r'],
+            1 => ['pipe', 'w'],
+            2 => ['pipe', 'w'],
+        ], $pipa);
+        if (!is_resource($proses)) {
+            throw new RuntimeException('Proses impor SQL tidak bisa dijalankan.');
+        }
+        $keluar = (string) stream_get_contents($pipa[1]);
+        $galat = (string) stream_get_contents($pipa[2]);
+        fclose($pipa[1]);
+        fclose($pipa[2]);
+        $kode = proc_close($proses);
+
+        return [
+            'kode' => $kode,
+            'keluar' => trim($keluar),
+            'galat' => trim($galat),
+            'byte' => (int) filesize($path),
+        ];
+    } finally {
+        $bersihkan();
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Kosongkan data
 // ---------------------------------------------------------------------------
 

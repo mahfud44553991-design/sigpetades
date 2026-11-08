@@ -7,7 +7,7 @@ declare(strict_types=1);
  *   GET  ?unduh=<nama>          unduh berkas cadangan .sql
  *   GET  ?unduh-ekspor=<nama>   unduh berkas ekspor .json
  *   POST aksi=cadangan|ekspor|hapus-cadangan|pulihkan|impor-uji|impor-terapkan|
- *        kosongkan-uji|kosongkan-terapkan
+ *        sql-impor-uji|sql-impor-terapkan|kosongkan-uji|kosongkan-terapkan
  *
  * Semua tindakan yang merusak berjalan dua langkah: uji-kering lebih dulu, hasilnya
  * disimpan di sesi, lalu langkah kedua memakainya. Tidak ada satu pun yang bisa
@@ -134,6 +134,41 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             redirect('pengaturan.php');
         }
 
+        if ($aksi === 'sql-impor-uji') {
+            if (!isset($_FILES['berkas']) || (int) ($_FILES['berkas']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+                throw new RuntimeException('Berkas belum diunggah, atau ukurannya melebihi batas ' . ini_get('upload_max_filesize') . '.');
+            }
+            $simpan = sql_impor_simpan((string) $_FILES['berkas']['tmp_name'], (string) $_FILES['berkas']['name']);
+            $ujian = sql_impor_uji($simpan['path']);
+            $_SESSION['sql_impor_siap'] = ['nama' => $simpan['nama'], 'path' => $simpan['path']];
+            $isiBaru = ['jenis' => 'sql-impor', 'nama' => $simpan['nama'], 'ujian' => $ujian];
+        }
+
+        if ($aksi === 'sql-impor-terapkan') {
+            $siap = $_SESSION['sql_impor_siap'] ?? null;
+            if (!is_array($siap) || !is_file((string) ($siap['path'] ?? ''))) {
+                throw new RuntimeException('Uji-kering impor SQL sudah tidak berlaku. Unggah ulang berkasnya.');
+            }
+            if (post_str('konfirmasi') !== KATA_PULIHKAN) {
+                throw new RuntimeException('Ketik "' . KATA_PULIHKAN . '" untuk menjalankan berkas SQL terhadap basis data.');
+            }
+            $sebelum = cadangan_buat('sebelum-impor-sql');
+            $hasil = sql_impor_terapkan((string) $siap['path']);
+            unset($_SESSION['sql_impor_siap']);
+            audit('impor-sql', 'basis_data', 'seluruh',
+                'Berkas SQL dijalankan: ' . $siap['nama'],
+                ['cadangan_penyelamat' => $sebelum['nama'], 'kode_exit' => $hasil['kode']],
+                ['berkas' => $siap['nama'], 'byte' => $hasil['byte']]);
+            if ($hasil['kode'] !== 0) {
+                flash_set('gagal', 'Impor SQL selesai dengan galat (kode ' . $hasil['kode'] . '): '
+                    . mb_substr($hasil['galat'], 0, 300) . '. Cadangan tersimpan di ' . $sebelum['nama'] . '.');
+            } else {
+                flash_set('berhasil', 'Berkas SQL berhasil dijalankan. Cadangan sebelum impor tersimpan di '
+                    . $sebelum['nama'] . '.');
+            }
+            redirect('pengaturan.php');
+        }
+
         if ($aksi === 'kosongkan-uji') {
             $grup = array_values(array_filter((array) ($_POST['grup'] ?? []),
                 static fn($k): bool => is_string($k) && isset(KELOMPOK_KOSONG[$k])));
@@ -175,8 +210,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             throw new RuntimeException('Aksi tidak dikenal: ' . $aksi);
         }
     } catch (Throwable $error) {
-        if ($aksi === 'kosongkan-uji' || $aksi === 'impor-uji') {
-            unset($_SESSION['kosong_siap'], $_SESSION['impor_siap']);
+        if ($aksi === 'kosongkan-uji' || $aksi === 'impor-uji' || $aksi === 'sql-impor-uji') {
+            unset($_SESSION['kosong_siap'], $_SESSION['impor_siap'], $_SESSION['sql_impor_siap']);
         }
         flash_set('gagal', $error->getMessage());
         if ($isiBaru === []) {
@@ -347,9 +382,54 @@ sip_kartu('Impor data', static function () use ($siapImpor, $isiBaru): void {
         </form>
     <?php endif; ?>
 <?php
-}, 'kartu-impor', 'Langkah 3 dari 4');
+}, 'kartu-impor', 'Langkah 3 dari 5');
 
-// --------------------------------------------------------------- 4. kosongkan
+// --------------------------------------------------------- 3b. impor SQL
+sip_kartu('Impor SQL', static function () use ($siapImpor, $isiBaru): void {
+    ?>
+    <p class="pengantar">Menjalankan berkas <code>.sql</code> langsung terhadap basis data. Berguna untuk
+        impor hasil <code>mysqldump</code> atau skrip SQL buatan sendiri. Sistem membuat cadangan
+        sebelum menjalankan berkas — kalau ada galat, basis data bisa dipulihkan.</p>
+    <?php if ($siapImpor === 'sql-impor'): ?>
+        <?php $ujian = $isiBaru['ujian']; ?>
+        <div class="seru seru-info" role="status">
+            Uji-kering <code><?= e($isiBaru['nama']) ?></code> — <?= e(ukuran_berkas($ujian['ukuran'])) ?>,
+            <?= e(angka($ujian['baris'])) ?> baris, ±<?= e(angka($ujian['statement'])) ?> statement.
+            Belum ada yang berubah.
+        </div>
+        <?php if ($ujian['tabel'] !== []): ?>
+        <p class="catatan-kecil">Tabel yang disentuh:
+            <?php foreach ($ujian['tabel'] as $i => $t): ?>
+                <?php if ($i > 0): ?>, <?php endif; ?><code><?= e($t) ?></code>
+            <?php endforeach; ?>
+        </p>
+        <?php endif; ?>
+        <details class="rinci">
+            <summary>10 baris pertama berkas</summary>
+            <pre class="cuplikan-sql"><?= e($ujian['cuplikan']) ?></pre>
+        </details>
+        <form method="post" action="<?= e(sip_url('pengaturan.php')) ?>" class="baris-tombol jarak-atas">
+            <?= csrf_input() ?>
+            <input type="hidden" name="aksi" value="sql-impor-terapkan">
+            <label class="ketik-kunci">Ketik <strong><?= e(KATA_PULIHKAN) ?></strong> untuk menjalankan
+                <input type="text" name="konfirmasi" autocomplete="off" required></label>
+            <button class="tombol tombol-bahaya" type="submit">Jalankan berkas SQL</button>
+        </form>
+    <?php else: ?>
+        <form method="post" action="<?= e(sip_url('pengaturan.php')) ?>" enctype="multipart/form-data">
+            <?= csrf_input() ?>
+            <input type="hidden" name="aksi" value="sql-impor-uji">
+            <input type="hidden" name="MAX_FILE_SIZE" value="<?= e((string) (pengaturan_maks_byte())) ?>">
+            <p><input type="file" name="berkas" accept=".sql" required></p>
+            <p class="catatan-kecil">Batas unggah <?= e(ini_get('upload_max_filesize')) ?>.
+                Berkas disimpan di <code>storage/impor/</code> supaya uji-keringnya bisa dibuka lagi.</p>
+            <button class="tombol tombol-utama" type="submit">Unggah dan uji</button>
+        </form>
+    <?php endif; ?>
+<?php
+}, 'kartu-sql-impor', 'Langkah 4 dari 5');
+
+// --------------------------------------------------------------- 5. kosongkan
 sip_kartu('Kosongkan data', static function () use ($siapImpor, $isiBaru, $jumlahTabel): void {
     ?>
     <p class="pengantar">Menghapus isi tabel terpilih. Master data (dusun, jenis hak, jenis penggunaan,
@@ -402,7 +482,7 @@ sip_kartu('Kosongkan data', static function () use ($siapImpor, $isiBaru, $jumla
         </form>
     <?php endif; ?>
 <?php
-}, 'kartu-kosong', 'Langkah 4 dari 4');
+}, 'kartu-kosong', 'Langkah 5 dari 5');
 ?>
 </div>
 
