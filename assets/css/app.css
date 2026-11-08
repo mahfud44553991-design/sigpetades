@@ -282,6 +282,16 @@ input[readonly], input:disabled, select:disabled, textarea:disabled { background
 #peta:not(.peta-dekat) .label-blok,
 #peta.tanpa-label-blok .label-blok { display: none; }
 
+.label-jalan, .label-sungai { background: none; border: 0; pointer-events: none; }
+.label-jalan span, .label-sungai span {
+    position: absolute; left: 0; top: 0; transform: translate(-50%, -50%);
+    display: inline-block; padding: 1px 5px; border-radius: 3px;
+    font-size: 9px; font-weight: 700; letter-spacing: .3px; white-space: nowrap;
+    text-shadow: 0 0 3px rgba(255,255,255,.9), 0 0 6px rgba(255,255,255,.7);
+}
+.label-jalan span { color: #444; }
+.label-sungai span { color: #1565c0; font-style: italic; }
+
 .popup-peta .leaflet-popup-content { margin: 12px 14px; }
 .popup-peta-isi { font-size: 11.5px; line-height: 1.5; }
 .popup-peta-judul { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
@@ -708,6 +718,9 @@ fieldset.grup { margin: 0; padding: 0; border: 0; display: grid; gap: 8px; }
 details.rinci { margin-top: 14px; border-top: 1px dashed var(--garis); padding-top: 10px; }
 details.rinci summary { cursor: pointer; font-size: 11.5px; font-weight: 700; color: var(--redup); }
 details.rinci table { margin-top: 8px; }
+
+pre.cuplikan-sql { margin-top: 8px; padding: 10px; background: var(--latar); border: 1px solid var(--garis);
+    border-radius: 6px; font-size: 11px; line-height: 1.5; overflow-x: auto; max-height: 200px; white-space: pre-wrap; word-break: break-all; }
 
 @media (max-width: 1080px) {
     .pengaturan-grid { grid-template-columns: minmax(0, 1fr); }

@@ -7,8 +7,6 @@ declare(strict_types=1);
  *   GET api/bidang.php?lapisan=bidang   -> GeoJSON FeatureCollection
  *   GET api/bidang.php?lapisan=blok     -> GeoJSON blok peta
  *   GET api/bidang.php?lapisan=batas    -> GeoJSON garis batas desa (lapisan 010500)
- *   GET api/bidang.php?lapisan=jalan    -> garis jalan OpenStreetMap, dipotong di tepi bidang
- *   GET api/bidang.php?lapisan=sungai   -> garis perairan hasil sambung label DXF + titik lepas
  *   GET api/bidang.php?lapisan=laporan  -> GeoJSON titik laporan (hanya pengelola)
  *   GET api/bidang.php?cari=&dusun=     -> daftar ringkas untuk tabel/pencarian
  *   GET api/bidang.php?tanpa_blok=1     -> hanya bidang yang belum punya blok
@@ -98,81 +96,128 @@ try {
     }
 
     // ------------------------------------------------------------------ jalan & sungai
-    // MASTER.dxf tidak menyimpan bentuk jalan maupun sungai — lapisan BATAS JALAN dan
-    // BATAS PERAIRAN hanya berisi teks. Garis jalan diambil dari unduhan Overpass di
-    // files/master peta/jalan_osm.json lalu dipotong di tepi bidang; label perairan DXF
-    // disambung menjadi garis oleh app/peta-rapi.php.
-    require_once __DIR__ . '/../app/peta-rapi.php';
-
-    if ($lapisan === 'jalan') {
-        $berkas = SIP_ROOT . '/files/master peta/jalan_osm.json';
+    // Label jalan dan sungai dari lapisan DXF "BATAS JALAN" dan "BATAS PERAIRAN".
+    // Koordinat masih meter lokal DXF dan diterjemahkan dxfKeWgs84().
+    if ($lapisan === 'jalan' || $lapisan === 'sungai') {
+        require_once __DIR__ . '/../tools/lib-impor.php';
+        $namaFile = $lapisan === 'jalan' ? 'batas-jalan.geojson' : 'batas-perairan.geojson';
+        $berkas = SIP_ROOT . '/files/sig-pertanahan-gedong-lokal/data/dxf-layers/' . $namaFile;
         if (!is_file($berkas)) {
-            json_error('Data jalan OpenStreetMap belum ada di files/master peta/jalan_osm.json.', 404);
+            json_error('Berkas ' . $namaFile . ' tidak ditemukan.', 404);
         }
         $data = json_decode((string) file_get_contents($berkas), true);
-        $ruas = [];
-        foreach (($data['elements'] ?? []) as $el) {
-            $titik = [];
-            foreach (($el['geometry'] ?? []) as $p) {
-                if (!isset($p['lon'], $p['lat'])) {
-                    continue;
-                }
-                $titik[] = [(float) $p['lon'], (float) $p['lat']];
-            }
-            if (count($titik) < 2) {
-                continue;
-            }
-            $ruas[] = [
-                'id' => (int) ($el['id'] ?? 0),
-                'kelas' => (string) ($el['tags']['highway'] ?? ''),
-                'nama' => (string) ($el['tags']['name'] ?? ''),
-                'titik' => $titik,
+        $fitur = [];
+        foreach (($data['features'] ?? []) as $f) {
+            $geom = $f['geometry'] ?? [];
+            $prop = $f['properties'] ?? [];
+            if (($geom['type'] ?? '') !== 'Point') continue;
+            $koordinat = $geom['coordinates'] ?? [];
+            if (!is_array($koordinat) || count($koordinat) < 2) continue;
+            [$lon, $lat] = dxfKeWgs84((float) $koordinat[0], (float) $koordinat[1]);
+            $label = $prop['label'] ?? $prop['text'] ?? '';
+            if ($label === '') continue;
+            $fitur[] = [
+                'type' => 'Feature',
+                'geometry' => ['type' => 'Point', 'coordinates' => [round($lon, 7), round($lat, 7)]],
+                'properties' => ['label' => $label],
             ];
         }
-        $fitur = peta_jalan_rapi($ruas);
-        json_response(['type' => 'FeatureCollection', 'jumlah' => count($fitur), 'features' => $fitur]);
+        json_response(['type' => 'FeatureCollection', 'features' => $fitur]);
     }
 
-    if ($lapisan === 'sungai') {
-        require_once __DIR__ . '/../tools/lib-impor.php';
-        $berkas = SIP_ROOT . '/files/sig-pertanahan-gedong-lokal/data/dxf-layers/batas-perairan.geojson';
-        if (!is_file($berkas)) {
-            json_error('Berkas label perairan DXF tidak ditemukan.', 404);
+    // ------------------------------------------------------------------ jalan & sungai OSM
+    // Garis jalan dan sungai dari OpenStreetMap via Overpass API.
+    // Hasil di-cache 7 hari di storage/cache/ untuk mengurangi beban API.
+    if ($lapisan === 'osm-jalan' || $lapisan === 'osm-sungai') {
+        $cacheDir = SIP_ROOT . '/storage/cache';
+        if (!is_dir($cacheDir)) {
+            @mkdir($cacheDir, 0755, true);
         }
-        $data = json_decode((string) file_get_contents($berkas), true);
-        $meta = json_decode((string) @file_get_contents(SIP_ROOT
-            . '/files/sig-pertanahan-gedong-lokal/data/dxf-layers/metadata.json'), true);
-        $extent = is_array($meta['extent'] ?? null) ? $meta['extent'] : null;
-        $label = [];
-        foreach (($data['features'] ?? []) as $f) {
-            $teks = trim((string) ($f['properties']['label'] ?? ''));
-            $koordinat = $f['geometry']['coordinates'] ?? null;
-            if ($teks === '' || !is_array($koordinat) || count($koordinat) < 2) {
-                continue;
+        $cacheFile = $cacheDir . '/' . $lapisan . '.geojson';
+        $cacheTTL = 7 * 24 * 3600; // 7 hari
+
+        if (is_file($cacheFile) && (time() - filemtime($cacheFile)) < $cacheTTL) {
+            $data = json_decode((string) file_get_contents($cacheFile), true);
+            if (is_array($data)) {
+                json_response($data);
             }
-            $atas = strtoupper($teks);
-            if (str_starts_with($atas, 'JALAN')) {
-                continue; // dua label perairan di DXF sebenarnya menyebut jalan
-            }
-            $x = (float) $koordinat[0];
-            $y = (float) $koordinat[1];
-            if ($extent !== null && ($x < $extent['min_x'] || $x > $extent['max_x']
-                    || $y < $extent['min_y'] || $y > $extent['max_y'])) {
-                continue; // dua label SALURAN memakai sistem koordinat lain
-            }
-            $jenis = preg_match('/^(KALI|SUNGAI)/', $atas) ? 'Sungai'
-                : (preg_match('/SALURAN|SLURAN|IRIGASI|GOT|DRAIN/', $atas) ? 'Saluran' : 'Perairan lain');
-            [$lon, $lat] = dxfKeWgs84($x, $y);
-            $label[] = ['lon' => $lon, 'lat' => $lat, 'nama' => $teks, 'jenis' => $jenis];
         }
-        $rapi = peta_sungai_rapi($label, (string) @filemtime($berkas));
-        $fitur = array_merge($rapi['garis'], $rapi['titik']);
-        json_response([
-            'type' => 'FeatureCollection',
-            'jumlah' => count($fitur),
-            'label' => count($label),
-            'features' => $fitur,
+
+        // Batas kotak Desa Gedong (approximate) - format: south, west, north, east
+        $bbox = '-7.1100,110.0400,-7.0700,110.1000';
+
+        if ($lapisan === 'osm-jalan') {
+            $query = '[out:json][timeout:25];(way["highway"](' . $bbox . '););out body;>;out skel qt;';
+        } else {
+            $query = '[out:json][timeout:25];(way["waterway"](' . $bbox . '););out body;>;out skel qt;';
+        }
+
+        $url = 'https://overpass-api.de/api/interpreter';
+        $ch = curl_init();
+        curl_setopt_array($ch, [
+            CURLOPT_URL => $url . '?data=' . urlencode($query),
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 30,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_USERAGENT => 'SIPETADES/1.0',
         ]);
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlError = curl_error($ch);
+        curl_close($ch);
+
+        if ($httpCode !== 200 || !$response) {
+            error_log('Overpass API error: HTTP ' . $httpCode . ', curl: ' . $curlError);
+            json_error('Gagal mengambil data dari OpenStreetMap: ' . ($curlError ?: 'HTTP ' . $httpCode), 502);
+        }
+
+        $osmData = json_decode($response, true);
+        if (!$osmData || !isset($osmData['elements'])) {
+            json_error('Respons OpenStreetMap tidak valid.', 502);
+        }
+
+        // Konversi OSM elements ke GeoJSON
+        $nodes = [];
+        $ways = [];
+        foreach ($osmData['elements'] as $elem) {
+            if ($elem['type'] === 'node') {
+                $nodes[$elem['id']] = [$elem['lon'], $elem['lat']];
+            } elseif ($elem['type'] === 'way' && isset($elem['nodes'])) {
+                $ways[] = $elem;
+            }
+        }
+
+        $fitur = [];
+        foreach ($ways as $way) {
+            $koordinat = [];
+            foreach ($way['nodes'] as $nodeId) {
+                if (isset($nodes[$nodeId])) {
+                    $koordinat[] = $nodes[$nodeId];
+                }
+            }
+            if (count($koordinat) < 2) continue;
+
+            $properties = [];
+            if (isset($way['tags']['name'])) {
+                $properties['nama'] = $way['tags']['name'];
+            }
+            if (isset($way['tags']['highway'])) {
+                $properties['tipe'] = $way['tags']['highway'];
+            }
+            if (isset($way['tags']['waterway'])) {
+                $properties['tipe'] = $way['tags']['waterway'];
+            }
+
+            $fitur[] = [
+                'type' => 'Feature',
+                'geometry' => ['type' => 'LineString', 'coordinates' => $koordinat],
+                'properties' => $properties,
+            ];
+        }
+
+        $hasil = ['type' => 'FeatureCollection', 'features' => $fitur];
+        @file_put_contents($cacheFile, json_encode($hasil));
+        json_response($hasil);
     }
 
     // ------------------------------------------------------------------ blok peta

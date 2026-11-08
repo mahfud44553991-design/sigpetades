@@ -21,35 +21,6 @@ $blok = db_all('SELECT kode, nomor FROM blok ORDER BY nomor, kode');
 $dusun = daftar_dusun();
 $hak = daftar_jenis_hak();
 
-// Batas seluruh desa dihitung di server supaya peta langsung terbuka pada
-// seluruh desa, tanpa menunggu lapisan blok selesai dimuat lewat API.
-$batasDesa = (static function (): ?array {
-    $minX = $minY = INF;
-    $maxX = $maxY = -INF;
-    $telusuri = static function ($titik) use (&$telusuri, &$minX, &$minY, &$maxX, &$maxY): void {
-        if (!is_array($titik)) {
-            return;
-        }
-        if (isset($titik[0], $titik[1]) && is_numeric($titik[0]) && is_numeric($titik[1])) {
-            $minX = min($minX, (float) $titik[0]);
-            $minY = min($minY, (float) $titik[1]);
-            $maxX = max($maxX, (float) $titik[0]);
-            $maxY = max($maxY, (float) $titik[1]);
-            return;
-        }
-        foreach ($titik as $anak) {
-            $telusuri($anak);
-        }
-    };
-    foreach (db_all('SELECT ST_AsGeoJSON(geom) AS geojson FROM blok WHERE geom IS NOT NULL') as $baris) {
-        $geo = json_decode((string) $baris['geojson'], true);
-        if (is_array($geo) && isset($geo['coordinates'])) {
-            $telusuri($geo['coordinates']);
-        }
-    }
-    return is_finite($minX) ? [$minX, $minY, $maxX, $maxY] : null;
-})();
-
 $ringkas = db_one(
     "SELECT COUNT(*) AS total,
             COALESCE(SUM(tipe = 'tanah'), 0) AS tanah
@@ -96,13 +67,19 @@ sip_judul(
                 </label>
                 <label class="chip-lapisan">
                     <input type="checkbox" id="tampilJalan" autocomplete="off" checked>
-                    <i style="background:#8b7b68"></i>Jalan
-                    <b id="jumlahJalan"></b>
+                    <i style="background:#555"></i>Jalan
                 </label>
                 <label class="chip-lapisan">
                     <input type="checkbox" id="tampilSungai" autocomplete="off" checked>
-                    <i style="background:#087b83"></i>Sungai &amp; saluran
-                    <b id="jumlahSungai"></b>
+                    <i style="background:#1e88e5"></i>Sungai
+                </label>
+                <label class="chip-lapisan">
+                    <input type="checkbox" id="tampilOSMJalan" autocomplete="off">
+                    <i style="background:#ff6b00"></i>Garis jalan OSM
+                </label>
+                <label class="chip-lapisan">
+                    <input type="checkbox" id="tampilOSMSungai" autocomplete="off">
+                    <i style="background:#00bcd4"></i>Garis sungai OSM
                 </label>
                 <?php if ($kelola): ?>
                     <label class="chip-lapisan">
@@ -228,7 +205,7 @@ sip_judul(
             <div class="baris-tombol jarak-atas">
                 <button class="tombol" type="button" id="simpanTampilan">Simpan tampilan peta</button>
             </div>
-            <p class="petunjuk">Pusat dan zoom disimpan setelah tombol ditekan. Peta tetap dibuka pada tampilan seluruh desa.</p>
+            <p class="petunjuk">Pusat dan zoom disimpan setelah tombol ditekan. Pengaturan tidak mengubah data desa.</p>
             <?php if ($pengguna): ?>
             <hr style="margin: 1rem 0; border: none; border-top: 1px solid var(--garis);">
             <div class="lapangan">
@@ -276,12 +253,11 @@ $naskah = <<<'JS'
     const BAWAAN = {
         dasar: 'jalan', warna: 'blok', kepekatan: 55, label: false, labelBlok: true,
         bidang: true, lain: false, blok: true, batas: true, laporan: false,
-        jalan: true, sungai: true, tampilan: null
+        jalan: true, sungai: true, osmJalan: false, osmSungai: false, tampilan: null
     };
     const MODE = ['blok', 'tipe', 'hak', 'pbb', 'status'];
     const BATAS_LABEL = 1500;
     const ZOOM_LABEL = 14;
-    const ZOOM_LABEL_SUNGAI = 16;
 
     function bacaSetelan() {
         let isi = {};
@@ -293,7 +269,7 @@ $naskah = <<<'JS'
         if (s.dasar !== 'jalan' && s.dasar !== 'satelit') s.dasar = BAWAAN.dasar;
         if (MODE.indexOf(s.warna) < 0) s.warna = BAWAAN.warna;
         s.kepekatan = Math.max(45, Math.min(80, Number(s.kepekatan) || 0));
-        ['label', 'labelBlok', 'bidang', 'blok', 'batas', 'laporan', 'jalan', 'sungai'].forEach((k) => { s[k] = !!s[k]; });
+        ['label', 'labelBlok', 'bidang', 'blok', 'batas', 'laporan', 'jalan', 'sungai', 'osmJalan', 'osmSungai'].forEach((k) => { s[k] = !!s[k]; });
         return s;
     }
 
@@ -307,8 +283,8 @@ $naskah = <<<'JS'
     peta.attributionControl.setPrefix('');
 
     // Panes menentukan urutan gambar tanpa bergantung urutan addLayer:
-    // jalan dan sungai paling bawah, lalu batas desa, blok, non-tanah, bidang tanah.
-    const PANES = { jalan: 402, sungai: 403, batas: 405, blok: 410, lain: 415, tanah: 420, laporan: 430 };
+    // batas desa paling bawah, lalu blok, jalan, sungai, OSM, obyek non-tanah, bidang tanah.
+    const PANES = { batas: 405, blok: 410, jalan: 412, sungai: 413, osmJalan: 414, osmSungai: 414, lain: 415, tanah: 420, laporan: 430 };
     Object.keys(PANES).forEach((nama) => {
         const pane = peta.createPane('pane-' + nama);
         pane.style.zIndex = String(PANES[nama]);
@@ -319,12 +295,13 @@ $naskah = <<<'JS'
     const grup = {
         bidang: L.layerGroup(), lain: L.layerGroup(), blok: L.layerGroup(),
         batas: L.layerGroup(), laporan: L.layerGroup(),
-        jalan: L.layerGroup(), sungai: L.layerGroup()
+        jalan: L.layerGroup(), sungai: L.layerGroup(),
+        osmJalan: L.layerGroup(), osmSungai: L.layerGroup()
     };
 
     const dasar = {
         jalan: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 19,
+            maxZoom: 20,
             attribution: '&copy; OpenStreetMap'
         }),
         satelit: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
@@ -405,14 +382,6 @@ $naskah = <<<'JS'
     let terpotong = false;
     let sudahMemusat = false;
 
-    // Peta langsung dibuka pada seluruh desa memakai batas yang sudah dihitung
-    // server; tampilan tersimpan hanya dipakai saat preset dimuat.
-    const batasAwal = SIP.data && Array.isArray(SIP.data.desa) ? SIP.data.desa : null;
-    if (batasAwal && batasAwal.length === 4) {
-        peta.fitBounds(L.latLngBounds([batasAwal[1], batasAwal[0]], [batasAwal[3], batasAwal[2]]).pad(.04));
-        sudahMemusat = true;
-    }
-
     function fiturTampil() {
         const hasil = [];
         if (setelan.bidang && dataLapisan.tanah) hasil.push.apply(hasil, dataLapisan.tanah);
@@ -467,12 +436,6 @@ $naskah = <<<'JS'
         if (setelan.batas) {
             baris.push('<span><i class="contoh-batas-desa"></i>Batas desa (33240400080)</span>');
         }
-        if (setelan.jalan) {
-            baris.push('<span><i style="background:#8b7b68"></i>Jalan (OpenStreetMap)</span>');
-        }
-        if (setelan.sungai) {
-            baris.push('<span><i style="background:#087b83"></i>Nama sungai / saluran (DXF)</span>');
-        }
         document.getElementById('legendaPeta').innerHTML = baris.join('');
     }
 
@@ -491,20 +454,6 @@ $naskah = <<<'JS'
         if (setelan.bidang && peta.hasLayer(grup.bidang)) b.extend(batasGrup(grup.bidang));
         if (setelan.lain && peta.hasLayer(grup.lain)) b.extend(batasGrup(grup.lain));
         return b;
-    }
-
-    // Seluruh desa = sebaran 25 blok; bidang bisa lebih sempit karena saringan.
-    function batasSeluruhDesa() {
-        const b = batasGrup(grup.blok);
-        return b.isValid() ? b : batasTampil();
-    }
-
-    function pasangkanSeluruhDesa(kilat) {
-        const batas = batasSeluruhDesa();
-        if (!batas.isValid()) return false;
-        if (kilat) peta.flyToBounds(batas.pad(.04), { duration: .5 });
-        else peta.fitBounds(batas.pad(.04));
-        return true;
     }
 
     function ringkas(t) {
@@ -646,7 +595,7 @@ $naskah = <<<'JS'
         const kunci = tipe === 'tanah' ? 'bidang' : 'lain';
         L.geoJSON({ type: 'FeatureCollection', features: fitur }, {
             pane: 'pane-' + (tipe === 'tanah' ? 'tanah' : 'lain'),
-            style: (f) => gayaBidang(f.properties),
+            style: gayaBidang,
             onEachFeature: (f, l) => {
                 const p = f.properties;
                 tampil.set(p.id, { lapisan: l, fitur: f, tipe });
@@ -703,16 +652,12 @@ $naskah = <<<'JS'
         segarkanTampilan();
 
         const jumlah = fiturTampil().length;
-        if (!sudahMemusat && jumlah) {
-            // Blok bisa belum selesai dimuat; biarkan blok yang memasang
-            // tampilan seluruh desa begitu siap, jangan kunci ke bidang saja.
-            if (grup.blok.getLayers().length) {
-                if (pasangkanSeluruhDesa(false)) sudahMemusat = true;
-            } else {
-                pusatkanKe(batasTampil());
+        if ((pusatkan || !sudahMemusat) && jumlah) {
+            const batas = batasTampil();
+            if (batas.isValid()) {
+                sudahMemusat = true;
+                pusatkanKe(batas);
             }
-        } else if (pusatkan && jumlah) {
-            pusatkanKe(batasTampil());
         }
 
         info.textContent = jumlah
@@ -747,8 +692,6 @@ $naskah = <<<'JS'
             }).addTo(grup.blok);
         });
         rapikanLabelBlok();
-        // Buka peta langsung pada tampilan seluruh desa, bukan pusat bawaan.
-        if (!sudahMemusat && pasangkanSeluruhDesa(false)) sudahMemusat = true;
     }
 
     async function muatBatas() {
@@ -761,84 +704,6 @@ $naskah = <<<'JS'
                 interactive: false
             }).addTo(grup.batas);
         });
-    }
-
-    // Jalan dari unduhan OpenStreetMap dipotong di tepi bidang; label BATAS
-    // PERAIRAN di DXF tidak menyimpan garis, jadi garis sungai disambung dari
-    // titik nama di sela bidang. Label terisolasi tetap tampil sebagai titik.
-    const NAMA_KELAS_JALAN = {
-        primary: 'jalan utama', secondary: 'jalan utama', tertiary: 'jalan penghubung',
-        residential: 'jalan permukiman', living_street: 'jalan permukiman',
-        service: 'jalan servis', unclassified: 'jalan lain', track: 'jalan tanah'
-    };
-
-    function gayaJalan(p) {
-        const tebal = {
-            primary: 3.4, secondary: 2.8, tertiary: 2.3, residential: 1.6,
-            living_street: 1.5, service: 1.3, unclassified: 1.5, track: 1.2
-        }[p.kelas] || 1.2;
-        return { color: '#8b7b68', weight: tebal, opacity: .85, lineCap: 'round' };
-    }
-
-    async function muatJalan() {
-        const data = await Sip.api('api/bidang.php', { query: { lapisan: 'jalan' } });
-        grup.jalan.clearLayers();
-        const fitur = data.features || [];
-        L.geoJSON({ type: 'FeatureCollection', features: fitur }, {
-            pane: 'pane-jalan',
-            style: (f) => gayaJalan(f.properties),
-            onEachFeature: (f, l) => {
-                const p = f.properties;
-                l.bindTooltip((p.nama ? Sip.esc(p.nama) + ' — ' : '')
-                    + (NAMA_KELAS_JALAN[p.kelas] || p.kelas), { sticky: true, className: 'jalan-label' });
-            }
-        }).addTo(grup.jalan);
-        const angka = document.getElementById('jumlahJalan');
-        if (angka) angka.textContent = Sip.angka(fitur.length);
-    }
-
-    function keteranganSungai(p) {
-        const jenis = p.jenis === 'Saluran' ? 'saluran' : 'sungai';
-        let teks = p.nama ? Sip.esc(p.nama) + ' — ' + jenis : jenis.charAt(0).toUpperCase() + jenis.slice(1);
-        if (p.panjang_m) teks += ' · ±' + Sip.angka(Math.round(p.panjang_m / 10) * 10) + ' m';
-        return teks;
-    }
-
-    async function muatSungai() {
-        const data = await Sip.api('api/bidang.php', { query: { lapisan: 'sungai' } });
-        grup.sungai.clearLayers();
-        const fitur = data.features || [];
-        const garis = fitur.filter((f) => f.geometry.type === 'LineString');
-        if (garis.length) {
-            L.geoJSON({ type: 'FeatureCollection', features: garis }, {
-                pane: 'pane-sungai',
-                style: () => ({ color: '#087b83', weight: 1.6, opacity: .8, lineCap: 'round' }),
-                onEachFeature: (f, l) => {
-                    l.bindTooltip(keteranganSungai(f.properties), { sticky: true, className: 'water-label' });
-                    if (!f.properties.nama) return;
-                    const jalur = l.getLatLngs();
-                    L.marker(jalur[Math.floor(jalur.length / 2)], {
-                        pane: 'pane-sungai', interactive: false, keyboard: false,
-                        icon: L.divIcon({
-                            className: 'label-sungai',
-                            html: '<span>' + Sip.esc(f.properties.nama) + '</span>',
-                            iconSize: [0, 0]
-                        })
-                    }).addTo(grup.sungai);
-                }
-            }).addTo(grup.sungai);
-        }
-        fitur.filter((f) => f.geometry.type === 'Point').forEach((f) => {
-            const p = f.properties;
-            const koordinat = f.geometry.coordinates;
-            L.circleMarker([Number(koordinat[1]), Number(koordinat[0])], {
-                pane: 'pane-sungai', radius: 2.6, weight: 1,
-                color: '#087b83', fillColor: '#087b83', fillOpacity: .7
-            }).bindTooltip(keteranganSungai(p), { className: 'water-label', direction: 'top' })
-                .addTo(grup.sungai);
-        });
-        const angka = document.getElementById('jumlahSungai');
-        if (angka) angka.textContent = Sip.angka(fitur.length);
     }
 
     async function muatLaporan() {
@@ -856,6 +721,81 @@ $naskah = <<<'JS'
                 + '<p><a href="' + Sip.url('laporan.php') + '">Kelola laporan</a></p>'
             ).addTo(grup.laporan);
         });
+    }
+
+    async function muatJalan() {
+        const data = await Sip.api('api/bidang.php', { query: { lapisan: 'jalan' } });
+        grup.jalan.clearLayers();
+        (data.features || []).forEach((f) => {
+            const p = f.properties;
+            const koordinat = f.geometry.coordinates;
+            L.marker([Number(koordinat[1]), Number(koordinat[0])], {
+                icon: L.divIcon({
+                    className: 'label-jalan',
+                    html: '<span>' + Sip.esc(p.label) + '</span>',
+                    iconSize: [0, 0]
+                }),
+                pane: 'pane-jalan',
+                interactive: false, keyboard: false
+            }).addTo(grup.jalan);
+        });
+    }
+
+    async function muatSungai() {
+        const data = await Sip.api('api/bidang.php', { query: { lapisan: 'sungai' } });
+        grup.sungai.clearLayers();
+        (data.features || []).forEach((f) => {
+            const p = f.properties;
+            const koordinat = f.geometry.coordinates;
+            L.marker([Number(koordinat[1]), Number(koordinat[0])], {
+                icon: L.divIcon({
+                    className: 'label-sungai',
+                    html: '<span>' + Sip.esc(p.label) + '</span>',
+                    iconSize: [0, 0]
+                }),
+                pane: 'pane-sungai',
+                interactive: false, keyboard: false
+            }).addTo(grup.sungai);
+        });
+    }
+
+    async function muatOSMJalan() {
+        const data = await Sip.api('api/bidang.php', { query: { lapisan: 'osm-jalan' } });
+        grup.osmJalan.clearLayers();
+        L.geoJSON(data, {
+            pane: 'pane-osmJalan',
+            style: (f) => {
+                const tipe = f.properties.tipe || '';
+                const warna = '#ff6b00';
+                const berat = ['motorway', 'trunk', 'primary'].includes(tipe) ? 3 :
+                              ['secondary', 'tertiary'].includes(tipe) ? 2 : 1.5;
+                return { color: warna, weight: berat, opacity: 0.8, fillOpacity: 0 };
+            },
+            onEachFeature: (f, l) => {
+                if (f.properties.nama) {
+                    l.bindTooltip(f.properties.nama, { sticky: true });
+                }
+            }
+        }).addTo(grup.osmJalan);
+    }
+
+    async function muatOSMSungai() {
+        const data = await Sip.api('api/bidang.php', { query: { lapisan: 'osm-sungai' } });
+        grup.osmSungai.clearLayers();
+        L.geoJSON(data, {
+            pane: 'pane-osmSungai',
+            style: (f) => {
+                const tipe = f.properties.tipe || '';
+                const warna = '#00bcd4';
+                const berat = ['river', 'canal'].includes(tipe) ? 2.5 : 1.5;
+                return { color: warna, weight: berat, opacity: 0.85, fillOpacity: 0 };
+            },
+            onEachFeature: (f, l) => {
+                if (f.properties.nama) {
+                    l.bindTooltip(f.properties.nama, { sticky: true });
+                }
+            }
+        }).addTo(grup.osmSungai);
     }
 
     function aktifkan(nama, hidup) {
@@ -883,7 +823,6 @@ $naskah = <<<'JS'
     function perbaruiZoom() {
         const wadah = peta.getContainer();
         wadah.classList.toggle('peta-dekat', peta.getZoom() >= ZOOM_LABEL);
-        wadah.classList.toggle('peta-dekat-sungai', peta.getZoom() >= ZOOM_LABEL_SUNGAI);
         wadah.classList.toggle('tanpa-label-blok', !setelan.labelBlok);
         rapikanLabelBlok();
     }
@@ -906,21 +845,33 @@ $naskah = <<<'JS'
         if (kotakJalan) kotakJalan.checked = setelan.jalan;
         const kotakSungai = document.getElementById('tampilSungai');
         if (kotakSungai) kotakSungai.checked = setelan.sungai;
+        const kotakOSMJalan = document.getElementById('tampilOSMJalan');
+        if (kotakOSMJalan) kotakOSMJalan.checked = setelan.osmJalan;
+        const kotakOSMSungai = document.getElementById('tampilOSMSungai');
+        if (kotakOSMSungai) kotakOSMSungai.checked = setelan.osmSungai;
 
         pakaiDasar(setelan.dasar);
         gambarLegenda();
         aktifkan('laporan', setelan.laporan);
         aktifkan('jalan', setelan.jalan);
         aktifkan('sungai', setelan.sungai);
-        if (setelan.jalan && !grup.jalan.getLayers().length) {
-            muatJalan().catch((err) => console.warn('Jalan gagal dimuat:', err));
-        }
-        if (setelan.sungai && !grup.sungai.getLayers().length) {
-            muatSungai().catch((err) => console.warn('Sungai gagal dimuat:', err));
-        }
+        aktifkan('osmJalan', setelan.osmJalan);
+        aktifkan('osmSungai', setelan.osmSungai);
         perbaruiZoom();
         if (kotakLaporan && setelan.laporan && !grup.laporan.getLayers().length) {
             muatLaporan().catch((err) => Sip.pesan(err.message, 'gagal'));
+        }
+        if (kotakJalan && setelan.jalan && !grup.jalan.getLayers().length) {
+            muatJalan().catch((err) => Sip.pesan(err.message, 'gagal'));
+        }
+        if (kotakSungai && setelan.sungai && !grup.sungai.getLayers().length) {
+            muatSungai().catch((err) => Sip.pesan(err.message, 'gagal'));
+        }
+        if (kotakOSMJalan && setelan.osmJalan && !grup.osmJalan.getLayers().length) {
+            muatOSMJalan().catch((err) => Sip.pesan(err.message, 'gagal'));
+        }
+        if (kotakOSMSungai && setelan.osmSungai && !grup.osmSungai.getLayers().length) {
+            muatOSMSungai().catch((err) => Sip.pesan(err.message, 'gagal'));
         }
     }
 
@@ -987,7 +938,6 @@ $naskah = <<<'JS'
             setelan.jalan = e.target.checked;
             simpanSetelan();
             aktifkan('jalan', setelan.jalan);
-            gambarLegenda();
             if (setelan.jalan && !grup.jalan.getLayers().length) {
                 muatJalan().catch((err) => Sip.pesan(err.message, 'gagal'));
             }
@@ -1000,9 +950,32 @@ $naskah = <<<'JS'
             setelan.sungai = e.target.checked;
             simpanSetelan();
             aktifkan('sungai', setelan.sungai);
-            gambarLegenda();
             if (setelan.sungai && !grup.sungai.getLayers().length) {
                 muatSungai().catch((err) => Sip.pesan(err.message, 'gagal'));
+            }
+        });
+    }
+
+    const kotakOSMJalan = document.getElementById('tampilOSMJalan');
+    if (kotakOSMJalan) {
+        kotakOSMJalan.addEventListener('change', (e) => {
+            setelan.osmJalan = e.target.checked;
+            simpanSetelan();
+            aktifkan('osmJalan', setelan.osmJalan);
+            if (setelan.osmJalan && !grup.osmJalan.getLayers().length) {
+                muatOSMJalan().catch((err) => Sip.pesan(err.message, 'gagal'));
+            }
+        });
+    }
+
+    const kotakOSMSungai = document.getElementById('tampilOSMSungai');
+    if (kotakOSMSungai) {
+        kotakOSMSungai.addEventListener('change', (e) => {
+            setelan.osmSungai = e.target.checked;
+            simpanSetelan();
+            aktifkan('osmSungai', setelan.osmSungai);
+            if (setelan.osmSungai && !grup.osmSungai.getLayers().length) {
+                muatOSMSungai().catch((err) => Sip.pesan(err.message, 'gagal'));
             }
         });
     }
@@ -1177,7 +1150,9 @@ $naskah = <<<'JS'
     form.addEventListener('reset', () => setTimeout(() => muatBidang(true).catch(gagalMuat), 0));
 
     document.getElementById('pasangkanSemua').addEventListener('click', () => {
-        pasangkanSeluruhDesa(true);
+        const batasBlok = batasGrup(grup.blok);
+        const batas = batasBlok.isValid() ? batasBlok : batasTampil();
+        if (batas.isValid()) peta.flyToBounds(batas.pad(.04), { duration: .5 });
     });
 
     peta.on('zoomend', perbaruiZoom);
@@ -1185,15 +1160,27 @@ $naskah = <<<'JS'
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(rapikanLabelBlok);
     L.control.scale({ imperial: false, position: 'bottomleft', maxWidth: 120 }).addTo(peta);
 
+    if (setelan.tampilan && typeof setelan.tampilan.lat === 'number' && typeof setelan.tampilan.lon === 'number') {
+        peta.setView([setelan.tampilan.lat, setelan.tampilan.lon], setelan.tampilan.zoom || SIP.peta.zoom);
+        sudahMemusat = true;
+    }
     terapkanSetelan();
 
     aktifkan('blok', true);
     aktifkan('batas', true);
+    aktifkan('jalan', setelan.jalan);
+    aktifkan('sungai', setelan.sungai);
+    aktifkan('osmJalan', setelan.osmJalan);
+    aktifkan('osmSungai', setelan.osmSungai);
     muatBlok().catch((err) => console.warn('Blok gagal dimuat:', err));
     muatBatas().catch((err) => console.warn('Batas gagal dimuat:', err));
+    if (setelan.jalan) muatJalan().catch((err) => console.warn('Jalan gagal dimuat:', err));
+    if (setelan.sungai) muatSungai().catch((err) => console.warn('Sungai gagal dimuat:', err));
+    if (setelan.osmJalan) muatOSMJalan().catch((err) => console.warn('OSM jalan gagal dimuat:', err));
+    if (setelan.osmSungai) muatOSMSungai().catch((err) => console.warn('OSM sungai gagal dimuat:', err));
     muatBidang().catch(gagalMuat);
 })();
 </script>
 JS;
 
-sip_footer(['leaflet' => true, 'kaki' => $naskah, 'data' => ['desa' => $batasDesa]]);
+sip_footer(['leaflet' => true, 'kaki' => $naskah]);
