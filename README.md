@@ -4011,6 +4011,58 @@ SHA-256 `f68ee53421748e25ec6e3e2679b6f19c36403b1da083790e5ac0cf3355c3378d`)
 juga diuji restore — `bidang` 7.947, `hak` 7.945, `audit_log` 3.376, tanah
 BLOK 6 = 180. Database uji sudah dihapus.
 
+### 3.52 Empat belas bidang kosong BLOK 7 ditetapkan menjadi tanah (8 Nov 2026)
+
+BLOK 7 adalah `blok.id=5` (`nomor=7`), berisi **211 bidang**: 68 `tanah` aktif
+dan 143 `lain` berstatus `perlu_verifikasi`. Pola yang sama dengan BLOK 5/6
+dipakai: hanya objek yang belum terplotong dijadikan tanah, sedangkan kembar
+persis DXF ditandai duplikat. Hasilnya:
+
+- **14 bidang `lain` → `tanah`**, status tetap `perlu_verifikasi`, total
+  **25.982,00 m²**: 6358 `DXF-020100-0844` (3.155 m²), 6444 `HM-669D K3`
+  (1.529 m²), 6447 `HM-831D K3` (423 m²), 6448 `HM-830D K3` (428 m²),
+  6450 `HM-833D K3` (2.293 m²), 6453 `HM-834D K3` (721 m²), 6516 `HM-197A`
+  (4.966 m²), 6522 `HM-826D K3` (7.151 m²), 6523 `HM-153A` (877 m²),
+  6524 `HM-151A` (857 m²), 6526 `HM-152A` (863 m²), 6537 `HM-753D K3`
+  (886 m²), 6538 `HM-754D K3` (928 m²), 8055 `DXF-020100-2541` (905 m²).
+- **14 kembar DXF → `status='duplikat'`** (`tipe` tetap `lain`), total
+  22.498,29 m²: 12164, 12167, 12168, 12169, 12172, 12207, 12213, 12214,
+  12215, 12217, 12226, 12227 (kembar persis keeper HM di atas), ditambah
+  6542 `DXF-020100-1028` dan 8229 `DXF-020100-2715`.
+
+Audit id **3436** (`objek_id='blok7-kosong-20261108'`).
+
+**Koreksi (audit id 3437).** Pemeriksaan cakupan awal hanya di dalam BLOK 7,
+sehingga 6542 dan 8229 sempat dijadikan tanah. Verifikasi global sesudahnya
+menunjukkan keduanya **100% tertutup bidang tanah aktif di blok lain**: 6542
+oleh `DXF-020100-G01291` (id 18232) dan 8229 oleh `DXF-020100-G01156`
+(id 18152), keduanya di `blok.id=19` yaitu **BLOK 8** (bukan "BLOK 19").
+Keduanya dikembalikan menjadi `tipe='lain'`, `status='duplikat'` lewat satu
+transaksi beraudit **3437** (`objek_id='blok7-kosong-koreksi-20261108'`).
+Pelajaran: cakupan harus diperiksa lintas seluruh blok, bukan hanya blok
+target.
+
+Keadaan akhir BLOK 7: `tanah` **82** (68 aktif + 14 `perlu_verifikasi`),
+`lain` **129** (115 `perlu_verifikasi` + 14 `duplikat`). Global: `bidang`
+tetap **7.947**, `hak` tetap **7.945**, tanah **3.975**, lain **3.972**;
+status `aktif` **3.319**, `perlu_verifikasi` **4.574**, `duplikat` **52**,
+`dihapus` **2**. Uji API
+`api/bidang.php?lapisan=bidang&maks=200&cari=HM-826D K3` menjawab
+`jumlah: 1`, `terpotong: false`, `tipe: tanah`, `status: perlu_verifikasi`;
+tidak ada dari 14 bidang yang beririsan ≥95% dengan bidang tanah lain di luar
+kembarannya.
+
+Cadangan penuh: `D:\backup\sigpetades\blok7-kosong-20261108\`.
+`sebelum.sql` (9.651.179 byte; SHA-256
+`5319001dbd1a7adfa9b555975680af525215a897c757001b73fc7dabbacaad1c`) diuji
+restore ke `sipetades_restore_blok7_20261108` — `bidang` 7.947, `hak` 7.945,
+`blok` 24, `objek_pajak` 3.794, `sppt` 3.794, `audit_log` 3.376, tanah
+BLOK 7 = 68; `CHECKSUM TABLE` sama kecuali `sppt` (checksum fisik; data
+identik). Dump sesudah `sesudah.sql` (9.658.892 byte; SHA-256
+`dd284851a73283332894c5b2b03b63cb235b011c1ce5bcf162ae9553c8868740`) juga
+diuji restore — `bidang` 7.947, `hak` 7.945, `audit_log` 3.379, isi `sppt`
+identik. Database uji sudah dihapus.
+
 ---
 
 ## 4. Berkas SPPT dari Excel
