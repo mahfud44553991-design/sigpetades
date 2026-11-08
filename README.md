@@ -3979,6 +3979,38 @@ fisik; isinya identik). Dump sesudah `sesudah.sql` (9.650.103 byte; SHA-256
 diuji restore — `bidang` 7.947, `hak` 7.945, `audit_log` 3.375, bidang tanah
 BLOK 5 = 63. Database uji sudah dihapus.
 
+### 3.51 Tiga bidang kosong BLOK 6 ditetapkan menjadi tanah (8 Nov 2026)
+
+BLOK 6 adalah `blok.id=3` (`nomor=6`). Dari **257 objek `tipe='lain'`**,
+**252 sudah tertutup ≥95%** oleh bidang tanah aktif sehingga tidak diubah.
+Hanya **5 baris (3 bidang)** yang belum terplotong:
+
+- 6621 `HM-160A` (2.153 m²) ≡ 12302 `DXF-020100-1107` (kembar persis):
+  HM menjadi tanah, DXF ditandai `status='duplikat'` (`tipe` tetap `lain`).
+- 6647 `HM-436D K3` (537 m²) ≡ 12324 `DXF-020100-1133` (kembar persis):
+  perlakuan sama.
+- 6648 `DXF-020100-1134` (386 m², tunggal) menjadi tanah.
+
+Total luas **3.076,00 m²**; ketiganya tetap `perlu_verifikasi`. Sesudahnya
+BLOK 6 berisi **180 bidang tanah** (177 aktif, 3 perlu_verifikasi) dan
+**254 objek lain** (252 perlu_verifikasi, 2 duplikat) — total 434. Global:
+`bidang` tetap **7.947**, `hak` tetap **7.945**, tanah **3.961**; status
+`aktif` **3.319**, `perlu_verifikasi` **4.588**, `duplikat` **38**,
+`dihapus` **2**. Audit id **3435** (`objek_id='blok6-kosong-20261108'`).
+Uji API `api/bidang.php?lapisan=bidang&maks=5&cari=HM-160A` menjawab
+`tipe: tanah`, `blok: BLOK 6`, hak HM; tidak ada bidang baru yang beririsan
+≥50% dengan bidang tanah lain.
+
+Cadangan penuh: `D:\backup\sigpetades\blok6-kosong-20261108\`.
+`sebelum.sql` (9.650.103 byte; SHA-256
+`040ad4b9b85db8a78185bc82df2c53c7d7812726fc2b2f42481bf79969e19aeb`) diuji
+restore ke `sipetades_restore_blok6_20261108` — `bidang` 7.947, `hak` 7.945,
+`audit_log` 3.375, tanah BLOK 6 = 177; `CHECKSUM TABLE` sama kecuali `sppt`
+(checksum fisik; data identik). Dump sesudah `sesudah.sql` (9.651.179 byte;
+SHA-256 `f68ee53421748e25ec6e3e2679b6f19c36403b1da083790e5ac0cf3355c3378d`)
+juga diuji restore — `bidang` 7.947, `hak` 7.945, `audit_log` 3.376, tanah
+BLOK 6 = 180. Database uji sudah dihapus.
+
 ---
 
 ## 4. Berkas SPPT dari Excel
