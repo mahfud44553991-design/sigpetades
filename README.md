@@ -3801,6 +3801,56 @@ blok sama; database uji sudah dihapus. Dump sesudah:
 Sisa BLOK 8: 6376 `HM-951D K3` (BLOK 6) dan 8034 `DXF-020100-2520` (BLOK 6)
 di rongga; ±18.200 m² rongga tanpa poligon sumber.
 
+### 3.46 Enam puluh tiga calon bidang DXF ditetapkan sebagai bidang tertutup (8 Nov 2026)
+
+Atas permintaan pengguna — lalu ditegaskan tertulis "Ya, tetapkan 69 bidang
+mandiri calon bidang DXF menjadi bidang tertutup di database SIGPETADES" —
+layer `CALON BIDANG` MASTER.dxf (737 poligon hasil penutupan garis 020100 dengan
+celah ujung ≤ 1 unit dan luas ≥ 20 unit²) diproses menjadi bidang.
+
+Penyaringan berlapis sebelum menulis. Terhadap database hidup, 547 kandidat
+sudah menjadi bidang dengan cakupan ≥ 95% (umumnya `DXF-020100-*` dan
+`DXF-020100-G*`), dan 6 kandidat kembar persis di antara dirinya sendiri,
+sehingga tersisa 184 kandidat baru. Dari 184 itu, 114 adalah lingkar majemuk
+yang seluruh luasnya sudah tercakup 2–9 bidang hidup (cakupan 99,5–101,2%;
+jumlah irisan bisa melebihi 100% karena bidang lama saling bertumpuk) dan 1
+meragukan; keduanya **tidak** ditetapkan. Yang lolos adalah 69 kandidat
+mandiri: cakupan bidang hidup ≤ 0,9%, tidak ada titik tengah bidang hidup di
+dalamnya, dan tidak ada pasangan mandiri yang saling menumpang > 2%.
+Kategori ini ditampilkan lebih dahulu sebagai pratinjau peta.
+
+Saat penerapan, 6 dari 69 kandidat ditahan karena ternyata membungkus bidang
+hidup dengan irisan nyaris nol (pita tipis di sekeliling persil, bukan bidang
+berdiri sendiri):
+`00218` (181,5 m²; membungkus `DXF-020100-0738`/`HM-A129`, 193 m²),
+`00250` (553,7 m²; `DXF-020100-G00638`, 4.779,2 m²),
+`00259` (513,6 m²; `DXF-020100-G02194`, 149,0 m²),
+`00306` (347,2 m²; `DXF-020100-G02034`, 145,4 m²),
+`00591` (498,0 m²; `HM-0052`, 402,0 m²), dan
+`00610` (237,8 m²; `HM-0058`, 259,0 m²).
+Keenamnya tetap sebagai kandidat, belum masuk `bidang`.
+
+Hasil: **63 bidang** dibuat dalam satu transaksi, total **149.836,05 m²**
+(terkecil 29,09 m²; terbesar 63.778,56 m²), id **22.969–23.031**. Semuanya
+`tipe='tanah'`, `status='perlu_verifikasi'`, `sumber='peta-calon-bidang'`,
+`blok_id` NULL (tanpa blok, sesuai pilihan), ditambah 63 baris `hak` dengan
+jenis BLM. Total bidang **7.878 → 7.941**; baris `hak` **7.876 → 7.939**.
+Audit id 3406 mencatat 63 kode, luas, dan sebaran per blok (terbanyak BLOK 25:
+19 bidang, BLOK 2: 12, BLOK 21: 5, BLOK 23: 5, BLOK 8: 4).
+
+Uji API: `api/bidang.php?lapisan=bidang&maks=200&cari=DXF-CALON-BIDANG`
+menjawab `jumlah: 63`, `terpotong: false`. Tidak ada bidang baru yang beririsan
+> 2% dengan bidang hidup (diuji ulang sebelum sisip).
+
+Cadangan penuh sebelum menulis:
+`D:\backup\sigpetades\calon-bidang-20261108\sipetades_gedong-20261108.sql`
+(9.579.129 byte; SHA-256
+`d118c7fc2831717575bab52257fb9823524d7ad92b2d127e4b950230418959cf`), diuji
+restore ke `sipetades_restore_calon_20261108` — jumlah `bidang`, `hak`, `blok`,
+`objek_pajak`, `sppt`, dan `audit_log` identik; database uji sudah dihapus.
+Dump sesudah: `sipetades_gedong-20261108-sesudah.sql` (9.621.370 byte; SHA-256
+`359fe76ddcca6130c1e29d5aae13fd8c67093d7c89d2a5ae56c849ed1c4b91ed`).
+
 ---
 
 ## 4. Berkas SPPT dari Excel
