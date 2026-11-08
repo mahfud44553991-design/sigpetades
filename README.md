@@ -3939,6 +3939,46 @@ isinya identik); database uji sudah dihapus. Dump sesudah:
 `sipetades_gedong-20261108-sesudah.sql` (9.632.339 byte; SHA-256
 `a7dbd94a7dd7c06a1429345433af15d19dc808c82c5382119e27ae7468a374de`).
 
+### 3.50 Delapan bidang kosong BLOK 5 ditetapkan menjadi tanah (8 Nov 2026)
+
+BLOK 5 adalah `blok.id=1` (`nomor=5`). Di dalamnya ada **85 objek `tipe='lain'`**;
+**73 objek** di antaranya sudah tertutup ≥95% oleh 32 bidang tanah aktif
+berkode `DXF-020100-G…` (hasil penggabungan beberapa persil) sehingga **tidak
+diubah**. Hanya **12 baris (8 bidang)** yang belum terplotong — tidak tertutup
+bidang tanah mana pun — dan itulah yang ditetapkan:
+
+- **4 HM** menjadi tanah, status tetap `perlu_verifikasi`: 6407 `HM-818D`
+  (227 m²), 6412 `HM-77B` (196 m²), 6413 `HM-63B` (234 m²), 6417 `HM-A199`
+  (846 m²).
+- **4 DXF** menjadi tanah: 8007 `DXF-020100-2493` (2.002 m², tetap `aktif`),
+  8009 `DXF-020100-2495` (1.542 m²), 8010 `DXF-020100-2496` (1.421 m²),
+  8017 `DXF-020100-2503` (1.129 m²).
+- **4 kembar persis** DXF dari pasangan HM di atas — 12132 `…-0893`,
+  12135 `…-0898`, 12136 `…-0899`, 12140 `…-0903` — ditandai
+  `status='duplikat'`, `tipe` tetap `lain` (mengikuti pola BLOK 3/8).
+
+Total luas yang ditetapkan **7.598,00 m²**. Sesudahnya BLOK 5 berisi **63 bidang
+tanah** (56 aktif, 7 perlu_verifikasi) dan **77 objek lain** (73 perlu_verifikasi,
+4 duplikat) — total tetap 140. Global: bidang tetap **7.947**, tanah **3.958**,
+status `aktif` **3.319**, `perlu_verifikasi` **4.590**, `duplikat` **36**,
+`dihapus` **2**; `hak` tetap **7.945**. Audit id **3433** (`aksi='ubah'`,
+`objek='bidang'`, `objek_id='blok5-kosong-20261108'`) memuat 12 baris
+`data_sebelum` dan `data_sesudah`. Uji API
+`api/bidang.php?lapisan=bidang&maks=5&cari=HM-818D` menjawab `tipe: tanah`,
+`blok: BLOK 5`. Pemeriksaan tumpang tindih: tidak ada bidang baru yang beririsan
+≥50% dengan bidang tanah lain.
+
+Cadangan penuh: `D:\backup\sigpetades\blok5-kosong-20261108\`.
+`sebelum.sql` (9.647.545 byte; SHA-256
+`1975bd677aec5ad6aee9e074ea5ce5e2de39580fa1ad5f8c5f3b76fa6ca72509`) diuji
+restore ke `sipetades_restore_blok5_20261108` — jumlah `bidang` (7.947),
+`hak` (7.945), `blok` (24), `objek_pajak` (3.794), `sppt` (3.794), dan
+`audit_log` (3.373) identik; `CHECKSUM TABLE` sama kecuali `sppt` (checksum
+fisik; isinya identik). Dump sesudah `sesudah.sql` (9.650.103 byte; SHA-256
+`c784d104e357dd85a70e2aad74529484d32fde0f0513c30729368d8b21a9a91b`) juga
+diuji restore — `bidang` 7.947, `hak` 7.945, `audit_log` 3.375, bidang tanah
+BLOK 5 = 63. Database uji sudah dihapus.
+
 ---
 
 ## 4. Berkas SPPT dari Excel
