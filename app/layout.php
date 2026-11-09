@@ -39,6 +39,9 @@ function sip_header(string $judul, string $aktif = '', array $opsi = []): void
     $leafletCss = $opsi['leaflet'] ?? false
         ? '<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">'
         : '';
+    $leafletJs = $opsi['leaflet'] ?? false
+        ? '<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>'
+        : '';
     ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -51,6 +54,7 @@ function sip_header(string $judul, string $aktif = '', array $opsi = []): void
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Caveat:wght@600&display=swap">
     <?= $leafletCss ?>
+    <?= $leafletJs ?>
     <link rel="stylesheet" href="<?= e($base) ?>/assets/css/app.css<?= e(sip_versi_aset('assets/css/app.css')) ?>">
 </head>
 <body class="halaman-<?= e($aktif ?: 'umum') ?>">
@@ -120,9 +124,6 @@ function sip_header(string $judul, string $aktif = '', array $opsi = []): void
 function sip_footer(array $opsi = []): void
 {
     $base = sip_base_url();
-    $leafletJs = $opsi['leaflet'] ?? false
-        ? '<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>'
-        : '';
     $konstanta = [
         'base'   => $base,
         'csrf'   => csrf_token(),
@@ -147,7 +148,6 @@ function sip_footer(array $opsi = []): void
     </div>
 </footer>
 
-<?= $leafletJs ?>
 <script>window.SIP = <?= json_encode($konstanta, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
 <script src="<?= e($base) ?>/assets/js/app.js<?= e(sip_versi_aset('assets/js/app.js')) ?>"></script>
 <?= $opsi['kaki'] ?? '' ?>

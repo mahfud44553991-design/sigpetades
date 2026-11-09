@@ -205,10 +205,9 @@ sip_header('Pecah Bidang', 'digitasi', ['leaflet' => true]);
     document.getElementById('btn-hapus-garis').addEventListener('click', function() {
         titikGaris = [];
         if (layerGaris) { peta.removeLayer(layerGaris); layerGaris = null; }
-        if (layerHasil) { peta.removeLayer(layerHasil); layerHasil = null; }
+        bersihkanHasil();
         updateInfoGaris();
         document.getElementById('btn-pisah').disabled = true;
-        document.getElementById('bagian-hasil').style.display = 'none';
     });
 
     // Klik peta untuk tambah titik garis
@@ -240,6 +239,23 @@ sip_header('Pecah Bidang', 'digitasi', ['leaflet' => true]);
         layerGaris = L.polyline(latlngs, { color: '#e53935', weight: 3, dashArray: '8,4' }).addTo(peta);
     }
 
+    // Hasil lama wajib dibuang sebelum geometri baru dihitung, kalau tidak
+    // tombol simpan mengirim geometri dari percobaan sebelumnya.
+    function bersihkanHasil() {
+        if (layerHasil) { peta.removeLayer(layerHasil); layerHasil = null; }
+        document.getElementById('hasil-geojson').value = '';
+        document.getElementById('daftar-hasil').innerHTML = '';
+        document.getElementById('bagian-hasil').style.display = 'none';
+    }
+
+    // Lebar sayatan mengikuti resolusi layar pada zoom aktif; buffer 1 cm tidak
+    // pernah memotong polygon dan hanya memunculkan "garis tidak memotong".
+    function radiusSayatanKm() {
+        const meterPerPiksel = 40075016.686 * Math.cos(peta.getCenter().lat * Math.PI / 180)
+            / (256 * Math.pow(2, peta.getZoom()));
+        return Math.max(0.00001, (meterPerPiksel * 2) / 1000);
+    }
+
     function updateInfoGaris() {
         document.getElementById('info-garis').textContent = titikGaris.length + ' titik garis';
     }
@@ -264,7 +280,8 @@ sip_header('Pecah Bidang', 'digitasi', ['leaflet' => true]);
         };
 
         try {
-            const garisBuffer = turf.buffer(garisFeature, 0.00001, { units: 'kilometers' });
+            bersihkanHasil();
+            const garisBuffer = turf.buffer(garisFeature, radiusSayatanKm(), { units: 'kilometers' });
             const hasil = turf.difference(bidangFeature, garisBuffer);
 
             if (!hasil) {
@@ -361,9 +378,11 @@ sip_header('Pecah Bidang', 'digitasi', ['leaflet' => true]);
     });
 
     document.getElementById('btn-batal').addEventListener('click', function() {
-        if (layerHasil) { peta.removeLayer(layerHasil); layerHasil = null; }
-        document.getElementById('bagian-hasil').style.display = 'none';
-        document.getElementById('btn-pisah').disabled = false;
+        if (layerGaris) { peta.removeLayer(layerGaris); layerGaris = null; }
+        titikGaris = [];
+        bersihkanHasil();
+        updateInfoGaris();
+        document.getElementById('btn-pisah').disabled = true;
     });
 })();
 </script>

@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 420" font-family="Arial, Helvetica, sans-serif" font-size="13">
+  <rect width="800" height="420" fill="#eef1ea"/>
+  <g stroke="#d7dbd2" stroke-width="1">
+    <path d="M0 60 H800 M0 140 H800 M0 220 H800 M0 300 H800 M0 380 H800"/>
+    <path d="M80 0 V420 M200 0 V420 M320 0 V420 M440 0 V420 M560 0 V420 M680 0 V420"/>
+  </g>
+  <path d="M0 330 C160 300 300 350 460 320 C600 295 700 330 800 310" stroke="#c9d6e8" stroke-width="16" fill="none"/>
+  <path d="M120 0 L150 420" stroke="#f2e6c8" stroke-width="12" fill="none"/>
+  <g fill="#dfe4da" stroke="#9aa397" stroke-width="1.4">
+    <polygon points="250,120 330,110 345,175 262,188"/>
+    <polygon points="345,175 430,160 448,230 360,245"/>
+    <polygon points="200,205 262,188 280,260 214,272"/>
+    <polygon points="440,110 520,125 512,190 436,178"/>
+    <polygon points="290,290 372,278 388,340 300,352"/>
+    <polygon points="500,230 585,222 596,290 512,300"/>
+  </g>
+  <g fill="#d7e8d5" stroke="#5f8f5a" stroke-width="1.6">
+    <polygon points="360,245 448,230 462,292 372,308"/>
+  </g>
+  <circle cx="405" cy="215" r="150" fill="#2196F3" fill-opacity="0.08" stroke="#2196F3" stroke-width="2.5" stroke-dasharray="8 6"/>
+  <g stroke="#2196F3" stroke-width="1.6">
+    <line x1="405" y1="215" x2="555" y2="215"/>
+  </g>
+  <rect x="452" y="196" width="106" height="22" rx="4" fill="#ffffff" stroke="#2196F3"/>
+  <text x="462" y="212" fill="#1565C0">radius pencarian</text>
+  <circle cx="405" cy="215" r="7" fill="#d32f2f" stroke="#ffffff" stroke-width="2"/>
+  <text x="300" y="392" fill="#4a4a4a">Titik klik = pusat radius. Bidang di dalam lingkaran biru menjadi kandidat referensi digitasi.</text>
+  <text x="12" y="24" fill="#6b7280">Skema — bukan tangkapan peta. Lihat peta hidup di langkah 0.</text>
+</svg>

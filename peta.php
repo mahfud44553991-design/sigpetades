@@ -898,7 +898,7 @@ $naskah = <<<'JS'
             setelan.bidang = e.target.checked;
             simpanSetelan();
             aktifkan('bidang', setelan.bidang);
-            if (setelan.bidang && !dataLapisan.tanah) {
+            if (setelan.bidang && filterLapisan.tanah !== kunciFilter('tanah')) {
                 muatLapisan('tanah').catch(gagalMuat);
             } else {
                 segarkanTanpaMuat();
@@ -912,7 +912,7 @@ $naskah = <<<'JS'
             setelan.lain = e.target.checked;
             simpanSetelan();
             aktifkan('lain', setelan.lain);
-            if (setelan.lain && !dataLapisan.lain) {
+            if (setelan.lain && filterLapisan.lain !== kunciFilter('lain')) {
                 muatLapisan('lain').catch(gagalMuat);
             } else {
                 segarkanTanpaMuat();

@@ -11,7 +11,7 @@ declare(strict_types=1);
  *   POST api/preset.php
  *         body: {aksi: 'hapus', id: int}
  *
- * Preset disimpan per pengguna dan bisa dimuat dari browser mana saja.
+ * Preset disimpan per pengguna dan hanya dapat dibaca oleh pengguna yang masuk.
  */
 
 require_once __DIR__ . '/../app/bootstrap.php';
@@ -20,6 +20,9 @@ try {
     $method = $_SERVER['REQUEST_METHOD'];
 
     if ($method === 'GET') {
+        // Preset hanya dipakai di halaman peta yang butuh login; tanpa saring ini
+        // nama preset dan konfigurasi tampilan terbaca siapa pun.
+        wajib_masuk();
         $id = get_int('id');
         if ($id !== null) {
             $preset = db_all("SELECT id, nama, data_json, dibuat_oleh, dibuat_pada, diubah_pada FROM preset_peta WHERE id = ?", [$id]);

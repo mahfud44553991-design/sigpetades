@@ -404,6 +404,7 @@ sip_header('Penggabungan Bidang', 'digitasi', ['leaflet' => true]);
 
     document.getElementById('btn-batal').addEventListener('click', function() {
         if (layerGabungan) { peta.removeLayer(layerGabungan); layerGabungan = null; }
+        document.getElementById('gabung-geojson').value = '';
         document.getElementById('bagian-hasil').style.display = 'none';
     });
 })();

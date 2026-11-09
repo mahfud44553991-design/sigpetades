@@ -19,9 +19,10 @@ $gabung_geojson = $_POST['gabung_geojson'] ?? '';
 $kode_baru = trim($_POST['kode_baru'] ?? '');
 $nib_baru = trim($_POST['nib_baru'] ?? '') ?: null;
 $jenis_hak_id = (int) ($_POST['jenis_hak_id'] ?? 0);
-$luas_m2 = $_POST['luas_m2'] !== '' ? (float) $_POST['luas_m2'] : null;
-$blok_id = $_POST['blok_id'] !== '' ? (int) $_POST['blok_id'] : null;
-$dusun_id = $_POST['dusun_id'] !== '' ? (int) $_POST['dusun_id'] : null;
+$luas_input = trim((string) ($_POST['luas_m2'] ?? ''));
+$luas_m2 = $luas_input !== '' ? (float) $luas_input : null;
+$blok_id = trim((string) ($_POST['blok_id'] ?? '')) !== '' ? (int) $_POST['blok_id'] : null;
+$dusun_id = trim((string) ($_POST['dusun_id'] ?? '')) !== '' ? (int) $_POST['dusun_id'] : null;
 $catatan = trim($_POST['catatan'] ?? '') ?: null;
 
 if ($asal_ids_json === '') {
@@ -50,29 +51,48 @@ if (!is_array($geometry) || !in_array($geometry['type'] ?? '', ['Polygon', 'Mult
     json_response(['sukses' => false, 'pesan' => 'Format GeoJSON tidak valid']);
 }
 
+// Semua bidang asal harus ada; kalau tidak, hasil gabungan kehilangan induknya
+// dan luas desa menyusut tanpa jejak.
+$asal_ids = array_values(array_filter(array_map('intval', $asal_ids), static fn(int $id): bool => $id > 0));
+$tanya = implode(',', array_fill(0, count($asal_ids), '?'));
+$daftar_asal = db_all("SELECT id, kode, status FROM bidang WHERE id IN ($tanya)", $asal_ids);
+if (count($daftar_asal) !== count($asal_ids)) {
+    json_response(['sukses' => false, 'pesan' => 'Sebagian bidang asal tidak ditemukan, penggabungan dibatalkan']);
+}
+
+// Hasil gabungan ikut antrean verifikasi bila ada salah satu induk yang belum terverifikasi.
+$status_baru = 'aktif';
+foreach ($daftar_asal as $s) {
+    if ($s['status'] !== 'aktif') {
+        $status_baru = 'perlu_verifikasi';
+        break;
+    }
+}
+
+$wkt = geometri_ke_wkt($geometry);
+if ($wkt === '') {
+    json_response(['sukses' => false, 'pesan' => 'Geometri gabungan tidak dapat dikonversi menjadi WKT']);
+}
+
+if ($luas_m2 === null) {
+    $luas_m2 = luas_geometri_m2($geometry);
+}
+$pusat = pusat_geometri($geometry);
+
+if (db_value('SELECT kode FROM bidang WHERE kode = ?', [$kode_baru]) !== null) {
+    json_response(['sukses' => false, 'pesan' => 'Kode bidang sudah ada: ' . $kode_baru]);
+}
+
+if (db_value('SELECT kode FROM jenis_hak WHERE id = ?', [$jenis_hak_id]) === null) {
+    json_response(['sukses' => false, 'pesan' => 'Jenis hak tidak dikenali']);
+}
+
 $db = db();
 $db->beginTransaction();
 
 try {
-    $wkt = geojson_to_wkt($geometry);
-    if ($wkt === '') {
-        throw new RuntimeException('Gagal mengkonversi geometri ke WKT');
-    }
-
-    if ($luas_m2 === null) {
-        $luas_m2 = hitung_luas_dari_wkt($wkt);
-    }
-
-    $pusat = hitung_pusat_dari_wkt($wkt);
-
-    $cek = $db->prepare("SELECT id FROM bidang WHERE kode = ?");
-    $cek->execute([$kode_baru]);
-    if ($cek->fetch()) {
-        json_response(['sukses' => false, 'pesan' => 'Kode bidang sudah ada: ' . $kode_baru]);
-    }
-
     $sql = "INSERT INTO bidang (kode, tipe, nib, luas_m2, blok_id, dusun_id, status, sumber, catatan, geom, pusat_lon, pusat_lat)
-            VALUES (?, 'tanah', ?, ?, ?, ?, 'aktif', 'penggabungan', ?, ST_GeomFromText(?, 4326), ?, ?)";
+            VALUES (?, 'tanah', ?, ?, ?, ?, ?, 'penggabungan', ?, ST_GeomFromText(?, 4326), ?, ?)";
 
     $stmt = $db->prepare($sql);
     $stmt->execute([
@@ -81,6 +101,7 @@ try {
         $luas_m2,
         $blok_id,
         $dusun_id,
+        $status_baru,
         $catatan,
         $wkt,
         $pusat['lon'],
@@ -113,95 +134,4 @@ try {
 } catch (PDOException $e) {
     $db->rollBack();
     json_response(['sukses' => false, 'pesan' => 'Database error: ' . $e->getMessage()], 500);
-} catch (RuntimeException $e) {
-    $db->rollBack();
-    json_response(['sukses' => false, 'pesan' => $e->getMessage()], 500);
-}
-
-function geojson_to_wkt(array $geometry): string {
-    if ($geometry['type'] === 'Polygon') {
-        $rings = $geometry['coordinates'];
-        $ringStrs = [];
-        foreach ($rings as $ring) {
-            $points = [];
-            foreach ($ring as $coord) {
-                $points[] = (float) $coord[0] . ' ' . (float) $coord[1];
-            }
-            $ringStrs[] = '(' . implode(',', $points) . ')';
-        }
-        return 'POLYGON(' . implode(',', $ringStrs) . ')';
-    } elseif ($geometry['type'] === 'MultiPolygon') {
-        $polygons = $geometry['coordinates'];
-        $polyStrs = [];
-        foreach ($polygons as $rings) {
-            $ringStrs = [];
-            foreach ($rings as $ring) {
-                $points = [];
-                foreach ($ring as $coord) {
-                    $points[] = (float) $coord[0] . ' ' . (float) $coord[1];
-                }
-                $ringStrs[] = '(' . implode(',', $points) . ')';
-            }
-            $polyStrs[] = '(' . implode(',', $ringStrs) . ')';
-        }
-        return 'MULTIPOLYGON(' . implode(',', $polyStrs) . ')';
-    }
-    return '';
-}
-
-function hitung_luas_dari_wkt(string $wkt): float {
-    preg_match('/POLYGON\(\((.+)\)\)/', $wkt, $matches);
-    if (!isset($matches[1])) return 0.0;
-
-    $points = [];
-    $pairs = explode(',', $matches[1]);
-    foreach ($pairs as $pair) {
-        $coords = explode(' ', trim($pair));
-        if (count($coords) >= 2) {
-            $points[] = [(float) $coords[0], (float) $coords[1]];
-        }
-    }
-
-    $n = count($points);
-    if ($n < 3) return 0.0;
-
-    $luas_derajat = 0.0;
-    for ($i = 0; $i < $n; $i++) {
-        $j = ($i + 1) % $n;
-        $luas_derajat += $points[$i][0] * $points[$j][1];
-        $luas_derajat -= $points[$j][0] * $points[$i][1];
-    }
-    $luas_derajat = abs($luas_derajat) / 2.0;
-    $luas_m2 = $luas_derajat * pow(111320, 2);
-
-    return round($luas_m2, 2);
-}
-
-function hitung_pusat_dari_wkt(string $wkt): array {
-    preg_match('/POLYGON\(\((.+)\)\)/', $wkt, $matches);
-    if (!isset($matches[1])) return ['lon' => 0, 'lat' => 0];
-
-    $points = [];
-    $pairs = explode(',', $matches[1]);
-    foreach ($pairs as $pair) {
-        $coords = explode(' ', trim($pair));
-        if (count($coords) >= 2) {
-            $points[] = [(float) $coords[0], (float) $coords[1]];
-        }
-    }
-
-    $n = count($points);
-    if ($n === 0) return ['lon' => 0, 'lat' => 0];
-
-    $sum_lon = 0.0;
-    $sum_lat = 0.0;
-    foreach ($points as $p) {
-        $sum_lon += $p[0];
-        $sum_lat += $p[1];
-    }
-
-    return [
-        'lon' => round($sum_lon / $n, 7),
-        'lat' => round($sum_lat / $n, 7)
-    ];
 }

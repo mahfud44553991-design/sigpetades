@@ -37,13 +37,13 @@ if (!is_array($kode_baru)) {
 }
 
 // Ambil data bidang asal
-$asal = db_row("SELECT id, kode, nib, blok_id, dusun_id, jenis_penggunaan_id, luas_m2, status FROM bidang WHERE id = ?", [$bidang_asal_id]);
+$asal = db_one("SELECT id, kode, nib, blok_id, dusun_id, jenis_penggunaan_id, luas_m2, status FROM bidang WHERE id = ?", [$bidang_asal_id]);
 if (!$asal) {
     json_response(['sukses' => false, 'pesan' => 'Bidang asal tidak ditemukan']);
 }
 
 // Ambil hak bidang asal
-$hak_asal = db_row("SELECT jenis_hak_id, pemegang_nama, catatan FROM hak WHERE bidang_id = ?", [$bidang_asal_id]);
+$hak_asal = db_one("SELECT jenis_hak_id, pemegang_nama, catatan FROM hak WHERE bidang_id = ?", [$bidang_asal_id]);
 
 $geometry = $hasil['geometry'];
 $bagian_list = [];
@@ -69,20 +69,20 @@ $bidang_baru_ids = [];
 try {
     foreach ($bagian_list as $i => $geom) {
         $kode = !empty($kode_baru[$i]) ? trim($kode_baru[$i]) : $asal['kode'] . '-' . chr(65 + $i);
-        $geojson_str = json_encode($geom);
-
-        $wkt = geojson_polygon_to_wkt($geom);
-        $luas = hitung_luas_dari_wkt($wkt);
-        $pusat = hitung_pusat_dari_wkt($wkt);
-
-        $cek = $db->prepare("SELECT id FROM bidang WHERE kode = ?");
-        $cek->execute([$kode]);
-        if ($cek->fetch()) {
-            $kode = $kode . '-' . ($i + 1);
+        $wkt = geometri_ke_wkt($geom);
+        if ($wkt === '') {
+            throw new RuntimeException('Bagian ke-' . ($i + 1) . ' bukan polygon yang sah');
         }
 
+        $luas = luas_geometri_m2($geom);
+        $pusat = pusat_geometri($geom);
+
+        $kode = kode_tersedia($kode, $db);
+
+        // Anak mewarisi status induk supaya antrean verifikasi tidak hilang
+        // saat bidang perlu_verifikasi dipecah.
         $sql = "INSERT INTO bidang (kode, tipe, nib, blok_id, dusun_id, jenis_penggunaan_id, luas_m2, status, sumber, catatan, geom, pusat_lon, pusat_lat)
-                VALUES (?, 'tanah', ?, ?, ?, ?, ?, 'aktif', 'pecah_bidang', ?, ST_GeomFromText(?, 4326), ?, ?)";
+                VALUES (?, 'tanah', ?, ?, ?, ?, ?, ?, 'pecah_bidang', ?, ST_GeomFromText(?, 4326), ?, ?)";
         $stmt = $db->prepare($sql);
         $stmt->execute([
             $kode,
@@ -91,6 +91,7 @@ try {
             $asal['dusun_id'],
             $asal['jenis_penggunaan_id'],
             $luas,
+            $asal['status'],
             'Pecahan dari bidang ' . $asal['kode'] . ' (bagian ' . ($i + 1) . ')',
             $wkt,
             $pusat['lon'],
@@ -114,6 +115,10 @@ try {
         audit('buat', 'bidang', (string) $id_baru, "Pecahan bidang $asal[kode] -> $kode");
     }
 
+    // Induk ditandai dihapus; kalau tidak, luasnya dihitung ganda bersama anak-anaknya.
+    $hapusAsal = $db->prepare("UPDATE bidang SET status = 'dihapus', catatan = CONCAT(COALESCE(catatan, ''), '\nDipecah menjadi ', ?) WHERE id = ?");
+    $hapusAsal->execute([implode(', ', $bidang_baru_ids), $bidang_asal_id]);
+
     $db->commit();
 
     json_response([
@@ -125,75 +130,31 @@ try {
 } catch (PDOException $e) {
     $db->rollBack();
     json_response(['sukses' => false, 'pesan' => 'Database error: ' . $e->getMessage()], 500);
+} catch (RuntimeException $e) {
+    $db->rollBack();
+    json_response(['sukses' => false, 'pesan' => $e->getMessage()], 422);
 }
 
-function geojson_polygon_to_wkt(array $geom): string {
-    if ($geom['type'] !== 'Polygon') return '';
-    $rings = $geom['coordinates'];
-    $ringStrs = [];
-    foreach ($rings as $ring) {
-        $points = [];
-        foreach ($ring as $coord) {
-            $points[] = (float) $coord[0] . ' ' . (float) $coord[1];
-        }
-        $ringStrs[] = '(' . implode(',', $points) . ')';
-    }
-    return 'POLYGON(' . implode(',', $ringStrs) . ')';
-}
-
-function hitung_luas_dari_wkt(string $wkt): float {
-    preg_match('/POLYGON\(\((.+)\)\)/', $wkt, $matches);
-    if (!isset($matches[1])) return 0.0;
-
-    $points = [];
-    $pairs = explode(',', $matches[1]);
-    foreach ($pairs as $pair) {
-        $coords = explode(' ', trim($pair));
-        if (count($coords) >= 2) {
-            $points[] = [(float) $coords[0], (float) $coords[1]];
+/**
+ * Pastikan kode unik sebelum INSERT; hindari 1062 membatalkan seluruh transaksi.
+ * Batas 32 karakter mengikuti kolom bidang.kode.
+ */
+function kode_tersedia(string $kode, PDO $db): string
+{
+    $cek = $db->prepare('SELECT 1 FROM bidang WHERE kode = ?');
+    $urutan = 1;
+    $calon = $kode;
+    $cek->execute([$calon]);
+    while ($cek->fetch()) {
+        $urutan++;
+        $buntut = '-' . $urutan;
+        $maks = max(1, 32 - strlen($buntut));
+        $calon = substr($kode, 0, $maks) . $buntut;
+        $cek->execute([$calon]);
+        if ($urutan > 200) {
+            throw new RuntimeException('Kode turunan untuk ' . $kode . ' sudah habis');
         }
     }
 
-    $n = count($points);
-    if ($n < 3) return 0.0;
-
-    $luas_derajat = 0.0;
-    for ($i = 0; $i < $n; $i++) {
-        $j = ($i + 1) % $n;
-        $luas_derajat += $points[$i][0] * $points[$j][1];
-        $luas_derajat -= $points[$j][0] * $points[$i][1];
-    }
-    $luas_derajat = abs($luas_derajat) / 2.0;
-    $luas_m2 = $luas_derajat * pow(111320, 2);
-
-    return round($luas_m2, 2);
-}
-
-function hitung_pusat_dari_wkt(string $wkt): array {
-    preg_match('/POLYGON\(\((.+)\)\)/', $wkt, $matches);
-    if (!isset($matches[1])) return ['lon' => 0, 'lat' => 0];
-
-    $points = [];
-    $pairs = explode(',', $matches[1]);
-    foreach ($pairs as $pair) {
-        $coords = explode(' ', trim($pair));
-        if (count($coords) >= 2) {
-            $points[] = [(float) $coords[0], (float) $coords[1]];
-        }
-    }
-
-    $n = count($points);
-    if ($n === 0) return ['lon' => 0, 'lat' => 0];
-
-    $sum_lon = 0.0;
-    $sum_lat = 0.0;
-    foreach ($points as $p) {
-        $sum_lon += $p[0];
-        $sum_lat += $p[1];
-    }
-
-    return [
-        'lon' => round($sum_lon / $n, 7),
-        'lat' => round($sum_lat / $n, 7)
-    ];
+    return $calon;
 }

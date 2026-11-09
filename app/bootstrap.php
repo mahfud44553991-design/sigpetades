@@ -88,6 +88,7 @@ function sip_url(string $halaman, array $param = []): string
 // Dimuat setelah fungsi di atas tersedia, karena db()/mulai_sesi() memakainya.
 require_once SIP_APP . '/db.php';
 require_once SIP_APP . '/helpers.php';
+require_once SIP_APP . '/geometri.php';
 require_once SIP_APP . '/data.php';
 require_once SIP_APP . '/auth.php';
 require_once SIP_APP . '/layout.php';

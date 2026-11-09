@@ -29,7 +29,8 @@ function json_error(string $pesan, int $status = 400, array $tambahan = []): nev
 
 function json_ok(array $data = [], string $pesan = 'OK'): never
 {
-    json_response(['status' => 'berhasil', 'pesan' => $pesan] + $data);
+    // $data harus menang atas nilai default; operator + tidak menimpa kunci kiri.
+    json_response(array_merge(['status' => 'berhasil', 'pesan' => $pesan], $data));
 }
 
 function redirect(string $halaman): never

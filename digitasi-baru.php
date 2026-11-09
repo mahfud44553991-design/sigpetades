@@ -56,6 +56,7 @@ if ($pratinjau !== null) {
 }
 
 sip_header('Digitasi Obyek Baru', 'digitasi');
+sip_header('Digitasi Obyek Baru', 'digitasi', ['leaflet' => true]);
 ?>
 
 <main class="konten">
@@ -72,16 +73,41 @@ sip_header('Digitasi Obyek Baru', 'digitasi');
 
     <div class="kartu digitasi-kontainer">
         <h2>0. Pilih Bidang Referensi</h2>
-        <p class="petunjuk">Pilih bidang existing sebagai referensi. Atribut (blok, dusun, jenis hak) akan otomatis terisi.</p>
-        <div class="baris-form">
-            <label for="bidang-search">Cari bidang (kode atau NIB):</label>
-            <input type="text" id="bidang-search" placeholder="Ketik minimal 2 karakter..." autocomplete="off" style="width:100%;padding:8px;">
-            <div id="hasil-pencarian" style="margin-top:5px; max-height:300px; overflow-y:auto; border:1px solid #ddd; border-radius:4px; display:none;"></div>
+        <p class="petunjuk">Klik pada peta untuk memilih lokasi. Sistem akan mencari bidang terdekat dalam radius yang ditentukan. Atribut (blok, dusun, jenis hak) akan otomatis terisi.</p>
+        
+        <div class="baris-form" style="margin-bottom:10px;">
+            <label for="radius-search">Radius pencarian (meter):</label>
+            <select id="radius-search" style="padding:8px; border:1px solid #ddd; border-radius:4px;">
+                <option value="50">50 meter</option>
+                <option value="100" selected>100 meter</option>
+                <option value="150">150 meter</option>
+                <option value="200">200 meter</option>
+                <option value="500">500 meter</option>
+                <option value="1000">1 km</option>
+            </select>
+            <button type="button" id="btn-cari-ulang" class="tombol sekunder" style="margin-left:10px;" disabled>Cari Ulang di Lokasi Terakhir</button>
         </div>
-        <input type="hidden" id="bidang-referensi-id" name="bidang_referensi_id" value="">
+        
+        <div id="peta-referensi" style="width:100%; height:400px; border:1px solid #ddd; border-radius:4px; margin-bottom:10px;"></div>
+        
+        <div id="info-klik" style="padding:10px; background:#e3f2fd; border-radius:4px; margin-bottom:10px;">
+            <strong>Instruksi:</strong> Klik pada peta untuk mencari bidang terdekat di lokasi tersebut.
+        </div>
+        
+        <div id="hasil-pencarian" style="max-height:300px; overflow-y:auto; border:1px solid #ddd; border-radius:4px; display:none; margin-bottom:10px;"></div>
+        
+        <input type="hidden" id="lokasi-lat" value="">
+        <input type="hidden" id="lokasi-lon" value="">
+        
         <div id="info-referensi" style="margin-top:10px; padding:10px; background:#f0f0f0; border-radius:4px; display:none;">
             <strong>Bidang referensi:</strong> <span id="ref-kode"></span>
         </div>
+
+        <details style="margin-top:15px;">
+            <summary class="petunjuk" style="cursor:pointer;">Skema: apa yang dilakukan radius pencarian</summary>
+            <p class="petunjuk" style="margin-top:10px;">Lingkaran biru putus-putus adalah radius pencarian dari titik yang diklik. Bidang di dalamnya dijadikan kandidat referensi dan atributnya (blok, dusun, jenis hak) ikut terisi.</p>
+            <img src="assets/img/skema-radius.svg" alt="Skema garis radius pencarian pada peta bidang" style="max-width:100%; border:1px solid #ddd; border-radius:4px;">
+        </details>
 
         <?php if ($pratinjau): ?>
             <?php
@@ -106,6 +132,7 @@ sip_header('Digitasi Obyek Baru', 'digitasi');
 
     <div class="kartu digitasi-kontainer">
         <h2>1. Unggah Gambar</h2>
+        <p class="petunjuk">Unggah scan peta (JPG/PNG) atau file DXF sebagai latar digitasi. Bagian 2–4 muncul setelah latar berhasil dimuat.</p>
         <form id="form-upload" enctype="multipart/form-data">
             <input type="hidden" name="csrf" value="<?= $csrf ?>">
             <div class="baris-form">
@@ -113,6 +140,7 @@ sip_header('Digitasi Obyek Baru', 'digitasi');
                 <input type="file" id="gambar" name="gambar" accept="image/jpeg,image/png,.dxf" required>
             </div>
             <button type="submit" class="tombol">Unggah</button>
+            <span id="info-latar" class="info-teks">Belum ada latar.</span>
         </form>
     </div>
 
@@ -349,82 +377,152 @@ sip_header('Digitasi Obyek Baru', 'digitasi');
         updateZoom(zoomLevel + delta);
     }, { passive: false });
 
-    // AJAX search bidang referensi
-    const searchInput = document.getElementById('bidang-search');
+    // Leaflet map untuk pilih lokasi pencarian bidang terdekat
+    const petaReferensi = L.map('peta-referensi').setView([-7.09, 110.07], 15);
+    window.petaReferensi = petaReferensi; // Expose untuk debugging/testing
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(petaReferensi);
+
+    let markerLokasi = null;
+    let circleRadius = null;
+    let lokasiTerakhir = null;
     const hasilPencarian = document.getElementById('hasil-pencarian');
-    let searchTimeout = null;
 
-    searchInput.addEventListener('input', function() {
-        const query = this.value.trim();
+    // Load semua bidang sebagai context layer
+    fetch('api/bidang.php?lapisan=bidang&maks=9000')
+        .then(res => res.json())
+        .then(data => {
+            L.geoJSON(data, {
+                style: { color: '#999', weight: 1, fillColor: '#ddd', fillOpacity: 0.2 }
+            }).addTo(petaReferensi);
+        });
 
-        clearTimeout(searchTimeout);
-
-        if (query.length < 2) {
-            hasilPencarian.style.display = 'none';
-            hasilPencarian.innerHTML = '';
-            return;
+    // Klik peta untuk cari bidang terdekat
+    petaReferensi.on('click', function(e) {
+        const lat = e.latlng.lat;
+        const lon = e.latlng.lng;
+        lokasiTerakhir = { lat, lon };
+        
+        // Update marker
+        if (markerLokasi) {
+            markerLokasi.setLatLng(e.latlng);
+        } else {
+            markerLokasi = L.marker(e.latlng).addTo(petaReferensi);
         }
+        
+        // Update circle radius
+        const radius = parseInt(document.getElementById('radius-search').value);
+        if (circleRadius) {
+            circleRadius.setRadius(radius);
+            circleRadius.setLatLng(e.latlng);
+        } else {
+            circleRadius = L.circle(e.latlng, {
+                radius: radius,
+                color: '#2196F3',
+                fillColor: '#2196F3',
+                fillOpacity: 0.1
+            }).addTo(petaReferensi);
+        }
+        
+        // Simpan lokasi ke hidden input
+        document.getElementById('lokasi-lat').value = lat;
+        document.getElementById('lokasi-lon').value = lon;
+        
+        // Cari bidang terdekat
+        cariBidangTerdekat(lat, lon, radius);
+        
+        // Enable tombol cari ulang
+        document.getElementById('btn-cari-ulang').disabled = false;
+        
+        // Update info klik
+        document.getElementById('info-klik').innerHTML = `<strong>Lokasi dipilih:</strong> ${lat.toFixed(6)}, ${lon.toFixed(6)} | Radius: ${radius}m`;
+    });
 
-        searchTimeout = setTimeout(() => {
-            fetch(`api/cari_bidang.php?q=${encodeURIComponent(query)}`)
-                .then(res => res.json())
-                .then(data => {
-                    if (!data.sukses || data.data.length === 0) {
-                        hasilPencarian.innerHTML = '<div style="padding:10px;color:#666;">Tidak ditemukan</div>';
-                        hasilPencarian.style.display = 'block';
-                        return;
-                    }
+    // Tombol cari ulang
+    document.getElementById('btn-cari-ulang').addEventListener('click', function() {
+        if (lokasiTerakhir) {
+            const radius = parseInt(document.getElementById('radius-search').value);
+            // Update circle radius
+            if (circleRadius) {
+                circleRadius.setRadius(radius);
+            }
+            cariBidangTerdekat(lokasiTerakhir.lat, lokasiTerakhir.lon, radius);
+        }
+    });
 
-                    let html = '';
-                    data.data.forEach(b => {
-                        html += `<div class="item-hasil" data-id="${b.id}" data-blok="${b.blok_id || ''}" data-dusun="${b.dusun_id || ''}" data-label="${b.label.replace(/"/g, '&quot;')}" style="padding:10px;border-bottom:1px solid #eee;cursor:pointer;transition:background 0.2s;" onmouseover="this.style.background='#f5f5f5'" onmouseout="this.style.background='white'">
-                            ${b.label}
-                        </div>`;
-                    });
+    // Fungsi cari bidang terdekat
+    function cariBidangTerdekat(lat, lon, radius) {
+        hasilPencarian.innerHTML = '<div style="padding:10px;color:#666;">Mencari bidang terdekat...</div>';
+        hasilPencarian.style.display = 'block';
+        
+        fetch(`api/cari_bidang_terdekat.php?lat=${lat}&lon=${lon}&radius=${radius}&limit=20`)
+            .then(res => res.json())
+            .then(data => {
+                if (!data.sukses) {
+                    hasilPencarian.innerHTML = '<div style="padding:10px;color:#c00;">'
+                        + (data.pesan || data.error || 'Pencarian bidang gagal.') + '</div>';
+                    return;
+                }
+                if (data.data.length === 0) {
+                    hasilPencarian.innerHTML = '<div style="padding:10px;color:#666;">Tidak ada bidang ditemukan dalam radius ' + radius + 'm dari lokasi ini.</div>';
+                    return;
+                }
 
-                    hasilPencarian.innerHTML = html;
-                    hasilPencarian.style.display = 'block';
-
-                    // Attach click handlers
-                    document.querySelectorAll('.item-hasil').forEach(item => {
-                        item.addEventListener('click', function() {
-                            const id = this.dataset.id;
-                            const blokId = this.dataset.blok;
-                            const dusunId = this.dataset.dusun;
-                            const label = this.dataset.label;
-
-                            bidangReferensi = {
-                                id: id,
-                                blok_id: blokId,
-                                dusun_id: dusunId
-                            };
-
-                            document.getElementById('bidang-referensi-id').value = id;
-                            document.getElementById('ref-kode').textContent = label;
-                            document.getElementById('info-referensi').style.display = 'block';
-
-                            document.getElementById('blok').value = blokId || '';
-                            document.getElementById('dusun').value = dusunId || '';
-
-                            hasilPencarian.style.display = 'none';
-                            searchInput.value = label.split('|')[0].trim();
-                        });
-                    });
-                })
-                .catch(err => {
-                    console.error('Error searching bidang:', err);
-                    hasilPencarian.innerHTML = '<div style="padding:10px;color:#c00;">Error mencari bidang</div>';
-                    hasilPencarian.style.display = 'block';
+                let html = '<div style="padding:10px; background:#f5f5f5; border-bottom:1px solid #ddd;"><strong>' + data.jumlah + ' bidang ditemukan dalam radius ' + radius + 'm:</strong></div>';
+                data.data.forEach(b => {
+                    html += `<div class="item-hasil" data-id="${b.id}" data-blok="${b.blok_id || ''}" data-dusun="${b.dusun_id || ''}" data-label="${b.label.replace(/"/g, '&quot;')}" style="padding:10px;border-bottom:1px solid #eee;cursor:pointer;transition:background 0.2s;" onmouseover="this.style.background='#e3f2fd'" onmouseout="this.style.background='white'">
+                        ${b.label}
+                    </div>`;
                 });
-        }, 300);
-    });
 
-    // Hide results when clicking outside
-    document.addEventListener('click', function(e) {
-        if (!searchInput.contains(e.target) && !hasilPencarian.contains(e.target)) {
-            hasilPencarian.style.display = 'none';
-        }
-    });
+                hasilPencarian.innerHTML = html;
+
+                // Attach click handlers
+                document.querySelectorAll('.item-hasil').forEach(item => {
+                    item.addEventListener('click', function() {
+                        const id = this.dataset.id;
+                        const blokId = this.dataset.blok;
+                        const dusunId = this.dataset.dusun;
+                        const label = this.dataset.label;
+
+                        bidangReferensi = {
+                            id: id,
+                            blok_id: blokId,
+                            dusun_id: dusunId
+                        };
+
+                        document.getElementById('bidang-referensi-id').value = id;
+                        document.getElementById('ref-kode').textContent = label;
+                        document.getElementById('info-referensi').style.display = 'block';
+
+                        document.getElementById('blok').value = blokId || '';
+                        document.getElementById('dusun').value = dusunId || '';
+
+                        hasilPencarian.style.display = 'none';
+                        
+                        // Highlight selected item
+                        document.querySelectorAll('.item-hasil').forEach(el => el.style.background = 'white');
+                        this.style.background = '#c8e6c9';
+                    });
+                });
+            })
+            .catch(err => {
+                console.error('Error searching bidang:', err);
+                hasilPencarian.innerHTML = '<div style="padding:10px;color:#c00;">Error mencari bidang</div>';
+            });
+    }
+
+    // Bagian 2-4 baru berguna setelah latar digitasi tersedia
+    function bukaBagian(namaLatar) {
+        document.getElementById('bagian-batas').style.display = 'block';
+        document.getElementById('bagian-digitasi').style.display = 'block';
+        document.getElementById('bagian-atribut').style.display = 'block';
+        document.getElementById('info-latar').textContent = 'Latar dimuat: ' + namaLatar
+            + ' (' + canvas.width + '×' + canvas.height + ' px)';
+        document.getElementById('bagian-batas').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
 
     function muatPratinjau() {
         if (!dataPratinjau || !Array.isArray(dataPratinjau.cincin)) return;
@@ -516,9 +614,7 @@ sip_header('Digitasi Obyek Baru', 'digitasi');
                     const parser = new DxfParser();
                     const dxfData = parser.parse(ev.target.result);
                     renderDxf(dxfData);
-                    document.getElementById('bagian-batas').style.display = 'block';
-                    document.getElementById('bagian-digitasi').style.display = 'block';
-                    document.getElementById('bagian-atribut').style.display = 'block';
+                    bukaBagian(file.name);
                 } catch (err) {
                     alert('Error parsing DXF: ' + err.message);
                     console.error(err);
@@ -535,9 +631,7 @@ sip_header('Digitasi Obyek Baru', 'digitasi');
                     canvas.width = img.width;
                     canvas.height = img.height;
                     ctx.drawImage(img, 0, 0);
-                    document.getElementById('bagian-batas').style.display = 'block';
-                    document.getElementById('bagian-digitasi').style.display = 'block';
-                    document.getElementById('bagian-atribut').style.display = 'block';
+                    bukaBagian(file.name);
                 };
                 img.src = ev.target.result;
             };
@@ -577,8 +671,15 @@ sip_header('Digitasi Obyek Baru', 'digitasi');
         const width = maxX - minX;
         const height = maxY - minY;
         const padding = 50;
-        canvas.width = width + padding * 2;
-        canvas.height = height + padding * 2;
+        if (!isFinite(width) || !isFinite(height) || width <= 0 || height <= 0) {
+            alert('File DXF tidak memiliki koordinat yang dapat digambar');
+            return;
+        }
+        // Units DXF bisa berupa meter UTM; batasi agar kanvas tidak melewat
+        // batas ukuran maksimum browser (±32.767 px) yang membuat render kosong.
+        const skalaMuat = Math.min(1, 3900 / Math.max(width, height));
+        canvas.width = Math.round(width * skalaMuat + padding * 2);
+        canvas.height = Math.round(height * skalaMuat + padding * 2);
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.fillStyle = 'white';
@@ -807,4 +908,4 @@ sip_header('Digitasi Obyek Baru', 'digitasi');
 })();
 </script>
 
-<?php sip_footer(); ?>
+<?php sip_footer(['leaflet' => true]); ?>
