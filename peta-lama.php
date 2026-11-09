@@ -151,9 +151,12 @@ sip_judul(
                     <button class="tombol tombol-kecil tombol-utama" type="button" id="simpanPenanda" style="display:none">Simpan bidang</button>
                     <button class="tombol tombol-kecil" type="button" id="hapusPenanda" disabled>Hapus penanda</button>
                 </div>
-                <a class="tombol tombol-kecil jarak-atas" id="keDigitasi" href="<?= e(sip_url('digitasi-baru.php', ['dari' => 'pratinjau'])) ?>">Digitasi Obyek Baru</a>
+                <div class="baris-tombol jarak-atas">
+                    <a class="tombol tombol-kecil" id="keDigitasi" href="<?= e(sip_url('digitasi-baru.php', ['dari' => 'pratinjau'])) ?>">Digitasi Obyek Baru</a>
+                    <a class="tombol tombol-kecil" id="bukaBidang" href="#" style="display:none">Buka bidang</a>
+                </div>
                 <p class="petunjuk" id="infoPenanda">Penunjuk belum aktif. Koordinat X/Y berasal dari DXF lokal, bukan GPS.</p>
-                <p class="petunjuk">Pratinjau memakai poligon tertutup 020100 yang memuat penanda; bila titik di luar, dipakai garis bidang tertutup (LineString yang ujungnya bertemu), lalu rangkaian garis 020100. Bila titik ada di kantong terbuka, “Bidang dari garis sekitar” memotong garis pada titik potong lalu memilih muka terkecil yang memuat penanda, jadi batasnya mengikuti garis sebelahnya. Bidang baru berstatus perlu verifikasi, tanpa blok, dan hanya dapat disimpan Super Admin setelah pratinjau.</p>
+                <p class="petunjuk">Pratinjau memakai poligon tertutup 020100 yang memuat penanda; bila titik di luar, dipakai garis bidang tertutup (LineString yang ujungnya bertemu), lalu rangkaian garis 020100. Bila titik ada di kantong terbuka, “Bidang dari garis sekitar” memotong garis pada titik potong lalu memilih muka terkecil yang memuat penanda, jadi batasnya mengikuti garis sebelahnya. Bidang baru berstatus perlu verifikasi; blok diisi otomatis dari blok resmi yang memuat titik pusat bidang, dan hanya dapat disimpan Super Admin setelah pratinjau.</p>
             </div>
         </section>
 
@@ -505,6 +508,7 @@ $naskah = <<<'JS'
         document.getElementById('penandaSumber').textContent = '–';
         document.getElementById('penandaKode').textContent = '–';
         document.getElementById('simpanPenanda').style.display = 'none';
+        document.getElementById('bukaBidang').style.display = 'none';
     }
 
     function hapusPratinjauServer() {
@@ -546,22 +550,24 @@ $naskah = <<<'JS'
 
         const tombol = document.getElementById('simpanPenanda');
         tombol.style.display = isi.boleh_simpan ? '' : 'none';
+        const tujuan = isi.blok ? 'Blok ' + isi.blok.kode : 'tanpa blok';
         if (isi.duplikat) {
             document.getElementById('infoPenanda').textContent = 'Bidang serupa sudah ada: '
                 + isi.duplikat.kode + (isi.duplikat.alasan === 'kode'
                     ? ' (kode sama)' : ' (geometri ≥95% sama)') + '. Penyimpanan diblokir.';
         } else if (isi.boleh_simpan) {
             document.getElementById('infoPenanda').textContent = 'Pratinjau siap: ' + isi.kode
-                + ' · ' + luas + '. Periksa batas, lalu klik Simpan bidang.';
+                + ' · ' + luas + ' · ' + tujuan + '. Periksa batas, lalu klik Simpan bidang.';
         } else {
             document.getElementById('infoPenanda').textContent = 'Pratinjau siap: ' + isi.kode
-                + ' · ' + luas + '. Akun ini tidak berwenang menyimpan bidang.';
+                + ' · ' + luas + ' · ' + tujuan + '. Akun ini tidak berwenang menyimpan bidang.';
         }
         info.textContent = 'Pratinjau ' + isi.kode + ' · ' + luas + ' — '
             + (isi.jenis === 'tertutup' ? 'poligon tertutup 020100.'
                 : isi.jenis === 'garis-tertutup' ? 'garis bidang tertutup 020100.'
                     : isi.jenis === 'garis-baru' ? 'garis bidang baru dari garis sekitar 020100.'
-                        : 'rangkaian garis 020100.');
+                        : 'rangkaian garis 020100.')
+            + ' ' + tujuan + '.';
     }
 
     async function mintaPratinjau(aksi = 'pratinjau') {
@@ -591,9 +597,12 @@ $naskah = <<<'JS'
     async function simpanBidangPenanda() {
         if (!pratinjau) return;
         const tombol = document.getElementById('simpanPenanda');
+        const tujuan = pratinjau.blok ? 'Blok ' + pratinjau.blok.kode : 'tanpa blok';
         const yakin = window.confirm('Simpan bidang ' + pratinjau.kode + ' ('
-            + Sip.angka(pratinjau.luas_m2, 2) + ' m²) sebagai bidang perlu verifikasi, tanpa blok?');
+            + Sip.angka(pratinjau.luas_m2, 2) + ' m²) ke ' + tujuan
+            + ' sebagai bidang perlu verifikasi?');
         if (!yakin) return;
+        const bentuk = { type: 'Feature', geometry: pratinjau.geometri, properties: {} };
         tombol.disabled = true;
         try {
             const hasil = await Sip.api('api/penanda-bidang.php', {
@@ -602,9 +611,20 @@ $naskah = <<<'JS'
             });
             pratinjau = null;
             tombol.style.display = 'none';
+            grupPratinjau.clearLayers();
+            L.geoJSON(bentuk, {
+                style: {
+                    color: '#15803d', weight: 2.4, opacity: 1,
+                    fillColor: '#22c55e', fillOpacity: .14
+                }
+            }).addTo(grupPratinjau);
+            const blokTeks = hasil.blok ? ' di ' + hasil.blok.kode : ' tanpa blok';
             document.getElementById('infoPenanda').textContent = 'Bidang ' + hasil.kode
-                + ' tersimpan sebagai perlu verifikasi (id ' + hasil.id + ').';
-            info.textContent = 'Bidang ' + hasil.kode + ' tersimpan — perlu verifikasi, belum punya blok.';
+                + ' tersimpan sebagai perlu verifikasi' + blokTeks + ' (id ' + hasil.id + ').';
+            info.textContent = 'Bidang ' + hasil.kode + ' tersimpan' + blokTeks + ' — perlu verifikasi.';
+            const buka = document.getElementById('bukaBidang');
+            buka.href = 'bidang.php?id=' + hasil.id;
+            buka.style.display = '';
             Sip.pesan(hasil.pesan, 'berhasil');
         } catch (err) {
             document.getElementById('infoPenanda').textContent = err.message;

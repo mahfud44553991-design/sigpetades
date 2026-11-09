@@ -436,6 +436,30 @@ function siapkanGeometri(array $geometri): array
     return ['wkt' => $wkt, 'luas' => $luas, 'pusat' => wktPusat(db(), $wkt)];
 }
 
+/** Blok resmi terkecil yang memuat titik pusat bidang, atau null. */
+function blokPusatBidang(string $wkt): ?array
+{
+    $blok = db_one(
+        'SELECT id, kode, nomor, nama
+           FROM blok
+          WHERE geom IS NOT NULL
+            AND batas_perkiraan = 0
+            AND ST_Contains(geom, ST_Centroid(ST_GeomFromText(?, 4326)))
+          ORDER BY ST_Area(geom) ASC
+          LIMIT 1',
+        [$wkt]
+    );
+    if ($blok === null) {
+        return null;
+    }
+    return [
+        'id' => (int) $blok['id'],
+        'kode' => (string) $blok['kode'],
+        'nomor' => $blok['nomor'] === null ? null : (int) $blok['nomor'],
+        'nama' => (string) $blok['nama'],
+    ];
+}
+
 /** Simpan pratinjau ke sesi lalu kirim jawaban JSON. */
 function kirimPratinjau(array $calon, string $jenis, string $kode, float $x, float $y, array $pengguna): void
 {
@@ -446,6 +470,7 @@ function kirimPratinjau(array $calon, string $jenis, string $kode, float $x, flo
     }
 
     $duplikat = duplikatBidang($kode, $siap['wkt']);
+    $blok = blokPusatBidang($siap['wkt']);
     $token = bin2hex(random_bytes(16));
     $_SESSION['penanda_bidang'] = [
         'token' => $token,
@@ -468,6 +493,7 @@ function kirimPratinjau(array $calon, string $jenis, string $kode, float $x, flo
         'handle' => (string) $calon['handle'],
         'luas_m2' => round($siap['luas'], 2),
         'duplikat' => $duplikat,
+        'blok' => $blok,
         'boleh_simpan' => $pengguna['peran'] === PERAN_SUPER && $duplikat === null,
         'geometri' => ['type' => 'Polygon', 'coordinates' => $calon['geometry']['coordinates']],
     ], 'Pratinjau bidang siap.');
@@ -557,21 +583,24 @@ if ($aksi === 'simpan') {
         'garis-tertutup' => 'garis bidang tertutup ' . ($pratinjau['handle'] !== '' ? $pratinjau['handle'] : 'tanpa handle'),
         default => 'poligon tertutup ' . ($pratinjau['handle'] !== '' ? $pratinjau['handle'] : 'tanpa handle'),
     };
+    $blok = blokPusatBidang((string) $pratinjau['wkt']);
     $catatan = sprintf(
-        'Dibuat dari penanda X %.2f Y %.2f pada layer peta induk 020100 (%s); perlu verifikasi dan penetapan blok.',
+        'Dibuat dari penanda X %.2f Y %.2f pada layer peta induk 020100 (%s); perlu verifikasi%s.',
         (float) $pratinjau['x'],
         (float) $pratinjau['y'],
-        $asal
+        $asal,
+        $blok !== null ? '; blok ' . $blok['kode'] . ' dari titik pusat bidang' : ' dan penetapan blok'
     );
 
-    $id = db_transaksi(static function (PDO $pdo) use ($pratinjau, $idJenisHak, $catatan): int {
+    $id = db_transaksi(static function (PDO $pdo) use ($pratinjau, $idJenisHak, $catatan, $blok): int {
         $pdo->prepare(
             'INSERT INTO bidang
-                (kode, tipe, luas_m2, status, sumber, catatan, geom, pusat_lon, pusat_lat)
-             VALUES (?, \'tanah\', ?, \'perlu_verifikasi\', \'peta-020100\', ?, ST_GeomFromText(?, 4326), ?, ?)'
+                (kode, tipe, luas_m2, blok_id, status, sumber, catatan, geom, pusat_lon, pusat_lat)
+             VALUES (?, \'tanah\', ?, ?, \'perlu_verifikasi\', \'peta-020100\', ?, ST_GeomFromText(?, 4326), ?, ?)'
         )->execute([
             $pratinjau['kode'],
             round((float) $pratinjau['luas'], 2),
+            $blok['id'] ?? null,
             $catatan,
             $pratinjau['wkt'],
             $pratinjau['pusat']['lon'],
@@ -591,9 +620,15 @@ if ($aksi === 'simpan') {
         'handle' => $pratinjau['handle'],
         'penanda' => ['x' => $pratinjau['x'], 'y' => $pratinjau['y']],
         'luas_m2' => round((float) $pratinjau['luas'], 2),
+        'blok' => $blok['kode'] ?? null,
     ]);
 
-    json_ok(['id' => $id, 'kode' => $pratinjau['kode']], 'Bidang baru disimpan sebagai perlu verifikasi.');
+    json_ok([
+        'id' => $id,
+        'kode' => $pratinjau['kode'],
+        'blok' => $blok,
+    ], 'Bidang baru disimpan sebagai perlu verifikasi'
+        . ($blok !== null ? ' di ' . $blok['kode'] : '') . '.');
 }
 
 json_error('Aksi tidak dikenal. Gunakan "pratinjau", "garis-baru", "bersihkan", atau "simpan".', 400);
