@@ -4697,6 +4697,427 @@ restore ke `sipetades_coret_b26d` — `audit_log` 3.398, audit 3457 ada, tanah
 BLOK 26 = 253, duplikat = 31; baris dan checksum sama termasuk `sppt`. Kedua
 database uji sudah dihapus.
 
+### 3.64 Sisa objek terbuka BLOK 25 dituntaskan: 45 menjadi tanah dan 13 duplikat (9 Nov 2026)
+
+BLOK 25 (`blok.id=7`) berisi 393 bidang: 181 `tanah` aktif, 3 `tanah`
+`perlu_verifikasi`, dan 209 `lain` (`perlu_verifikasi`, tanpa duplikat). Dari
+209 objek `lain`, **154 sudah tertutup ≥95%** bidang tanah; **58 terbuka**
+diproses:
+
+- **45 bidang `lain` → `tanah`** (status tetap `perlu_verifikasi`), total
+  **50.003,59 m²**:
+  - 13 HM: 7075 `HM-1484D K3` (895,16 m²), 7166 `HM-C33` (647,14), 7199
+    `HM-A21` (1.115,45), 7200 `HM-A229` (564,50), 7210 `HM-A240` (3.728,17),
+    7241 `HM-126B` (880,47), 7539 `HM-1401D K3` (1.033,20), 7569
+    `HM-1485D K3` (468,80), 7583 `HM-1463D K3` (557,51), 7586
+    `HM-1466D K3` (2.416,57), 7587 `HM-1451D K3` (2.297,83), 7596
+    `HM-1476D K3` (719,02), 8085 `HM-1486D K3` (296,93).
+  - 32 DXF tunggal: 5538 `DXF-020100-0024` (566,92), 5727
+    `DXF-020100-0213` (721,94), 5728 `DXF-020100-0214` (266,59), 7076
+    `DXF-020100-1562` (1.166,87), 7162 `DXF-020100-1648` (2.318,52), 7163
+    `DXF-020100-1649` (1.269,07), 7164 `DXF-020100-1650` (621,04), 7167
+    `DXF-020100-1653` (992,37), 7187 `DXF-020100-1673` (198,65), 7201
+    `DXF-020100-1687` (807,56), 7557 `DXF-020100-2043` (121,07), 7567
+    `DXF-020100-2053` (871,97), 7570 `DXF-020100-2056` (451,52), 7579
+    `DXF-020100-2065` (506,53), 7594 `DXF-020100-2080` (1.787,19), 7595
+    `DXF-020100-2081` (246,77), 8061 `DXF-020100-2547` (2.068,12), 8093
+    `DXF-020100-2579` (4.265,28), 8103 `DXF-020100-2589` (2.043,88), 8110
+    `DXF-020100-2596` (1.786,39), 8120 `DXF-020100-2606` (1.514,55), 8122
+    `DXF-020100-2608` (1.504,06), 8130 `DXF-020100-2616` (1.377,39), 8144
+    `DXF-020100-2630` (1.091,31), 8172 `DXF-020100-2658` (795,61), 8173
+    `DXF-020100-2659` (789,93), 8178 `DXF-020100-2664` (775,22), 8179
+    `DXF-020100-2665` (774,18), 8190 `DXF-020100-2676` (721,43), 8192
+    `DXF-020100-2678` (712,58), 8196 `DXF-020100-2682` (660,90), 8209
+    `DXF-020100-2695` (587,43).
+- **13 kembar DXF → `status='duplikat'`** (`tipe` tetap `lain`), total
+  **15.620,76 m²**, semuanya `ST_Equals` dengan keeper HM-nya: 12595
+  `DXF-020100-1561` ≡ 7075, 12621 `DXF-020100-1652` ≡ 7166, 12635
+  `DXF-020100-1685` ≡ 7199, 12636 `DXF-020100-1686` ≡ 7200, 12640
+  `DXF-020100-1696` ≡ 7210, 12643 `DXF-020100-1727` ≡ 7241, 12800
+  `DXF-020100-2025` ≡ 7539, 12816 `DXF-020100-2055` ≡ 7569, 12825
+  `DXF-020100-2069` ≡ 7583, 12828 `DXF-020100-2072` ≡ 7586, 12829
+  `DXF-020100-2073` ≡ 7587, 12835 `DXF-020100-2082` ≡ 7596, 13117
+  `DXF-020100-2571` ≡ 8085.
+
+Tidak ada pengecualian: tidak ada objek terbuka yang kembar dengan bidang
+`dihapus`, dan tidak ada kembar lain di luar 58 objek terbuka. 13/13
+`duplikat` tertutup 100% oleh keeper-nya; 154 objek `lain` yang sudah
+tercakup tidak diubah.
+
+Audit id **3458** (`objek_id='blok25-kosong-20261109'`). Keadaan akhir BLOK 25:
+`tanah` **226** (180 aktif + 46 `perlu_verifikasi`), `lain` **167** (154
+`perlu_verifikasi` + 13 `duplikat`); total tetap 393. Global: `bidang`
+**7.947**, `hak` **7.945**, tanah **4.308** (3.319 aktif + 987
+`perlu_verifikasi` + 2 `dihapus`), lain **3.639** (1 aktif + 3.405
+`perlu_verifikasi` + 233 `duplikat`); status `aktif` **3.320**,
+`perlu_verifikasi` **4.392**, `duplikat` **233**, `dihapus` **2**. Uji API
+`lapisan=bidang&blok=BLOK 25` menjawab **380 fitur** (180 `tanah` aktif + 46
+`tanah` `perlu_verifikasi` + 154 `lain` `perlu_verifikasi`); 13 duplikat
+tersaring. `HM-A240` dan `DXF-020100-0024` menjawab `tipe: tanah`, sedangkan
+`DXF-020100-1561` dan `DXF-020100-2571` tersaring sebagai duplikat.
+
+Cadangan penuh: `D:\backup\sigpetades\blok25-kosong-20261109\`.
+`sebelum.sql` (9.745.017 byte; SHA-256
+`aee9ddf3b8e029b5f9e33e25c0f8d7254fd9bba1eeac684eb041218ce0e4beec`) diuji
+restore ke `sipetades_coret_b25` — seluruh 18 tabel jumlah baris dan
+`CHECKSUM TABLE` sama termasuk `sppt`, isi `sppt` identik 3.794 baris lewat
+dump `--skip-extended-insert` (nol beda); `audit_log` 3.396. Dump sesudah
+`sesudah.sql` (9.755.434 byte; SHA-256
+`49362217e56bbcba6a9575842b92c082ad0b2ae95a698b22d4818149879007ed`) diuji
+restore ke `sipetades_coret_b25b` — `audit_log` 3.399, audit 3458 ada, tanah
+BLOK 25 = 226, duplikat = 13; baris dan checksum sama termasuk `sppt`. Kedua
+database uji sudah dihapus.
+
+### 3.65 Sisa objek terbuka BLOK 23 dituntaskan: 32 menjadi tanah dan 24 duplikat (9 Nov 2026)
+
+BLOK 23 (`blok.id=25`) berisi 423 bidang: 90 `tanah` aktif, 123 `tanah`
+`perlu_verifikasi`, dan 210 `lain` (`perlu_verifikasi`, tanpa duplikat). Dari
+210 objek `lain`, **154 sudah tertutup ≥95%** bidang tanah; **56 terbuka**
+diproses:
+
+- **32 bidang `lain` → `tanah`** (status tetap `perlu_verifikasi`), total
+  **46.316,50 m²**:
+  - 24 HM: 5532 `HM-A118` (1.647,39 m²), 5533 `HM-A117` (1.636,30), 5665
+    `HM-136B` (847,99), 5668 `HM-250B` (1.679,08), 5684 `HM-124B`
+    (1.004,94), 5685 `HM-248B` (1.005,06), 6234 `HM-232D` (1.712,34), 6256
+    `HM-227D` (2.365,19), 7019 `HM-A11` (2.696,40), 7021 `HM-A9` (718,38),
+    7022 `HM-A77` (221,33), 7631 `HM-1054D` (1.355,67), 7632 `HM-1053D`
+    (912,14), 7633 `HM-1052D` (2.240,29), 7635 `HM-1061D` (2.988,31), 7638
+    `HM-1058D` (625,33), 7641 `HM-1085D` (721,13), 7643 `HM-1055D`
+    (2.160,75), 7658 `HM-1049D` (2.929,11), 7661 `HM-1081D` (2.441,21),
+    7662 `HM-1082D` (1.847,02), 7672 `HM-1077D` (3.299,43), 7674
+    `HM-1117D` (2.233,05), 7678 `HM-1112D` (935,68).
+  - 8 DXF tunggal: 5667 `DXF-020100-0153` (2.009,99), 7636
+    `DXF-020100-2122` (1.476,43), 7640 `DXF-020100-2126` (726,58), 7655
+    `DXF-020100-2141` (501,86), 7660 `DXF-020100-2146` (410,10), 7677
+    `DXF-020100-2163` (299,79), 8079 `DXF-020100-2565` (186,99), 8225
+    `DXF-020100-2711` (481,24).
+- **24 kembar DXF → `status='duplikat'`** (`tipe` tetap `lain`), total
+  **40.223,52 m²**, semuanya `ST_Equals` dengan keeper HM-nya: 11547
+  `DXF-020100-0018` ≡ 5532, 11548 `DXF-020100-0019` ≡ 5533, 11625
+  `DXF-020100-0151` ≡ 5665, 11627 `DXF-020100-0154` ≡ 5668, 11638
+  `DXF-020100-0170` ≡ 5684, 11639 `DXF-020100-0171` ≡ 5685, 12019
+  `DXF-020100-0720` ≡ 6234, 12035 `DXF-020100-0742` ≡ 6256, 12549
+  `DXF-020100-1505` ≡ 7019, 12551 `DXF-020100-1507` ≡ 7021, 12552
+  `DXF-020100-1508` ≡ 7022, 12859 `DXF-020100-2117` ≡ 7631, 12860
+  `DXF-020100-2118` ≡ 7632, 12861 `DXF-020100-2119` ≡ 7633, 12863
+  `DXF-020100-2121` ≡ 7635, 12864 `DXF-020100-2124` ≡ 7638, 12865
+  `DXF-020100-2127` ≡ 7641, 12866 `DXF-020100-2129` ≡ 7643, 12874
+  `DXF-020100-2144` ≡ 7658, 12875 `DXF-020100-2147` ≡ 7661, 12876
+  `DXF-020100-2148` ≡ 7662, 12883 `DXF-020100-2158` ≡ 7672, 12885
+  `DXF-020100-2160` ≡ 7674, 12888 `DXF-020100-2164` ≡ 7678.
+
+Tidak ada pengecualian: tidak ada objek terbuka yang kembar dengan bidang
+`dihapus`, dan tidak ada kembar lain di luar 56 objek terbuka. 24/24
+`duplikat` tertutup 100% oleh keeper-nya; 154 objek `lain` yang sudah
+tercakup tidak diubah.
+
+Audit id **3459** (`objek_id='blok23-kosong-20261109'`). Keadaan akhir BLOK 23:
+`tanah` **245** (90 aktif + 155 `perlu_verifikasi`), `lain` **178** (154
+`perlu_verifikasi` + 24 `duplikat`); total tetap 423. Global: `bidang`
+**7.947**, `hak` **7.945**, tanah **4.340** (3.319 aktif + 1.019
+`perlu_verifikasi` + 2 `dihapus`), lain **3.607** (1 aktif + 3.349
+`perlu_verifikasi` + 257 `duplikat`); status `aktif` **3.320**,
+`perlu_verifikasi` **4.368**, `duplikat` **257**, `dihapus` **2**. Uji API
+`lapisan=bidang&blok=BLOK 23` menjawab **399 fitur** (90 `tanah` aktif + 155
+`tanah` `perlu_verifikasi` + 154 `lain` `perlu_verifikasi`); 24 duplikat
+tersaring. `HM-A118`, `HM-1054D`, `DXF-020100-0153`, dan `DXF-020100-2711`
+menjawab `tipe: tanah`, sedangkan `DXF-020100-0018` dan `DXF-020100-2164`
+tersaring sebagai duplikat.
+
+Cadangan penuh: `D:\backup\sigpetades\blok23-kosong-20261109\`.
+`sebelum.sql` (9.755.434 byte; SHA-256
+`3ef93147ef2be55ed5086d43ba246304bf9104338f33d4b1ee05c2dd2f7a7198`) diuji
+restore ke `sipetades_coret_b23` — seluruh 18 tabel jumlah baris dan
+`CHECKSUM TABLE` sama termasuk `sppt`, isi `sppt` identik 3.794 baris;
+`audit_log` 3.399. Dump sesudah `sesudah.sql` (9.765.094 byte; SHA-256
+`4a687f430aaf4cb9b66d29774af9ebfc0258d860dbf21d6a64b229038cf0eb10`) diuji
+restore ke `sipetades_coret_b23b` — `audit_log` 3.400, audit 3459 ada, tanah
+BLOK 23 = 245, duplikat = 24; baris dan checksum sama kecuali checksum fisik
+`sppt`, isi `sppt` identik 3.794 baris lewat dump `--skip-extended-insert`
+(nol beda). Kedua database uji sudah dihapus.
+
+### 3.66 Sisa objek terbuka BLOK 19 dituntaskan: 22 menjadi tanah dan 19 duplikat (9 Nov 2026)
+
+BLOK 19 (`blok.id=22`) berisi 274 bidang: 67 `tanah` aktif, 15 `tanah`
+`perlu_verifikasi`, dan 192 `lain` (`perlu_verifikasi`, tanpa duplikat). Dari
+192 objek `lain`, **151 sudah tertutup ≥95%** bidang tanah; **41 terbuka**
+diproses:
+
+- **22 bidang `lain` → `tanah`** (status tetap `perlu_verifikasi`), total
+  **24.822,41 m²**:
+  - 19 HM: 5585 `HM-145C` (598,75 m²), 5692 `HM-B42` (798,38), 7688
+    `HM-1783D` (2.393,58), 7689 `HM-1781D` (1.435,10), 7691 `HM-1777D`
+    (833,77), 7693 `HM-1782D` (1.284,66), 7695 `HM-1774D` (627,55), 7701
+    `HM-1779D` (2.496,26), 7709 `HM-1792D` (1.303,15), 7720 `HM-1846D`
+    (947,92), 7721 `HM-1847D` (1.030,03), 7722 `HM-1848D` (1.339,94), 7748
+    `HM-1862D` (537,92), 7749 `HM-1867D` (934,56), 7750 `HM-1898D`
+    (535,65), 7759 `HM-1860D` (1.669,43), 7760 `HM-1859D` (765,81), 7940
+    `HM-1881D` (581,52), 7942 `HM-1799D` (2.355,00).
+  - 3 DXF tunggal: 7694 `DXF-020100-2180` (580,97), 7696 `DXF-020100-2182`
+    (564,07), 7699 `DXF-020100-2185` (1.208,39).
+- **19 kembar DXF → `status='duplikat'`** (`tipe` tetap `lain`), total
+  **22.468,98 m²**, semuanya `ST_Equals` dengan keeper HM-nya: 11586
+  `DXF-020100-0071` ≡ 5585, 11645 `DXF-020100-0178` ≡ 5692, 12893
+  `DXF-020100-2174` ≡ 7688, 12894 `DXF-020100-2175` ≡ 7689, 12896
+  `DXF-020100-2177` ≡ 7691, 12897 `DXF-020100-2179` ≡ 7693, 12898
+  `DXF-020100-2181` ≡ 7695, 12901 `DXF-020100-2187` ≡ 7701, 12909
+  `DXF-020100-2195` ≡ 7709, 12920 `DXF-020100-2206` ≡ 7720, 12921
+  `DXF-020100-2207` ≡ 7721, 12922 `DXF-020100-2208` ≡ 7722, 12947
+  `DXF-020100-2234` ≡ 7748, 12948 `DXF-020100-2235` ≡ 7749, 12949
+  `DXF-020100-2236` ≡ 7750, 12957 `DXF-020100-2245` ≡ 7759, 12958
+  `DXF-020100-2246` ≡ 7760, 13080 `DXF-020100-2426` ≡ 7940, 13082
+  `DXF-020100-2428` ≡ 7942.
+
+Tidak ada pengecualian: tidak ada objek terbuka yang kembar dengan bidang
+`dihapus`, dan tidak ada kembar lain di luar 41 objek terbuka. 19/19
+`duplikat` tertutup 100% oleh keeper-nya; 151 objek `lain` yang sudah
+tercakup tidak diubah.
+
+Audit id **3460** (`objek_id='blok19-kosong-20261109'`). Keadaan akhir BLOK 19:
+`tanah` **104** (67 aktif + 37 `perlu_verifikasi`), `lain` **170** (151
+`perlu_verifikasi` + 19 `duplikat`); total tetap 274. Global: `bidang`
+**7.947**, `hak` **7.945**, tanah **4.362** (3.319 aktif + 1.041
+`perlu_verifikasi` + 2 `dihapus`), lain **3.585** (1 aktif + 3.308
+`perlu_verifikasi` + 276 `duplikat`); status `aktif` **3.320**,
+`perlu_verifikasi` **4.349**, `duplikat` **276**, `dihapus` **2**. Uji API
+`lapisan=bidang&blok=BLOK 19` menjawab **255 fitur** (67 `tanah` aktif + 37
+`tanah` `perlu_verifikasi` + 151 `lain` `perlu_verifikasi`); 19 duplikat
+tersaring. `HM-145C`, `HM-1783D`, `DXF-020100-2180`, dan `DXF-020100-2185`
+menjawab `tipe: tanah`, sedangkan `DXF-020100-0071` dan `DXF-020100-2428`
+tersaring sebagai duplikat.
+
+Cadangan penuh: `D:\backup\sigpetades\blok19-kosong-20261109\`.
+`sebelum.sql` (9.765.094 byte; SHA-256
+`ad425c0640eaefc6e3e8a8cce63cc9f26cc7f0325ba241510bb67899ec4ac44a`) diuji
+restore ke `sipetades_coret_b19` — seluruh 18 tabel jumlah baris dan
+`CHECKSUM TABLE` sama termasuk `sppt`, isi `sppt` identik 3.794 baris;
+`audit_log` 3.400. Dump sesudah `sesudah.sql` (9.772.198 byte; SHA-256
+`12deb763c299676e670e1b85680dd476b7579a7468f7128ce7d94abb8a84ce6b`) diuji
+restore ke `sipetades_coret_b19b` — `audit_log` 3.401, audit 3460 ada, tanah
+BLOK 19 = 104, duplikat = 19; baris dan checksum sama kecuali checksum fisik
+`sppt`, isi `sppt` identik 3.794 baris lewat dump `--skip-extended-insert`
+(nol beda). Kedua database uji sudah dihapus.
+
+### 3.67 Sisa objek terbuka BLOK 21 dituntaskan: 11 menjadi tanah dan 6 duplikat (9 Nov 2026)
+
+BLOK 21 (`blok.id=23`) berisi 556 bidang: 200 `tanah` aktif, 120 `tanah`
+`perlu_verifikasi`, dan 236 `lain` (`perlu_verifikasi`, tanpa duplikat). Dari
+236 objek `lain`, **219 sudah tertutup ≥95%** bidang tanah; **17 terbuka**
+diproses:
+
+- **11 bidang `lain` → `tanah`** (status tetap `perlu_verifikasi`), total
+  **10.570,33 m²**:
+  - 6 HM: 5596 `HM-338B` (138,38 m²), 5871 `HM-145D K3` (272,68), 5897
+    `HM-199D K3` (3.420,37), 7275 `HM-121D K3` (171,67), 7287 `HM-106D K3`
+    (315,24), 7680 `HM-1118D` (4.544,39).
+  - 5 DXF tunggal: 7681 `DXF-020100-2167` (231,57), 8073 `DXF-020100-2559`
+    (395,29), 8216 `DXF-020100-2702` (555,48), 8450 `DXF-020100-2934`
+    (289,52), 8454 `DXF-020100-2938` (235,74).
+- **6 kembar DXF → `status='duplikat'`** (`tipe` tetap `lain`), total
+  **8.862,73 m²**, semuanya `ST_Equals` dengan keeper HM-nya: 11595
+  `DXF-020100-0082` ≡ 5596, 11734 `DXF-020100-0357` ≡ 5871, 11750
+  `DXF-020100-0383` ≡ 5897, 12664 `DXF-020100-1761` ≡ 7275, 12671
+  `DXF-020100-1773` ≡ 7287, 12890 `DXF-020100-2166` ≡ 7680.
+
+Tidak ada pengecualian: tidak ada objek terbuka yang kembar dengan bidang
+`dihapus`, dan tidak ada kembar lain di luar 17 objek terbuka. 6/6 `duplikat`
+tertutup 100% oleh keeper-nya; 219 objek `lain` yang sudah tercakup tidak
+diubah.
+
+Audit id **3461** (`objek_id='blok21-kosong-20261109'`). Keadaan akhir BLOK 21:
+`tanah` **331** (200 aktif + 131 `perlu_verifikasi`), `lain` **225** (219
+`perlu_verifikasi` + 6 `duplikat`); total tetap 556. Global: `bidang`
+**7.947**, `hak` **7.945**, tanah **4.373** (3.319 aktif + 1.052
+`perlu_verifikasi` + 2 `dihapus`), lain **3.574** (1 aktif + 3.291
+`perlu_verifikasi` + 282 `duplikat`); status `aktif` **3.320**,
+`perlu_verifikasi` **4.343**, `duplikat` **282**, `dihapus` **2**. Uji API
+`lapisan=bidang&blok=BLOK 21` menjawab **550 fitur** (200 `tanah` aktif + 131
+`tanah` `perlu_verifikasi` + 219 `lain` `perlu_verifikasi`); 6 duplikat
+tersaring. `HM-338B`, `HM-1118D`, `DXF-020100-2167`, dan `DXF-020100-2938`
+menjawab `tipe: tanah`, sedangkan `DXF-020100-0082` dan `DXF-020100-2166`
+tersaring sebagai duplikat.
+
+Cadangan penuh: `D:\backup\sigpetades\blok21-kosong-20261109\`.
+`sebelum.sql` (9.772.198 byte; SHA-256
+`0deed5450869985e1d640d0733160e2d0441f3ec848208cc0706ae5613775d33`) diuji
+restore ke `sipetades_coret_b21` — seluruh 18 tabel jumlah baris sama,
+checksum sama kecuali checksum fisik `sppt`; isi `sppt` identik 3.794 baris
+lewat dump `--skip-extended-insert` (nol beda); `audit_log` 3.401. Dump
+sesudah `sesudah.sql` (9.775.343 byte; SHA-256
+`64904aa1b5a157731cfb2c7cca95dc66f3426517038309118c8048281865ef4e`) diuji
+restore ke `sipetades_coret_b21b` — `audit_log` 3.402, audit 3461 ada, tanah
+BLOK 21 = 331, duplikat = 6; baris dan checksum sama kecuali checksum fisik
+`sppt`, isi `sppt` identik 3.794 baris (nol beda). Kedua database uji sudah
+dihapus.
+
+### 3.68 Sisa objek terbuka BLOK 20 dituntaskan: 6 menjadi tanah dan 6 duplikat (9 Nov 2026)
+
+BLOK 20 (`blok.id=11`) berisi 364 bidang: 150 `tanah` aktif, 1 `tanah`
+`perlu_verifikasi`, dan 213 `lain` (`perlu_verifikasi`, tanpa duplikat). Dari
+213 objek `lain`, **201 sudah tertutup ≥95%** bidang tanah; **12 terbuka**
+diproses:
+
+- **6 bidang `lain` → `tanah`** (status tetap `perlu_verifikasi`), total
+  **5.241,81 m²**, semuanya HM: 5952 `HM-75D K3` (711,47 m²), 5953
+  `HM-74D K3` (2.153,81), 5956 `HM-78D K3` (655,57), 5957 `HM-77D K3`
+  (941,02), 5958 `HM-76D K3` (447,48), 7769 `HM-1840D` (332,46).
+- **6 kembar DXF → `status='duplikat'`** (`tipe` tetap `lain`), total
+  **5.241,81 m²**, semuanya `ST_Equals` dengan keeper HM-nya: 11791
+  `DXF-020100-0438` ≡ 5952, 11792 `DXF-020100-0439` ≡ 5953, 11795
+  `DXF-020100-0442` ≡ 5956, 11796 `DXF-020100-0443` ≡ 5957, 11797
+  `DXF-020100-0444` ≡ 5958, 12964 `DXF-020100-2255` ≡ 7769.
+
+Tidak ada pengecualian: tidak ada objek terbuka yang kembar dengan bidang
+`dihapus`, dan tidak ada kembar lain di luar 12 objek terbuka. 6/6 `duplikat`
+tertutup 100% oleh keeper-nya; 201 objek `lain` yang sudah tercakup tidak
+diubah.
+
+Audit id **3462** (`objek_id='blok20-kosong-20261109'`). Keadaan akhir BLOK 20:
+`tanah` **157** (150 aktif + 7 `perlu_verifikasi`), `lain` **207** (201
+`perlu_verifikasi` + 6 `duplikat`); total tetap 364. Global: `bidang`
+**7.947**, `hak` **7.945**, tanah **4.379** (3.319 aktif + 1.058
+`perlu_verifikasi` + 2 `dihapus`), lain **3.568** (1 aktif + 3.279
+`perlu_verifikasi` + 288 `duplikat`); status `aktif` **3.320**,
+`perlu_verifikasi` **4.337**, `duplikat` **288**, `dihapus` **2**. Uji API
+`lapisan=bidang&blok=BLOK 20` menjawab **358 fitur** (150 `tanah` aktif + 7
+`tanah` `perlu_verifikasi` + 201 `lain` `perlu_verifikasi`); 6 duplikat
+tersaring. `HM-75D K3` dan `HM-1840D` menjawab `tipe: tanah`, sedangkan
+`DXF-020100-0438` dan `DXF-020100-2255` tersaring sebagai duplikat.
+
+Cadangan penuh: `D:\backup\sigpetades\blok20-kosong-20261109\`.
+`sebelum.sql` (9.775.343 byte; SHA-256
+`77bae5e809539dc8c8ab97a7036094cabe1dd49ff1922ba4cc3670206235617d`) diuji
+restore ke `sipetades_coret_b20` — seluruh 18 tabel jumlah baris sama,
+checksum sama kecuali checksum fisik `sppt`; isi `sppt` identik 3.794 baris
+lewat dump `--skip-extended-insert` (nol beda); `audit_log` 3.402. Dump
+sesudah `sesudah.sql` (9.777.573 byte; SHA-256
+`482e5948c7511f1f92df4b5e9fe11df3cd60842fffc78c265dd6f5821db3545c`) diuji
+restore ke `sipetades_coret_b20b` — `audit_log` 3.403, audit 3462 ada, tanah
+BLOK 20 = 157, duplikat = 6; baris dan checksum sama termasuk `sppt`. Kedua
+database uji sudah dihapus.
+
+### 3.69 Sisa objek terbuka BLOK 24 dituntaskan: 4 menjadi tanah dan 1 duplikat (9 Nov 2026)
+
+BLOK 24 (`blok.id=16`) berisi 386 bidang: 183 `tanah` aktif, tanpa `tanah`
+`perlu_verifikasi`, dan 203 `lain` (`perlu_verifikasi`, tanpa duplikat). Dari
+203 objek `lain`, **198 sudah tertutup ≥95%** bidang tanah; **5 terbuka**
+diproses:
+
+- **4 bidang `lain` → `tanah`** (status tetap `perlu_verifikasi`), total
+  **1.584,77 m²**: 7129 `HM-970D K3` (922,28 m²), 7149 `DXF-020100-1635`
+  (18,36), 7554 `DXF-020100-2040` (24,07), 7555 `DXF-020100-2041` (620,06).
+- **1 kembar DXF → `status='duplikat'`** (`tipe` tetap `lain`), **922,28
+  m²**: 12607 `DXF-020100-1615` ≡ 7129 `HM-970D K3` (`ST_Equals`).
+
+Tidak ada pengecualian: tidak ada objek terbuka yang kembar dengan bidang
+`dihapus`, dan tidak ada kembar lain di luar 5 objek terbuka. 1/1 `duplikat`
+tertutup 100% oleh keeper-nya; 198 objek `lain` yang sudah tercakup tidak
+diubah.
+
+Audit id **3463** (`objek_id='blok24-kosong-20261109'`). Keadaan akhir BLOK 24:
+`tanah` **187** (183 aktif + 4 `perlu_verifikasi`), `lain` **199** (198
+`perlu_verifikasi` + 1 `duplikat`); total tetap 386. Global: `bidang`
+**7.947**, `hak` **7.945**, tanah **4.383** (3.319 aktif + 1.062
+`perlu_verifikasi` + 2 `dihapus`), lain **3.564** (1 aktif + 3.274
+`perlu_verifikasi` + 289 `duplikat`); status `aktif` **3.320**,
+`perlu_verifikasi` **4.336**, `duplikat` **289**, `dihapus` **2**. Uji API
+`lapisan=bidang&blok=BLOK 24` menjawab **385 fitur** (183 `tanah` aktif + 4
+`tanah` `perlu_verifikasi` + 198 `lain` `perlu_verifikasi`); 1 duplikat
+tersaring. `HM-970D K3`, `DXF-020100-1635`, dan `DXF-020100-2041` menjawab
+`tipe: tanah`, sedangkan `DXF-020100-1615` tersaring sebagai duplikat.
+
+Cadangan penuh: `D:\backup\sigpetades\blok24-kosong-20261109\`.
+`sebelum.sql` (9.777.573 byte; SHA-256
+`547b5d8557648be10e2b92d0a0fcd1bab47ac8f3d1b8417473487308d67f76f3`) diuji
+restore ke `sipetades_coret_b24` — seluruh 18 tabel jumlah baris dan
+`CHECKSUM TABLE` sama termasuk `sppt`; `audit_log` 3.403. Dump sesudah
+`sesudah.sql` (9.778.673 byte; SHA-256
+`06fd1b08f07c7e1d5be305cd6ea7ff6c6a6a6e0aca877ce4306bc50c0834dee4`) diuji
+restore ke `sipetades_coret_b24b` — `audit_log` 3.404, audit 3463 ada, tanah
+BLOK 24 = 187, duplikat = 1; baris dan checksum sama termasuk `sppt`. Kedua
+database uji sudah dihapus.
+
+### 3.70 Sisa objek terbuka BLOK 22 dituntaskan: 2 menjadi tanah dan 1 duplikat (9 Nov 2026)
+
+BLOK 22 (`blok.id=24`) berisi 124 bidang: 24 `tanah` aktif, 79 `tanah`
+`perlu_verifikasi`, dan 21 `lain` (`perlu_verifikasi`, tanpa duplikat). Dari 21
+objek `lain`, **18 sudah tertutup ≥95%** bidang tanah; **3 terbuka** diproses:
+
+- **2 bidang `lain` → `tanah`** (status tetap `perlu_verifikasi`), total
+  **488,37 m²**: 5525 `DXF-020100-0011` (36,78 m²), 7244 `HM-5D K3`
+  (451,59).
+- **1 kembar DXF → `status='duplikat'`** (`tipe` tetap `lain`), **451,59
+  m²**: 12645 `DXF-020100-1730` ≡ 7244 `HM-5D K3` (`ST_Equals`).
+
+Tidak ada pengecualian: tidak ada objek terbuka yang kembar dengan bidang
+`dihapus`, dan tidak ada kembar lain di luar 3 objek terbuka. 1/1 `duplikat`
+tertutup 100% oleh keeper-nya; 18 objek `lain` yang sudah tercakup tidak
+diubah.
+
+Audit id **3464** (`objek_id='blok22-kosong-20261109'`). Keadaan akhir BLOK 22:
+`tanah` **105** (24 aktif + 81 `perlu_verifikasi`), `lain` **19** (18
+`perlu_verifikasi` + 1 `duplikat`); total tetap 124. Global: `bidang`
+**7.947**, `hak` **7.945**, tanah **4.385** (3.319 aktif + 1.064
+`perlu_verifikasi` + 2 `dihapus`), lain **3.562** (1 aktif + 3.271
+`perlu_verifikasi` + 290 `duplikat`); status `aktif` **3.320**,
+`perlu_verifikasi` **4.335**, `duplikat` **290**, `dihapus` **2**. Uji API
+`lapisan=bidang&blok=BLOK 22` menjawab **123 fitur** (24 `tanah` aktif + 81
+`tanah` `perlu_verifikasi` + 18 `lain` `perlu_verifikasi`); 1 duplikat
+tersaring. `DXF-020100-0011` dan `HM-5D K3` menjawab `tipe: tanah`, sedangkan
+`DXF-020100-1730` tersaring sebagai duplikat.
+
+Cadangan penuh: `D:\backup\sigpetades\blok22-kosong-20261109\`.
+`sebelum.sql` (9.778.673 byte; SHA-256
+`c33963fe5210b77363e846954eccf65d06258117b4a06670b56d3ff9b02ef732`) diuji
+restore ke `sipetades_coret_b22` — seluruh 18 tabel jumlah baris dan
+`CHECKSUM TABLE` sama termasuk `sppt`; `audit_log` 3.404. Dump sesudah
+`sesudah.sql` (9.779.405 byte; SHA-256
+`86bd2faa6d6ea897d149a4ae3de41ffe97c382cae85087f6d0e8b76a1dc89718`) diuji
+restore ke `sipetades_coret_b22b` — `audit_log` 3.405, audit 3464 ada, tanah
+BLOK 22 = 105, duplikat = 1; baris dan checksum sama termasuk `sppt`. Kedua
+database uji sudah dihapus.
+
+### 3.71 Sisa objek terbuka BLOK 18 dituntaskan: 1 menjadi tanah dan 1 duplikat (9 Nov 2026)
+
+BLOK 18 (`blok.id=8`) berisi 92 bidang: 75 `tanah` aktif, tanpa `tanah`
+`perlu_verifikasi`, dan 17 `lain` (`perlu_verifikasi`, tanpa duplikat). Dari 17
+objek `lain`, **15 sudah tertutup ≥95%** bidang tanah; **2 terbuka** diproses:
+
+- **1 bidang `lain` → `tanah`** (status tetap `perlu_verifikasi`), **4.519,25
+  m²**: 6367 `HM-118C`.
+- **1 kembar DXF → `status='duplikat'`** (`tipe` tetap `lain`), **4.519,25
+  m²**: 12100 `DXF-020100-0853` ≡ 6367 `HM-118C` (`ST_Equals`).
+
+Tidak ada pengecualian: tidak ada objek terbuka yang kembar dengan bidang
+`dihapus`, dan tidak ada kembar lain di luar 2 objek terbuka. 1/1 `duplikat`
+tertutup 100% oleh keeper-nya; 15 objek `lain` yang sudah tercakup (minimal
+99,23%) tidak diubah.
+
+Audit id **3465** (`objek_id='blok18-kosong-20261109'`). Keadaan akhir BLOK 18:
+`tanah` **76** (75 aktif + 1 `perlu_verifikasi`), `lain` **16** (15
+`perlu_verifikasi` + 1 `duplikat`); total tetap 92. Global: `bidang`
+**7.947**, `hak` **7.945**, tanah **4.386** (3.319 aktif + 1.065
+`perlu_verifikasi` + 2 `dihapus`), lain **3.561** (1 aktif + 3.269
+`perlu_verifikasi` + 291 `duplikat`); status `aktif` **3.320**,
+`perlu_verifikasi` **4.334**, `duplikat` **291**, `dihapus` **2**. Uji API
+`lapisan=bidang&blok=BLOK 18` menjawab **91 fitur** (75 `tanah` aktif + 1
+`tanah` `perlu_verifikasi` + 15 `lain` `perlu_verifikasi`); 1 duplikat
+tersaring. `HM-118C` menjawab `tipe: tanah`, sedangkan `DXF-020100-0853`
+tersaring sebagai duplikat.
+
+Cadangan penuh: `D:\backup\sigpetades\blok18-kosong-20261109\`.
+`sebelum.sql` (9.779.405 byte; SHA-256
+`77d1b498fbb886f8b2de16b4b19ed966356cdb65ab3eed98988feb94eee85a90`) diuji
+restore ke `sipetades_coret_b18` — seluruh 18 tabel jumlah baris dan
+`CHECKSUM TABLE` sama termasuk `sppt`; `audit_log` 3.405. Dump sesudah
+`sesudah.sql` (9.779.952 byte; SHA-256
+`2afdabff5bfcc490690ba1c573c47d913e041f9adb19863d88f453f2f3487a8e`) diuji
+restore ke `sipetades_coret_b18b` — `audit_log` 3.406, audit 3465 ada, tanah
+BLOK 18 = 76, duplikat = 1; baris 18 tabel sama, checksum sama kecuali `sppt`
+(isi `sppt` dibuktikan identik 3.794 baris lewat dump
+`--skip-extended-insert`, `diff` nol baris). Kedua database uji sudah dihapus.
+
 ---
 
 ## 4. Berkas SPPT dari Excel
