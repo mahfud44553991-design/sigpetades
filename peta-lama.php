@@ -86,12 +86,12 @@ sip_judul(
 <div class="grid grid-sidebar">
     <div>
         <section class="kartu">
-            <header class="kepala-kartu">
+            <header class="kepala-kartu kepala-peta">
                 <div>
                     <h2>Layer DXF</h2>
                     <p>Sumber: files/sig-pertanahan-gedong-lokal/data/dxf-layers</p>
                 </div>
-                <div class="baris-tombol">
+                <div class="baris-tombol baris-peta">
                     <select class="pilih-kecil" id="fokusBlokPerkiraan"
                             data-transformasi="<?= e(json_encode(DXF_KE_WGS84, JSON_UNESCAPED_SLASHES)) ?>"
                             aria-label="Pilih blok perkiraan untuk difokuskan">
@@ -102,6 +102,7 @@ sip_judul(
                     </select>
                     <button class="tombol tombol-kecil" type="button" id="fokusBlokPerkiraanBtn">Fokus blok</button>
                     <button class="tombol tombol-kecil" type="button" id="pusatkanLama">Pusatkan</button>
+                    <button class="tombol tombol-kecil" type="button" id="alatPenunjuk" aria-pressed="false">Penunjuk titik</button>
                     <a class="tombol tombol-kecil" href="<?= e(sip_url('peta.php')) ?>">Peta bidang</a>
                 </div>
             </header>
@@ -112,6 +113,9 @@ sip_judul(
 
             <div class="legenda">
                 <span><i style="background:#bed7e8"></i>Bidang tertutup</span>
+                <span><i style="background:#14603a; border-radius:50%"></i>Titik tengah bidang</span>
+                <span><i style="background:#dc2626; border-radius:50%"></i>Penanda titik</span>
+                <span><i style="background:#f87171"></i>Bidang pratinjau</span>
                 <span><i style="background:#5b7893"></i>Garis terbuka</span>
                 <span><i style="background:#14603a"></i>Batas blok ukur</span>
                 <span><i style="background:#a06a12"></i>Batas blok perkiraan</span>
@@ -129,6 +133,29 @@ sip_judul(
     </div>
 
     <aside>
+        <section class="kartu">
+            <header class="kepala-kartu">
+                <div><h2>Penanda titik</h2><p>Klik “Penunjuk titik” di atas peta, lalu klik peta</p></div>
+            </header>
+            <div class="isi-kartu">
+                <dl class="daftar-kecil">
+                    <li><span class="redup">X</span><span class="rapek-kanan" id="penandaX">–</span></li>
+                    <li><span class="redup">Y</span><span class="rapek-kanan" id="penandaY">–</span></li>
+                    <li><span class="redup">Luas</span><span class="rapek-kanan" id="penandaLuas">–</span></li>
+                    <li><span class="redup">Sumber</span><span class="rapek-kanan" id="penandaSumber">–</span></li>
+                    <li><span class="redup">Kode calon</span><span class="rapek-kanan" id="penandaKode">–</span></li>
+                </dl>
+                <div class="baris-tombol jarak-atas">
+                    <button class="tombol tombol-kecil" type="button" id="pratinjauPenanda" disabled>Pratinjau bidang</button>
+                    <button class="tombol tombol-kecil tombol-utama" type="button" id="simpanPenanda" style="display:none">Simpan bidang</button>
+                    <button class="tombol tombol-kecil" type="button" id="hapusPenanda" disabled>Hapus penanda</button>
+                </div>
+                <a class="tombol tombol-kecil jarak-atas" href="<?= e(sip_url('digitasi-baru.php')) ?>">Digitasi Obyek Baru</a>
+                <p class="petunjuk" id="infoPenanda">Penunjuk belum aktif. Koordinat X/Y berasal dari DXF lokal, bukan GPS.</p>
+                <p class="petunjuk">Pratinjau memakai poligon tertutup 020100 yang memuat penanda; bila titik di luar, server merangkai garis 020100. Bidang baru berstatus perlu verifikasi, tanpa blok, dan hanya dapat disimpan Super Admin setelah pratinjau.</p>
+            </div>
+        </section>
+
         <?php if ($pengguna['peran'] === PERAN_SUPER): ?>
             <section class="kartu">
                 <header class="kepala-kartu">
@@ -176,6 +203,9 @@ sip_judul(
             <div class="lapisan-kontrol">
                 <label class="cek"><input type="checkbox" data-lapisan="020100" checked>
                     020100 — bidang &amp; garis (<?= e(angka($jumlah('020100'))) ?>)</label>
+                <label class="cek"><input type="checkbox" id="tampilTitikLama" checked>
+                    Titik tengah bidang <b id="jumlahTitikLama" class="redup"></b></label>
+                <p class="petunjuk">Satu titik untuk tiap poligon tertutup 020100; membantu menemukan bidang kecil.</p>
                 <label class="cek"><input type="checkbox" data-lapisan="batas-blok">
                     Batas blok (<?= e(angka($jumlahBatasBlok)) ?>)</label>
                 <p class="petunjuk">24 batas blok terdaftar. Lima batas perkiraan ditandai garis putus-putus.</p>
@@ -244,6 +274,26 @@ sip_judul(
     </aside>
 </div>
 
+<style>
+#petaLama.mode-penunjuk,
+#petaLama.mode-penunjuk .leaflet-interactive { cursor: crosshair !important; }
+.penanda-pin { background: none; border: none; }
+.penanda-pin span {
+    display: block;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #dc2626;
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 1px rgba(15, 23, 42, .45), 0 0 0 6px rgba(220, 38, 38, .16);
+}
+@media (max-width: 720px) {
+    .kepala-peta { flex-wrap: wrap; }
+    .baris-peta { width: 100%; }
+    .baris-peta .pilih-kecil { flex: 1 1 100%; width: 100%; }
+}
+</style>
+
 <?php
 $naskah = <<<'JS'
 <script>
@@ -260,6 +310,12 @@ $naskah = <<<'JS'
 
     const info = document.getElementById('infoLama');
     const grup = {};
+    const grupTitik = L.layerGroup();
+    const grupPenanda = L.layerGroup().addTo(peta);
+    const grupPratinjau = L.featureGroup().addTo(peta);
+    let penanda = null;
+    let pratinjau = null;
+    let modePenunjuk = false;
     const sorotanBlok = L.featureGroup().addTo(peta);
     const memuat = new Set();
 
@@ -363,13 +419,224 @@ $naskah = <<<'JS'
         });
     }
 
+    // Satu titik di pusat kotak batas tiap poligon tertutup 020100, supaya
+    // bidang kecil tetap terlihat di antara ribuan garis DXF.
+    function bangunTitikBidang(lapisan) {
+        grupTitik.clearLayers();
+        let jumlah = 0;
+        lapisan.eachLayer((l) => {
+            const p = l.feature && l.feature.properties;
+            if (!p || !p.closed || !l.getBounds) return;
+            const batas = l.getBounds();
+            if (!batas.isValid()) return;
+            L.circleMarker(batas.getCenter(), {
+                radius: 2.6, weight: 1, color: '#ffffff', opacity: .9,
+                fillColor: '#14603a', fillOpacity: 1, interactive: false
+            }).addTo(grupTitik);
+            jumlah++;
+        });
+        document.getElementById('jumlahTitikLama').textContent = Sip.angka(jumlah);
+    }
+
+    const ikonPenanda = L.divIcon({
+        className: 'penanda-pin',
+        html: '<span></span>',
+        iconSize: [14, 14],
+        iconAnchor: [7, 7]
+    });
+
+    function titikDiCincin(cincin, x, y) {
+        let dalam = false;
+        for (let i = 0, j = cincin.length - 1; i < cincin.length; j = i++) {
+            const xi = cincin[i][0];
+            const yi = cincin[i][1];
+            const xj = cincin[j][0];
+            const yj = cincin[j][1];
+            if (((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi)) {
+                dalam = !dalam;
+            }
+        }
+        return dalam;
+    }
+
+    function bidangDiTitik(latlng) {
+        const lapisan = grup['020100'];
+        if (!lapisan) return null;
+        let ketemu = null;
+        lapisan.eachLayer((l) => {
+            if (ketemu || !l.getBounds || !l.getBounds().contains(latlng)) return;
+            const f = l.feature;
+            const g = f && f.geometry;
+            if (!g || !f.properties || !f.properties.closed) return;
+            const poligon = g.type === 'Polygon' ? [g.coordinates]
+                : g.type === 'MultiPolygon' ? g.coordinates : [];
+            for (const p of poligon) {
+                let dalam = false;
+                for (const cincin of p) {
+                    if (titikDiCincin(cincin, latlng.lng, latlng.lat)) dalam = !dalam;
+                }
+                if (dalam) {
+                    ketemu = f;
+                    return;
+                }
+            }
+        });
+        return ketemu;
+    }
+
+    function koordDxf(nilai) {
+        return Sip.angka(nilai, 2);
+    }
+
+    function bersihkanPratinjau() {
+        grupPratinjau.clearLayers();
+        pratinjau = null;
+        document.getElementById('penandaLuas').textContent = '–';
+        document.getElementById('penandaSumber').textContent = '–';
+        document.getElementById('penandaKode').textContent = '–';
+        document.getElementById('simpanPenanda').style.display = 'none';
+    }
+
+    function tampilkanPratinjau(isi) {
+        bersihkanPratinjau();
+        pratinjau = isi;
+        const luas = Sip.angka(isi.luas_m2, 2) + ' m²';
+        document.getElementById('penandaLuas').textContent = luas;
+        document.getElementById('penandaSumber').textContent = isi.jenis === 'tertutup'
+            ? 'Poligon tertutup ' + (isi.handle || 'tanpa handle')
+            : 'Rangkaian garis 020100';
+        document.getElementById('penandaKode').textContent = isi.kode;
+
+        const lapisan = L.geoJSON(
+            { type: 'Feature', geometry: isi.geometri, properties: {} },
+            {
+                style: {
+                    color: '#dc2626',
+                    weight: 2.4,
+                    opacity: 1,
+                    fillColor: '#f87171',
+                    fillOpacity: .18,
+                    dashArray: isi.jenis === 'garis' ? '6 4' : null
+                }
+            }
+        ).addTo(grupPratinjau);
+        const batas = lapisan.getBounds();
+        if (batas.isValid()) peta.fitBounds(batas.pad(.35), { maxZoom: 2 });
+
+        const tombol = document.getElementById('simpanPenanda');
+        tombol.style.display = isi.boleh_simpan ? '' : 'none';
+        if (isi.duplikat) {
+            document.getElementById('infoPenanda').textContent = 'Bidang serupa sudah ada: '
+                + isi.duplikat.kode + (isi.duplikat.alasan === 'kode'
+                    ? ' (kode sama)' : ' (geometri ≥95% sama)') + '. Penyimpanan diblokir.';
+        } else if (isi.boleh_simpan) {
+            document.getElementById('infoPenanda').textContent = 'Pratinjau siap: ' + isi.kode
+                + ' · ' + luas + '. Periksa batas, lalu klik Simpan bidang.';
+        } else {
+            document.getElementById('infoPenanda').textContent = 'Pratinjau siap: ' + isi.kode
+                + ' · ' + luas + '. Akun ini tidak berwenang menyimpan bidang.';
+        }
+        info.textContent = 'Pratinjau ' + isi.kode + ' · ' + luas + ' — '
+            + (isi.jenis === 'tertutup' ? 'poligon tertutup 020100.' : 'rangkaian garis 020100.');
+    }
+
+    async function mintaPratinjau() {
+        if (!penanda) return;
+        const tombol = document.getElementById('pratinjauPenanda');
+        const titik = penanda.getLatLng();
+        tombol.disabled = true;
+        document.getElementById('infoPenanda').textContent = 'Menghitung bidang di sekitar penanda…';
+        try {
+            const isi = await Sip.api('api/penanda-bidang.php', {
+                method: 'POST',
+                json: { aksi: 'pratinjau', x: titik.lng, y: titik.lat }
+            });
+            tampilkanPratinjau(isi);
+        } catch (err) {
+            bersihkanPratinjau();
+            document.getElementById('infoPenanda').textContent = err.message;
+            info.textContent = 'Pratinjau gagal: ' + err.message;
+            Sip.pesan(err.message, 'gagal');
+        } finally {
+            tombol.disabled = !penanda;
+        }
+    }
+
+    async function simpanBidangPenanda() {
+        if (!pratinjau) return;
+        const tombol = document.getElementById('simpanPenanda');
+        const yakin = window.confirm('Simpan bidang ' + pratinjau.kode + ' ('
+            + Sip.angka(pratinjau.luas_m2, 2) + ' m²) sebagai bidang perlu verifikasi, tanpa blok?');
+        if (!yakin) return;
+        tombol.disabled = true;
+        try {
+            const hasil = await Sip.api('api/penanda-bidang.php', {
+                method: 'POST',
+                json: { aksi: 'simpan', token: pratinjau.token }
+            });
+            pratinjau = null;
+            tombol.style.display = 'none';
+            document.getElementById('infoPenanda').textContent = 'Bidang ' + hasil.kode
+                + ' tersimpan sebagai perlu verifikasi (id ' + hasil.id + ').';
+            info.textContent = 'Bidang ' + hasil.kode + ' tersimpan — perlu verifikasi, belum punya blok.';
+            Sip.pesan(hasil.pesan, 'berhasil');
+        } catch (err) {
+            document.getElementById('infoPenanda').textContent = err.message;
+            Sip.pesan(err.message, 'gagal');
+        } finally {
+            tombol.disabled = false;
+        }
+    }
+
+    function pasangPenanda(latlng) {
+        if (penanda) {
+            penanda.setLatLng(latlng);
+        } else {
+            penanda = L.marker(latlng, {
+                icon: ikonPenanda, interactive: false, keyboard: false, zIndexOffset: 1000
+            }).addTo(grupPenanda);
+        }
+        const f = bidangDiTitik(latlng);
+        bersihkanPratinjau();
+        document.getElementById('penandaX').textContent = koordDxf(latlng.lng);
+        document.getElementById('penandaY').textContent = koordDxf(latlng.lat);
+        document.getElementById('pratinjauPenanda').disabled = false;
+        document.getElementById('hapusPenanda').disabled = false;
+        const keterangan = f
+            ? 'di dalam bidang tertutup 020100 (handle ' + (f.properties.dxf_handle || '—') + ').'
+            : 'di luar bidang tertutup 020100.';
+        document.getElementById('infoPenanda').textContent = 'Penanda ' + keterangan;
+        info.textContent = 'X ' + koordDxf(latlng.lng) + ' · Y ' + koordDxf(latlng.lat) + ' — ' + keterangan;
+    }
+
+    const tombolPenunjuk = document.getElementById('alatPenunjuk');
+
+    function aturPenunjuk(hidup) {
+        modePenunjuk = hidup;
+        tombolPenunjuk.setAttribute('aria-pressed', hidup ? 'true' : 'false');
+        tombolPenunjuk.textContent = hidup ? 'Matikan penunjuk' : 'Penunjuk titik';
+        tombolPenunjuk.classList.toggle('tombol-utama', hidup);
+        document.getElementById('petaLama').classList.toggle('mode-penunjuk', hidup);
+        document.getElementById('infoPenanda').textContent = hidup
+            ? 'Klik peta untuk menaruh penanda titik.'
+            : (penanda ? 'Penunjuk nonaktif. Penanda terakhir tetap ditampilkan.' : 'Penunjuk nonaktif.');
+        if (!hidup) info.textContent = 'Layer DXF siap. Koordinat lokal — bukan titik GPS.';
+    }
+
+    function titikDiinginkan() {
+        const kotakTitik = document.getElementById('tampilTitikLama');
+        return !kotakTitik || kotakTitik.checked;
+    }
+
     async function pasang(nama, hidup) {
         if (!hidup) {
             if (grup[nama]) peta.removeLayer(grup[nama]);
+            if (nama === '020100') peta.removeLayer(grupTitik);
             return;
         }
         if (grup[nama]) {
             grup[nama].addTo(peta);
+            if (nama === '020100' && titikDiinginkan()) grupTitik.addTo(peta);
             return;
         }
         if (memuat.has(nama)) return;
@@ -380,6 +647,10 @@ $naskah = <<<'JS'
             grup[nama] = bangun(nama, data);
             const kotak = document.querySelector('[data-lapisan="' + nama + '"]');
             if (!kotak || kotak.checked) grup[nama].addTo(peta);
+            if (nama === '020100') {
+                bangunTitikBidang(grup[nama]);
+                if (titikDiinginkan()) grupTitik.addTo(peta);
+            }
             info.textContent = 'Layer ' + nama + ' dimuat.';
         } finally {
             memuat.delete(nama);
@@ -445,6 +716,48 @@ $naskah = <<<'JS'
     document.getElementById('pusatkanLama').addEventListener('click', pusatkan);
     document.getElementById('fokusBlokPerkiraanBtn').addEventListener('click', () => {
         fokusBlokPerkiraan().catch((err) => Sip.pesan(err.message, 'gagal'));
+    });
+
+    tombolPenunjuk.addEventListener('click', () => aturPenunjuk(!modePenunjuk));
+
+    peta.on('mousemove', (e) => {
+        if (!modePenunjuk) return;
+        info.textContent = 'Penunjuk: X ' + koordDxf(e.latlng.lng) + ' · Y ' + koordDxf(e.latlng.lat)
+            + ' — klik untuk menaruh penanda.';
+    });
+
+    peta.on('click', (e) => {
+        if (!modePenunjuk) return;
+        pasangPenanda(e.latlng);
+    });
+
+    document.getElementById('pratinjauPenanda').addEventListener('click', () => {
+        mintaPratinjau();
+    });
+    document.getElementById('simpanPenanda').addEventListener('click', () => {
+        simpanBidangPenanda();
+    });
+
+    document.getElementById('hapusPenanda').addEventListener('click', () => {
+        grupPenanda.clearLayers();
+        penanda = null;
+        bersihkanPratinjau();
+        document.getElementById('penandaX').textContent = '–';
+        document.getElementById('penandaY').textContent = '–';
+        document.getElementById('pratinjauPenanda').disabled = true;
+        document.getElementById('hapusPenanda').disabled = true;
+        document.getElementById('infoPenanda').textContent = modePenunjuk
+            ? 'Klik peta untuk menaruh penanda titik.'
+            : 'Penunjuk nonaktif.';
+    });
+
+    document.getElementById('tampilTitikLama').addEventListener('change', (ev) => {
+        if (ev.target.checked) {
+            if (peta.hasLayer(grup['020100'])) grupTitik.addTo(peta);
+            else ev.target.checked = false;
+        } else {
+            peta.removeLayer(grupTitik);
+        }
     });
 
     const kotak = Array.from(document.querySelectorAll('[data-lapisan]'));
