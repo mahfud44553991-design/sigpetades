@@ -150,7 +150,7 @@ sip_judul(
                     <button class="tombol tombol-kecil tombol-utama" type="button" id="simpanPenanda" style="display:none">Simpan bidang</button>
                     <button class="tombol tombol-kecil" type="button" id="hapusPenanda" disabled>Hapus penanda</button>
                 </div>
-                <a class="tombol tombol-kecil jarak-atas" href="<?= e(sip_url('digitasi-baru.php')) ?>">Digitasi Obyek Baru</a>
+                <a class="tombol tombol-kecil jarak-atas" id="keDigitasi" href="<?= e(sip_url('digitasi-baru.php', ['dari' => 'pratinjau'])) ?>">Digitasi Obyek Baru</a>
                 <p class="petunjuk" id="infoPenanda">Penunjuk belum aktif. Koordinat X/Y berasal dari DXF lokal, bukan GPS.</p>
                 <p class="petunjuk">Pratinjau memakai poligon tertutup 020100 yang memuat penanda; bila titik di luar, dipakai garis bidang tertutup (LineString yang ujungnya bertemu), lalu rangkaian garis 020100. Bidang baru berstatus perlu verifikasi, tanpa blok, dan hanya dapat disimpan Super Admin setelah pratinjau.</p>
             </div>
@@ -506,6 +506,13 @@ $naskah = <<<'JS'
         document.getElementById('simpanPenanda').style.display = 'none';
     }
 
+    function hapusPratinjauServer() {
+        Sip.api('api/penanda-bidang.php', {
+            method: 'POST',
+            json: { aksi: 'bersihkan' }
+        }).catch(() => {});
+    }
+
     function tampilkanPratinjau(isi) {
         bersihkanPratinjau();
         pratinjau = isi;
@@ -611,6 +618,7 @@ $naskah = <<<'JS'
         }
         const f = bidangDiTitik(latlng);
         bersihkanPratinjau();
+        hapusPratinjauServer();
         document.getElementById('penandaX').textContent = koordDxf(latlng.lng);
         document.getElementById('penandaY').textContent = koordDxf(latlng.lat);
         document.getElementById('pratinjauPenanda').disabled = false;
@@ -756,6 +764,7 @@ $naskah = <<<'JS'
         grupPenanda.clearLayers();
         penanda = null;
         bersihkanPratinjau();
+        hapusPratinjauServer();
         document.getElementById('penandaX').textContent = '–';
         document.getElementById('penandaY').textContent = '–';
         document.getElementById('pratinjauPenanda').disabled = true;
@@ -763,6 +772,26 @@ $naskah = <<<'JS'
         document.getElementById('infoPenanda').textContent = modePenunjuk
             ? 'Klik peta untuk menaruh penanda titik.'
             : 'Penunjuk nonaktif.';
+    });
+
+    document.getElementById('keDigitasi').addEventListener('click', async (ev) => {
+        ev.preventDefault();
+        const tujuan = new URL(ev.currentTarget.href, location.href);
+        if (!penanda) {
+            hapusPratinjauServer();
+            tujuan.searchParams.delete('dari');
+            location.href = tujuan.toString();
+            return;
+        }
+        if (!pratinjau) {
+            await mintaPratinjau();
+            if (!pratinjau) return;
+        }
+        const titik = penanda.getLatLng();
+        tujuan.searchParams.set('dari', 'pratinjau');
+        tujuan.searchParams.set('x', String(titik.lng));
+        tujuan.searchParams.set('y', String(titik.lat));
+        location.href = tujuan.toString();
     });
 
     document.getElementById('tampilTitikLama').addEventListener('change', (ev) => {

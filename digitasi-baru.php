@@ -8,6 +8,53 @@ $csrf = csrf_token();
 $pesan = $_SESSION['pesan_digitasi'] ?? '';
 unset($_SESSION['pesan_digitasi']);
 
+$pratinjau = null;
+$simpanPratinjau = $_SESSION['penanda_bidang'] ?? null;
+if (is_array($simpanPratinjau)
+    && (int) ($simpanPratinjau['pengguna_id'] ?? 0) === (int) auth_user_id()
+    && time() - (int) ($simpanPratinjau['waktu'] ?? 0) <= 1800
+    && preg_match('/POLYGON\s*\(\(([^()]+)\)/', (string) ($simpanPratinjau['wkt'] ?? ''), $cocok)
+) {
+    $cincin = [];
+    foreach (explode(',', $cocok[1]) as $pasangan) {
+        $bagian = preg_split('/\s+/', trim($pasangan));
+        if (count($bagian) >= 2 && is_numeric($bagian[0]) && is_numeric($bagian[1])) {
+            $cincin[] = [(float) $bagian[0], (float) $bagian[1]];
+        }
+    }
+    if (count($cincin) >= 4) {
+        $pratinjau = [
+            'kode' => (string) ($simpanPratinjau['kode'] ?? ''),
+            'luas' => round((float) ($simpanPratinjau['luas'] ?? 0), 2),
+            'jenis' => (string) ($simpanPratinjau['jenis'] ?? 'tertutup'),
+            'cincin' => $cincin,
+        ];
+    }
+}
+
+$peringatanPratinjau = '';
+if ($pratinjau !== null) {
+    $angka = static function ($nilai): ?float {
+        return is_numeric($nilai) ? (float) $nilai : null;
+    };
+    $dariPratinjau = isset($_GET['dari']) && is_string($_GET['dari']) ? $_GET['dari'] : '';
+    $xPenanda = $angka($_GET['x'] ?? null);
+    $yPenanda = $angka($_GET['y'] ?? null);
+    $xSesi = $angka($simpanPratinjau['x'] ?? null);
+    $ySesi = $angka($simpanPratinjau['y'] ?? null);
+    $cocok = $dariPratinjau === 'pratinjau'
+        && $xPenanda !== null && $yPenanda !== null
+        && $xSesi !== null && $ySesi !== null
+        && hypot($xPenanda - $xSesi, $yPenanda - $ySesi) <= 0.5;
+    if (!$cocok) {
+        if ($dariPratinjau === 'pratinjau') {
+            $peringatanPratinjau = 'Pratinjau bidang tidak dimuat karena bukan milik penanda saat ini. '
+                . 'Di Peta Induk, letakkan penanda lalu klik “Pratinjau bidang”, baru masuk ke Digitasi Obyek Baru.';
+        }
+        $pratinjau = null;
+    }
+}
+
 sip_header('Digitasi Obyek Baru', 'digitasi');
 ?>
 
@@ -17,6 +64,10 @@ sip_header('Digitasi Obyek Baru', 'digitasi');
 
     <?php if ($pesan): ?>
         <div class="pesan info"><?= htmlspecialchars($pesan) ?></div>
+    <?php endif; ?>
+
+    <?php if ($peringatanPratinjau !== ''): ?>
+        <div class="seru seru-bahaya" role="status"><?= htmlspecialchars($peringatanPratinjau) ?></div>
     <?php endif; ?>
 
     <div class="kartu digitasi-kontainer">
@@ -31,6 +82,25 @@ sip_header('Digitasi Obyek Baru', 'digitasi');
         <div id="info-referensi" style="margin-top:10px; padding:10px; background:#f0f0f0; border-radius:4px; display:none;">
             <strong>Bidang referensi:</strong> <span id="ref-kode"></span>
         </div>
+
+        <?php if ($pratinjau): ?>
+            <?php
+            $labelJenis = [
+                'tertutup' => 'poligon tertutup',
+                'garis-tertutup' => 'garis bidang tertutup',
+                'garis' => 'rangkaian garis',
+            ][$pratinjau['jenis']] ?? 'geometri 020100';
+            ?>
+            <div id="pratinjau-peta-induk" style="margin-top:10px; padding:10px; background:#eef6ff; border:1px solid #b9d6f5; border-radius:4px;">
+                <strong>Polygon dari Peta Induk 020100:</strong>
+                <span><?= e($pratinjau['kode']) ?></span>
+                · <?= number_format($pratinjau['luas'], 2, ',', '.') ?> m² · <?= e($labelJenis) ?>
+                <p class="petunjuk" style="margin:6px 0;">Muat polygon ini ke kanvas untuk membuat bidang baru. Titik bisa disunting; kode dan luas terisi otomatis — ubah kode bila sudah dipakai.</p>
+                <button type="button" id="btn-muat-pratinjau" class="tombol">Muat Polygon ke Kanvas</button>
+                <span id="status-pratinjau" class="info-teks"></span>
+            </div>
+            <script type="application/json" id="data-pratinjau"><?= json_encode($pratinjau, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
+        <?php endif; ?>
     </div>
 
     <div class="kartu digitasi-kontainer">
@@ -217,6 +287,17 @@ sip_header('Digitasi Obyek Baru', 'digitasi');
     const ZOOM_STEP = 0.25;
     const PAN_STEP = 50;
 
+    const dataPratinjau = (function() {
+        const node = document.getElementById('data-pratinjau');
+        if (!node) return null;
+        try {
+            return JSON.parse(node.textContent);
+        } catch (err) {
+            console.error('Data pratinjau tidak terbaca:', err);
+            return null;
+        }
+    })();
+
     function updateZoom(newZoom) {
         zoomLevel = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newZoom));
         const wrapper = document.getElementById('canvas-wrapper');
@@ -343,6 +424,80 @@ sip_header('Digitasi Obyek Baru', 'digitasi');
             hasilPencarian.style.display = 'none';
         }
     });
+
+    function muatPratinjau() {
+        if (!dataPratinjau || !Array.isArray(dataPratinjau.cincin)) return;
+
+        const cincin = dataPratinjau.cincin.map(c => [Number(c[0]), Number(c[1])]);
+        if (cincin.length > 1) {
+            const awal = cincin[0];
+            const akhir = cincin[cincin.length - 1];
+            if (awal[0] === akhir[0] && awal[1] === akhir[1]) cincin.pop();
+        }
+        if (cincin.length < 3) return;
+
+        const lons = cincin.map(c => c[0]);
+        const lats = cincin.map(c => c[1]);
+        const lonMin = Math.min(...lons), lonMax = Math.max(...lons);
+        const latMin = Math.min(...lats), latMax = Math.max(...lats);
+        const marginLon = Math.max((lonMax - lonMin) * 0.1, 0.00002);
+        const marginLat = Math.max((latMax - latMin) * 0.1, 0.00002);
+        const bulat = v => Number(v.toFixed(7));
+
+        batas = {
+            lonMin: bulat(lonMin - marginLon),
+            lonMax: bulat(lonMax + marginLon),
+            latMin: bulat(latMin - marginLat),
+            latMax: bulat(latMax + marginLat)
+        };
+        document.getElementById('lon-min').value = batas.lonMin;
+        document.getElementById('lon-max').value = batas.lonMax;
+        document.getElementById('lat-min').value = batas.latMin;
+        document.getElementById('lat-max').value = batas.latMax;
+
+        const rasio = (batas.latMax - batas.latMin) / (batas.lonMax - batas.lonMin);
+        let tinggi = Math.round(900 * rasio);
+        if (tinggi < 400) tinggi = 400;
+        if (tinggi > 1400) tinggi = 1400;
+        canvas.width = Math.max(100, Math.round(tinggi / rasio));
+        canvas.height = tinggi;
+
+        gambar = null;
+        titik = cincin.map(c => ({
+            lon: c[0],
+            lat: c[1],
+            x: (c[0] - batas.lonMin) / (batas.lonMax - batas.lonMin) * canvas.width,
+            y: (batas.latMax - c[1]) / (batas.latMax - batas.latMin) * canvas.height
+        }));
+
+        document.getElementById('bagian-batas').style.display = 'block';
+        document.getElementById('bagian-digitasi').style.display = 'block';
+        document.getElementById('bagian-atribut').style.display = 'block';
+
+        const kode = document.getElementById('kode');
+        if (!kode.value) kode.value = dataPratinjau.kode || '';
+        const luas = document.getElementById('luas');
+        if (!luas.value && dataPratinjau.luas) luas.value = dataPratinjau.luas;
+
+        updateZoom(1);
+        resetPan();
+        const wadah = document.querySelector('.canvas-kontainer');
+        if (wadah) {
+            const pas = Math.min(
+                1,
+                (wadah.clientWidth - 4) / canvas.width,
+                (wadah.clientHeight - 4) / canvas.height
+            );
+            updateZoom(pas);
+        }
+        gambarUlang();
+        updateInfo();
+        document.getElementById('status-pratinjau').textContent =
+            'Polygon dimuat: ' + titik.length + ' titik. Periksa lalu simpan sebagai bidang baru.';
+    }
+
+    const tombolPratinjau = document.getElementById('btn-muat-pratinjau');
+    if (tombolPratinjau) tombolPratinjau.addEventListener('click', muatPratinjau);
 
     // Upload gambar atau DXF
     document.getElementById('form-upload').addEventListener('submit', function(e) {
@@ -495,8 +650,8 @@ sip_header('Digitasi Obyek Baru', 'digitasi');
 
     // Klik canvas untuk tambah titik
     canvas.addEventListener('click', function(e) {
-        if (!gambar || !batas) {
-            alert('Unggah gambar dan terapkan batas terlebih dahulu.');
+        if (!batas) {
+            alert('Terapkan batas koordinat terlebih dahulu.');
             return;
         }
 
@@ -542,10 +697,12 @@ sip_header('Digitasi Obyek Baru', 'digitasi');
     });
 
     function gambarUlang() {
-        if (!gambar) return;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        if (gambar.isDxf) {
+        if (!gambar) {
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        } else if (gambar.isDxf) {
             // Re-render DXF
             renderDxf(gambar.data);
         } else {
@@ -642,6 +799,10 @@ sip_header('Digitasi Obyek Baru', 'digitasi');
             alert('Error: ' + err.message);
         });
     });
+
+    if (dataPratinjau && new URLSearchParams(location.search).get('dari') === 'pratinjau') {
+        muatPratinjau();
+    }
 })();
 </script>
 

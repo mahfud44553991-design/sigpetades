@@ -5,6 +5,7 @@ declare(strict_types=1);
  * Bidang baru dari Penanda titik di peta induk 020100.
  *
  *   POST {aksi: "pratinjau", x: <easting DXF>, y: <northing DXF>}
+ *   POST {aksi: "bersihkan"}
  *   POST {aksi: "simpan", token: "<token pratinjau>"}
  *
  * Pratinjau memilih bidang terkecil yang memuat titik: poligon tertutup
@@ -229,6 +230,11 @@ function siapkanGeometri(array $geometri): array
         throw new RuntimeException('Poligon gagal dikonversi ke WGS84.');
     }
     return ['wkt' => $wkt, 'luas' => $luas, 'pusat' => wktPusat(db(), $wkt)];
+}
+
+if ($aksi === 'bersihkan') {
+    unset($_SESSION['penanda_bidang']);
+    json_ok([], 'Pratinjau dibersihkan.');
 }
 
 if ($aksi === 'pratinjau') {
