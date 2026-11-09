@@ -152,7 +152,7 @@ sip_judul(
                 </div>
                 <a class="tombol tombol-kecil jarak-atas" href="<?= e(sip_url('digitasi-baru.php')) ?>">Digitasi Obyek Baru</a>
                 <p class="petunjuk" id="infoPenanda">Penunjuk belum aktif. Koordinat X/Y berasal dari DXF lokal, bukan GPS.</p>
-                <p class="petunjuk">Pratinjau memakai poligon tertutup 020100 yang memuat penanda; bila titik di luar, server merangkai garis 020100. Bidang baru berstatus perlu verifikasi, tanpa blok, dan hanya dapat disimpan Super Admin setelah pratinjau.</p>
+                <p class="petunjuk">Pratinjau memakai poligon tertutup 020100 yang memuat penanda; bila titik di luar, dipakai garis bidang tertutup (LineString yang ujungnya bertemu), lalu rangkaian garis 020100. Bidang baru berstatus perlu verifikasi, tanpa blok, dan hanya dapat disimpan Super Admin setelah pratinjau.</p>
             </div>
         </section>
 
@@ -467,9 +467,18 @@ $naskah = <<<'JS'
             if (ketemu || !l.getBounds || !l.getBounds().contains(latlng)) return;
             const f = l.feature;
             const g = f && f.geometry;
-            if (!g || !f.properties || !f.properties.closed) return;
-            const poligon = g.type === 'Polygon' ? [g.coordinates]
-                : g.type === 'MultiPolygon' ? g.coordinates : [];
+            if (!g) return;
+            let poligon = [];
+            if (g.type === 'Polygon') {
+                poligon = [g.coordinates];
+            } else if (g.type === 'MultiPolygon') {
+                poligon = g.coordinates;
+            } else if (g.type === 'LineString') {
+                const c = g.coordinates || [];
+                if (c.length >= 4 && c[0][0] === c[c.length - 1][0] && c[0][1] === c[c.length - 1][1]) {
+                    poligon = [[c]];
+                }
+            }
             for (const p of poligon) {
                 let dalam = false;
                 for (const cincin of p) {
@@ -504,7 +513,9 @@ $naskah = <<<'JS'
         document.getElementById('penandaLuas').textContent = luas;
         document.getElementById('penandaSumber').textContent = isi.jenis === 'tertutup'
             ? 'Poligon tertutup ' + (isi.handle || 'tanpa handle')
-            : 'Rangkaian garis 020100';
+            : isi.jenis === 'garis-tertutup'
+                ? 'Garis bidang tertutup ' + (isi.handle || 'tanpa handle')
+                : 'Rangkaian garis 020100';
         document.getElementById('penandaKode').textContent = isi.kode;
 
         const lapisan = L.geoJSON(
@@ -537,7 +548,9 @@ $naskah = <<<'JS'
                 + ' · ' + luas + '. Akun ini tidak berwenang menyimpan bidang.';
         }
         info.textContent = 'Pratinjau ' + isi.kode + ' · ' + luas + ' — '
-            + (isi.jenis === 'tertutup' ? 'poligon tertutup 020100.' : 'rangkaian garis 020100.');
+            + (isi.jenis === 'tertutup' ? 'poligon tertutup 020100.'
+                : isi.jenis === 'garis-tertutup' ? 'garis bidang tertutup 020100.'
+                    : 'rangkaian garis 020100.');
     }
 
     async function mintaPratinjau() {
@@ -603,8 +616,9 @@ $naskah = <<<'JS'
         document.getElementById('pratinjauPenanda').disabled = false;
         document.getElementById('hapusPenanda').disabled = false;
         const keterangan = f
-            ? 'di dalam bidang tertutup 020100 (handle ' + (f.properties.dxf_handle || '—') + ').'
-            : 'di luar bidang tertutup 020100.';
+            ? (f.geometry.type === 'LineString' ? 'di dalam garis bidang tertutup' : 'di dalam bidang tertutup')
+                + ' 020100 (handle ' + ((f.properties || {}).dxf_handle || '—') + ').'
+            : 'di luar bidang atau garis bidang tertutup 020100.';
         document.getElementById('infoPenanda').textContent = 'Penanda ' + keterangan;
         info.textContent = 'X ' + koordDxf(latlng.lng) + ' · Y ' + koordDxf(latlng.lat) + ' — ' + keterangan;
     }

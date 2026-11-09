@@ -7,9 +7,9 @@ declare(strict_types=1);
  *   POST {aksi: "pratinjau", x: <easting DXF>, y: <northing DXF>}
  *   POST {aksi: "simpan", token: "<token pratinjau>"}
  *
- * Pratinjau memilih poligon tertutup 020100 terkecil yang memuat titik.
- * Bila titik di luar semua poligon tertutup, garis 020100 dirangkai menjadi
- * cincin dan poligon terkecil yang memuat titik dipakai. Geometri selalu
+ * Pratinjau memilih bidang terkecil yang memuat titik: poligon tertutup
+ * 020100, lalu garis bidang tertutup (LineString yang ujungnya bertemu),
+ * lalu rangkaian seluruh garis 020100 yang membentuk cincin. Geometri selalu
  * dibaca ulang dari berkas layer di server, tidak pernah dari klien.
  */
 
@@ -107,6 +107,37 @@ function poligonTertutupDiTitik(array $features, float $x, float $y): ?array
     return $terbaik;
 }
 
+/** Garis bidang tertutup (LineString yang ujungnya bertemu) terkecil yang memuat titik, atau null. */
+function poligonGarisTertutupDiTitik(array $features, float $x, float $y): ?array
+{
+    $terbaik = null;
+    $luasTerbaik = INF;
+    foreach ($features as $indeks => $fitur) {
+        $geometri = $fitur['geometry'] ?? [];
+        if (($geometri['type'] ?? '') !== 'LineString') {
+            continue;
+        }
+        $cincin = $geometri['coordinates'] ?? null;
+        if (!is_array($cincin) || count($cincin) < 4 || $cincin[0] !== $cincin[count($cincin) - 1]) {
+            continue;
+        }
+        if (!titikDalamCincin($cincin, $x, $y)) {
+            continue;
+        }
+        $luas = luasPoligonDxf([$cincin]);
+        if ($luas <= 0 || $luas >= $luasTerbaik) {
+            continue;
+        }
+        $terbaik = [
+            'indeks' => (int) $indeks,
+            'geometry' => ['type' => 'Polygon', 'coordinates' => [$cincin]],
+            'handle' => (string) ($fitur['properties']['dxf_handle'] ?? ''),
+        ];
+        $luasTerbaik = $luas;
+    }
+    return $terbaik;
+}
+
 /** Poligon hasil rangkaian garis 020100 terkecil yang memuat titik, atau null. */
 function poligonGarisDiTitik(array $features, float $x, float $y): ?array
 {
@@ -133,10 +164,11 @@ function poligonGarisDiTitik(array $features, float $x, float $y): ?array
     return $terbaik;
 }
 
-/** Kode mengikuti imporPoligonPetaInduk agar impor ulang tidak membuat duplikat. */
-function kodeBidangPetaInduk(int $indeks, bool $dariGaris): string
+/** Kode poligon/rangkaian mengikuti imporPoligonPetaInduk; garis tertutup memakai awalan T. */
+function kodeBidangPetaInduk(int $indeks, string $jenis): string
 {
-    return 'DXF-020100-' . ($dariGaris ? 'G' : '') . str_pad((string) ($indeks + 1), 5, '0', STR_PAD_LEFT);
+    $awalan = $jenis === 'garis' ? 'G' : ($jenis === 'garis-tertutup' ? 'T' : '');
+    return 'DXF-020100-' . $awalan . str_pad((string) ($indeks + 1), 5, '0', STR_PAD_LEFT);
 }
 
 /** @return array{kode:string,id:int,alasan:string}|null */
@@ -208,16 +240,20 @@ if ($aksi === 'pratinjau') {
 
     $features = fiturPetaInduk020100();
     $calon = poligonTertutupDiTitik($features, $x, $y);
-    $dariGaris = false;
+    $jenis = 'tertutup';
+    if ($calon === null) {
+        $calon = poligonGarisTertutupDiTitik($features, $x, $y);
+        $jenis = 'garis-tertutup';
+    }
     if ($calon === null) {
         $calon = poligonGarisDiTitik($features, $x, $y);
-        $dariGaris = true;
+        $jenis = 'garis';
     }
     if ($calon === null) {
-        json_error('Penanda tidak berada di dalam bidang tertutup 020100 atau rangkaian garis yang menutup.', 422);
+        json_error('Penanda tidak berada di dalam poligon tertutup, garis bidang tertutup, atau rangkaian garis 020100 yang menutup.', 422);
     }
 
-    $kode = kodeBidangPetaInduk((int) $calon['indeks'], $dariGaris);
+    $kode = kodeBidangPetaInduk((int) $calon['indeks'], $jenis);
     try {
         $siap = siapkanGeometri($calon['geometry']);
     } catch (Throwable $error) {
@@ -236,14 +272,14 @@ if ($aksi === 'pratinjau') {
         'pusat' => $siap['pusat'],
         'x' => $x,
         'y' => $y,
-        'jenis' => $dariGaris ? 'garis' : 'tertutup',
+        'jenis' => $jenis,
         'handle' => (string) $calon['handle'],
     ];
 
     json_ok([
         'token' => $token,
         'kode' => $kode,
-        'jenis' => $dariGaris ? 'garis' : 'tertutup',
+        'jenis' => $jenis,
         'handle' => (string) $calon['handle'],
         'luas_m2' => round($siap['luas'], 2),
         'duplikat' => $duplikat,
@@ -285,11 +321,16 @@ if ($aksi === 'simpan') {
         json_error('Jenis hak BLM tidak tersedia. Jalankan sql/01_skema.sql.', 500);
     }
 
+    $asal = match ($pratinjau['jenis']) {
+        'garis' => 'rangkaian garis',
+        'garis-tertutup' => 'garis bidang tertutup ' . ($pratinjau['handle'] !== '' ? $pratinjau['handle'] : 'tanpa handle'),
+        default => 'poligon tertutup ' . ($pratinjau['handle'] !== '' ? $pratinjau['handle'] : 'tanpa handle'),
+    };
     $catatan = sprintf(
         'Dibuat dari penanda X %.2f Y %.2f pada layer peta induk 020100 (%s); perlu verifikasi dan penetapan blok.',
         (float) $pratinjau['x'],
         (float) $pratinjau['y'],
-        $pratinjau['jenis'] === 'garis' ? 'rangkaian garis' : 'poligon tertutup ' . ($pratinjau['handle'] !== '' ? $pratinjau['handle'] : 'tanpa handle')
+        $asal
     );
 
     $id = db_transaksi(static function (PDO $pdo) use ($pratinjau, $idJenisHak, $catatan): int {
