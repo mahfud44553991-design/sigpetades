@@ -63,6 +63,25 @@ if ($luas_m2 === null) {
 // Hitung pusat polygon
 $pusat = hitung_pusat_dari_wkt($wkt);
 
+// Blok kosong: pakai blok resmi terkecil yang memuat titik pusat bidang
+$blok_otomatis = false;
+if ($blok_id === null) {
+    $blok = db_one(
+        'SELECT id, kode, nama
+           FROM blok
+          WHERE geom IS NOT NULL
+            AND batas_perkiraan = 0
+            AND ST_Contains(geom, ST_Centroid(ST_GeomFromText(?, 4326)))
+          ORDER BY ST_Area(geom) ASC
+          LIMIT 1',
+        [$wkt]
+    );
+    if ($blok !== null) {
+        $blok_id = (int) $blok['id'];
+        $blok_otomatis = true;
+    }
+}
+
 // Cek kode duplikat
 $cek = db()->prepare("SELECT id FROM bidang WHERE kode = ?");
 $cek->execute([$kode]);
@@ -95,12 +114,18 @@ try {
     $hakStmt = db()->prepare($hakSql);
     $hakStmt->execute([$id, $jenis_hak_id, 'Dibuat via digitasi manual']);
 
-    audit('buat', 'bidang', (string) $id, "Bidang baru dibuat via digitasi: $kode");
+    $keterangan = "Bidang baru dibuat via digitasi: $kode";
+    if ($blok_id !== null && $blok_otomatis) {
+        $keterangan .= ' (blok otomatis dari titik pusat)';
+    }
+    audit('buat', 'bidang', (string) $id, $keterangan);
 
     json_response([
         'sukses' => true,
         'id' => $id,
         'kode' => $kode,
+        'blok_id' => $blok_id,
+        'blok' => $blok_id !== null ? db_value('SELECT kode FROM blok WHERE id = ?', [$blok_id]) : null,
         'pesan' => 'Bidang berhasil disimpan'
     ]);
 } catch (PDOException $e) {

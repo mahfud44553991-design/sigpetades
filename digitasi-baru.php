@@ -207,7 +207,7 @@ sip_header('Digitasi Obyek Baru', 'digitasi');
                 <div class="baris-form">
                     <label for="blok">Blok</label>
                     <select id="blok" name="blok_id">
-                        <option value="">— tanpa blok —</option>
+                        <option value="">— otomatis —</option>
                         <?php
                         $blok_list = db()->query("SELECT id, nama FROM blok ORDER BY nama");
                         foreach ($blok_list as $b):
@@ -229,6 +229,8 @@ sip_header('Digitasi Obyek Baru', 'digitasi');
                     </select>
                 </div>
             </div>
+
+            <p class="petunjuk">Bila Blok dibiarkan kosong, blok diisi otomatis dari blok resmi terkecil yang memuat titik pusat polygon. Pilihan manual tetap dipakai bila ada.</p>
 
             <div class="baris-form">
                 <label for="catatan">Catatan</label>
@@ -790,7 +792,8 @@ sip_header('Digitasi Obyek Baru', 'digitasi');
         .then(r => r.json())
         .then(data => {
             if (data.sukses) {
-                alert('Bidang berhasil disimpan: ' + data.kode);
+                alert('Bidang berhasil disimpan: ' + data.kode
+                    + (data.blok ? ' di ' + data.blok : ''));
                 window.location.reload();
             } else {
                 alert('Gagal: ' + (data.pesan || 'Unknown error'));

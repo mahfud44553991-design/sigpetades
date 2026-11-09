@@ -146,8 +146,8 @@ sip_judul(
                     <li><span class="redup">Kode calon</span><span class="rapek-kanan" id="penandaKode">–</span></li>
                 </dl>
                 <div class="baris-tombol jarak-atas">
-                    <button class="tombol tombol-kecil" type="button" id="pratinjauPenanda" disabled>Pratinjau bidang</button>
-                    <button class="tombol tombol-kecil" type="button" id="garisBaruPenanda" disabled>Bidang dari garis sekitar</button>
+                    <button class="tombol tombol-kecil" type="button" id="pratinjauPenanda">Pratinjau bidang</button>
+                    <button class="tombol tombol-kecil" type="button" id="garisBaruPenanda">Bidang dari garis sekitar</button>
                     <button class="tombol tombol-kecil tombol-utama" type="button" id="simpanPenanda" style="display:none">Simpan bidang</button>
                     <button class="tombol tombol-kecil" type="button" id="hapusPenanda" disabled>Hapus penanda</button>
                 </div>
@@ -320,6 +320,7 @@ $naskah = <<<'JS'
     let penanda = null;
     let pratinjau = null;
     let modePenunjuk = false;
+    let terakhirPenanda = 0;
     const sorotanBlok = L.featureGroup().addTo(peta);
     const memuat = new Set();
 
@@ -571,13 +572,23 @@ $naskah = <<<'JS'
     }
 
     async function mintaPratinjau(aksi = 'pratinjau') {
-        if (!penanda) return;
+        if (!penanda) {
+            aturPenunjuk(true);
+            document.getElementById('infoPenanda').textContent =
+                'Pasang penanda di peta dulu — penunjuk titik sudah diaktifkan.';
+            info.textContent = 'Klik peta untuk menaruh penanda, lalu tekan tombol ini lagi.';
+            Sip.pesan('Pasang penanda di peta dulu — penunjuk titik sudah diaktifkan.', 'info');
+            return;
+        }
         const tombol = document.getElementById(aksi === 'garis-baru' ? 'garisBaruPenanda' : 'pratinjauPenanda');
         const titik = penanda.getLatLng();
         tombol.disabled = true;
-        document.getElementById('infoPenanda').textContent = aksi === 'garis-baru'
+        tombol.insertAdjacentHTML('beforeend', ' <span class="tanda-muat" aria-hidden="true"></span>');
+        const sedang = aksi === 'garis-baru'
             ? 'Membentuk bidang dari garis 020100 di sekitar penanda…'
             : 'Menghitung bidang di sekitar penanda…';
+        document.getElementById('infoPenanda').textContent = sedang;
+        info.textContent = sedang;
         try {
             const isi = await Sip.api('api/penanda-bidang.php', {
                 method: 'POST',
@@ -590,6 +601,7 @@ $naskah = <<<'JS'
             info.textContent = 'Pratinjau gagal: ' + err.message;
             Sip.pesan(err.message, 'gagal');
         } finally {
+            tombol.querySelector('.tanda-muat')?.remove();
             tombol.disabled = !penanda;
         }
     }
@@ -636,12 +648,19 @@ $naskah = <<<'JS'
 
     function pasangPenanda(latlng) {
         if (penanda) {
+            const lama = penanda.getLatLng();
+            if (Date.now() - terakhirPenanda < 600
+                && Math.abs(lama.lat - latlng.lat) < 1e-6
+                && Math.abs(lama.lng - latlng.lng) < 1e-6) {
+                return;
+            }
             penanda.setLatLng(latlng);
         } else {
             penanda = L.marker(latlng, {
                 icon: ikonPenanda, interactive: false, keyboard: false, zIndexOffset: 1000
             }).addTo(grupPenanda);
         }
+        terakhirPenanda = Date.now();
         const f = bidangDiTitik(latlng);
         bersihkanPratinjau();
         hapusPratinjauServer();
@@ -776,8 +795,42 @@ $naskah = <<<'JS'
     });
 
     peta.on('click', (e) => {
-        if (!modePenunjuk) return;
+        if (!modePenunjuk) {
+            document.getElementById('infoPenanda').textContent =
+                'Penunjuk belum aktif. Klik “Penunjuk titik” di atas peta, lalu klik peta.';
+            return;
+        }
         pasangPenanda(e.latlng);
+    });
+
+    // Ketukan kadang tidak sampai sebagai klik Leaflet (mis. setelah peta
+    // digeser atau browser menelan klik saat halaman masih bergulir). Lepas
+    // tanpa menggeser tetap menaruh penanda; geseran dan kontrol dikecualikan.
+    const wadahPeta = peta.getContainer();
+    let ketukAwal = null;
+    wadahPeta.addEventListener('pointerdown', (e) => {
+        ketukAwal = null;
+        if (!modePenunjuk || e.button > 0 || !e.isPrimary) return;
+        if (e.target.closest
+            && e.target.closest('.leaflet-control, a, button, input, select, label, textarea')) return;
+        ketukAwal = { x: e.clientX, y: e.clientY, waktu: Date.now() };
+    });
+    wadahPeta.addEventListener('pointercancel', () => {
+        ketukAwal = null;
+    });
+    wadahPeta.addEventListener('pointerup', (e) => {
+        const awal = ketukAwal;
+        ketukAwal = null;
+        if (!awal || !modePenunjuk) return;
+        if (Math.hypot(e.clientX - awal.x, e.clientY - awal.y) > 6) return;
+        if (Date.now() - awal.waktu > 1200) return;
+        if (e.target.closest
+            && e.target.closest('.leaflet-control, a, button, input, select, label, textarea')) return;
+        const waktu = terakhirPenanda;
+        setTimeout(() => {
+            if (terakhirPenanda !== waktu || !modePenunjuk) return;
+            pasangPenanda(peta.mouseEventToLatLng(e));
+        }, 160);
     });
 
     document.getElementById('pratinjauPenanda').addEventListener('click', () => {
@@ -797,8 +850,6 @@ $naskah = <<<'JS'
         hapusPratinjauServer();
         document.getElementById('penandaX').textContent = '–';
         document.getElementById('penandaY').textContent = '–';
-        document.getElementById('pratinjauPenanda').disabled = true;
-        document.getElementById('garisBaruPenanda').disabled = true;
         document.getElementById('hapusPenanda').disabled = true;
         document.getElementById('infoPenanda').textContent = modePenunjuk
             ? 'Klik peta untuk menaruh penanda titik.'
