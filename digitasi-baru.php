@@ -89,6 +89,7 @@ sip_header('Digitasi Obyek Baru', 'digitasi');
                 'tertutup' => 'poligon tertutup',
                 'garis-tertutup' => 'garis bidang tertutup',
                 'garis' => 'rangkaian garis',
+                'garis-baru' => 'garis bidang baru dari garis sekitar',
             ][$pratinjau['jenis']] ?? 'geometri 020100';
             ?>
             <div id="pratinjau-peta-induk" style="margin-top:10px; padding:10px; background:#eef6ff; border:1px solid #b9d6f5; border-radius:4px;">

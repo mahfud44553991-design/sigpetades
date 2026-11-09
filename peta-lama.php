@@ -147,12 +147,13 @@ sip_judul(
                 </dl>
                 <div class="baris-tombol jarak-atas">
                     <button class="tombol tombol-kecil" type="button" id="pratinjauPenanda" disabled>Pratinjau bidang</button>
+                    <button class="tombol tombol-kecil" type="button" id="garisBaruPenanda" disabled>Bidang dari garis sekitar</button>
                     <button class="tombol tombol-kecil tombol-utama" type="button" id="simpanPenanda" style="display:none">Simpan bidang</button>
                     <button class="tombol tombol-kecil" type="button" id="hapusPenanda" disabled>Hapus penanda</button>
                 </div>
                 <a class="tombol tombol-kecil jarak-atas" id="keDigitasi" href="<?= e(sip_url('digitasi-baru.php', ['dari' => 'pratinjau'])) ?>">Digitasi Obyek Baru</a>
                 <p class="petunjuk" id="infoPenanda">Penunjuk belum aktif. Koordinat X/Y berasal dari DXF lokal, bukan GPS.</p>
-                <p class="petunjuk">Pratinjau memakai poligon tertutup 020100 yang memuat penanda; bila titik di luar, dipakai garis bidang tertutup (LineString yang ujungnya bertemu), lalu rangkaian garis 020100. Bidang baru berstatus perlu verifikasi, tanpa blok, dan hanya dapat disimpan Super Admin setelah pratinjau.</p>
+                <p class="petunjuk">Pratinjau memakai poligon tertutup 020100 yang memuat penanda; bila titik di luar, dipakai garis bidang tertutup (LineString yang ujungnya bertemu), lalu rangkaian garis 020100. Bila titik ada di kantong terbuka, “Bidang dari garis sekitar” memotong garis pada titik potong lalu memilih muka terkecil yang memuat penanda, jadi batasnya mengikuti garis sebelahnya. Bidang baru berstatus perlu verifikasi, tanpa blok, dan hanya dapat disimpan Super Admin setelah pratinjau.</p>
             </div>
         </section>
 
@@ -522,7 +523,9 @@ $naskah = <<<'JS'
             ? 'Poligon tertutup ' + (isi.handle || 'tanpa handle')
             : isi.jenis === 'garis-tertutup'
                 ? 'Garis bidang tertutup ' + (isi.handle || 'tanpa handle')
-                : 'Rangkaian garis 020100';
+                : isi.jenis === 'garis-baru'
+                    ? 'Garis bidang baru (' + (isi.handle || 'tanpa handle') + ')'
+                    : 'Rangkaian garis 020100';
         document.getElementById('penandaKode').textContent = isi.kode;
 
         const lapisan = L.geoJSON(
@@ -557,19 +560,22 @@ $naskah = <<<'JS'
         info.textContent = 'Pratinjau ' + isi.kode + ' · ' + luas + ' — '
             + (isi.jenis === 'tertutup' ? 'poligon tertutup 020100.'
                 : isi.jenis === 'garis-tertutup' ? 'garis bidang tertutup 020100.'
-                    : 'rangkaian garis 020100.');
+                    : isi.jenis === 'garis-baru' ? 'garis bidang baru dari garis sekitar 020100.'
+                        : 'rangkaian garis 020100.');
     }
 
-    async function mintaPratinjau() {
+    async function mintaPratinjau(aksi = 'pratinjau') {
         if (!penanda) return;
-        const tombol = document.getElementById('pratinjauPenanda');
+        const tombol = document.getElementById(aksi === 'garis-baru' ? 'garisBaruPenanda' : 'pratinjauPenanda');
         const titik = penanda.getLatLng();
         tombol.disabled = true;
-        document.getElementById('infoPenanda').textContent = 'Menghitung bidang di sekitar penanda…';
+        document.getElementById('infoPenanda').textContent = aksi === 'garis-baru'
+            ? 'Membentuk bidang dari garis 020100 di sekitar penanda…'
+            : 'Menghitung bidang di sekitar penanda…';
         try {
             const isi = await Sip.api('api/penanda-bidang.php', {
                 method: 'POST',
-                json: { aksi: 'pratinjau', x: titik.lng, y: titik.lat }
+                json: { aksi: aksi, x: titik.lng, y: titik.lat }
             });
             tampilkanPratinjau(isi);
         } catch (err) {
@@ -622,6 +628,7 @@ $naskah = <<<'JS'
         document.getElementById('penandaX').textContent = koordDxf(latlng.lng);
         document.getElementById('penandaY').textContent = koordDxf(latlng.lat);
         document.getElementById('pratinjauPenanda').disabled = false;
+        document.getElementById('garisBaruPenanda').disabled = false;
         document.getElementById('hapusPenanda').disabled = false;
         const keterangan = f
             ? (f.geometry.type === 'LineString' ? 'di dalam garis bidang tertutup' : 'di dalam bidang tertutup')
@@ -756,6 +763,9 @@ $naskah = <<<'JS'
     document.getElementById('pratinjauPenanda').addEventListener('click', () => {
         mintaPratinjau();
     });
+    document.getElementById('garisBaruPenanda').addEventListener('click', () => {
+        mintaPratinjau('garis-baru');
+    });
     document.getElementById('simpanPenanda').addEventListener('click', () => {
         simpanBidangPenanda();
     });
@@ -768,6 +778,7 @@ $naskah = <<<'JS'
         document.getElementById('penandaX').textContent = '–';
         document.getElementById('penandaY').textContent = '–';
         document.getElementById('pratinjauPenanda').disabled = true;
+        document.getElementById('garisBaruPenanda').disabled = true;
         document.getElementById('hapusPenanda').disabled = true;
         document.getElementById('infoPenanda').textContent = modePenunjuk
             ? 'Klik peta untuk menaruh penanda titik.'
