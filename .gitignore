@@ -11,6 +11,27 @@
 /sigpetadesv1.sql
 /sql/sigpetades.sql
 /sql/akun_superadmin_lokal.sql
+/*.sql
+/sql/*.sql
+!/sql/0*.sql
+
+# Cadangan WKT manual di akar repo
+/*.wkt
+
+# Arsip dan sisa lokal
+/*.zip
+/*.rar
+/*.7z
+/*.bak
+/*.orig
+/*.tmp
+
+# Berkas sistem dan editor
+Thumbs.db
+desktop.ini
+.DS_Store
+/.vscode/
+/.idea/
 
 # Berkas sementara
 /_uji-*.php
