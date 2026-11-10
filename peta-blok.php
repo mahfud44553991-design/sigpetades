@@ -46,7 +46,7 @@ sip_judul(
         <span><i style="background:#14603a"></i>Batas blok ukur</span>
         <span><i style="background:#a06a12"></i>Batas blok perkiraan (garis putus-putus)</span>
         <span><i style="background:#8b7b68"></i>Jalan (OpenStreetMap)</span>
-        <span><i style="background:#087b83"></i>Nama sungai / saluran (DXF)</span>
+        <span><i style="background:#087b83"></i>Sungai &amp; saluran (garis dari label DXF)</span>
     </div>
     <p class="petunjuk" id="infoPetaBlok">Memuat batas blok…</p>
 </section>

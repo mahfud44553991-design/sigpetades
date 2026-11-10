@@ -3390,6 +3390,38 @@ berisi 17 `path` + 2 label "KALI SARI"; pada zoom 16 kelas
 `peta-dekat-sungai` aktif dan kedua label tampil. Tidak ada perubahan basis
 data.
 
+### 3.35b Lapisan jalan & sungai kembali berupa polyline (10 Nov 2026)
+
+Commit `b179517` (8 Nov) sempat mengganti isi `lapisan=jalan` dan
+`lapisan=sungai` menjadi titik label DXF saja, lalu menambah lapisan
+`osm-jalan`/`osm-sungai` yang mengambil garis langsung dari Overpass. Akibatnya
+peta tidak lagi punya garis: `peta-blok.php` menggambar penanda titik untuk
+jalan, dan lapisan OSM bergantung pada jaringan (di mesin ini Overpass kerap
+timeout).
+
+Atas permintaan "buatkan polyline jalan dan sungai", kedua lapisan dikembalikan
+ke `app/peta-rapi.php`:
+
+- `lapisan=jalan` → **444 `LineString`** (376 ruas OSM dipotong di tepi bidang,
+  serpihan < 6 m dibuang), atribut `id`, `kelas`, `nama`, `bagian`.
+- `lapisan=sungai` → **11 garis + 6 titik lepas** dari 275 label DXF, atribut
+  `nama`, `jenis`, `panjang_m`.
+- `peta.php`: `muatJalan`/`muatSungai` kembali menggambar garis; chip "Jalan"
+  dan "Sungai & saluran" menampilkan jumlah fitur (444 / 17), warna chip
+  diselaraskan dengan garis (#8b7b68 dan #087b83), label nama sungai permanen
+  muncul pada zoom ≥ 16 (`peta-dekat-sungai`).
+- `peta-blok.php`: kode yang sudah ada sejak §3.35a langsung mendapat
+  `LineString` lagi; hanya teks legenda yang diperbarui.
+- Lapisan `osm-jalan`/`osm-sungai` tetap tersedia sebagai pembanding langsung
+  dari Overpass, bawaannya tetap mati.
+
+Verifikasi: `lapisan=jalan` menjawab 200 dari cache dalam 0,08 dtk (444
+`LineString`), `lapisan=sungai` 0,06 dtk (11 `LineString` + 6 `Point`);
+pratinjau Leaflet dari muatan API yang sama menampilkan garis jalan di seluruh
+desa dan 11 garis sungai/saluran. Uji DOM halaman asli belum dilakukan karena
+`peta.php` dan `peta-blok.php` meminta sesi masuk; sintaks skrip halaman
+diperiksa dengan `node --check`. Tidak ada perubahan basis data.
+
 ### 3.36 API preset peta: tabel `preset_peta` dipasang (7 Nov 2026)
 
 Keluhan "galat `api/preset.php` 500" ternyata bukan kesalahan kode: tabel

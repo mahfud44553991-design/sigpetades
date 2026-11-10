@@ -67,11 +67,13 @@ sip_judul(
                 </label>
                 <label class="chip-lapisan">
                     <input type="checkbox" id="tampilJalan" autocomplete="off" checked>
-                    <i style="background:#555"></i>Jalan
+                    <i style="background:#8b7b68"></i>Jalan
+                    <b id="jumlahJalan"></b>
                 </label>
                 <label class="chip-lapisan">
                     <input type="checkbox" id="tampilSungai" autocomplete="off" checked>
-                    <i style="background:#1e88e5"></i>Sungai
+                    <i style="background:#087b83"></i>Sungai &amp; saluran
+                    <b id="jumlahSungai"></b>
                 </label>
                 <label class="chip-lapisan">
                     <input type="checkbox" id="tampilOSMJalan" autocomplete="off">
@@ -258,6 +260,7 @@ $naskah = <<<'JS'
     const MODE = ['blok', 'tipe', 'hak', 'pbb', 'status'];
     const BATAS_LABEL = 1500;
     const ZOOM_LABEL = 14;
+    const ZOOM_LABEL_SUNGAI = 16;
 
     function bacaSetelan() {
         let isi = {};
@@ -435,6 +438,12 @@ $naskah = <<<'JS'
         }
         if (setelan.batas) {
             baris.push('<span><i class="contoh-batas-desa"></i>Batas desa (33240400080)</span>');
+        }
+        if (setelan.jalan) {
+            baris.push('<span><i style="background:#8b7b68"></i>Jalan (garis, OpenStreetMap)</span>');
+        }
+        if (setelan.sungai) {
+            baris.push('<span><i style="background:#087b83"></i>Sungai &amp; saluran (garis dari label DXF)</span>');
         }
         document.getElementById('legendaPeta').innerHTML = baris.join('');
     }
@@ -723,40 +732,82 @@ $naskah = <<<'JS'
         });
     }
 
+    // Jalan dari unduhan OpenStreetMap dipotong di tepi bidang; label BATAS
+    // PERAIRAN di DXF tidak menyimpan garis, jadi garis sungai disambung dari
+    // titik nama di sela bidang. Label terisolasi tetap tampil sebagai titik.
+    const NAMA_KELAS_JALAN = {
+        primary: 'jalan utama', secondary: 'jalan utama', tertiary: 'jalan penghubung',
+        residential: 'jalan permukiman', living_street: 'jalan permukiman',
+        service: 'jalan servis', unclassified: 'jalan lain', track: 'jalan tanah'
+    };
+
+    function gayaJalan(p) {
+        const tebal = {
+            primary: 3.4, secondary: 2.8, tertiary: 2.3, residential: 1.6,
+            living_street: 1.5, service: 1.3, unclassified: 1.5, track: 1.2
+        }[p.kelas] || 1.2;
+        return { color: '#8b7b68', weight: tebal, opacity: .85, lineCap: 'round' };
+    }
+
     async function muatJalan() {
         const data = await Sip.api('api/bidang.php', { query: { lapisan: 'jalan' } });
         grup.jalan.clearLayers();
-        (data.features || []).forEach((f) => {
-            const p = f.properties;
-            const koordinat = f.geometry.coordinates;
-            L.marker([Number(koordinat[1]), Number(koordinat[0])], {
-                icon: L.divIcon({
-                    className: 'label-jalan',
-                    html: '<span>' + Sip.esc(p.label) + '</span>',
-                    iconSize: [0, 0]
-                }),
-                pane: 'pane-jalan',
-                interactive: false, keyboard: false
-            }).addTo(grup.jalan);
-        });
+        const fitur = data.features || [];
+        L.geoJSON({ type: 'FeatureCollection', features: fitur }, {
+            pane: 'pane-jalan',
+            style: (f) => gayaJalan(f.properties),
+            onEachFeature: (f, l) => {
+                const p = f.properties;
+                l.bindTooltip((p.nama ? Sip.esc(p.nama) + ' — ' : '')
+                    + (NAMA_KELAS_JALAN[p.kelas] || p.kelas), { sticky: true, className: 'jalan-label' });
+            }
+        }).addTo(grup.jalan);
+        const angka = document.getElementById('jumlahJalan');
+        if (angka) angka.textContent = Sip.angka(fitur.length);
+    }
+
+    function keteranganSungai(p) {
+        const jenis = p.jenis === 'Saluran' ? 'saluran' : 'sungai';
+        let teks = p.nama ? Sip.esc(p.nama) + ' — ' + jenis : jenis.charAt(0).toUpperCase() + jenis.slice(1);
+        if (p.panjang_m) teks += ' · ±' + Sip.angka(Math.round(p.panjang_m / 10) * 10) + ' m';
+        return teks;
     }
 
     async function muatSungai() {
         const data = await Sip.api('api/bidang.php', { query: { lapisan: 'sungai' } });
         grup.sungai.clearLayers();
-        (data.features || []).forEach((f) => {
+        const fitur = data.features || [];
+        const garis = fitur.filter((f) => f.geometry.type === 'LineString');
+        if (garis.length) {
+            L.geoJSON({ type: 'FeatureCollection', features: garis }, {
+                pane: 'pane-sungai',
+                style: () => ({ color: '#087b83', weight: 1.6, opacity: .8, lineCap: 'round' }),
+                onEachFeature: (f, l) => {
+                    l.bindTooltip(keteranganSungai(f.properties), { sticky: true, className: 'water-label' });
+                    if (!f.properties.nama) return;
+                    const jalur = l.getLatLngs();
+                    L.marker(jalur[Math.floor(jalur.length / 2)], {
+                        pane: 'pane-sungai', interactive: false, keyboard: false,
+                        icon: L.divIcon({
+                            className: 'label-sungai',
+                            html: '<span>' + Sip.esc(f.properties.nama) + '</span>',
+                            iconSize: [0, 0]
+                        })
+                    }).addTo(grup.sungai);
+                }
+            }).addTo(grup.sungai);
+        }
+        fitur.filter((f) => f.geometry.type === 'Point').forEach((f) => {
             const p = f.properties;
             const koordinat = f.geometry.coordinates;
-            L.marker([Number(koordinat[1]), Number(koordinat[0])], {
-                icon: L.divIcon({
-                    className: 'label-sungai',
-                    html: '<span>' + Sip.esc(p.label) + '</span>',
-                    iconSize: [0, 0]
-                }),
-                pane: 'pane-sungai',
-                interactive: false, keyboard: false
-            }).addTo(grup.sungai);
+            L.circleMarker([Number(koordinat[1]), Number(koordinat[0])], {
+                pane: 'pane-sungai', radius: 2.6, weight: 1,
+                color: '#087b83', fillColor: '#087b83', fillOpacity: .7
+            }).bindTooltip(keteranganSungai(p), { className: 'water-label', direction: 'top' })
+                .addTo(grup.sungai);
         });
+        const angka = document.getElementById('jumlahSungai');
+        if (angka) angka.textContent = Sip.angka(fitur.length);
     }
 
     async function muatOSMJalan() {
@@ -823,6 +874,7 @@ $naskah = <<<'JS'
     function perbaruiZoom() {
         const wadah = peta.getContainer();
         wadah.classList.toggle('peta-dekat', peta.getZoom() >= ZOOM_LABEL);
+        wadah.classList.toggle('peta-dekat-sungai', peta.getZoom() >= ZOOM_LABEL_SUNGAI);
         wadah.classList.toggle('tanpa-label-blok', !setelan.labelBlok);
         rapikanLabelBlok();
     }
