@@ -1260,6 +1260,31 @@ function dxfKeWgs84(float $bujurMeter, float $lintangMeter): array
 }
 
 /**
+ * [bujur, lintang] derajat -> meter proyeksi DXF (balikan dxfKeWgs84).
+ *
+ * Dipakai ketika sebuah titik sudah tersimpan sebagai WGS84 — misalnya pusat
+ * bidang atau penanda gang hasil `impor.php gg` — tetapi geometri aslinya
+ * harus dicari di layer DXF yang bersatuan meter lokal.
+ */
+function wgs84KeDxf(float $bujur, float $lintang): array
+{
+    $lon = DXF_KE_WGS84['lon'];
+    $lat = DXF_KE_WGS84['lat'];
+
+    $x = $bujur - $lon[0];
+    $y = $lintang - $lat[0];
+    $determinan = $lon[1] * $lat[2] - $lon[2] * $lat[1];
+    if (abs($determinan) < 1e-20) {
+        throw new RuntimeException('Transformasi koordinat DXF tidak dapat dibalik.');
+    }
+
+    return [
+        ($lat[2] * $x - $lon[2] * $y) / $determinan,
+        ($lon[1] * $y - $lat[1] * $x) / $determinan,
+    ];
+}
+
+/**
  * Berkas peta master yang dipakai perintah berbasis DXF.
  *
  * Peta lapangan diserahkan sebagai DWG yang tidak bisa dibaca PHP, jadi berkas

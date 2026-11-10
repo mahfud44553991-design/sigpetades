@@ -8,6 +8,9 @@ declare(strict_types=1);
  *   POST {aksi: "garis-baru", x: <easting DXF>, y: <northing DXF>}
  *   POST {aksi: "bersihkan"}
  *   POST {aksi: "simpan", token: "<token pratinjau>"}
+ *   POST {aksi: "batch-pratinjau", titik: [[x, y], ...]}
+ *   POST {aksi: "batch-simpan", token: "<token pratinjau massal>"}
+ *   POST {aksi: "batch-bersihkan"}
  *
  * Pratinjau memilih bidang terkecil yang memuat titik: poligon tertutup
  * 020100, lalu garis bidang tertutup (LineString yang ujungnya bertemu),
@@ -16,12 +19,25 @@ declare(strict_types=1);
  * menelusuri muka terkecil yang memuat titik, sehingga batasnya mengikuti
  * garis sebelahnya. Geometri selalu dibaca ulang dari berkas layer di server,
  * tidak pernah dari klien.
+ *
+ * Penurunan geometrinya tinggal di tools/lib-penanda.php supaya alat CLI
+ * pembentuk poligon gang dan proses massal memakai rumus yang sama.
+ *
+ * Proses massal ("batch-*") menurunkan seluruh titik dalam satu permintaan.
+ * Sesi hanya menyimpan daftar titiknya, jadi penyimpanan mengulang penurunan
+ * yang sama dan geometri yang masuk ke basis data tidak pernah datang dari
+ * klien. Satu batch ditulis dalam satu transaksi: satu baris gagal, semua
+ * batal.
  */
 
 require __DIR__ . '/../app/bootstrap.php';
 require_once __DIR__ . '/../tools/lib-impor.php';
+require_once __DIR__ . '/../tools/lib-penanda.php';
 
 set_time_limit(60);
+
+/** Batas titik untuk satu kali pratinjau massal. */
+const PENANDA_BATCH_BATAS = 150;
 
 $pengguna = wajib_masuk();
 
@@ -36,408 +52,163 @@ if (!is_array($masukan)) {
 }
 $aksi = (string) ($masukan['aksi'] ?? '');
 
-function fiturPetaInduk020100(): array
+/** Asal geometri, dipakai di catatan bidang dan jejak audit. */
+function catatanPenanda(string $jenis, string $handle, float $x, float $y): string
 {
-    $sumber = LAPISAN_POLIGON_PETA_INDUK['020100'];
-    return geojsonBaca(SIP_ROOT . '/files/sig-pertanahan-gedong-lokal/data/dxf-layers/' . $sumber['berkas']);
-}
-
-function titikDalamCincin(array $cincin, float $x, float $y): bool
-{
-    $dalam = false;
-    for ($i = 0, $j = count($cincin) - 1; $i < count($cincin); $j = $i++) {
-        $xi = (float) $cincin[$i][0];
-        $yi = (float) $cincin[$i][1];
-        $xj = (float) $cincin[$j][0];
-        $yj = (float) $cincin[$j][1];
-        if ((($yi > $y) !== ($yj > $y)) && ($x < ($xj - $xi) * ($y - $yi) / ($yj - $yi) + $xi)) {
-            $dalam = !$dalam;
-        }
-    }
-    return $dalam;
-}
-
-function titikDalamPoligon(array $poligon, float $x, float $y): bool
-{
-    $dalam = false;
-    foreach ($poligon as $cincin) {
-        if (is_array($cincin) && titikDalamCincin($cincin, $x, $y)) {
-            $dalam = !$dalam;
-        }
-    }
-    return $dalam;
-}
-
-function luasPoligonDxf(array $poligon): float
-{
-    $luas = 0.0;
-    foreach ($poligon as $nomor => $cincin) {
-        $titik = [];
-        foreach ($cincin as $pasangan) {
-            $titik[] = [(float) $pasangan[0], (float) $pasangan[1]];
-        }
-        if (count($titik) < 3) {
-            continue;
-        }
-        $luas += $nomor === 0 ? poligonLuas($titik) : -poligonLuas($titik);
-    }
-    return $luas;
-}
-
-/** Poligon tertutup terkecil yang memuat titik, atau null. */
-function poligonTertutupDiTitik(array $features, float $x, float $y): ?array
-{
-    $terbaik = null;
-    $luasTerbaik = INF;
-    foreach ($features as $indeks => $fitur) {
-        $geometri = $fitur['geometry'] ?? [];
-        if (($geometri['type'] ?? '') !== 'Polygon') {
-            continue;
-        }
-        $poligon = $geometri['coordinates'] ?? null;
-        if (!is_array($poligon) || $poligon === [] || !titikDalamPoligon($poligon, $x, $y)) {
-            continue;
-        }
-        $luas = luasPoligonDxf($poligon);
-        if ($luas <= 0 || $luas >= $luasTerbaik) {
-            continue;
-        }
-        $terbaik = [
-            'indeks' => (int) $indeks,
-            'geometry' => $geometri,
-            'handle' => (string) ($fitur['properties']['dxf_handle'] ?? ''),
-        ];
-        $luasTerbaik = $luas;
-    }
-    return $terbaik;
-}
-
-/** Garis bidang tertutup (LineString yang ujungnya bertemu) terkecil yang memuat titik, atau null. */
-function poligonGarisTertutupDiTitik(array $features, float $x, float $y): ?array
-{
-    $terbaik = null;
-    $luasTerbaik = INF;
-    foreach ($features as $indeks => $fitur) {
-        $geometri = $fitur['geometry'] ?? [];
-        if (($geometri['type'] ?? '') !== 'LineString') {
-            continue;
-        }
-        $cincin = $geometri['coordinates'] ?? null;
-        if (!is_array($cincin) || count($cincin) < 4 || $cincin[0] !== $cincin[count($cincin) - 1]) {
-            continue;
-        }
-        if (!titikDalamCincin($cincin, $x, $y)) {
-            continue;
-        }
-        $luas = luasPoligonDxf([$cincin]);
-        if ($luas <= 0 || $luas >= $luasTerbaik) {
-            continue;
-        }
-        $terbaik = [
-            'indeks' => (int) $indeks,
-            'geometry' => ['type' => 'Polygon', 'coordinates' => [$cincin]],
-            'handle' => (string) ($fitur['properties']['dxf_handle'] ?? ''),
-        ];
-        $luasTerbaik = $luas;
-    }
-    return $terbaik;
-}
-
-/** Poligon hasil rangkaian garis 020100 terkecil yang memuat titik, atau null. */
-function poligonGarisDiTitik(array $features, float $x, float $y): ?array
-{
-    $hasil = poligonDariGarisPetaInduk($features);
-    $terbaik = null;
-    $luasTerbaik = INF;
-    foreach ($hasil['poligon'] as $indeks => $poligon) {
-        $geometri = $poligon['geometry'] ?? [];
-        $koordinat = $geometri['coordinates'] ?? null;
-        if (!is_array($koordinat) || $koordinat === [] || !titikDalamPoligon($koordinat, $x, $y)) {
-            continue;
-        }
-        $luas = luasPoligonDxf($koordinat);
-        if ($luas <= 0 || $luas >= $luasTerbaik) {
-            continue;
-        }
-        $terbaik = [
-            'indeks' => (int) $indeks,
-            'geometry' => $geometri,
-            'handle' => '',
-        ];
-        $luasTerbaik = $luas;
-    }
-    return $terbaik;
-}
-
-/** Kode poligon/rangkaian mengikuti imporPoligonPetaInduk; garis tertutup memakai awalan T. */
-function kodeBidangPetaInduk(int $indeks, string $jenis): string
-{
-    $awalan = $jenis === 'garis' ? 'G' : ($jenis === 'garis-tertutup' ? 'T' : '');
-    return 'DXF-020100-' . $awalan . str_pad((string) ($indeks + 1), 5, '0', STR_PAD_LEFT);
-}
-
-/**
- * Muka bidang terkecil dari rangkaian garis 020100 di sekitar titik.
- *
- * Garis dipotong pada titik potongnya, lalu setengah-sisi ditelusuri untuk
- * mendapat muka yang tertutup. Dipakai untuk titik di kantong terbuka: batas
- * bidannya mengikuti garis sebelahnya. Jari-jari diulang bila muka belum
- * tertutup pada jendela pertama.
- *
- * @return array{geometry:array,luas:float,keliling:float,handle:string}|null
- */
-function mukaGarisDiSekitar(array $features, float $px, float $py): ?array
-{
-    $batasLuas = 200000.0;
-    foreach ([250.0, 400.0, 600.0] as $radius) {
-        $segmen = [];
-        foreach ($features as $fitur) {
-            $geometri = $fitur['geometry'] ?? [];
-            if (($geometri['type'] ?? '') !== 'LineString') {
-                continue;
-            }
-            $koordinat = $geometri['coordinates'] ?? [];
-            $handle = (string) ($fitur['properties']['dxf_handle'] ?? '');
-            for ($i = 1, $n = count($koordinat); $i < $n; $i++) {
-                $ax = (float) $koordinat[$i - 1][0];
-                $ay = (float) $koordinat[$i - 1][1];
-                $bx = (float) $koordinat[$i][0];
-                $by = (float) $koordinat[$i][1];
-                if (($ax === $bx && $ay === $by)
-                    || max($ax, $bx) < $px - $radius || min($ax, $bx) > $px + $radius
-                    || max($ay, $by) < $py - $radius || min($ay, $by) > $py + $radius) {
-                    continue;
-                }
-                $segmen[] = [$ax, $ay, $bx, $by, $handle];
-            }
-        }
-        if (count($segmen) < 3) {
-            continue;
-        }
-
-        $pecah = [];
-        foreach ($segmen as $indeks => $_) {
-            $pecah[$indeks] = [0.0, 1.0];
-        }
-        $jumlah = count($segmen);
-        for ($i = 0; $i < $jumlah; $i++) {
-            [$ax, $ay, $bx, $by] = $segmen[$i];
-            $d1x = $bx - $ax;
-            $d1y = $by - $ay;
-            for ($j = $i + 1; $j < $jumlah; $j++) {
-                [$cx, $cy, $dx, $dy] = $segmen[$j];
-                $d2x = $dx - $cx;
-                $d2y = $dy - $cy;
-                $penyebut = $d1x * $d2y - $d1y * $d2x;
-                if (abs($penyebut) < 1e-12) {
-                    continue;
-                }
-                $qx = $cx - $ax;
-                $qy = $cy - $ay;
-                $t = ($qx * $d2y - $qy * $d2x) / $penyebut;
-                $u = ($qx * $d1y - $qy * $d1x) / $penyebut;
-                if ($t < -1e-9 || $t > 1 + 1e-9 || $u < -1e-9 || $u > 1 + 1e-9) {
-                    continue;
-                }
-                $pecah[$i][] = max(0.0, min(1.0, $t));
-                $pecah[$j][] = max(0.0, min(1.0, $u));
-            }
-        }
-
-        $kunci = [];
-        $koordinat = [];
-        $node = static function (float $x, float $y) use (&$kunci, &$koordinat): int {
-            $k = sprintf('%.3F,%.3F', $x, $y);
-            if (!isset($kunci[$k])) {
-                $kunci[$k] = count($koordinat);
-                $koordinat[] = [$x, $y];
-            }
-            return $kunci[$k];
-        };
-
-        $tepi = [];
-        $dipakai = [];
-        foreach ($segmen as $indeks => [$ax, $ay, $bx, $by, $handle]) {
-            $daftar = $pecah[$indeks];
-            sort($daftar);
-            $unik = [];
-            foreach ($daftar as $t) {
-                if ($unik === [] || abs($t - end($unik)) > 1e-7) {
-                    $unik[] = $t;
-                }
-            }
-            for ($k = 1, $m = count($unik); $k < $m; $k++) {
-                if ($unik[$k] - $unik[$k - 1] < 1e-9) {
-                    continue;
-                }
-                $u = $node($ax + ($bx - $ax) * $unik[$k - 1], $ay + ($by - $ay) * $unik[$k - 1]);
-                $v = $node($ax + ($bx - $ax) * $unik[$k], $ay + ($by - $ay) * $unik[$k]);
-                if ($u === $v) {
-                    continue;
-                }
-                $pasangan = min($u, $v) . ':' . max($u, $v);
-                if (isset($dipakai[$pasangan])) {
-                    continue;
-                }
-                $dipakai[$pasangan] = true;
-                $tepi[] = [$u, $v, $handle];
-            }
-        }
-
-        $setengah = [];
-        foreach ($tepi as $id => [$u, $v]) {
-            $setengah[] = [
-                'edge' => $id, 'from' => $u, 'to' => $v, 'twin' => $id * 2 + 1,
-                'angle' => atan2($koordinat[$v][1] - $koordinat[$u][1], $koordinat[$v][0] - $koordinat[$u][0]),
-            ];
-            $setengah[] = [
-                'edge' => $id, 'from' => $v, 'to' => $u, 'twin' => $id * 2,
-                'angle' => atan2($koordinat[$u][1] - $koordinat[$v][1], $koordinat[$u][0] - $koordinat[$v][0]),
-            ];
-        }
-        $keluar = [];
-        foreach ($setengah as $id => $h) {
-            $keluar[$h['from']][] = $id;
-        }
-        foreach ($keluar as &$daftar) {
-            usort($daftar, static fn($a, $b) => $setengah[$a]['angle'] <=> $setengah[$b]['angle']);
-        }
-        unset($daftar);
-
-        $terbaik = null;
-        $luasTerbaik = INF;
-        $dikunjungi = [];
-        foreach ($setengah as $awal => $_) {
-            if (isset($dikunjungi[$awal])) {
-                continue;
-            }
-            $kini = $awal;
-            $cincin = [];
-            $handle = [];
-            $tertutup = false;
-            for ($langkah = 0, $batas = count($setengah) + 1; $langkah < $batas; $langkah++) {
-                if (isset($dikunjungi[$kini])) {
-                    $tertutup = $kini === $awal;
-                    break;
-                }
-                $dikunjungi[$kini] = true;
-                $h = $setengah[$kini];
-                $cincin[] = $koordinat[$h['from']];
-                if ($tepi[$h['edge']][2] !== '') {
-                    $handle[] = $tepi[$h['edge']][2];
-                }
-                $keluarDari = $keluar[$h['to']] ?? [];
-                $posisi = array_search($h['twin'], $keluarDari, true);
-                if ($posisi === false) {
-                    break;
-                }
-                $kini = $keluarDari[($posisi - 1 + count($keluarDari)) % count($keluarDari)];
-            }
-            if (!$tertutup || count($cincin) < 3) {
-                continue;
-            }
-            $cincin[] = $cincin[0];
-            $dua = 0.0;
-            $keliling = 0.0;
-            for ($i = 0, $akhir = count($cincin) - 1; $i < $akhir; $i++) {
-                $dua += $cincin[$i][0] * $cincin[$i + 1][1] - $cincin[$i + 1][0] * $cincin[$i][1];
-                $keliling += hypot($cincin[$i + 1][0] - $cincin[$i][0], $cincin[$i + 1][1] - $cincin[$i][1]);
-            }
-            $luas = $dua / 2;
-            if ($luas <= 1.0 || $luas > $batasLuas || $luas >= $luasTerbaik) {
-                continue;
-            }
-            if (!titikDalamCincin($cincin, $px, $py)) {
-                continue;
-            }
-            $terbaik = [
-                'geometry' => ['type' => 'Polygon', 'coordinates' => [$cincin]],
-                'luas' => $luas,
-                'keliling' => $keliling,
-                'handle' => implode(', ', array_values(array_unique($handle))),
-            ];
-            $luasTerbaik = $luas;
-        }
-
-        if ($terbaik !== null) {
-            return $terbaik;
-        }
-    }
-    return null;
-}
-
-/** Kode bidang garis baru: tetap untuk cincin yang sama, awalan B. */
-function kodeBidangGarisBaru(array $geometri): string
-{
-    $kunci = '';
-    foreach ($geometri['coordinates'][0] ?? [] as $pasangan) {
-        $kunci .= sprintf('%.3F,%.3F;', (float) $pasangan[0], (float) $pasangan[1]);
-    }
-    return 'DXF-020100-B' . str_pad((string) (crc32($kunci) % 100000), 5, '0', STR_PAD_LEFT);
-}
-
-/**
- * Kembaran berstatus 'duplikat' dikecualikan seperti pada bidang_filter():
- * induk aslinya tetap terdeteksi, jadi baris kembaran tidak memblokir bidang baru.
- * @return array{kode:string,id:int,alasan:string}|null
- */
-function duplikatBidang(string $kode, string $wkt): ?array
-{
-    $sama = db_one('SELECT id FROM bidang WHERE kode = ? LIMIT 1', [$kode]);
-    if ($sama !== null) {
-        return ['kode' => $kode, 'id' => (int) $sama['id'], 'alasan' => 'kode'];
-    }
-    $mirip = db_one(
-        'SELECT id, kode FROM bidang
-          WHERE status NOT IN (\'dihapus\', \'duplikat\')
-            AND MBRIntersects(geom, ST_GeomFromText(?, 4326))
-            AND ST_Area(ST_Intersection(geom, ST_GeomFromText(?, 4326)))
-                >= 0.95 * ST_Area(ST_GeomFromText(?, 4326))
-            AND ST_Area(ST_Intersection(geom, ST_GeomFromText(?, 4326)))
-                >= 0.95 * ST_Area(geom)
-          LIMIT 1',
-        [$wkt, $wkt, $wkt, $wkt]
+    $asal = match ($jenis) {
+        'garis' => 'rangkaian garis',
+        'garis-baru' => 'garis bidang baru dari garis sekitar ' . ($handle !== '' ? $handle : 'tanpa handle'),
+        'garis-tertutup' => 'garis bidang tertutup ' . ($handle !== '' ? $handle : 'tanpa handle'),
+        default => 'poligon tertutup ' . ($handle !== '' ? $handle : 'tanpa handle'),
+    };
+    return sprintf(
+        'Dibuat dari penanda X %.2f Y %.2f pada layer peta induk 020100 (%s); perlu verifikasi dan penetapan blok.',
+        $x,
+        $y,
+        $asal
     );
-    if ($mirip !== null) {
-        return ['kode' => (string) $mirip['kode'], 'id' => (int) $mirip['id'], 'alasan' => 'geometri'];
-    }
-    return null;
 }
 
-/** Ubah geometri lokal menjadi WKT WGS84, sekaligus hitung luas meter persegi. */
-function siapkanGeometri(array $geometri): array
+/** Sisipkan satu bidang hasil penanda beserta hak BLM-nya; mengembalikan id baru. */
+function sisipBidangPenanda(PDO $pdo, string $kode, array $siap, string $catatan, int $idJenisHak): int
 {
-    $koordinat = $geometri['coordinates'] ?? null;
-    if (!is_array($koordinat) || $koordinat === []) {
-        throw new RuntimeException('Poligon tidak memiliki cincin koordinat.');
+    $pdo->prepare(
+        'INSERT INTO bidang
+            (kode, tipe, luas_m2, status, sumber, catatan, geom, pusat_lon, pusat_lat)
+         VALUES (?, \'tanah\', ?, \'perlu_verifikasi\', \'peta-020100\', ?, ST_GeomFromText(?, 4326), ?, ?)'
+    )->execute([
+        $kode,
+        round((float) $siap['luas'], 2),
+        $catatan,
+        $siap['wkt'],
+        $siap['pusat']['lon'],
+        $siap['pusat']['lat'],
+    ]);
+    $id = (int) $pdo->lastInsertId();
+    $pdo->prepare('INSERT INTO hak (bidang_id, jenis_hak_id, catatan) VALUES (?, ?, ?)')
+        ->execute([$id, $idJenisHak, 'Jenis hak belum dikonfirmasi; dibuat dari penanda peta induk 020100.']);
+    return $id;
+}
+
+/**
+ * Ambil daftar titik penanda dari masukan: pasangan [x, y] meter DXF.
+ * Titik yang jatuh pada tempat sama (pembulatan sentimeter) dibuang supaya
+ * satu muka tidak dihitung dua kali.
+ *
+ * @return array<int, array{0:float,1:float}>
+ */
+function titikBatch(array $masukan): array
+{
+    $mentah = $masukan['titik'] ?? null;
+    if (!is_array($mentah) || $mentah === []) {
+        json_error('Daftar titik penanda kosong.', 422);
     }
-    $wgs84 = ['type' => 'Polygon', 'coordinates' => []];
-    $luas = 0.0;
-    foreach ($koordinat as $nomor => $cincin) {
-        if (!is_array($cincin) || count($cincin) < 4) {
-            throw new RuntimeException('Cincin poligon kurang dari empat titik.');
+    if (count($mentah) > PENANDA_BATCH_BATAS) {
+        json_error('Terlalu banyak penanda: maksimal ' . PENANDA_BATCH_BATAS . ' titik untuk satu kali pratinjau.', 422);
+    }
+
+    $titik = [];
+    $kunci = [];
+    foreach ($mentah as $nomor => $pasangan) {
+        $x = is_array($pasangan) && isset($pasangan[0]) && is_numeric($pasangan[0]) ? (float) $pasangan[0] : NAN;
+        $y = is_array($pasangan) && isset($pasangan[1]) && is_numeric($pasangan[1]) ? (float) $pasangan[1] : NAN;
+        if (!is_finite($x) || !is_finite($y)) {
+            json_error('Titik ke-' . ((int) $nomor + 1) . ' bukan pasangan koordinat angka.', 422);
         }
-        $meter = [];
-        $wgs84['coordinates'][$nomor] = [];
-        foreach ($cincin as $titik) {
-            if (!is_array($titik) || count($titik) < 2 || !is_numeric($titik[0]) || !is_numeric($titik[1])) {
-                throw new RuntimeException('Koordinat lokal poligon tidak sah.');
-            }
-            $x = (float) $titik[0];
-            $y = (float) $titik[1];
-            $meter[] = [$x, $y];
-            $wgs84['coordinates'][$nomor][] = dxfKeWgs84($x, $y);
+        $k = sprintf('%.2F,%.2F', $x, $y);
+        if (isset($kunci[$k])) {
+            continue;
         }
-        $luas += $nomor === 0 ? poligonLuas($meter) : -poligonLuas($meter);
+        $kunci[$k] = true;
+        $titik[] = [$x, $y];
     }
-    if ($luas <= 0) {
-        throw new RuntimeException('Luas poligon tidak positif.');
+
+    if ($titik === []) {
+        json_error('Semua titik penanda duplikat, tidak ada yang perlu diperiksa.', 422);
     }
-    $wkt = geojsonKeWkt($wgs84);
-    if ($wkt === null || !str_starts_with($wkt, 'POLYGON(')) {
-        throw new RuntimeException('Poligon gagal dikonversi ke WGS84.');
+
+    return $titik;
+}
+
+/**
+ * Turunkan geometri untuk tiap titik penanda sekaligus menandai yang kembar.
+ *
+ * Rangkaian garis 020100 disusun satu kali untuk seluruh daftar; tanpa itu
+ * setiap titik membaca ulang dan menyusun ulang seluruh layer.
+ *
+ * @param array<int, array{0:float,1:float}> $titik
+ * @return array{hasil:array<int,array>, bahan:array<int,array>}
+ */
+function susunBatch(array $titik): array
+{
+    $konteks = konteksPenandaPetaInduk('020100');
+
+    $hasil = [];
+    $bahan = [];
+    $lihatKode = [];
+
+    foreach ($titik as $nomor => [$x, $y]) {
+        $baris = ['i' => $nomor, 'x' => $x, 'y' => $y];
+
+        $ditemukan = bidangDiTitik($konteks, $x, $y);
+        if ($ditemukan === null) {
+            $hasil[] = $baris + [
+                'status' => 'gagal',
+                'pesan' => 'Tidak ada poligon tertutup dan garis di sekitar titik belum membentuk muka bidang.',
+            ];
+            continue;
+        }
+
+        $kode = (string) $ditemukan['kode'];
+        $jenis = (string) $ditemukan['jenis'];
+        $handle = (string) ($ditemukan['calon']['handle'] ?? '');
+        $baris += ['kode' => $kode, 'jenis' => $jenis, 'handle' => $handle];
+
+        if (isset($lihatKode[$kode])) {
+            $hasil[] = $baris + [
+                'status' => 'kembar',
+                'duplikat' => ['kode' => $kode, 'id' => 0, 'alasan' => 'batch'],
+                'sumber_i' => $lihatKode[$kode],
+            ];
+            continue;
+        }
+        $lihatKode[$kode] = $nomor;
+
+        try {
+            $siap = siapkanGeometri($ditemukan['calon']['geometry']);
+        } catch (Throwable $error) {
+            $hasil[] = $baris + ['status' => 'gagal', 'pesan' => $error->getMessage()];
+            continue;
+        }
+
+        $baris['luas_m2'] = round((float) $siap['luas'], 2);
+
+        $batas = [INF, INF, -INF, -INF];
+        foreach ($ditemukan['calon']['geometry']['coordinates'][0] ?? [] as $pojok) {
+            $batas[0] = min($batas[0], (float) $pojok[0]);
+            $batas[1] = min($batas[1], (float) $pojok[1]);
+            $batas[2] = max($batas[2], (float) $pojok[0]);
+            $batas[3] = max($batas[3], (float) $pojok[1]);
+        }
+        $baris['batas'] = is_finite($batas[0]) ? $batas : [$x, $y, $x, $y];
+
+        $duplikat = duplikatBidang($kode, $siap['wkt']);
+        if ($duplikat !== null) {
+            $hasil[] = $baris + ['status' => 'kembar', 'duplikat' => $duplikat];
+            continue;
+        }
+
+        $hasil[] = $baris + [
+            'status' => 'baru',
+            'geometri' => $ditemukan['calon']['geometry'],
+        ];
+        $bahan[] = $baris + [
+            'siap' => $siap,
+            'catatan' => catatanPenanda($jenis, $handle, $x, $y),
+        ];
     }
-    return ['wkt' => $wkt, 'luas' => $luas, 'pusat' => wktPusat(db(), $wkt)];
+
+    return ['hasil' => $hasil, 'bahan' => $bahan];
 }
 
 /** Simpan pratinjau ke sesi lalu kirim jawaban JSON. */
@@ -489,22 +260,12 @@ if ($aksi === 'pratinjau') {
         json_error('Koordinat penanda tidak sah.', 422);
     }
 
-    $features = fiturPetaInduk020100();
-    $calon = poligonTertutupDiTitik($features, $x, $y);
-    $jenis = 'tertutup';
-    if ($calon === null) {
-        $calon = poligonGarisTertutupDiTitik($features, $x, $y);
-        $jenis = 'garis-tertutup';
-    }
-    if ($calon === null) {
-        $calon = poligonGarisDiTitik($features, $x, $y);
-        $jenis = 'garis';
-    }
-    if ($calon === null) {
+    $ditemukan = bidangDariPenanda(fiturLapisanPetaInduk('020100'), $x, $y);
+    if ($ditemukan === null) {
         json_error('Penanda tidak berada di dalam poligon tertutup, garis bidang tertutup, atau rangkaian garis 020100 yang menutup. Pakai “Bidang dari garis sekitar” untuk membentuk bidang baru.', 422);
     }
 
-    kirimPratinjau($calon, $jenis, kodeBidangPetaInduk((int) $calon['indeks'], $jenis), $x, $y, $pengguna);
+    kirimPratinjau($ditemukan['calon'], $ditemukan['jenis'], $ditemukan['kode'], $x, $y, $pengguna);
 }
 
 if ($aksi === 'garis-baru') {
@@ -514,7 +275,7 @@ if ($aksi === 'garis-baru') {
         json_error('Koordinat penanda tidak sah.', 422);
     }
 
-    $calon = mukaGarisDiSekitar(fiturPetaInduk020100(), $x, $y);
+    $calon = mukaGarisDiSekitar(fiturLapisanPetaInduk('020100'), $x, $y);
     if ($calon === null) {
         json_error('Garis 020100 di sekitar penanda belum membentuk muka bidang tertutup. Geser penanda mendekati pertemuan garis.', 422);
     }
@@ -555,36 +316,19 @@ if ($aksi === 'simpan') {
         json_error('Jenis hak BLM tidak tersedia. Jalankan sql/01_skema.sql.', 500);
     }
 
-    $asal = match ($pratinjau['jenis']) {
-        'garis' => 'rangkaian garis',
-        'garis-baru' => 'garis bidang baru dari garis sekitar ' . ($pratinjau['handle'] !== '' ? $pratinjau['handle'] : 'tanpa handle'),
-        'garis-tertutup' => 'garis bidang tertutup ' . ($pratinjau['handle'] !== '' ? $pratinjau['handle'] : 'tanpa handle'),
-        default => 'poligon tertutup ' . ($pratinjau['handle'] !== '' ? $pratinjau['handle'] : 'tanpa handle'),
-    };
-    $catatan = sprintf(
-        'Dibuat dari penanda X %.2f Y %.2f pada layer peta induk 020100 (%s); perlu verifikasi dan penetapan blok.',
+    $catatan = catatanPenanda(
+        (string) $pratinjau['jenis'],
+        (string) $pratinjau['handle'],
         (float) $pratinjau['x'],
-        (float) $pratinjau['y'],
-        $asal
+        (float) $pratinjau['y']
     );
 
     $id = db_transaksi(static function (PDO $pdo) use ($pratinjau, $idJenisHak, $catatan): int {
-        $pdo->prepare(
-            'INSERT INTO bidang
-                (kode, tipe, luas_m2, status, sumber, catatan, geom, pusat_lon, pusat_lat)
-             VALUES (?, \'tanah\', ?, \'perlu_verifikasi\', \'peta-020100\', ?, ST_GeomFromText(?, 4326), ?, ?)'
-        )->execute([
-            $pratinjau['kode'],
-            round((float) $pratinjau['luas'], 2),
-            $catatan,
-            $pratinjau['wkt'],
-            $pratinjau['pusat']['lon'],
-            $pratinjau['pusat']['lat'],
-        ]);
-        $id = (int) $pdo->lastInsertId();
-        $pdo->prepare('INSERT INTO hak (bidang_id, jenis_hak_id, catatan) VALUES (?, ?, ?)')
-            ->execute([$id, $idJenisHak, 'Jenis hak belum dikonfirmasi; dibuat dari penanda peta induk 020100.']);
-        return $id;
+        return sisipBidangPenanda($pdo, (string) $pratinjau['kode'], [
+            'wkt' => (string) $pratinjau['wkt'],
+            'luas' => (float) $pratinjau['luas'],
+            'pusat' => $pratinjau['pusat'],
+        ], $catatan, (int) $idJenisHak);
     });
 
     unset($_SESSION['penanda_bidang']);
@@ -600,4 +344,136 @@ if ($aksi === 'simpan') {
     json_ok(['id' => $id, 'kode' => $pratinjau['kode']], 'Bidang baru disimpan sebagai perlu verifikasi.');
 }
 
-json_error('Aksi tidak dikenal. Gunakan "pratinjau", "garis-baru", "bersihkan", atau "simpan".', 400);
+if ($aksi === 'batch-bersihkan') {
+    unset($_SESSION['penanda_batch']);
+    json_ok([], 'Pratinjau massal dibersihkan.');
+}
+
+if ($aksi === 'batch-pratinjau') {
+    set_time_limit(300);
+    $jumlahMasuk = is_array($masukan['titik'] ?? null) ? count($masukan['titik']) : 0;
+    $titik = titikBatch($masukan);
+    $susun = susunBatch($titik);
+
+    $hitung = ['baru' => 0, 'kembar' => 0, 'gagal' => 0];
+    foreach ($susun['hasil'] as $baris) {
+        $hitung[$baris['status']]++;
+    }
+
+    $token = bin2hex(random_bytes(16));
+    $_SESSION['penanda_batch'] = [
+        'token' => $token,
+        'pengguna_id' => auth_user_id(),
+        'waktu' => time(),
+        'titik' => $titik,
+    ];
+
+    json_ok([
+        'token' => $token,
+        'jumlah' => count($susun['hasil']),
+        'terpangkas' => $jumlahMasuk - count($titik),
+        'baru' => $hitung['baru'],
+        'kembar' => $hitung['kembar'],
+        'gagal' => $hitung['gagal'],
+        'batas' => PENANDA_BATCH_BATAS,
+        'boleh_simpan' => $pengguna['peran'] === PERAN_SUPER && $hitung['baru'] > 0,
+        'hasil' => $susun['hasil'],
+    ], sprintf(
+        'Pratinjau %d penanda: %d bidang baru, %d kembar, %d gagal.',
+        count($susun['hasil']),
+        $hitung['baru'],
+        $hitung['kembar'],
+        $hitung['gagal']
+    ));
+}
+
+if ($aksi === 'batch-simpan') {
+    if ($pengguna['peran'] !== PERAN_SUPER) {
+        json_error('Hanya Super Admin yang dapat menyimpan bidang baru.', 403);
+    }
+    set_time_limit(600);
+
+    $token = (string) ($masukan['token'] ?? '');
+    $pratinjau = $_SESSION['penanda_batch'] ?? null;
+    if (!is_array($pratinjau) || !isset($pratinjau['token']) || $token === ''
+        || !hash_equals((string) $pratinjau['token'], $token)) {
+        json_error('Pratinjau massal tidak ditemukan. Ulangi pratinjau bidang.', 410);
+    }
+    if ((int) $pratinjau['pengguna_id'] !== (int) auth_user_id()) {
+        json_error('Pratinjau massal ini milik pengguna lain.', 403);
+    }
+    if (time() - (int) $pratinjau['waktu'] > 1800) {
+        unset($_SESSION['penanda_batch']);
+        json_error('Pratinjau massal kedaluwarsa. Ulangi pratinjau bidang.', 410);
+    }
+    $titik = is_array($pratinjau['titik'] ?? null) ? $pratinjau['titik'] : [];
+    if ($titik === [] || count($titik) > PENANDA_BATCH_BATAS) {
+        unset($_SESSION['penanda_batch']);
+        json_error('Daftar titik pratinjau massal tidak sah. Ulangi pratinjau bidang.', 410);
+    }
+
+    $idJenisHak = db_value('SELECT id FROM jenis_hak WHERE kode = ?', [JENIS_HAK_DEFAULT]);
+    if ($idJenisHak === null) {
+        json_error('Jenis hak BLM tidak tersedia. Jalankan sql/01_skema.sql.', 500);
+    }
+
+    // Geometri dihitung ulang dari layer, bukan dari pratinjau klien, lalu
+    // kembar diperiksa lagi di dalam transaksi: bidang yang baru saja
+    // disisipkan pada batch yang sama ikut terlihat oleh koneksi yang sama.
+    $susun = susunBatch($titik);
+    $jalan = db_transaksi(static function (PDO $pdo) use ($susun, $idJenisHak): array {
+        $dibuat = [];
+        $dilewati = [];
+        foreach ($susun['bahan'] as $bahan) {
+            $duplikat = duplikatBidang($bahan['kode'], $bahan['siap']['wkt']);
+            if ($duplikat !== null) {
+                $dilewati[] = ['i' => $bahan['i'], 'kode' => $bahan['kode'], 'duplikat' => $duplikat];
+                continue;
+            }
+            $id = sisipBidangPenanda($pdo, $bahan['kode'], $bahan['siap'], $bahan['catatan'], (int) $idJenisHak);
+            $dibuat[] = [
+                'id' => $id,
+                'i' => $bahan['i'],
+                'kode' => $bahan['kode'],
+                'jenis' => $bahan['jenis'],
+                'handle' => $bahan['handle'],
+                'luas_m2' => $bahan['luas_m2'],
+            ];
+        }
+        return ['dibuat' => $dibuat, 'dilewati' => $dilewati];
+    });
+
+    $gagal = 0;
+    foreach ($susun['hasil'] as $baris) {
+        if ($baris['status'] === 'gagal') {
+            $gagal++;
+        }
+    }
+
+    unset($_SESSION['penanda_batch']);
+    foreach ($jalan['dibuat'] as $bidang) {
+        audit('buat', 'bidang', (string) $bidang['id'],
+            'Buat bidang dari penanda massal peta induk 020100: ' . $bidang['kode'], null, [
+                'kode' => $bidang['kode'],
+                'lapisan' => '020100',
+                'jenis' => $bidang['jenis'],
+                'handle' => $bidang['handle'],
+                'penanda' => ['x' => $titik[$bidang['i']][0], 'y' => $titik[$bidang['i']][1]],
+                'luas_m2' => $bidang['luas_m2'],
+                'massal' => true,
+            ]);
+    }
+
+    json_ok([
+        'dibuat' => $jalan['dibuat'],
+        'dilewati' => $jalan['dilewati'],
+        'gagal' => $gagal,
+    ], sprintf(
+        '%d bidang baru disimpan sebagai perlu verifikasi, %d dilewati.',
+        count($jalan['dibuat']),
+        count($jalan['dilewati'])
+    ));
+}
+
+json_error('Aksi tidak dikenal. Gunakan "pratinjau", "garis-baru", "bersihkan", "simpan", '
+    . '"batch-pratinjau", "batch-simpan", atau "batch-bersihkan".', 400);
