@@ -66,20 +66,17 @@ sip_judul(
                     <b><?= e(angka((int) ($ringkas['total'] - $ringkas['tanah']))) ?></b>
                 </label>
                 <label class="chip-lapisan">
+                    <input type="checkbox" id="tampilBlok" autocomplete="off" checked>
+                    <i style="background:#14603a"></i>Batas blok
+                    <b><?= e(angka(count($blok))) ?></b>
+                </label>
+                <label class="chip-lapisan">
                     <input type="checkbox" id="tampilJalan" autocomplete="off" checked>
                     <i style="background:#555"></i>Jalan
                 </label>
                 <label class="chip-lapisan">
                     <input type="checkbox" id="tampilSungai" autocomplete="off" checked>
                     <i style="background:#1e88e5"></i>Sungai
-                </label>
-                <label class="chip-lapisan">
-                    <input type="checkbox" id="tampilOSMJalan" autocomplete="off">
-                    <i style="background:#ff6b00"></i>Garis jalan OSM
-                </label>
-                <label class="chip-lapisan">
-                    <input type="checkbox" id="tampilOSMSungai" autocomplete="off">
-                    <i style="background:#00bcd4"></i>Garis sungai OSM
                 </label>
                 <?php if ($kelola): ?>
                     <label class="chip-lapisan">
@@ -253,11 +250,24 @@ $naskah = <<<'JS'
     const BAWAAN = {
         dasar: 'jalan', warna: 'blok', kepekatan: 55, label: false, labelBlok: true,
         bidang: true, lain: false, blok: true, batas: true, laporan: false,
-        jalan: true, sungai: true, osmJalan: false, osmSungai: false, tampilan: null
+        jalan: true, sungai: true, tampilan: null
     };
     const MODE = ['blok', 'tipe', 'hak', 'pbb', 'status'];
     const BATAS_LABEL = 1500;
     const ZOOM_LABEL = 14;
+
+    function rapikanSetelan(isi) {
+        const s = Object.assign({}, BAWAAN, isi || {});
+        if (s.dasar !== 'jalan' && s.dasar !== 'satelit') s.dasar = BAWAAN.dasar;
+        if (MODE.indexOf(s.warna) < 0) s.warna = BAWAAN.warna;
+        s.kepekatan = Math.max(45, Math.min(80, Number(s.kepekatan) || 0));
+        ['label', 'labelBlok', 'bidang', 'blok', 'batas', 'laporan', 'jalan', 'sungai'].forEach((k) => { s[k] = !!s[k]; });
+        // Kunci peninggalan lapisan garis OSM yang sudah dihapus. Tanpa dibuang,
+        // localStorage lama dan preset database ikut menyimpannya kembali.
+        delete s.osmJalan;
+        delete s.osmSungai;
+        return s;
+    }
 
     function bacaSetelan() {
         let isi = {};
@@ -265,12 +275,7 @@ $naskah = <<<'JS'
             const tersimpan = JSON.parse(localStorage.getItem(KUNCI) || 'null');
             if (tersimpan && typeof tersimpan === 'object') isi = tersimpan;
         } catch (e) { /* localStorage tidak tersedia */ }
-        const s = Object.assign({}, BAWAAN, isi);
-        if (s.dasar !== 'jalan' && s.dasar !== 'satelit') s.dasar = BAWAAN.dasar;
-        if (MODE.indexOf(s.warna) < 0) s.warna = BAWAAN.warna;
-        s.kepekatan = Math.max(45, Math.min(80, Number(s.kepekatan) || 0));
-        ['label', 'labelBlok', 'bidang', 'blok', 'batas', 'laporan', 'jalan', 'sungai', 'osmJalan', 'osmSungai'].forEach((k) => { s[k] = !!s[k]; });
-        return s;
+        return rapikanSetelan(isi);
     }
 
     let setelan = bacaSetelan();
@@ -283,8 +288,8 @@ $naskah = <<<'JS'
     peta.attributionControl.setPrefix('');
 
     // Panes menentukan urutan gambar tanpa bergantung urutan addLayer:
-    // batas desa paling bawah, lalu blok, jalan, sungai, OSM, obyek non-tanah, bidang tanah.
-    const PANES = { batas: 405, blok: 410, jalan: 412, sungai: 413, osmJalan: 414, osmSungai: 414, lain: 415, tanah: 420, laporan: 430 };
+    // batas desa paling bawah, lalu blok, jalan, sungai, obyek non-tanah, bidang tanah.
+    const PANES = { batas: 405, blok: 410, jalan: 412, sungai: 413, lain: 415, tanah: 420, laporan: 430 };
     Object.keys(PANES).forEach((nama) => {
         const pane = peta.createPane('pane-' + nama);
         pane.style.zIndex = String(PANES[nama]);
@@ -295,8 +300,7 @@ $naskah = <<<'JS'
     const grup = {
         bidang: L.layerGroup(), lain: L.layerGroup(), blok: L.layerGroup(),
         batas: L.layerGroup(), laporan: L.layerGroup(),
-        jalan: L.layerGroup(), sungai: L.layerGroup(),
-        osmJalan: L.layerGroup(), osmSungai: L.layerGroup()
+        jalan: L.layerGroup(), sungai: L.layerGroup()
     };
 
     const dasar = {
@@ -759,45 +763,6 @@ $naskah = <<<'JS'
         });
     }
 
-    async function muatOSMJalan() {
-        const data = await Sip.api('api/bidang.php', { query: { lapisan: 'osm-jalan' } });
-        grup.osmJalan.clearLayers();
-        L.geoJSON(data, {
-            pane: 'pane-osmJalan',
-            style: (f) => {
-                const tipe = f.properties.tipe || '';
-                const warna = '#ff6b00';
-                const berat = ['motorway', 'trunk', 'primary'].includes(tipe) ? 3 :
-                              ['secondary', 'tertiary'].includes(tipe) ? 2 : 1.5;
-                return { color: warna, weight: berat, opacity: 0.8, fillOpacity: 0 };
-            },
-            onEachFeature: (f, l) => {
-                if (f.properties.nama) {
-                    l.bindTooltip(f.properties.nama, { sticky: true });
-                }
-            }
-        }).addTo(grup.osmJalan);
-    }
-
-    async function muatOSMSungai() {
-        const data = await Sip.api('api/bidang.php', { query: { lapisan: 'osm-sungai' } });
-        grup.osmSungai.clearLayers();
-        L.geoJSON(data, {
-            pane: 'pane-osmSungai',
-            style: (f) => {
-                const tipe = f.properties.tipe || '';
-                const warna = '#00bcd4';
-                const berat = ['river', 'canal'].includes(tipe) ? 2.5 : 1.5;
-                return { color: warna, weight: berat, opacity: 0.85, fillOpacity: 0 };
-            },
-            onEachFeature: (f, l) => {
-                if (f.properties.nama) {
-                    l.bindTooltip(f.properties.nama, { sticky: true });
-                }
-            }
-        }).addTo(grup.osmSungai);
-    }
-
     function aktifkan(nama, hidup) {
         if (hidup) { if (!peta.hasLayer(grup[nama])) grup[nama].addTo(peta); }
         else peta.removeLayer(grup[nama]);
@@ -839,24 +804,21 @@ $naskah = <<<'JS'
         if (kotakBidang) kotakBidang.checked = setelan.bidang;
         const kotakLain = document.getElementById('tampilLain');
         if (kotakLain) kotakLain.checked = setelan.lain;
+        const kotakBlok = document.getElementById('tampilBlok');
+        if (kotakBlok) kotakBlok.checked = setelan.blok;
         const kotakLaporan = document.getElementById('tampilLaporan');
         if (kotakLaporan) kotakLaporan.checked = setelan.laporan;
         const kotakJalan = document.getElementById('tampilJalan');
         if (kotakJalan) kotakJalan.checked = setelan.jalan;
         const kotakSungai = document.getElementById('tampilSungai');
         if (kotakSungai) kotakSungai.checked = setelan.sungai;
-        const kotakOSMJalan = document.getElementById('tampilOSMJalan');
-        if (kotakOSMJalan) kotakOSMJalan.checked = setelan.osmJalan;
-        const kotakOSMSungai = document.getElementById('tampilOSMSungai');
-        if (kotakOSMSungai) kotakOSMSungai.checked = setelan.osmSungai;
 
         pakaiDasar(setelan.dasar);
         gambarLegenda();
         aktifkan('laporan', setelan.laporan);
         aktifkan('jalan', setelan.jalan);
         aktifkan('sungai', setelan.sungai);
-        aktifkan('osmJalan', setelan.osmJalan);
-        aktifkan('osmSungai', setelan.osmSungai);
+        aktifkan('blok', setelan.blok);
         perbaruiZoom();
         if (kotakLaporan && setelan.laporan && !grup.laporan.getLayers().length) {
             muatLaporan().catch((err) => Sip.pesan(err.message, 'gagal'));
@@ -867,11 +829,8 @@ $naskah = <<<'JS'
         if (kotakSungai && setelan.sungai && !grup.sungai.getLayers().length) {
             muatSungai().catch((err) => Sip.pesan(err.message, 'gagal'));
         }
-        if (kotakOSMJalan && setelan.osmJalan && !grup.osmJalan.getLayers().length) {
-            muatOSMJalan().catch((err) => Sip.pesan(err.message, 'gagal'));
-        }
-        if (kotakOSMSungai && setelan.osmSungai && !grup.osmSungai.getLayers().length) {
-            muatOSMSungai().catch((err) => Sip.pesan(err.message, 'gagal'));
+        if (kotakBlok && setelan.blok && !grup.blok.getLayers().length) {
+            muatBlok().catch((err) => Sip.pesan(err.message, 'gagal'));
         }
     }
 
@@ -932,6 +891,19 @@ $naskah = <<<'JS'
         });
     }
 
+    const kotakBlok = document.getElementById('tampilBlok');
+    if (kotakBlok) {
+        kotakBlok.addEventListener('change', (e) => {
+            setelan.blok = e.target.checked;
+            simpanSetelan();
+            aktifkan('blok', setelan.blok);
+            if (setelan.blok && !grup.blok.getLayers().length) {
+                muatBlok().catch((err) => Sip.pesan(err.message, 'gagal'));
+            }
+            gambarLegenda();
+        });
+    }
+
     const kotakJalan = document.getElementById('tampilJalan');
     if (kotakJalan) {
         kotakJalan.addEventListener('change', (e) => {
@@ -952,30 +924,6 @@ $naskah = <<<'JS'
             aktifkan('sungai', setelan.sungai);
             if (setelan.sungai && !grup.sungai.getLayers().length) {
                 muatSungai().catch((err) => Sip.pesan(err.message, 'gagal'));
-            }
-        });
-    }
-
-    const kotakOSMJalan = document.getElementById('tampilOSMJalan');
-    if (kotakOSMJalan) {
-        kotakOSMJalan.addEventListener('change', (e) => {
-            setelan.osmJalan = e.target.checked;
-            simpanSetelan();
-            aktifkan('osmJalan', setelan.osmJalan);
-            if (setelan.osmJalan && !grup.osmJalan.getLayers().length) {
-                muatOSMJalan().catch((err) => Sip.pesan(err.message, 'gagal'));
-            }
-        });
-    }
-
-    const kotakOSMSungai = document.getElementById('tampilOSMSungai');
-    if (kotakOSMSungai) {
-        kotakOSMSungai.addEventListener('change', (e) => {
-            setelan.osmSungai = e.target.checked;
-            simpanSetelan();
-            aktifkan('osmSungai', setelan.osmSungai);
-            if (setelan.osmSungai && !grup.osmSungai.getLayers().length) {
-                muatOSMSungai().catch((err) => Sip.pesan(err.message, 'gagal'));
             }
         });
     }
@@ -1057,7 +1005,7 @@ $naskah = <<<'JS'
             Sip.pesan('Nama preset wajib diisi.', 'gagal');
             return;
         }
-        const data = Object.assign({}, setelan);
+        const data = rapikanSetelan(setelan);
         try {
             const id = elPilihPreset.value ? Number(elPilihPreset.value) : null;
             const hasil = await Sip.api('api/preset.php', {
@@ -1085,7 +1033,7 @@ $naskah = <<<'JS'
                 Sip.pesan('Data preset tidak valid.', 'gagal');
                 return;
             }
-            setelan = Object.assign({}, BAWAAN, preset.data);
+            setelan = rapikanSetelan(preset.data);
             simpanSetelan();
             terapkanSetelan();
             if (setelan.tampilan && typeof setelan.tampilan.lat === 'number') {
@@ -1166,18 +1114,12 @@ $naskah = <<<'JS'
     }
     terapkanSetelan();
 
-    aktifkan('blok', true);
     aktifkan('batas', true);
     aktifkan('jalan', setelan.jalan);
     aktifkan('sungai', setelan.sungai);
-    aktifkan('osmJalan', setelan.osmJalan);
-    aktifkan('osmSungai', setelan.osmSungai);
-    muatBlok().catch((err) => console.warn('Blok gagal dimuat:', err));
     muatBatas().catch((err) => console.warn('Batas gagal dimuat:', err));
     if (setelan.jalan) muatJalan().catch((err) => console.warn('Jalan gagal dimuat:', err));
     if (setelan.sungai) muatSungai().catch((err) => console.warn('Sungai gagal dimuat:', err));
-    if (setelan.osmJalan) muatOSMJalan().catch((err) => console.warn('OSM jalan gagal dimuat:', err));
-    if (setelan.osmSungai) muatOSMSungai().catch((err) => console.warn('OSM sungai gagal dimuat:', err));
     muatBidang().catch(gagalMuat);
 })();
 </script>

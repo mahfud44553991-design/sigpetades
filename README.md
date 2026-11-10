@@ -253,6 +253,16 @@ kode blok pada feature. Impor ini menambah data, tidak menimpa bidang yang
 sudah ada; menjalankannya dua kali tidak menghasilkan duplikat karena
 `id_bidang` yang sama dilewati.
 
+Sebelum menyalakan QGIS, ada baiknya mengecek apakah gangnya memang belum
+terpetakan. Kartu **Penanda massal** di halaman Peta Induk ([§3.72](#372-penanda-massal-di-peta-induk-10-nov-2026))
+dapat memuat 19 titik hasil langkah satu dan menurunkan bidangnya langsung dari
+garis 020100 di sekitarnya. Diukur pada 10 Nov 2026: hanya **1** dari 19
+penanda gang yang belum punya bidang (`DXF-020100-B92755`, 260,10 m²), **16**
+sudah tertutup ≥95% bidang yang ada, dan **2** tidak menemukan muka tertutup.
+Bidang hasil jalan ini bertipe `tanah` berstatus `perlu_verifikasi` — bukan
+Hak Pakai `GG` seperti `impor.php gang` — jadi tetap perlu ditetapkan blok dan
+jenis haknya.
+
 ### 3.7 Menggabungkan dua blok
 
 Blok hasil perkiraan batas kadang ternyata bagian dari blok tetangga. Contoh
@@ -5118,6 +5128,327 @@ BLOK 18 = 76, duplikat = 1; baris 18 tabel sama, checksum sama kecuali `sppt`
 (isi `sppt` dibuktikan identik 3.794 baris lewat dump
 `--skip-extended-insert`, `diff` nol baris). Kedua database uji sudah dihapus.
 
+### 3.72 Penanda massal di Peta Induk (10 Nov 2026)
+
+Halaman **Peta Induk** punya kartu baru, "Penanda massal". Petugas menyalakan
+"Mode banyak penanda", klik beberapa titik, lalu satu permintaan server
+menurunkan geometri untuk semuanya. Yang belum ada bidangnya digambar hijau,
+yang kembar digambar kotak oranye beserta kode pasangannya, yang gagal hanya
+muncul di daftar. "Simpan semua" (hanya Super Admin) menulis seluruh batch
+dalam satu transaksi sebagai `perlu_verifikasi` tanpa blok — sama seperti
+penanda tunggal.
+
+Batasnya 150 penanda per permintaan. Titik pada tempat yang sama (pembulatan
+sentimeter) dibuang sebelum dihitung; dua penanda yang jatuh di muka yang sama
+juga dianggap satu. Sesi hanya menyimpan daftar titiknya, jadi geometri selalu
+dihitung ulang dari layer saat menyimpan, tidak pernah diambil dari klien.
+
+Aksi baru di `api/penanda-bidang.php`: `batch-pratinjau`, `batch-simpan`,
+`batch-bersihkan`. Penurunan geometrinya pindah ke `tools/lib-penanda.php`
+sehingga halaman, CLI, dan proses massal memakai rumus yang sama;
+`siapkanGeometri()` dan `duplikatBidang()` ikut pindah ke pustaka itu.
+
+**Diperlukan, bukan hiasan.** Jalur penanda lama menghabiskan 0,28 detik per
+titik — 150 titik berarti 42 detik dan satu permintaan browser pasti putus.
+Dua perbaikan dibuat di pustaka bersama: indeks batas luar tiap fitur supaya
+uji titik-dalam hanya dijalankan pada fitur yang mungkin memuat penanda, dan
+petak kisi pada pemotongan garis supaya uji potong-per-potong tidak lagi
+mengurus semua pasangan segmen dalam jendela.
+
+| Ukuran (150 titik pusat bidang) | Sebelum | Sesudah |
+|---|---|---|
+| seluruh penurunan | 42,1 s | 5,0 s |
+| per titik | 0,281 s | 0,034 s |
+| langkah poligon tertutup–rangkaian garis | 43,3 s | 0,7 s |
+| langkah muka garis (kantong terbuka) | 39,4 s | 4,1 s |
+
+Hasilnya tidak berubah: `php _lama/scratch/bukti-indeks-batas.php`
+membandingkan 379 titik (19 penanda gang, 120 pusat bidang, titik digeser 3,5 m
+dan 70 m, termasuk yang di luar semua bidang) antara jalur berindeks dan jalur
+tanpa indeks — **0 perbedaan** jenis maupun kode. Bahan batch (`020100`: 16.322
+fitur, 3.432 rangkaian garis tertutup) disusun sekali, 0,39 detik.
+
+Ukuran pada 19 penanda gang (`files/peta gang/peta_gg.geojson`, dibaca lewat
+`wgs84KeDxf()`): **1 bidang baru** (`DXF-020100-B92755`, 260,10 m²), **16
+kembar**, **2 gagal**. Angka itu sama sebelum dan sesudah optimasi; 13 di
+antaranya diambil dari rangkaian garis dan 1 dari muka garis baru.
+
+Uji ujung-ke-ujung memakai database kercil `sipetades_gedong_uji` (skema
+ditambah 7.950 baris `bidang`, 24 `blok`, 7.947 `hak`, `pengguna`, `dusun`,
+`jenis_hak`, `jenis_penggunaan` salinan DB hidup), bukan basis data produksi:
+
+- `batch-pratinjau` 24 titik (19 gang + 3 pusat bidang + 1 jauh di luar + 1
+  titik ganda) → dijawab 23 penanda, `terpangkas 1`, **1 baru · 19 kembar · 3
+  gagal**, `boleh_simpan` benar.
+- `batch-simpan` dengan token itu → **1 bidang** `DXF-020100-B92755` id
+  **23041** `status=perlu_verifikasi`, `sumber=peta-020100`, 260,10 m², pusat
+  110,071509/-7,092539; satu `hak` id **27674** jenis **BLM**; satu `audit_log`
+  `aksi=buat` dengan `data_sesudah.massal=true`. `dilewati` kosong.
+- Token dipakai ulang → 410 "Pratinjau massal tidak ditemukan" (sesi dibersihkan
+  setelah menyimpan, jadi tidak ada penyisipan ganda).
+- `batch-pratinjau` diulang sesudah simpan → **0 baru · 20 kembar · 3 gagal**,
+  `boleh_simpan` salah: bidang yang barusan dibuat terbaca sebagai kembar.
+
+Dijalankan lewat `SIG_DB_NAME=sipetades_gedong_uji php
+_lama/scratch/uji-batch-penanda.php pratinjau` lalu `... simpan <sid> <token>`.
+Harness itu menyusun sendiri salinan API uji (baris bootstrap-nya dibuang karena
+bootstrap dimuat lebih dulu) dan menghapusnya saat proses selesai, jadi tidak ada
+bekas di dalam berkas proyek.
+
+Database kercil dan salinan API-nya sudah dihapus; **tidak ada satu baris pun
+yang ditulis ke `sipetades_gedong`** pada pekerjaan ini. Diperiksa ulang sesudah
+pembersihan: `bidang` **7.950** baris (3.321 `aktif`, 4.475 `perlu_verifikasi`,
+150 `duplikat`, 4 `dihapus`), `max(bidang.id)` **23040**, `audit_log` **3.413**
+baris dengan `max(id)` **3472** — tidak ada `aksi=buat` baru. Angka itu memang
+sudah bergeser dari keadaan yang dicatat
+[§3.71](#371-sisa-objek-terbuka-blok-18-dituntaskan-1-menjadi-tanah-dan-1-duplikat-9-nov-2026)
+(9 Nov: `bidang` 7.947) karena pekerjaan sesi lain setelahnya, bukan karena
+bagian ini. Antarmukanya sendiri belum dicoba lewat browser karena akun uji
+sudah dihapus dan halaman ini meminta login Super Admin.
+
+---
+
+### 3.73 Garis batas jalan, batas perairan dan lain-lain diturunkan dari 020100 (10 Nov 2026)
+
+Permintaan kerjanya: buat geometri untuk **garis batas jalan**, **batas
+perairan** dan **Lain-lain / lb_lai** dari layer `020100 — bidang & garis
+(16.322)`. Hambatannya, tiga layer bernama itu di DXF hampir tidak punya
+geometri sendiri:
+
+| Layer DXF | Fitur | Geometri yang tersedia |
+|---|---|---|
+| `020100` | 16.322 | 13.681 garis terbuka · 2.626 poligon tertutup · 5 teks · 10 titik |
+| `BATAS JALAN` | 626 | 620 teks + 6 titik sisip — **tidak ada satu garis pun** |
+| `BATAS PERAIRAN` | 279 | 279 teks, tanpa rotasi — **tidak ada satu garis pun** |
+| `lb_lai` | 19 | 17 garis + 2 poligon |
+
+Jadi label "BATAS JALAN 3,00" dan "KALI BLUKAR" hanyalah tulisan di atas
+gambar; bentuk jalurnya hidup di `020100` bersama seluruh bidang tanah.
+Satu-satunya jalan adalah menambatkan garis `020100` ke label-label itu, dan itu
+dibuat oleh `tools/garis-batas-020100.php` (CLI, baca `020100.geojson` +
+metadata + tabel `bidang`, tulis tiga GeoJSON).
+
+**Caranya.** Tiap garis `020100` disampel tiap 2 m dengan arah lokal.
+
+1. **Benih** — garis yang punya titik sampel sedekat `benih_m` ke sebuah label
+   ikut jenis itu. Radiusnya dibedakan: 2 m untuk jalan (label ditulis di tepi
+   perkerasan) dan 8 m untuk perairan, karena 279 label air itu tidak pernah
+   punya rotasi dan penulisannya di tengah alur, bukan di tepinya.
+2. **Pita** (2 putaran) — garis tak berlabel ikut diklaim bila ≥ 50 % titik
+   sampelnya sejajar (beda arah ≤ 25°) dengan garis terklaim dalam 15 m, **dan**
+   ≥ 60 % titik tengah koridor di antara keduanya tidak jatuh di dalam bidang.
+3. **Eksklusif** — garis yang merebut dua jenis diambil oleh label terdekat, jadi
+   satu garis hanya masuk satu layer.
+4. **Lain-lain** — garis yang tidak diklaim dan bukan pengulangan tepi bidang
+   (`rasio_tepi_bidang < 0,3`). Garis < 2 m dibuang.
+
+Aturan ke-2 itulah yang menyelamatkan pekerjaannya. Tanpa penyaring koridor
+terhadap permukaan bidang, pita menyerap **9.690 dari 13.681 garis**: kisi bidang
+tanah hampir selalu sejajar dalam 15 m, jadi "sejajar" sendirian tidak
+membedakan bahu jalan dari pagar kebun. Permukaan yang dipakai sebagai penyaring
+adalah **7.949 poligon `bidang`** (`status <> 'dihapus'`, dibaca lewat
+`ST_AsGeoJSON`) → 83.276 segmen tepi → 151.965 petak kisi 5 m.
+
+| | Benih | Pita | Ditolak: tidak sejajar | Ditolak: koridor diisi bidang |
+|---|---|---|---|---|
+| jalan (626 label) | 839 | 2.363 | 9.992 | 864 |
+| perairan (279 label) | 925 | 1.238 | 11.028 | 414 |
+
+**Hasilnya** tiga berkas di
+`files/sig-pertanahan-gedong-lokal/data/dxf-layers/` — koordinat lokal DXF, sama
+seperti `020100.geojson`, jadi tidak melewati konversi WGS84:
+
+| Berkas | Fitur | Panjang | Rinci cara | Ukuran berkas |
+|---|---|---|---|---|
+| `garis-jalan.geojson` | 3.015 | 125.444 m | pita1 1.704 · pita2 546 · benih 765 | 1.093.718 B |
+| `garis-perairan.geojson` | 1.579 | 102.237 m | benih 732 · pita1 693 · pita2 154 | 629.354 B |
+| `garis-lain.geojson` | 41 | 7.517 m | bebas 41 | 21.052 B |
+
+**Tuntasan pemeriksaan.** Seluruh garis terbuka terpakai dan tidak ada yang
+dihitung dua kali: 4.594 diklaim + 41 lain-lain + 396 terlalu pendek + 8.650
+sekadar mengulang tepi bidang = **13.681**, sesuai jumlah garis di sumbernya
+(`_lama/scratch/cek-tuntasan-garis.php`, tumpang tindih indeks: tidak ada).
+`_lama/scratch/cek-lapisan-garis.php` memastikan tiap berkas FeatureCollection
+valid, 0 geometri cacat, dan koordinatnya di dalam bentang peta; 96,1 % panjang
+jalan dan 94,7 % panjang perairan benar-benar menempel pada tepi bidang, yang
+memang harapan untuk batas yang mengikuti kadastrum.
+
+**Verifikasi visual.** PHP GD (`php -d extension=gd`) mencetak potongan PNG per
+klaster label lewat `_lama/scratch/gambar-garis-020100.php`: benih hijau, pita1
+biru, pita2 cyan, perairan ungu, lain-lain oranye, label kotak merah. Di klaster
+jalan barisan garis mengikuti deretan "JALAN RAYA"/"JALAN GANG" dan di kawasan
+Kali Sari radius 8 m itu mengambil **kedua tepian** alur, bukan satu sisi saja —
+perairan naik dari 1.404 menjadi 2.163 garis sebelum ekslusivitas.
+
+**Sajian di Peta Induk.** `api/peta-lama.php` mengenal 19 kunci lapisan
+(sebelumnya 16); `peta-lama.php` mendapat tiga centang mati secara bawaan —
+*Garis batas jalan* (teal `#0f766e`), *Garis batas perairan* (biru `#1d4ed8`),
+*Garis 020100 tanpa label* (cokelat putus-putus `#a16207`) — lengkap dengan
+jumlah fitur dari metadata dan tiga entri legenda. Skrip halaman diperiksa
+sintaksisnya dengan mengeluarkan heredok `JS` lalu `node --check`; berkas masih
+utuh 1.146 baris CRLF.
+
+Layer ini sengaja **tidak** dipasang di panel layer Peta Bidang (`peta.php`).
+Di sana jalan dan sungai sudah diwakili label DXF (`lapisan=jalan`/`sungai`),
+dan menambah tiga lapis garis hasil impor kadastrum hanya memperberat tampilan
+yang dipakai petugas untuk membaca bidang. Geometrinya pun harus dikonversi
+dulu ke WGS84 lewat `dxfKeWgs84()`. Perubahan pada `peta.php` di hari yang lain
+([§3.74](#374-batas-blok-jadi-pil-di-panel-lapisan-peta-peta-bidang-10-nov-2026))
+tidak menyentuh ketiga kunci lapisan itu. Waktu itu panel Peta Bidang masih
+menampilkan garis OSM (`osm-jalan`/`osm-sungai`) sebagai pembanding; kedua lapis
+itu kemudian dihapus seluruhnya ([§3.75](#375-semua-garis-osm-dihapus-dari-peta-bidang-10-nov-2026)).
+
+**Basis data tidak disentuh.** Alat ini hanya membaca. Diperiksa sesudah
+pekerjaan: `bidang` **7.950** baris (3.321 `aktif`, 4.475 `perlu_verifikasi`,
+150 `duplikat`, 4 `dihapus`), `max(bidang.id)` **23040**, `blok` **24** —
+identik dengan [§3.72](#372-penanda-massal-di-peta-induk-10-nov-2026). Satu
+baris `audit_log` bertambah (id 3473) dan itu hanya `login` Super Admin
+10 Nov 15:58, bukan tulisan geometri.
+
+**Yang diketahui dan sengaja dibiarkan.** (1) Corridor panjang tanpa label tidak
+masuk jalan/perairan dan jatuh ke lain-lain; misalnya pasangan indeks 1232/1233
+sepanjang 2,26 km dan 1,95 km yang saling sejajar, dengan 0 label perairan dalam
+900 m (`_lama/scratch/cek-label-perairan.php`) — kemungkinan jalan inspeksi kali
+yang belum dinamai. (2) Pita putaran ke-2 sesekali melompati bidang yang memang
+belum ada barisnya di `bidang`. (3) `LAIN-020100-0037` (331 m, X≈260.366) berada
+di luar `extent` metadata; itu bukan galat turunan — 4 dari 16.322 fitur `020100`
+asal memang sudah keluar bentang itu (sumber X 259.950–264.665, `extent`
+min_x 261.327). Semua ambang dan hitungan ini ikut tertulis di `metadata.json`
+pada kunci `GARIS BATAS JALAN 020100`, `GARIS BATAS PERAIRAN 020100` dan
+`GARIS LAIN 020100`, supaya bisa diulang dan diotak-atik.
+
+---
+
+### 3.74 Batas blok jadi pil di panel Lapisan peta Peta Bidang (10 Nov 2026)
+
+Pada **Peta Bidang** (`peta.php`) batas blok selama ini selalu tergambar dan
+tidak bisa dimatikan: `aktifkan('blok', true)` dipanggil setiap muat halaman,
+sedangkan kunci `setelan.blok` cuma dipakai `gambarLegenda()` untuk menampilkan
+atau menyembunyikan baris "Batas blok ukur". Panel *Lapisan peta* hanya berisi
+pil Bidang tanah, Obyek non-tanah, Jalan, Sungai, Garis jalan OSM dan Garis
+sungai OSM.
+
+Sekarang ada pil **Batas blok** (`#tampilBlok`, hijau `#14603a`, angka **24**
+dari `count($blok)`) di antara Obyek non-tanah dan Jalan. Pil itu benar-benar
+mengendalikan lapisannya:
+
+- `terapkanSetelan()` mengisi mencentang pil dari `setelan.blok` lalu memanggil
+  `aktifkan('blok', setelan.blok)` dan `muatBlok()` hanya bila kelompoknya masih
+  kosong — sama seperti laporan/jalan/sungai/OSM.
+- Ganti centang → simpan setelan, pasang/copot `grup.blok`, muat malas bila
+  perlu, perbarui legenda.
+- Baris `aktifkan('blok', true)` dan `muatBlok()` buta pada bagian awal halaman
+  dihapus. Permintaan `lapisan=blok` tetap satu kali per muat seperti sebelumnya,
+  tetapi sekarang hilang sama sekali saat pilnya mati — sebelumnya lapisan ini
+  selalu diminta dan selalu terpasang apa pun yang terjadi.
+
+Yang ikut hilang saat pil dimatikan adalah **nama blok** (`BLOK 5` dan
+sejenisnya), karena label itu memang ditambahkan ke `grup.blok` oleh
+`muatBlok()`. Kotak "Label nama blok" di kartu Tampilan tetap mengatur
+tumpang-tindih label pada zoom jauh dan tidak berubah makna. Tombol "Seluruh
+desa" memakai `batasGrup(grup.blok)` sebagai acuan pemusatan; kalau blok
+dimatikan, ia jatuh ke batas bidang yang tampil, persis perilaku lama saat
+saringan kosong.
+
+Tidak ada perubahan di sisi server: `lapisan=blok` pada `api/bidang.php` sudah
+ada dan kunci `blok` memang ikut tersimpan dalam preset basis data (preset
+menyimpan seluruh objek `setelan`, tanpa penyaringan kunci). Diperiksa:
+`php -l peta.php` bersih, heredok `JS` (952 baris) lolos `node --check`, dan
+`blok` di basis data masih **24** baris dengan geometri lengkap semuanya
+(`batas_perkiraan = 0` untuk 24 baris, sehingga 24 bidang batas tergambar).
+
+**Diuji diklik di peramban** (login Super Admin, `http://localhost/sigpetades/peta.php`):
+
+| Langkah | Pil | `path` di `pane-blok` | label `BLOK n` | baris legenda | permintaan `lapisan=blok` |
+|---|---|---|---|---|---|
+| muat awal | hidup | 24 | 24 | ada | 1 |
+| klik matikan | mati | 0 | 0 | hilang | 1 (tidak ambil ulang) |
+| klik nyalakan | hidup | 24 | 24 | ada | 1 |
+| muat ulang dalam keadaan mati | mati | 0 | 0 | hilang | **0** |
+| klik nyalakan setelah muat ulang | hidup | 24 | 24 | ada | 1 (muat malas) |
+
+Lapisan bidang tanah tidak ikut terpengaruh (4.173 `path` pada `pane-tanah`
+tetap sama di semua langkah), dan 4 dari 24 ruas batas blok memang memotong
+jendela tampilan saat itu — hilang pada tangkapan layar sesudah pil dimatikan.
+`setelan.blok` tertulis ke localStorage setiap pergantian. Satu-satunya galat
+konsol adalah tile OSM 400 pada zoom 20, tidak berhubungan dengan perubahan ini.
+
+---
+
+### 3.75 Semua garis OSM dihapus dari Peta Bidang (10 Nov 2026)
+
+Permintaan: **hapus semua garis OSM**. Yang dimaksud adalah dua pil di panel
+*Lapisan peta* **Peta Bidang** (`peta.php`) — *Garis jalan OSM* (oranye
+`#ff6b00`) dan *Garis sungai OSM* (biru muda `#00bcd4`) — beserta seluruh
+mesin di belakangnya. Sebelum dihapus, keduanya sedang hidup pada localStorage
+pemakai (`osmJalan: true`, `osmSungai: true`) dan menyumbang **978 garis** /
+**18.809 titik** di atas peta.
+
+**Yang dilepas.**
+
+| Bagian | Isi |
+|---|---|
+| `peta.php` HTML | dua `<label class="chip-lapisan">` (`#tampilOSMJalan`, `#tampilOSMSungai`) — 8 baris |
+| `peta.php` JS | `BAWAAN.osmJalan/osmSungai`, `PANES.osmJalan/osmSungai` (z-index 414), `grup.osmJalan/osmSungai`, `muatOSMJalan()`/`muatOSMSungai()` (38 baris), dua `addEventListener('change')`, dua `aktifkan('osm…')` + dua muat malas di `terapkanSetelan()`, dua `aktifkan` + dua muat buta di blok awal |
+| `api/bidang.php` | cabang lapisan `osm-jalan` dan `osm-sungai` — 95 baris, termasuk permintaan ke `https://overpass-api.de/api/interpreter` (`way["highway"]` / `way["waterway"]` dalam bbox `-7.11,110.04,-7.07,110.10`) dan penulis cache 7 hari. Berkas 362 → **267 baris** |
+| `storage/cache/` | `osm-jalan.geojson` (374.533 B, 832 garis) dan `osm-sungai.geojson` (192.079 B, 146 garis) dipindah ke `_lama/osm-cache-2026-11-10/` supaya masih bisa diambil lagi; keduanya tidak dilacak git |
+
+Heredok `JS` `peta.php` turun dari 952 menjadi **880 baris**; `git diff
+--numstat` mencatat `api/bidang.php` 0 tambah / 95 kurang.
+
+**Kunci lama ikut dibersihkan.** `bacaSetelan()` dulu menormalkan objek setelan
+di dalam dirinya sendiri, sedangkan jalur preset memakai
+`Object.assign({}, BAWAAN, preset.data)` yang tidak disaring. Keduanya sekarang
+lewat satu helper `rapikanSetelan(isi)` yang juga membuang
+`osmJalan`/`osmSungai`. Tanpa itu, localStorage lama dan preset basis data —
+yang menyimpan seluruh objek `setelan` tanpa penyaringan kunci — akan menuliskan
+kunci mati itu kembali setiap kali simpan. Karena `bacaSetelan()` hanya membaca,
+kunci hilang pada **penulisan berikutnya**, bukan saat halaman dimuat (diukur
+pada tabel di bawah).
+
+**Yang sengaja tetap ada.** (1) Basemap `tile.openstreetmap.org` dan
+attribution `© OpenStreetMap` — itu peta dasar, bukan garis. (2) Lapisan label
+DXF `lapisan=jalan` (**620** titik) dan `lapisan=sungai` (**279** titik) pada
+Peta Bidang, dan ketiga lapis garis turunan kadastrum di Peta Induk
+([§3.73](#373-garis-batas-jalan-batas-perairan-dan-lain-lain-dari-layer-020100-10-nov-2026)).
+(3) `files/master peta/jalan_osm.json` (353.959 B, unduhan Overpass 19 Okt)
+beserta pemakainya: `tools/lib-impor.php` memotong batas blok ke tepi jalan
+berdasarkan berkas itu ([§3.8](#38-batas-blok-dari-peta-dasar),
+[§3.35a](#335a-jalan-dipotong-di-tepi-bidang-sungai-disambung-jadi-garis-7-nov-2026))
+dan `tools/rapikan-garis-blok.php` memakai ruas OSM yang sama untuk menolak
+menyambung garis yang dipotong jalan. Alat-alat itu
+tidak pernah memanggil `api/bidang.php?lapisan=osm-jalan`, jadi menghapus cabang
+API tidak mematahkannya — ini yang diperiksa lebih dulu sebelum memotong.
+(4) `attribution: '&copy; OSM'` pada `pecah-bidang.php` dan
+`penggabungan-bidang.php` juga hanya teks attribution basemap. (5)
+`files/sig-pertanahan-gedong-lokal/public/index.php` arsip, bukan kode aktif.
+
+**Diuji di peramban** (login Super Admin, muat ulang tanpa cache pada
+`http://localhost/sigpetades/peta.php`):
+
+| Hal | Sebelum | Sesudah |
+|---|---|---|
+| Pil di *Lapisan peta* | 8 — termasuk Garis jalan OSM, Garis sungai OSM | **6** (Bidang tanah 4.173 · Obyek non-tanah 3.623 · Batas blok 24 · Jalan · Sungai · Titik laporan 0) |
+| `#tampilOSMJalan` / `#tampilOSMSungai` di DOM | ada | **tidak ada** |
+| Pane Leaflet khusus | 9 (…`pane-osmJalan` 832 `path`, `pane-osmSungai` 146 `path`) | **7**, tanpa pane OSM |
+| Permintaan `lapisan=osm-*` per muat | 2 | **0** |
+| Permintaan lapisan lain per muat | — | `batas` 1 · `bidang` 2 · `jalan` 2 · `sungai` 2 (semua seperti sebelumnya) |
+| `api/bidang.php?lapisan=osm-jalan` | 200, GeoJSON 832 garis | 200 daftar ringkas bidang (`jumlah` 7.796) — nilai `lapisan` tak dikenal jatuh ke cabang default, perilaku lama untuk nilai apa pun yang tidak dikenali |
+| `lapisan=jalan` / `lapisan=sungai` (label DXF) | 620 / 279 fitur | **620 / 279** fitur, tetap `Point` |
+| localStorage `sip.peta.pengaturan.v2` | `osmJalan: true, osmSungai: true` | kunci hilang setelah satu simpan; `blok: false`, `lain: true`, `kepekatan: 45` tidak berubah |
+| Pesan konsol | — | **0** |
+
+Pengujian kunci mati di localStorage dilakukan dengan menyalakan lalu
+mematikan pil *Titik laporan* (dua kali `simpanSetelan()`), sehingga keadaan
+pemakai kembali persis seperti semula. `php -l peta.php` dan `php -l
+api/bidang.php` bersih, kedua berkas masih utuh CRLF (1.128 dan 267 baris),
+heredok `JS` lolos `node --check`, dan tangkapan layar Peta Bidang tidak
+menampilkan lagi garis oranye/cyan OSM di atas bidang.
+
+**Basis data tidak disentuh.** Tidak ada tabel, baris, atau preset yang
+diubah; preset lama yang menyimpan `osmJalan`/`osmSungai` tetap tersimpan dan
+hanya diabaikan (kuncinya dibuang saat dimuat).
+
 ---
 
 ## 4. Berkas SPPT dari Excel
@@ -5186,7 +5517,8 @@ tools/          impor.php (CLI: impor + gabung blok), lib-impor.php (pustaka imp
                 ekspor.php (laporan lengkap CSV),
                 fit-transform-dxf.php (turunkan ulang transformasi DXF),
                 konversi-dxf-lapisan.php (DXF → GeoJSON untuk peta-lama.php),
-                rapikan-garis-blok.php (larutkan/haluskan/sambung garis blok perkiraan), server.php (router dev)
+                rapikan-garis-blok.php (larutkan/haluskan/sambung garis blok perkiraan),
+                garis-batas-020100.php (turunkan garis batas jalan/perairan/lain-lain dari 020100), server.php (router dev)
 *.geojson       blok_peta, bidang_tanah, bidang_lain di akar — sumber geometri
 files/          arsip pindai Buku C, lembar data excel, master peta (DXF), peta gang
 files/peta gang/ hasil `impor.php gg` (titik penanda) + poligon gang siap impor
@@ -5201,7 +5533,7 @@ _lama/          berkas sistem sebelumnya — diarsipkan, tidak dipakai
 Halaman di akar: `beranda.php` (halaman depan publik, satu-satunya yang boleh dibaca
 tanpa akun), `index.php` (dasbor perangkat desa), `peta.php`, `peta-blok.php` (peta batas blok),
 `peta-lama.php` (penampil
-15 layer DXF arsip `files/sig-pertanahan-gedong-lokal`, koordinat lokal), `bidang.php`, `sppt.php`,
+19 layer DXF arsip `files/sig-pertanahan-gedong-lokal`, koordinat lokal), `bidang.php`, `sppt.php`,
 `buku-c.php`, `peralihan.php`, `laporan.php`, `pengaturan.php` (cadangan/ekspor/impor/
 kosongkan, hanya Super Admin), `pengguna.php`, `pasang.php`,
 `dokumen.php`, `login.php`, `logout.php`, `setup.php`. Akar situs (`/`) ditulis ulang
