@@ -43,10 +43,10 @@ sip_judul(
         <div id="petaBlok" class="peta" aria-label="Peta batas blok Desa Gedong"></div>
     </div>
     <div class="legenda">
-        <span><i style="background:#14603a"></i>Batas blok ukur</span>
-        <span><i style="background:#a06a12"></i>Batas blok perkiraan (garis putus-putus)</span>
-        <span><i style="background:#8b7b68"></i>Jalan (OpenStreetMap)</span>
-        <span><i style="background:#087b83"></i>Nama sungai / saluran (DXF)</span>
+        <span><i style="background:#14603a"></i>Blok ukur</span>
+        <span><i style="background:#a06a12"></i>Blok perkiraan</span>
+        <span><i style="background:#8b7b68"></i>Jalan</span>
+        <span><i style="background:#087b83"></i>Sungai &amp; saluran</span>
     </div>
     <p class="petunjuk" id="infoPetaBlok">Memuat batas blok…</p>
 </section>

@@ -112,27 +112,28 @@ sip_judul(
             </div>
 
             <div class="legenda">
-                <span><i style="background:#bed7e8"></i>Bidang tertutup</span>
+                <span><i style="background:#bed7e8"></i>Bidang kadastrum</span>
                 <span><i style="background:#14603a; border-radius:50%"></i>Titik tengah bidang</span>
                 <span><i style="background:#dc2626; border-radius:50%"></i>Penanda titik</span>
                 <span><i style="background:#f87171"></i>Bidang pratinjau</span>
                 <span><i style="background:#d946ef; border-radius:50%"></i>Penanda massal</span>
                 <span><i style="background:#166534"></i>Bidang batch baru</span>
-                <span><i style="background:#d97706"></i>Bidang batch kembar (dilewati)</span>
+                <span><i style="background:#d97706"></i>Batch kembar</span>
                 <span><i style="background:#5b7893"></i>Garis terbuka</span>
-                <span><i style="background:#14603a"></i>Batas blok ukur</span>
-                <span><i style="background:#a06a12"></i>Batas blok perkiraan</span>
-                <span><i style="background:#c2410c"></i>Ruas DXF mentah (referensi)</span>
-                <span><i style="background:#087b83"></i>Teks perairan / nama</span>
+                <span><i style="background:#14603a"></i>Blok ukur</span>
+                <span><i style="background:#a06a12"></i>Blok perkiraan</span>
+                <span><i style="background:#c2410c"></i>Blok mentah</span>
+                <span><i style="background:#087b83"></i>Label perairan &amp; nama</span>
                 <span><i style="background:#3fa383"></i>Bidang HM</span>
                 <span><i style="background:#166534"></i>Garis HM</span>
                 <span><i style="background:#b45309"></i>Optimalisasi HM</span>
-                <span><i style="background:#7c3aed"></i>Lain-lain (lb_lai)</span>
-                <span><i style="background:#0f766e"></i>Garis batas jalan (turunan)</span>
-                <span><i style="background:#1d4ed8"></i>Garis batas perairan (turunan)</span>
-                <span><i style="background:#a16207"></i>Garis 020100 tanpa label (turunan)</span>
+                <span><i style="background:#7c3aed"></i>Lain-lain</span>
+                <span><i style="background:#0f766e"></i>Garis jalan</span>
+                <span><i style="background:#0ea5e9"></i>Garis selokan</span>
+                <span><i style="background:#1d4ed8"></i>Garis sungai</span>
+                <span><i style="background:#a16207"></i>Garis tanpa label</span>
                 <span><i style="background:#d97706"></i>Calon bidang</span>
-                <span><i style="background:#64748b"></i>Batas desa / jalan / NIB</span>
+                <span><i style="background:#64748b"></i>Label NIB &amp; batas</span>
             </div>
             <p class="petunjuk" id="infoLama">Menyiapkan layer…</p>
         </section>
@@ -229,67 +230,89 @@ sip_judul(
 
         <section class="kartu">
             <header class="kepala-kartu">
-                <div><h2>Tampilkan layer</h2><p>Layer terbesar dimuat lebih dulu</p></div>
+                <div><h2>Tampilkan layer</h2><p>Centang untuk menampilkan</p></div>
             </header>
             <div class="lapisan-kontrol">
-                <label class="cek"><input type="checkbox" data-lapisan="020100" checked>
-                    020100 — bidang &amp; garis (<?= e(angka($jumlah('020100'))) ?>)</label>
-                <label class="cek"><input type="checkbox" id="tampilTitikLama" checked>
-                    Titik tengah bidang <b id="jumlahTitikLama" class="redup"></b></label>
-                <p class="petunjuk">Satu titik untuk tiap poligon tertutup 020100; membantu menemukan bidang kecil.</p>
-                <label class="cek"><input type="checkbox" data-lapisan="batas-blok">
-                    Batas blok (<?= e(angka($jumlahBatasBlok)) ?>)</label>
-                <p class="petunjuk">24 batas blok terdaftar. Lima batas perkiraan ditandai garis putus-putus.</p>
-                <label class="cek"><input type="checkbox" data-lapisan="batas-blok-mentah">
-                    Ruas acuan BATAS BLOK (<?= e(angka($jumlah('BATAS BLOK'))) ?>)</label>
-                <p class="petunjuk">72 fitur DXF mentah sebagai referensi saja; ruas ini belum memastikan batas ukur tertutup.</p>
-                <label class="cek"><input type="checkbox" data-lapisan="batas-perairan">
-                    Teks batas perairan (<?= e(angka($jumlah('BATAS PERAIRAN'))) ?>)</label>
-                <label class="cek"><input type="checkbox" data-lapisan="tn-nama">
-                    Nama pada peta (<?= e(angka($jumlah('tn_nama'))) ?>)</label>
-                <p class="petunjuk">Bidang berhak (HM)</p>
-                <label class="cek"><input type="checkbox" data-lapisan="bidang-hm">
-                    Bidang HM (<?= e(angka($jumlah('BIDANG HM'))) ?>)</label>
-                <label class="cek"><input type="checkbox" data-lapisan="hm">
-                    Garis HM (<?= e(angka($jumlah('HM'))) ?>)</label>
-                <label class="cek"><input type="checkbox" data-lapisan="optimalisasi-hm">
-                    Optimalisasi HM (<?= e(angka($jumlah('OPTIMALISASI HM'))) ?>)</label>
-                <label class="cek"><input type="checkbox" data-lapisan="lb-lai">
-                    Lain-lain / lb_lai (<?= e(angka($jumlah('lb_lai'))) ?>)</label>
-                <p class="petunjuk">Garis turunan 020100</p>
-                <label class="cek"><input type="checkbox" data-lapisan="garis-jalan">
-                    Garis batas jalan (<?= e(angka($jumlah('GARIS BATAS JALAN 020100'))) ?>)</label>
-                <label class="cek"><input type="checkbox" data-lapisan="garis-perairan">
-                    Garis batas perairan (<?= e(angka($jumlah('GARIS BATAS PERAIRAN 020100'))) ?>)</label>
-                <label class="cek"><input type="checkbox" data-lapisan="garis-lain">
-                    Garis 020100 tanpa label (<?= e(angka($jumlah('GARIS LAIN 020100'))) ?>)</label>
-                <p class="petunjuk">Diturunkan dari 13.681 garis terbuka 020100: garis yang dekat label
-                    DXF dipakai sebagai benih, lalu pita sejajar di sekitarnya ikut diklaim bila
-                    koridor di antara keduanya tidak berada di dalam bidang. Hanya lapisan referensi
-                    peta lama; tidak ada yang ditulis ke tabel bidang.</p>
-                <label class="cek"><input type="checkbox" data-lapisan="010500">
-                    010500 — garis luar (<?= e(angka($jumlah('010500'))) ?>)</label>
-                <label class="cek"><input type="checkbox" data-lapisan="020400">
-                    020400 (<?= e(angka($jumlah('020400'))) ?>)</label>
+                <p class="petunjuk">Bidang kadastrum</p>
+                <label class="cek" title="Layer DXF 020100">
+                    <input type="checkbox" data-lapisan="020100" checked>
+                    Bidang &amp; garis (<?= e(angka($jumlah('020100'))) ?>)</label>
+                <label class="cek">
+                    <input type="checkbox" id="tampilTitikLama" checked>
+                    Titik tengah <b id="jumlahTitikLama" class="redup"></b></label>
+                <label class="cek" title="Layer DXF BATAS BLOK">
+                    <input type="checkbox" data-lapisan="batas-blok">
+                    Blok ukur (<?= e(angka($jumlahBatasBlok)) ?>)</label>
+                <label class="cek" title="72 ruas DXF mentah">
+                    <input type="checkbox" data-lapisan="batas-blok-mentah">
+                    Blok mentah (<?= e(angka($jumlah('BATAS BLOK'))) ?>)</label>
+                <label class="cek" title="Layer DXF BATAS PERAIRAN">
+                    <input type="checkbox" data-lapisan="batas-perairan">
+                    Label perairan (<?= e(angka($jumlah('BATAS PERAIRAN'))) ?>)</label>
+                <label class="cek" title="Layer DXF tn_nama">
+                    <input type="checkbox" data-lapisan="tn-nama">
+                    Label nama (<?= e(angka($jumlah('tn_nama'))) ?>)</label>
+                <label class="cek" title="Layer DXF lb_lai">
+                    <input type="checkbox" data-lapisan="lb-lai">
+                    Lain-lain (<?= e(angka($jumlah('lb_lai'))) ?>)</label>
+                <p class="petunjuk">Titik tengah menandai tiap poligon tertutup. Blok perkiraan
+                    digaris putus-putus dan ruas mentah belum tentu menutup batas ukur.</p>
+                <p class="petunjuk">Bidang berhak</p>
+                <label class="cek" title="Layer DXF BIDANG HM">
+                    <input type="checkbox" data-lapisan="bidang-hm">
+                    Bidang (<?= e(angka($jumlah('BIDANG HM'))) ?>)</label>
+                <label class="cek" title="Layer DXF HM">
+                    <input type="checkbox" data-lapisan="hm">
+                    Garis (<?= e(angka($jumlah('HM'))) ?>)</label>
+                <label class="cek" title="Layer DXF OPTIMALISASI HM">
+                    <input type="checkbox" data-lapisan="optimalisasi-hm">
+                    Optimalisasi (<?= e(angka($jumlah('OPTIMALISASI HM'))) ?>)</label>
+                <p class="petunjuk">Garis turunan</p>
+                <label class="cek" title="Layer GARIS BATAS JALAN 020100">
+                    <input type="checkbox" data-lapisan="garis-jalan">
+                    Jalan (<?= e(angka($jumlah('GARIS BATAS JALAN 020100'))) ?>)</label>
+                <label class="cek" title="Layer GARIS SELOKAN 020100">
+                    <input type="checkbox" data-lapisan="garis-selokan">
+                    Selokan (<?= e(angka($jumlah('GARIS SELOKAN 020100'))) ?>)</label>
+                <label class="cek" title="Layer GARIS BATAS PERAIRAN 020100">
+                    <input type="checkbox" data-lapisan="garis-perairan">
+                    Sungai (<?= e(angka($jumlah('GARIS BATAS PERAIRAN 020100'))) ?>)</label>
+                <label class="cek" title="Layer GARIS LAIN 020100">
+                    <input type="checkbox" data-lapisan="garis-lain">
+                    Tanpa label (<?= e(angka($jumlah('GARIS LAIN 020100'))) ?>)</label>
+                <p class="petunjuk">Diturunkan dari 13.719 kandidat layer 020100 — 13.681 garis
+                    terbuka dan 38 cincin poligon. Kelas dibaca dari teks label, bukan dari berkas
+                    asalnya. Perhitungannya ada di README §3.77.</p>
+                <p class="petunjuk">Lainnya</p>
+                <label class="cek" title="Layer DXF 010500">
+                    <input type="checkbox" data-lapisan="010500">
+                    Garis luar desa (<?= e(angka($jumlah('010500'))) ?>)</label>
+                <label class="cek" title="Layer DXF 020400, artinya belum diketahui">
+                    <input type="checkbox" data-lapisan="020400">
+                    Sisa 020400 (<?= e(angka($jumlah('020400'))) ?>)</label>
                 <p class="petunjuk">Belum terpetakan</p>
-                <label class="cek"><input type="checkbox" data-lapisan="calon-bidang" checked>
-                    Calon bidang — garis hampir tertutup (<?= e(angka($jumlah('CALON BIDANG'))) ?>)</label>
-                <p class="petunjuk">Label &amp; batas</p>
-                <label class="cek"><input type="checkbox" data-lapisan="nib-hm">
-                    NIB HM (<?= e(angka($jumlah('NIB HM'))) ?>)</label>
-                <label class="cek"><input type="checkbox" data-lapisan="batas-desa">
-                    Batas desa (<?= e(angka($jumlah('BATAS DESA'))) ?>)</label>
-                <label class="cek"><input type="checkbox" data-lapisan="blok">
-                    Blok (<?= e(angka($jumlah('BLOK'))) ?>)</label>
-                <label class="cek"><input type="checkbox" data-lapisan="batas-jalan">
-                    Batas jalan (<?= e(angka($jumlah('BATAS JALAN'))) ?>)</label>
+                <label class="cek" title="Garis 020100 yang hampir tertutup">
+                    <input type="checkbox" data-lapisan="calon-bidang" checked>
+                    Calon bidang (<?= e(angka($jumlah('CALON BIDANG'))) ?>)</label>
+                <p class="petunjuk">Label teks</p>
+                <label class="cek" title="Layer DXF NIB HM">
+                    <input type="checkbox" data-lapisan="nib-hm">
+                    Label NIB (<?= e(angka($jumlah('NIB HM'))) ?>)</label>
+                <label class="cek" title="Layer DXF BATAS DESA">
+                    <input type="checkbox" data-lapisan="batas-desa">
+                    Label batas desa (<?= e(angka($jumlah('BATAS DESA'))) ?>)</label>
+                <label class="cek" title="Layer DXF BLOK">
+                    <input type="checkbox" data-lapisan="blok">
+                    Label blok (<?= e(angka($jumlah('BLOK'))) ?>)</label>
+                <label class="cek" title="Layer DXF BATAS JALAN">
+                    <input type="checkbox" data-lapisan="batas-jalan">
+                    Label jalan (<?= e(angka($jumlah('BATAS JALAN'))) ?>)</label>
             </div>
-            <p class="petunjuk">Layer 020100 (sekitar 5 MB) dan calon bidang dimuat lebih dulu. Layer
-                lain sengaja mati secara bawaan agar peta tetap ringan; aktifkan bila perlu memeriksa
-                bidang HM, label NIB, batas desa, atau nama jalan.</p>
-            <p class="petunjuk">Calon bidang diturunkan dari garis 020100 yang ujungnya hampir bertemu
-                (celah ≤ 1 unit, luas ≥ 20 unit²) dan belum tertutup sebagai bidang. Kandidat yang
-                bentuknya sama dengan poligon tertutup dilewati (<?= e(angka((int) ($meta['layers']['CALON BIDANG']['duplicates_skipped'] ?? 0))) ?> duplikat),
+            <p class="petunjuk">Bidang kadastrum dan calon bidang dimuat lebih dulu; sisanya mati secara
+                bawaan agar peta tetap ringan.</p>
+            <p class="petunjuk">Calon bidang adalah garis 020100 yang ujungnya hampir bertemu
+                (celah ≤ 1 unit, luas ≥ 20 unit²) dan belum tertutup sebagai bidang. Yang bentuknya
+                sama dengan poligon tertutup dilewati (<?= e(angka((int) ($meta['layers']['CALON BIDANG']['duplicates_skipped'] ?? 0))) ?> duplikat),
                 begitu pula yang sudah tertutup bidang HM atau poligon 020100
                 (<?= e(angka((int) ($meta['layers']['CALON BIDANG']['already_mapped_skipped'] ?? 0))) ?> kandidat),
                 sehingga layer ini hanya berisi bidang yang benar-benar belum terpetakan.</p>
@@ -414,6 +437,7 @@ $naskah = <<<'JS'
         if (nama === 'optimalisasi-hm') return () => ({ color: '#b45309', weight: 1.6, dashArray: '6 4', opacity: .95 });
         if (nama === 'lb-lai') return () => ({ color: '#7c3aed', weight: 1.4, dashArray: '2 4', opacity: .9 });
         if (nama === 'garis-jalan') return () => ({ color: '#0f766e', weight: 1.7, opacity: .95 });
+        if (nama === 'garis-selokan') return () => ({ color: '#0ea5e9', weight: 1.4, opacity: .95 });
         if (nama === 'garis-perairan') return () => ({ color: '#1d4ed8', weight: 1.7, opacity: .95 });
         if (nama === 'garis-lain') return () => ({ color: '#a16207', weight: 1.3, dashArray: '6 4', opacity: .95 });
         if (nama === '010500') return () => ({ color: '#64748b', weight: 1, opacity: .8 });

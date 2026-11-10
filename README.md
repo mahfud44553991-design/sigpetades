@@ -5554,6 +5554,197 @@ pulih.
 
 ---
 
+### 3.77 Garis turunan 020100 dipecah jalan / selokan / perairan (10 Nov 2026)
+
+Permintaan: **buatkan garis semua jenis — jalan, selokan, sungai/batas perairan —
+dari sumber 020100, bidang & garis (16.322)**. Sebelumnya penurunan 10 Nov (§3.73)
+hanya memakai 13.681 garis terbuka dan menyamakan saluran kecil dengan
+sungai; keluarannya dua kelas air dalam satu berkas.
+
+**Yang diukur lebih dulu.** Sensus geometri sumber
+(`_lama/scratch/sensus-020100.php`): 13.681 garis terbuka + 2.626 poligon tertutup
++ 15 obyek lain = 16.322 entitas. Lalu `_lama/scratch/ukur-kelas-garis.php`
+mengukur jarak tiap label ke garis terdekat dan jarak antara dua tepi sejajar
+yang mengapit celah kosong di kiri-kanannya, dengan kandidat garis *dan* sisi
+poligon sekaligus:
+
+| kelas label | jumlah | <= 2 m | median jarak | median dua tepi |
+| --- | --- | --- | --- | --- |
+| JALAN | 622 | 79 % | 1,1 m | 2,3 m |
+| SALURAN / IRIGASI | 165 | 93 % | 0,5 m | 1,8 m |
+| SUNGAI / KALI | 112 | 15 % | 2,8 m | 5,3 m |
+
+Angka itu yang memecah air menjadi dua kelas: tulisan selokan ditumpangkan
+*di atas* garisnya dan diapit dua tepi yang hampir berhimpit (median 1,8 m),
+sedangkan nama sungai ditulis di tengah alur yang lebarnya lima meter lebih
+(median 5,3 m). Maka benih selokan 2 m (sama dengan jalan) dan pita selokan
+8 m, bukan 15 m — radius selebar jalan membuat pita saluran melompat ke
+tepi jalan di sebelahnya. Kelas dibaca dari **teks** label, bukan dari berkas
+tempat label disimpan, karena nama saluran tersimpan di berkas `BATAS PERAIRAN`
+dan dua label "JALAN ..." nyasar ke berkas yang sama.
+
+**Kandidat dari poligon.** 2.626 cincin poligon 020100 ikut diperebutkan sesuai
+permintaan "bidang & garis", meskipun hanya 25 dari 899 label (20 jalan, 3
+selokan, 2 sungai) yang geometri terdekatnya sebuah sisi poligon. Cincin diuji
+ke kisi garis yang *sudah tergambar*: garis terbuka 020100 plus cincin yang
+lebih dulu dipakai, diurut dari keliling terbesar sehingga dua poligon
+bertetangga tidak menghasilkan tepi yang sama dua kali. Yang >= 50 % titik
+sampelnya sudah tergambar dibuang.
+
+Satu keputusan penting: **sisi poligon tabel bidang tidak dipakai sebagai
+penyaring duplikasi**. `_lama/scratch/cincin-vs-bidang.php` mengukur kedua dasar
+itu pada 2.626 cincin: terhadap sisi bidang 2.332 cincin punya rasio 1,00,
+terhadap garis terbuka 2.362 — praktis sama, karena baris `bidang` hasil impor
+adalah poligon 020100 yang sama. Kalau tepi bidang ikut dihitung, sumber
+"bidang" menjadi nol manfaat: hanya 17 cincin lolos. Dengan dasar garis tergambar
+saja, 29 cincin yang benar-benar baru (kedua rasio < 0,5; 3.762 m keliling) ikut
+masuk dan 38 cincin terpakai.
+
+**Angka sebelum dan sesudah** (sebelum = cadangan
+`_lama/garis-020100-sebelum-20261110/`, sesudah = keluaran tool hari ini,
+jalan 28 s):
+
+| berkas | sebelum | sesudah | panjang sebelum → sesudah |
+| --- | --- | --- | --- |
+| `garis-jalan.geojson` | 3.015 | 3.144 | 125.444 → 129.269 m |
+| `garis-selokan.geojson` | — (belum ada) | 783 | — → 49.949 m |
+| `garis-perairan.geojson` | 1.579 | 542 | 102.237 → 39.235 m |
+| `garis-lain.geojson` | 41 | 74 | 7.517 → 11.847 m |
+| **total** | **4.635** | **4.543** | **235.198 → 230.300 m** |
+
+Perpindahan indeks per berkas (`_lama/scratch/cek-empat-kelas-garis.php`): jalan
++176 indeks baru dan −47 (26 pindah ke selokan, 12 ke perairan, 9 tidak lagi
+terklaim); perairan +31 dan −1.068 (731 pindah ke selokan, 96 ke jalan, 3 ke
+lain-lain, 238 tidak terjaring lagi karena pita selokan menyempit dari 15 m
+menjadi 8 m); lain-lain +33 dan tidak ada yang hilang. Jumlah lapisan air
+sendiri turun dari 1.579 fitur menjadi 1.325 — bukan kehilangan, tetapi 731
+indeks yang kini tersimpan di berkasnya sendiri.
+
+Akuntansi kandidat: 13.719 = 13.681 garis terbuka + 38 cincin, terbagi menjadi
+4.469 terklaim per kelas + 74 lain-lain + 396 terlalu pendek + 8.780 mengulang
+tepi bidang. Jangkar label 899 titik berteks (jalan 622, selokan 165, perairan
+112); 6 titik label tanpa teks di berkas yang sama tidak dipakai. Kontribusi
+cincin poligon pada keluaran akhir 28 fitur: 5 jalan, 3 selokan, 2 perairan,
+18 lain-lain.
+
+**Kode yang berubah.** `tools/garis-batas-020100.php` — konstanta `PITA` tunggal
+diganti `JENIS` (per kelas: pola teks, radius benih, radius pita, berkas hasil),
+tambah `kelasLabel()`, `bacaLabel()` tanpa argumen (label dari berkas
+`batas-jalan` + `batas-perairan` digabung lalu diklasifikasi dari teks), kisi
+`$kisiUlang`/`$segmenUlang` khusus penyaring cincin, tahap penerimaan cincin
+sebelum tahap pita, properti `asal` (`garis` atau `bidang`) di setiap fitur, dan
+blok `ambang`/`kandidat`/`label`/`asal` per lapisan di `metadata.json`. Tidak ada
+perubahan di `tools/lib-impor.php` maupun pustaka geometri.
+
+**Sajian di Peta Induk.** `api/peta-lama.php` menerima kunci `garis-selokan`;
+`peta-lama.php` menambah centang *Garis selokan / saluran (783)* di antara jalan
+dan perairan, warnanya `#0ea5e9` dengan tebal 1,4 — dibedakan dari jalan
+`#0f766e`, perairan `#1d4ed8`, dan lain-lain `#a16207` putus-putus. Teks
+penjelasan di bawah centang diganti mengikuti angka kandidat yang baru.
+
+**Verifikasi.** `php -l` bersih untuk tool, API, dan halaman; blok nowdoc `JS`
+halaman lolos `node --check` (796 baris isi JS, setelah
+`_lama/scratch/ekstrak-js.php` dibetulkan agar membuang tag `<script>` yang ikut
+di dalam nowdoc). Tabel bukti di atas adalah hasil jalan ulang
+`ukur-kelas-garis.php` sesudah scratch itu dikoreksi: kelas label dibaca dari
+teks huruf besar, sama seperti `kelasLabel()` di tool, sehingga 622/165/112 dan
+dua tepi 2,3/1,8/5,3 m kini cocok dengan angka yang dicetak tool.
+`cincin-vs-bidang.php` mengulang pengukuran penyaring cincin dan menghasilkan
+angka yang dikutip di paragraf sebelumnya (2.362 terhadap garis terbuka, 2.332
+terhadap sisi bidang, 29 cincin benar-benar baru).
+`cek-lapisan-garis.php`: keempat berkas
+FeatureCollection valid, `cacat 0`, jumlah fitur sama persis dengan metadata,
+semua koordinat masih lokal DXF dan di dalam extent sumber — kecuali dua titik
+`garis-lain` di X 260.366 yang memang sudah ada di keluaran sebelum perubahan.
+`cek-empat-kelas-garis.php`: **tidak ada satu pun indeks 020100 yang muncul di
+dua kelas** (eksklusivitas label terdekat terjaga), dan distribusi `cara` masuk
+akal (jalan 764 benih / 1.806 pita-1 / 574 pita-2). Belum diuji dengan klik di
+peramban: halaman memerlukan login Super Admin dan akun uji sudah dihapus, jadi
+verifikasi bersifat statis — `curl` hanya membuktikan pagar tetap berdiri
+(`peta-lama.php` 302 ke login, `api/peta-lama.php?lapisan=garis-selokan` 401).
+Higienitas berkas terjaga: README seluruhnya CRLF dan tool seluruhnya LF, tanpa
+tab dan tanpa karakter non-Latin.
+
+**Basis data tidak disentuh.** Tabel `bidang` hanya dibaca sebagai permukaan
+(4.176 poligon, 56.315 segmen tepi); tidak ada satu baris pun yang ditulis.
+Empat berkas GeoJSON hasil penurunan lama ada di
+`_lama/garis-020100-sebelum-20261110/` sebagai titik gulung-back — dipulihkan
+dengan menyalinnya kembali dan menghapus `garis-selokan.geojson`.
+
+### 3.78 Nama lapisan di panel peta disederhanakan (10 Nov 2026)
+
+Permintaan: **rapikan semua label agar lebih sederhana**. Yang diubah hanya teks
+yang tampil pada tiga halaman peta: 20 centang lapisan + 1 centang titik dan
+legenda `peta-lama.php` (Peta Induk), legenda `peta-blok.php`, dan satu entri
+legenda `peta.php` (Peta Bidang). Kunci lapisan, atribut `data-lapisan`, `id`,
+warna, gaya Leaflet, dan isi berkas GeoJSON tidak disentuh — JS hanya membaca
+`k.dataset.lapisan`, jadi pergantian teks aman.
+
+Pola baru: nama pendek tanpa kode DXF dan tanpa keterangan ganda; keterangan
+lapisan asal dipindah ke atribut `title` (20 centang) sehingga penelusur
+kembali ke berkas DXF masih bisa, tetapi tidak lagi menjejali label. Item dalam
+satu kelompok melepas kata yang diulang oleh judul kelompoknya — "Garis batas
+jalan" di bawah keterangan "Garis turunan" cukup "Jalan".
+
+| kunci | sebelum | sesudah |
+| --- | --- | --- |
+| `020100` | 020100 — bidang & garis | Bidang & garis (16.322) |
+| `tampilTitikLama` | Titik tengah bidang | Titik tengah |
+| `batas-blok` | Batas blok | Blok ukur (24) |
+| `batas-blok-mentah` | Ruas acuan BATAS BLOK | Blok mentah (72) |
+| `batas-perairan` | Teks batas perairan | Label perairan (279) |
+| `tn-nama` | Nama pada peta | Label nama (4.409) |
+| `lb-lai` | Lain-lain / lb_lai | Lain-lain (19) |
+| `bidang-hm` | Bidang HM | Bidang (1.496) |
+| `hm` | Garis HM | Garis (95) |
+| `optimalisasi-hm` | Optimalisasi HM | Optimalisasi (15) |
+| `garis-jalan` | Garis batas jalan | Jalan (3.144) |
+| `garis-selokan` | Garis selokan / saluran | Selokan (783) |
+| `garis-perairan` | Garis batas perairan | Sungai (542) |
+| `garis-lain` | Garis 020100 tanpa label | Tanpa label (74) |
+| `010500` | 010500 — garis luar | Garis luar desa (1) |
+| `020400` | 020400 | Sisa 020400 (2) |
+| `calon-bidang` | Calon bidang — garis hampir tertutup | Calon bidang (737) |
+| `nib-hm` | NIB HM | Label NIB (1.657) |
+| `batas-desa` | Batas desa | Label batas desa (36) |
+| `blok` | Blok | Label blok (24) |
+| `batas-jalan` | Batas jalan | Label jalan (626) |
+
+Judul kelompok ikut diringkas: `Bidang kadastrum` baru di atas, `Bidang berhak
+(HM)` → `Bidang berhak`, `Garis turunan 020100` → `Garis turunan`, `Label &
+batas` → `Label teks`, `Belum terpetakan` tetap, dan `Lainnya` baru untuk dua
+layer yang sebelumnya nyempil di bawah keterangan garis turunan (`010500` dan
+`020400`). Paragraf panjang delapan baris di bawah centang garis turunan
+dipangkas menjadi tiga baris dan menunjuk §3.77
+untuk perhitungan lengkap; angka kandidatnya (13.719 = 13.681 + 38) tidak
+berubah.
+
+Legenda Peta Induk menjadi 22 entri dan cocok dengan nama centang: entri
+**garis selokan `#0ea5e9` ditambahkan** — lapisannya sudah ada sejak §3.77
+tetapi tidak pernah muncul di legenda. `Ruas DXF mentah (referensi)` → `Blok
+mentah`, `Teks perairan / nama` → `Label perairan & nama`, `Bidang batch kembar
+(dilewati)` → `Batch kembar`, tiga entri garis turunan kehilangan akhiran
+`(turunan)`. Di `peta-blok.php`, `Jalan (OpenStreetMap)` → `Jalan` karena yang
+dimuat `api/bidang.php?lapisan=jalan` sejak 10 Nov adalah label DXF `BATAS
+JALAN`, bukan garis OSM; `Batas blok perkiraan (garis putus-putus)` → `Blok
+perkiraan`. Di `peta.php`, `Batas desa (33240400080)` → `Batas desa`.
+
+**Verifikasi.** `_lama/scratch/cek-label-peta.php`: 20 centang, tidak ada nama
+kembar, semua kunci `$jumlah()` dikenal metadata. `_lama/scratch/cek-render-label.php`
+merender panel tanpa login dengan stub `$meta`/`e()`/`angka()` — keluarannya
+teks plus angka di atas, tanpa peringatan PHP — dan fragmen yang sama difoto
+`chrome --headless --screenshot` dengan `assets/css/app.css`: label pendek,
+enam judul kelompok, dan legenda 22 swatch (termasuk biru muda selokan) tampil
+rapi; `.cek` memakai `display:flex` sehingga baris sumber tambahan di dalam
+`<label>` tidak mengubah tata letak. `cek-lapisan-garis.php` tetap
+memuaskan keempat lapis garis (whitelist, centang, gaya, legenda "ada"; 20
+centang = 20 kunci whitelist API). `php -l` bersih dan `node --check` lolos
+untuk ketiga halaman (796 / 878 / 168 baris JS). Grep pada seluruh `*.php` tidak
+menemukan sisa teks label lama. Yang belum diuji hanyalah klik centang di halaman
+asli (butuh login Super Admin). Basis data dan berkas data tidak disentuh.
+
+---
+
 ## 4. Berkas SPPT dari Excel
 
 Importer CSV menerima kolom berikut (nama kolom dibersihkan dari spasi dan tanda

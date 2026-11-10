@@ -438,7 +438,7 @@ $naskah = <<<'JS'
             baris.push('<span><i class="contoh-batas-blok"></i>Batas blok ukur</span>');
         }
         if (setelan.batas) {
-            baris.push('<span><i class="contoh-batas-desa"></i>Batas desa (33240400080)</span>');
+            baris.push('<span><i class="contoh-batas-desa"></i>Batas desa</span>');
         }
         document.getElementById('legendaPeta').innerHTML = baris.join('');
     }

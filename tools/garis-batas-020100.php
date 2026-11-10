@@ -2,36 +2,48 @@
 declare(strict_types=1);
 
 /**
- * Turunkan garis batas jalan, garis batas perairan, dan garis lain-lain dari
- * layer 020100, lalu simpan sebagai GeoJSON untuk halaman Peta Induk.
+ * Turunkan garis batas jalan, selokan, sungai/batas perairan, dan garis
+ * lain-lain dari layer 020100, lalu simpan sebagai GeoJSON untuk halaman
+ * Peta Induk.
  *
  *   php -d memory_limit=1024M tools/garis-batas-020100.php
  *
  * Latar. Layer DXF BATAS JALAN (626 fitur) dan BATAS PERAIRAN (279 fitur) hanya
  * berisi teks label tanpa geometri, sedangkan 020100 menyimpan 13.681 garis
- * terbuka tanpa atribut yang bisa membedakan tepi bidang, tepi jalan, dan tepi
- * sungai; warna pun tidak membantu — 16.031 dari 16.322 entitas layer ini
- * berwarna putih. Hasil ukur 10 Nov 2026: 495 dari 626 label jalan berada
- * <= 2 m dari sebuah garis dan 484 di antaranya sejajar dengan garis itu (median
- * beda arah 2,5 derajat). Label perairan tidak menyimpan rotasi teks di berkas
- * GeoJSON-nya, tetapi 171 dari 279-nya tetap menempel pada garis. Jadi label
- * dipakai sebagai jangkar, bukan sebagai classifier.
+ * terbuka dan 2.626 poligon tertutup tanpa atribut yang bisa membedakan tepi
+ * bidang, tepi jalan, dan tebing sungai; warna pun tidak membantu — 16.031 dari
+ * 16.322 entitas layer ini berwarna putih. Hasil ukur 10 Nov 2026
+ * (_lama/scratch/ukur-kelas-garis.php) atas 899 label berteks: jarak tiap label
+ * ke garis 020100 terdekat, dan jarak antara DUA TEPI SEJAJAR yang mengapit
+ * celah kosong di kiri-kanan garis terdekat itu (tepi sejajar dihitung <= 25°,
+ * tengah celahnya tidak boleh berada di dalam bidang):
+ *  - 622 label JALAN — 79 % <= 2 m, median jarak 1,1 m, dua tepi median 2,3 m;
+ *  - 165 label SALURAN/IRIGASI — 93 % <= 2 m, median 0,5 m, dua tepi 1,8 m;
+ *  - 112 label SUNGAI/KALI — hanya 15 % <= 2 m, median 2,8 m, 90 % <= 7,8 m,
+ *    dua tepi 5,3 m.
+ * Angka itu yang memecah perairan menjadi selokan dan sungai: tulisan selokan
+ * ditumpangkan di atas garisnya dan diapit tepi yang hampir berhimpit, sedangkan
+ * nama sungai ditulis di tengah alur. Label tetap dipakai sebagai jangkar, bukan
+ * sebagai satu-satunya penanda, karena teksnya pun tidak selalu cocok dengan
+ * berkas asalnya.
  *
  * Aturan penurunan (ambang ikut tertulis di metadata hasil):
- *  - benih : garis terbuka yang punya titik sampel <= radius benih jenisnya
- *          (jalan 2 m, perairan 8 m) dari label; inilah garis yang ditumpangi
- *          tulisan nama jalan atau yang mengapit nama sungai;
+ *  - benih : garis atau cincin yang punya titik sampel <= radius benih jenisnya
+ *          (jalan 2 m, selokan 2 m, sungai 8 m) dari label kelas itu; kelas
+ *          ditentukan dari TEKS label, bukan dari berkas tempat label disimpan,
+ *          karena dua label "JALAN ..." ternyata berada di berkas BATAS
+ *          PERAIRAN dan label saluran ada yang tertulis "SLURAN";
  *  - pita  : garis yang belum terklaim dan pada mayoritas titik sampelnya
- *          (>= BAGI_SEJAJAR) punya segmen terklaim jenis sama <= PITA meter
- *          dengan beda arah <= SUDUT, DAN koridor di antara keduanya jatuh di
+ *          (>= BAGI_SEJAJAR) punya segmen terklaim jenis sama <= pita jenisnya
+ *          (jalan dan sungai 15 m, selokan 8 m) dengan beda arah <= SUDUT, DAN koridor di antara keduanya jatuh di
  *          ruang kosong (>= BAGI_KOSONG titik tengah tidak berada di dalam
  *          bidang). Uji arah membuat pita mengikuti tepi jalan di kedua
  *          sisinya tanpa melompat ke garis potong yang tegak lurus; uji koridor
  *          mencegah pita merambat antar-bidang: sisi sebuah bidang selalu
  *          berhadapan dengan bidang lain, sedangkan tepi jalan dan tebing
  *          sungai berhadapan dengan ruang yang bukan bidang tanah. Permukaan
- *          yang diuji adalah poligon tabel bidang, bukan hanya cincin tertutup
- *          020100 — kisi bidang tanah di peta ini sebagian besar tersimpan
+ *          yang diuji adalah gabungan poligon tabel bidang dan cincin 020100 —
+ *          kisi bidang tanah di peta ini sebagian besar tersimpan
  *          sebagai garis terbuka, jadi tanpa tabel bidang 9.690 dari 13.681
  *          garis terjaring pita dan layer lain-lain berisi 2.286 sisi bidang;
  *          sesudah itu tersisa puluhan garis;
@@ -41,9 +53,19 @@ declare(strict_types=1);
  *          bidang itu sendiri sudah menggambar garis yang sama;
  *  - setiap kelas membuang garis lebih pendek dari MIN_PANJANG.
  *
- * Satu garis yang memenuhi jalan dan perairan sekaligus masuk ke jenis dengan
- * jarak label terkecil. Tabel bidang hanya dibaca sebagai permukaan; tidak ada
- * satu baris pun yang ditulis, dan keluarannya tiga berkas GeoJSON layer baru.
+ * Kandidatnya bukan hanya 13.681 garis terbuka: 2.626 cincin poligon 020100 ikut
+ * diperebutkan. Ukurannya kecil — hanya 25 dari 899 label (20 jalan, 3 selokan,
+ * 2 sungai) yang geometri terdekatnya sebuah sisi poligon — tetapi
+ * permintaan eksplisitnya adalah "bidang & garis", jadi cincin ikut dinilai.
+ * Cincin yang >= BAGI_ULANG titik sampelnya sudah
+ * digambar sebagai garis terbuka lain dibuang lebih dulu — ia tidak menambahkan
+ * geometri baru, hanya menggambar ulang yang sudah ada. Sisi poligon tabel bidang
+ * tidak dipakai sebagai penyaring duplicasi: baris bidang adalah poligon 020100
+ * yang sama, jadi tolok ukur itu akan menolak nyaris seluruh cincin.
+ *
+ * Satu garis yang memenuhi dua kelas sekaligus masuk ke kelas dengan jarak label
+ * terkecil. Tabel bidang hanya dibaca sebagai permukaan; tidak ada satu baris
+ * pun yang ditulis, dan keluarannya empat berkas GeoJSON layer baru.
  */
 
 if (PHP_SAPI !== 'cli') {
@@ -57,7 +79,6 @@ const DIR_LAPISAN = __DIR__ . '/../files/sig-pertanahan-gedong-lokal/data/dxf-la
 const SEL = 25.0;
 const SEL_KISI = 5.0;
 const LANGKAH = 2.0;
-const PITA = 15.0;
 const SUDUT = 25.0;
 const PUTARAN = 2;
 const BAGI_SEJAJAR = 0.5;
@@ -65,15 +86,30 @@ const BAGI_KOSONG = 0.6;
 const RASIO_TEPI = 0.3;
 const TOLERANSI_TEPI = 0.35;
 const MIN_PANJANG = 2.0;
+// Cincin poligon 020100 ikut jadi kandidat, tetapi yang setengahnya sudah
+// tergambar sebagai garis terbuka lain dibuang lebih dulu.
+const BAGI_ULANG = 0.5;
 
-/** jenis => [berkas label sumber, nama layer DXF, berkas hasil, radius benih meter] */
+/** Berkas label yang dibaca bersama; kelas diambil dari teks, bukan dari berkas. */
+const LABEL_BERKAS = ['batas-jalan', 'batas-perairan'];
+
+/**
+ * jenis => [pola teks label, nama layer DXF, berkas hasil, radius benih, radius pita]
+ *
+ * Benih selokan selebar jalan karena tulisan "SALURAN" menempel di garisnya
+ * (median 0,5 m), sedangkan benih perairan 8 m karena nama sungai ditulis di
+ * tengah alur (median 2,8 m). Pita selokan dipersempit dari 15 m menjadi 8 m:
+ * dua tepi sejajar sebuah saluran hanya berjarak median 1,8 m (jalan 2,3 m dan
+ * sungai 5,3 m), dan radius selebar jalan membuat pitanya melompat ke tepi
+ * jalan di sebelahnya.
+ */
 const JENIS = [
-    'jalan' => ['label' => 'batas-jalan', 'dxf' => 'BATAS JALAN', 'berkas' => 'garis-jalan',
-        'benih' => 2.0],
-    // Label perairan ("KALI SARI", "SALURAN") ditulis di tengah alur, bukan di
-    // tepi seperti nama jalan, jadi benih perairan perlu radius lebih lebar.
-    'perairan' => ['label' => 'batas-perairan', 'dxf' => 'BATAS PERAIRAN', 'berkas' => 'garis-perairan',
-        'benih' => 8.0],
+    'jalan' => ['pola' => '/^JALAN/u', 'dxf' => 'BATAS JALAN', 'berkas' => 'garis-jalan',
+        'benih' => 2.0, 'pita' => 15.0],
+    'selokan' => ['pola' => '/SALURAN|SLURAN|IRIGASI|DRAIN|GREBEG/u', 'dxf' => 'BATAS PERAIRAN',
+        'berkas' => 'garis-selokan', 'benih' => 2.0, 'pita' => 8.0],
+    'perairan' => ['pola' => '/SUNGAI|KALI|BENGKONG/u', 'dxf' => 'BATAS PERAIRAN',
+        'berkas' => 'garis-perairan', 'benih' => 8.0, 'pita' => 15.0],
 ];
 
 function galat(string $pesan): never
@@ -149,8 +185,8 @@ function jarakSegmen(array $kisi, array $segmen, float $px, float $py, float $ra
     return $baik;
 }
 
-/** Jarak titik ke label terdekat dalam radius: [jarak, teks label]. */
-function jarakLabel(array $kisi, array $label, float $px, float $py, float $radius): ?array
+/** Jarak titik ke label kelas $jenis terdekat dalam radius: [jarak, teks label]. */
+function jarakLabel(array $kisi, array $label, float $px, float $py, float $radius, string $jenis): ?array
 {
     $batas = (int) ceil($radius / SEL);
     $gx = (int) floor($px / SEL);
@@ -159,6 +195,9 @@ function jarakLabel(array $kisi, array $label, float $px, float $py, float $radi
     for ($ix = $gx - $batas; $ix <= $gx + $batas; $ix++) {
         for ($iy = $gy - $batas; $iy <= $gy + $batas; $iy++) {
             foreach (array_keys($kisi[$ix . ':' . $iy] ?? []) as $id) {
+                if ($label[$id][3] !== $jenis) {
+                    continue;
+                }
                 $jarak = hypot($px - $label[$id][1], $py - $label[$id][2]);
                 if ($jarak <= $radius && ($baik === null || $jarak < $baik[0])) {
                     $baik = [$jarak, $label[$id][0]];
@@ -265,22 +304,46 @@ function diPoligon(float $x, float $y, array $kisi, array $poligon, array $besar
     return false;
 }
 
-/** @return array{0:array,1:list<array{0:string,1:float,2:float}>} */
-function bacaLabel(string $berkas): array
+/** Kelas sebuah teks label: pola pertama yang cocok menang, jadi jalan lebih dulu. */
+function kelasLabel(string $teks): ?string
+{
+    foreach (JENIS as $jenis => $set) {
+        if (preg_match($set['pola'], mb_strtoupper($teks)) === 1) {
+            return $jenis;
+        }
+    }
+    return null;
+}
+
+/**
+ * Satu kolam label dari semua berkas sumber, dipetakan per kelas.
+ *
+ * @return array{0:array,1:list<array{0:string,1:float,2:float}>,2:array<string,int>}
+ */
+function bacaLabel(): array
 {
     $kisi = [];
     $label = [];
-    foreach (geojsonBaca(DIR_LAPISAN . '/' . $berkas . '.geojson') as $f) {
-        $k = $f['geometry']['coordinates'] ?? [null, null];
-        if (!is_numeric($k[0]) || !is_numeric($k[1])) {
-            continue;
+    $jumlah = array_fill_keys(array_keys(JENIS), 0);
+    foreach (LABEL_BERKAS as $berkas) {
+        foreach (geojsonBaca(DIR_LAPISAN . '/' . $berkas . '.geojson') as $f) {
+            $k = $f['geometry']['coordinates'] ?? [null, null];
+            if (!is_numeric($k[0]) || !is_numeric($k[1])) {
+                continue;
+            }
+            $teks = trim((string) ($f['properties']['label'] ?? ''));
+            $jenis = kelasLabel($teks);
+            if ($jenis === null) {
+                $jumlah['(tak terklasifikasi)'] = ($jumlah['(tak terklasifikasi)'] ?? 0) + 1;
+                continue;
+            }
+            $id = count($label);
+            $label[$id] = [$teks === '' ? '(tanpa teks)' : $teks, (float) $k[0], (float) $k[1], $jenis];
+            $kisi[(int) floor((float) $k[0] / SEL) . ':' . (int) floor((float) $k[1] / SEL)][$id] = true;
+            $jumlah[$jenis]++;
         }
-        $teks = trim((string) ($f['properties']['label'] ?? ''));
-        $id = count($label);
-        $label[$id] = [$teks === '' ? '(tanpa teks)' : $teks, (float) $k[0], (float) $k[1]];
-        $kisi[(int) floor((float) $k[0] / SEL) . ':' . (int) floor((float) $k[1] / SEL)][$id] = true;
     }
-    return [$kisi, $label];
+    return [$kisi, $label, $jumlah];
 }
 
 function tulisBerkas(string $berkas, array $daftar): void
@@ -299,10 +362,20 @@ $induk = geojsonBaca(DIR_LAPISAN . '/020100.geojson');
 
 $kisiTepi = [];
 $segmenTepi = [];
+// Kisi kedua: tepi yang sudah digambar sebagai garis di berkas 020100 (garis
+// terbuka dan cincin yang baru dipakai). Cincin diuji ke kisi ini, bukan ke
+// $kisiTepi, supaya sebuah cincin tidak dianggap mengulang dirinya sendiri.
+// Sisi poligon tabel bidang sengaja TIDAK ikut masuk: poligon 020100 dan
+// baris bidang hasil impor adalah obyek yang sama, sehingga tepi itu akan
+// menolak setiap cincin — 2.332 dari 2.626 cincin tertutup olehnya, versus
+// 2.362 oleh garis terbuka. Cincin yang benar-benar baru hanya 29.
+$kisiUlang = [];
+$segmenUlang = [];
 $kisiPoligon = [];
 $poligon = [];
 $poligonBesar = [];
 $terbuka = [];
+$cincin = [];
 $jumlahPoligon = 0;
 foreach ($induk as $indeks => $f) {
     $g = $f['geometry'] ?? null;
@@ -313,14 +386,19 @@ foreach ($induk as $indeks => $f) {
             (array) ($g['coordinates'][0] ?? []));
         tambahSegmen($kisiTepi, $segmenTepi, $ring, SEL_KISI);
         tambahPoligon($kisiPoligon, $poligon, $poligonBesar, $ring, SEL_KISI);
+        if (count($ring) >= 4) {
+            $cincin[(int) $indeks] = $ring;
+        }
     } elseif ($tipe === 'LineString' && count((array) ($g['coordinates'] ?? [])) >= 2) {
         $titik = array_map(static fn(array $p): array => [(float) $p[0], (float) $p[1]],
             (array) $g['coordinates']);
-        $terbuka[(int) $indeks] = ['titik' => $titik, 'panjang' => panjangRing($titik), 'sampel' => sampel($titik)];
+        $terbuka[(int) $indeks] = ['titik' => $titik, 'panjang' => panjangRing($titik),
+            'sampel' => sampel($titik), 'asal' => 'garis'];
+        tambahSegmen($kisiUlang, $segmenUlang, $titik, SEL_KISI);
     }
 }
-printf("020100: %d poligon tertutup (%d segmen tepi) · %d garis terbuka\n",
-    $jumlahPoligon, count($segmenTepi), count($terbuka));
+printf("020100: %d poligon tertutup (%d cincin dipakai, %d segmen tepi) · %d garis terbuka\n",
+    $jumlahPoligon, count($cincin), count($segmenTepi), count($terbuka));
 
 // Permukaan bidang dari basis data. Hanya sebagian kecil garis 020100 tersimpan
 // sebagai poligon tertutup, sedangkan kisi bidang tanah terbentuk dari garis
@@ -363,9 +441,50 @@ foreach ($terbuka as $indeks => $garis) {
     $terbuka[$indeks]['rasioTepi'] = $kena / max(1, count($garis['sampel']));
 }
 
+// Cincin poligon 020100 ikut jadi kandidat. Yang >= BAGI_ULANG titik sampelnya
+// sudah tergambar sebagai garis terbuka dibuang lebih dulu; sisanya
+// diurut dari keliling terbesar supaya dua poligon yang berbagi satu tepi tidak
+// masuk berdua (yang kedua melihat tepi itu sebagai garis yang sudah ada).
+uasort($cincin, static fn(array $a, array $b): int => panjangRing($b) <=> panjangRing($a));
+$jumlahCincin = count($cincin);
+$cincinUlang = 0;
+$cincinPendek = 0;
+$cincinDipakai = 0;
+foreach ($cincin as $indeks => $ring) {
+    $titik = $ring;
+    $panjang = panjangRing($titik);
+    if ($panjang < MIN_PANJANG) {
+        $cincinPendek++;
+        unset($cincin[$indeks]);
+        continue;
+    }
+    $sampel = sampel($titik);
+    $kena = 0;
+    foreach ($sampel as [$x, $y]) {
+        if (jarakSegmen($kisiUlang, $segmenUlang, $x, $y, TOLERANSI_TEPI, SEL_KISI) !== null) {
+            $kena++;
+        }
+    }
+    if ($kena / max(1, count($sampel)) >= BAGI_ULANG) {
+        $cincinUlang++;
+        unset($cincin[$indeks]);
+        continue;
+    }
+    $terbuka[$indeks] = ['titik' => $titik, 'panjang' => $panjang, 'sampel' => $sampel,
+        'rasioTepi' => $kena / max(1, count($sampel)), 'asal' => 'bidang'];
+    $cincinDipakai++;
+    tambahSegmen($kisiUlang, $segmenUlang, $titik, SEL_KISI);
+}
+printf("cincin poligon: %d diuji · %d dipakai sebagai garis kandidat · %d mengulang garis lain"
+    . " · %d terlalu pendek\n", $jumlahCincin, $cincinDipakai, $cincinUlang, $cincinPendek);
+
+[$kisiLbl, $label, $jumlahLabel] = bacaLabel();
+printf("label: %d titik terpakai (%s)\n", count($label), implode(', ', array_map(
+    static fn(string $j, int $n): string => $j . ' ' . $n,
+    array_keys($jumlahLabel), array_values($jumlahLabel))));
+
 $klaim = [];
 foreach (JENIS as $jenis => $set) {
-    [$kisiLbl, $label] = bacaLabel($set['label']);
     $kisiKlaim = [];
     $segmenKlaim = [];
     $terklaim = [];
@@ -383,7 +502,7 @@ foreach (JENIS as $jenis => $set) {
         }
         $dekat = null;
         foreach ($garis['sampel'] as [$x, $y]) {
-            $c = jarakLabel($kisiLbl, $label, $x, $y, (float) $set['benih']);
+            $c = jarakLabel($kisiLbl, $label, $x, $y, (float) $set['benih'], $jenis);
             if ($c !== null && ($dekat === null || $c[0] < $dekat[0])) {
                 $dekat = $c;
                 if ($dekat[0] <= 0.01) {
@@ -409,7 +528,7 @@ foreach (JENIS as $jenis => $set) {
             $jarakLbl = 0.0;
             $namaLbl = '';
             foreach ($garis['sampel'] as [$x, $y, $arah]) {
-                $dekat = jarakSegmen($kisiKlaim, $segmenKlaim, $x, $y, PITA, SEL);
+                $dekat = jarakSegmen($kisiKlaim, $segmenKlaim, $x, $y, (float) $set['pita'], SEL);
                 if ($dekat === null || bedaArah($arah, $dekat[1]) > SUDUT) {
                     continue;
                 }
@@ -458,7 +577,7 @@ foreach (JENIS as $jenis => $set) {
     }
     printf("%-9s label %4d · garis %5d (benih %4d, pita %5d) · %8.0f m · %2.0f%% menempel tepi bidang"
         . " · ditolak: sejajar %5d, koridor %5d\n",
-        $jenis, count($label), count($terklaim), $benih, count($terklaim) - $benih, $panjang,
+        $jenis, $jumlahLabel[$jenis] ?? 0, count($terklaim), $benih, count($terklaim) - $benih, $panjang,
         100 * $panjangTepi / max(1.0, $panjang), count($tolakSejajar), count($tolakKoridor));
 }
 
@@ -491,6 +610,7 @@ $fitur = static function (array $garis, string $kode, int $indeks, ?float $jarak
             'indeks' => $indeks,
             'panjang_m' => round($garis['panjang'], 2),
             'rasio_tepi_bidang' => round($garis['rasioTepi'], 3),
+            'asal' => (string) ($garis['asal'] ?? 'garis'),
             'cara' => $cara,
             'jarak_label_m' => $jarak === null ? null : round($jarak, 2),
             'label' => $label,
@@ -526,55 +646,78 @@ if ($meta === []) {
     galat('metadata.json tidak dapat dibaca: ' . $berkasMeta);
 }
 
-foreach (['jalan', 'perairan', 'lain'] as $jenis) {
+$judulJenis = [
+    'jalan' => 'GARIS BATAS JALAN 020100',
+    'selokan' => 'GARIS SELOKAN 020100',
+    'perairan' => 'GARIS BATAS PERAIRAN 020100',
+    'lain' => 'GARIS LAIN 020100',
+];
+foreach (['jalan', 'selokan', 'perairan', 'lain'] as $jenis) {
     $namaBerkas = $jenis === 'lain' ? 'garis-lain' : JENIS[$jenis]['berkas'];
     tulisBerkas($namaBerkas, $daftar[$jenis]);
     $panjang = array_sum(array_map(static fn(array $f): float => (float) $f['properties']['panjang_m'],
         $daftar[$jenis]));
     $cara = [];
+    $asal = [];
     foreach ($daftar[$jenis] as $f) {
         $cara[$f['properties']['cara']] = ($cara[$f['properties']['cara']] ?? 0) + 1;
+        $asal[$f['properties']['asal']] = ($asal[$f['properties']['asal']] ?? 0) + 1;
     }
-    $judul = $jenis === 'lain' ? 'GARIS LAIN 020100' : 'GARIS BATAS ' . strtoupper($jenis) . ' 020100';
-    $meta['layers'][$judul] = [
+    $meta['layers'][$judulJenis[$jenis]] = [
         'features' => count($daftar[$jenis]),
         'types' => ['line' => count($daftar[$jenis])],
         'file' => $namaBerkas . '.geojson',
         'panjang_m' => (int) round($panjang),
-        'derived_from' => 'garis terbuka 020100' . ($jenis === 'lain'
-            ? ' yang berdiri sendiri tanpa label jalan/perairan'
-            : ' yang ditumpangi label DXF ' . JENIS[$jenis]['dxf'] . ' dan pita sejajarnya'),
+        'derived_from' => $jenis === 'lain'
+            ? 'garis terbuka dan cincin poligon 020100 yang berdiri sendiri tanpa label jalan/selokan/perairan'
+            : 'garis terbuka dan cincin poligon 020100 yang membawa label berkelas ' . $jenis
+                . ' (teks, bukan berkas asal) serta pita sejajarnya',
         'ambang' => ['benih_m' => $jenis === 'lain' ? null : JENIS[$jenis]['benih'],
-            'pita_m' => PITA, 'sudut_derajat' => SUDUT,
+            'pita_m' => $jenis === 'lain' ? null : JENIS[$jenis]['pita'],
+            'sudut_derajat' => SUDUT,
             'putaran' => PUTARAN, 'bagi_sejajar' => BAGI_SEJAJAR, 'bagi_koridor_kosong' => BAGI_KOSONG,
-            'rasio_tepi' => RASIO_TEPI, 'min_panjang_m' => MIN_PANJANG, 'langkah_sampel_m' => LANGKAH],
+            'rasio_tepi' => RASIO_TEPI, 'min_panjang_m' => MIN_PANJANG, 'langkah_sampel_m' => LANGKAH,
+            'bagi_ulang_cincin' => BAGI_ULANG],
+        'kandidat' => ['garis_terbuka' => count($terbuka) - $cincinDipakai,
+            'cincin_dipakai' => $cincinDipakai, 'cincin_mengulang' => $cincinUlang],
         'permukaan_bidang' => ['sumber' => 'tabel bidang (status <> dihapus)', 'poligon' => $jumlahBidang,
             'segmen_tepi' => count($segmenTepi)],
+        'label' => $jenis === 'lain' ? null : ($jumlahLabel[$jenis] ?? 0),
+        'asal' => $asal,
         'cara' => $cara,
     ];
-    printf("%-22s %5d fitur · %8.0f m · %s\n", $namaBerkas . '.geojson', count($daftar[$jenis]), $panjang,
-        json_encode($cara, JSON_UNESCAPED_UNICODE));
+    printf("%-22s %5d fitur · %8.0f m · %s · asal %s\n", $namaBerkas . '.geojson', count($daftar[$jenis]),
+        $panjang, json_encode($cara, JSON_UNESCAPED_UNICODE), json_encode($asal, JSON_UNESCAPED_UNICODE));
 }
 
 $catatan = [];
 foreach ((array) ($meta['notes'] ?? []) as $n) {
-    if (!str_starts_with((string) $n, 'GARIS BATAS ') && !str_starts_with((string) $n, 'GARIS LAIN')) {
+    if (!str_starts_with((string) $n, 'GARIS BATAS ') && !str_starts_with((string) $n, 'GARIS LAIN')
+        && !str_starts_with((string) $n, 'GARIS SELOKAN')) {
         $catatan[] = $n;
     }
 }
 $catatan[] = sprintf(
-    'GARIS BATAS JALAN dan GARIS BATAS PERAIRAN diturunkan dari garis terbuka 020100: benih = garis yang '
-    . 'membawa label nama (jalan <= %.1f m, perairan <= %.1f m dari titik label — label perairan ditulis di '
-    . 'tengah alur sehingga radiusnya lebih lebar), lalu pita sejajar <= %.1f m dengan beda arah '
-    . 'maksimal %.0f derajat mengambil tepi di sisi lain. Kandidat pita hanya diterima bila minimal %.0f%% '
-    . 'titik sampelnya sejajar dan tengah koridornya ke garis terklaim tidak berada di dalam bidang hasil '
-    . 'impor (minimal %.0f%% kosong) — tanpa penyaring koridor terhadap permukaan bidang ini pita menyerap '
-    . '9.690 garis karena kisi bidang tanah hampir selalu sejajar dalam 15 m. GARIS LAIN berisi garis 020100 '
-    . 'yang berdiri sendiri (kurang dari %.0f%% titik sampelnya jatuh di tepi bidang) dan tidak terjaring '
-    . 'dua aturan itu. Garis lebih pendek dari %.1f m dibuang (%d garis), dan %d garis yang hanya mengulang '
-    . 'tepi bidang tidak masuk layer lain-lain. Ketiganya hanya lapisan referensi pada peta DXF lama; tidak '
-    . 'ada yang ditulis ke tabel bidang.',
-    (float) JENIS['jalan']['benih'], (float) JENIS['perairan']['benih'], PITA, SUDUT,
+    'GARIS BATAS JALAN, GARIS SELOKAN dan GARIS BATAS PERAIRAN diturunkan dari 020100: kandidat = '
+    . '%d garis terbuka ditambah %d cincin poligon yang belum >= %.0f%% mengulang garis lain '
+    . '(%d cincin dibuang karena tepi sudah ada). Benih = kandidat yang membawa label sekelas '
+    . '(jalan <= %.1f m, selokan <= %.1f m, perairan <= %.1f m dari titik label; kelas dibaca dari TEKS '
+    . 'label karena nama saluran tersimpan di berkas BATAS PERAIRAN dan dua nama jalan nyasar ke berkas '
+    . 'yang sama), lalu pita sejajar <= %.1f m untuk jalan dan perairan atau <= %.1f m untuk selokan '
+    . 'dengan beda arah maksimal %.0f derajat mengambil tepi di sisi lain. Kandidat pita hanya diterima '
+    . 'bila minimal %.0f%% titik sampelnya sejajar dan tengah koridornya ke garis terklaim tidak berada '
+    . 'di dalam bidang (minimal %.0f%% kosong) — tanpa penyaring koridor ini pita menyerap 9.690 garis '
+    . 'karena kisi bidang tanah hampir selalu sejajar dalam 15 m. Selokan hanya berjarak median 1,8 m '
+    . 'antar tepi dan labelnya ditulis DI ATAS garisnya (median 0,5 m), sedangkan nama sungai ditulis di '
+    . 'tengah alur selebar median 5,3 m (median 2,8 m ke tepi): itu sebabnya keduanya tidak lagi satu '
+    . 'layer. GARIS LAIN berisi kandidat yang berdiri sendiri (kurang dari %.0f%% titik sampelnya jatuh '
+    . 'di tepi bidang) dan tidak terjaring dua aturan itu. Garis lebih pendek dari %.1f m dibuang (%d), '
+    . 'dan %d garis yang hanya mengulang tepi bidang tidak masuk layer lain-lain. Keempatnya hanya '
+    . 'lapisan referensi pada peta DXF lama; tidak ada yang ditulis ke tabel bidang.',
+    count($terbuka) - $cincinDipakai, $cincinDipakai, BAGI_ULANG * 100, $cincinUlang,
+    (float) JENIS['jalan']['benih'], (float) JENIS['selokan']['benih'],
+    (float) JENIS['perairan']['benih'], (float) JENIS['jalan']['pita'],
+    (float) JENIS['selokan']['pita'], SUDUT,
     BAGI_SEJAJAR * 100, BAGI_KOSONG * 100, RASIO_TEPI * 100, MIN_PANJANG,
     $buangPendek, $buangTepi
 );
@@ -585,6 +728,6 @@ if (file_put_contents($berkasMeta, json_encode($meta, JSON_PRETTY_PRINT | JSON_U
     galat('gagal menulis metadata.json');
 }
 
-printf("\ndiklaim jalan/perairan: %d garis · lain-lain: %d · dibuang pendek: %d · mengulang tepi: %d\n",
+printf("\ndiklaim per kelas: %d garis · lain-lain: %d · dibuang pendek: %d · mengulang tepi: %d\n",
     count($klaim), count($lain), $buangPendek, $buangTepi);
 echo "metadata.json diperbarui.\n";
