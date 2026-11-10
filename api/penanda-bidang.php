@@ -176,13 +176,152 @@ function kodeBidangPetaInduk(int $indeks, string $jenis): string
     return 'DXF-020100-' . $awalan . str_pad((string) ($indeks + 1), 5, '0', STR_PAD_LEFT);
 }
 
+/** Sambung celah ujung garis 020100 sampai 1 satuan lokal DXF (≈ 1 m). */
+const TOLERANSI_SAMBUNG_GARIS_DXF = 1.0;
+
+/**
+ * Rapatkan celah kecil pada rangkaian garis sebelum muka ditelusuri.
+ *
+ * Ujung garis yang berjarak <= toleransi dijadikan satu simpul, dan ujung
+ * yang nyaris menempel ke badan segmen lain diproyeksikan ke segmen itu.
+ * Garis DXF sering berhenti sepersekian unit sebelum bertemu, sehingga tanpa
+ * langkah ini muka tidak pernah tertutup walau celahnya kecil.
+ *
+ * @param array<int, array{0:float,1:float,2:float,3:float,4:string}> $segmen
+ * @return array<int, array{0:float,1:float,2:float,3:float,4:string}>
+ */
+function sambungCelahSegmen(array $segmen, float $toleransi): array
+{
+    // Sel kisi minimal 0,5 satuan agar penelusuran garis tetap terbatas.
+    $sel = max($toleransi, 0.5);
+    $simpul = [];
+    $kisiSimpul = [];
+    $idSimpul = static function (float $x, float $y) use (&$simpul, &$kisiSimpul, $toleransi, $sel): int {
+        $cx = (int) floor($x / $sel);
+        $cy = (int) floor($y / $sel);
+        for ($dx = -1; $dx <= 1; $dx++) {
+            for ($dy = -1; $dy <= 1; $dy++) {
+                foreach ($kisiSimpul[($cx + $dx) . ':' . ($cy + $dy)] ?? [] as $id) {
+                    if (hypot($simpul[$id][0] - $x, $simpul[$id][1] - $y) <= $toleransi) {
+                        return $id;
+                    }
+                }
+            }
+        }
+        $id = count($simpul);
+        $simpul[$id] = [$x, $y];
+        $kisiSimpul[$cx . ':' . $cy][] = $id;
+        return $id;
+    };
+
+    $rapat = [];
+    foreach ($segmen as $s) {
+        $u = $idSimpul((float) $s[0], (float) $s[1]);
+        $v = $idSimpul((float) $s[2], (float) $s[3]);
+        if ($u === $v) {
+            continue;
+        }
+        $rapat[] = [$simpul[$u][0], $simpul[$u][1], $simpul[$v][0], $simpul[$v][1], (string) $s[4]];
+    }
+
+    $kisiSegmen = [];
+    foreach ($rapat as $id => $s) {
+        $cx = (int) floor($s[0] / $sel);
+        $cy = (int) floor($s[1] / $sel);
+        $cxAkhir = (int) floor($s[2] / $sel);
+        $cyAkhir = (int) floor($s[3] / $sel);
+        $kisiSegmen[$cx . ':' . $cy][] = $id;
+        $dx = $s[2] - $s[0];
+        $dy = $s[3] - $s[1];
+        $langkahX = $dx > 0 ? 1 : ($dx < 0 ? -1 : 0);
+        $langkahY = $dy > 0 ? 1 : ($dy < 0 ? -1 : 0);
+        $tMaxX = $langkahX === 0 ? INF : ((($cx + ($langkahX > 0 ? 1 : 0)) * $sel) - $s[0]) / $dx;
+        $tMaxY = $langkahY === 0 ? INF : ((($cy + ($langkahY > 0 ? 1 : 0)) * $sel) - $s[1]) / $dy;
+        $tDeltaX = $langkahX === 0 ? INF : $sel / abs($dx);
+        $tDeltaY = $langkahY === 0 ? INF : $sel / abs($dy);
+        // Telusuri sel yang benar-benar dilewati garis, bukan seluruh bbox-nya.
+        for ($jaga = 0; $jaga < 100000 && ($cx !== $cxAkhir || $cy !== $cyAkhir); $jaga++) {
+            if ($tMaxX < $tMaxY) {
+                $cx += $langkahX;
+                $tMaxX += $tDeltaX;
+            } else {
+                $cy += $langkahY;
+                $tMaxY += $tDeltaY;
+            }
+            $kisiSegmen[$cx . ':' . $cy][] = $id;
+        }
+    }
+
+    $potong = [];
+    foreach ($simpul as $idSimpulKini => [$x, $y]) {
+        $cx = (int) floor($x / $sel);
+        $cy = (int) floor($y / $sel);
+        $calon = [];
+        for ($dx = -1; $dx <= 1; $dx++) {
+            for ($dy = -1; $dy <= 1; $dy++) {
+                foreach ($kisiSegmen[($cx + $dx) . ':' . ($cy + $dy)] ?? [] as $idGaris) {
+                    $calon[$idGaris] = true;
+                }
+            }
+        }
+        foreach (array_keys($calon) as $idGaris) {
+            $s = $rapat[$idGaris];
+            if (($s[0] === $x && $s[1] === $y) || ($s[2] === $x && $s[3] === $y)) {
+                continue;
+            }
+            $dx = $s[2] - $s[0];
+            $dy = $s[3] - $s[1];
+            $panjang2 = $dx * $dx + $dy * $dy;
+            if ($panjang2 <= 1e-12) {
+                continue;
+            }
+            $t = (($x - $s[0]) * $dx + ($y - $s[1]) * $dy) / $panjang2;
+            if ($t <= 1e-6 || $t >= 1.0 - 1e-6) {
+                continue;
+            }
+            if (hypot($s[0] + $t * $dx - $x, $s[1] + $t * $dy - $y) > $toleransi) {
+                continue;
+            }
+            $potong[$idGaris][] = [$t, $idSimpulKini];
+        }
+    }
+
+    if ($potong === []) {
+        return $rapat;
+    }
+
+    $hasil = [];
+    foreach ($rapat as $idGaris => $s) {
+        if (!isset($potong[$idGaris])) {
+            $hasil[] = $s;
+            continue;
+        }
+        $daftar = $potong[$idGaris];
+        usort($daftar, static fn(array $a, array $b): int => $a[0] <=> $b[0]);
+        $kini = [$s[0], $s[1]];
+        foreach ($daftar as [, $idTitik]) {
+            $titik = $simpul[$idTitik];
+            if (hypot($titik[0] - $kini[0], $titik[1] - $kini[1]) < 1e-9) {
+                continue;
+            }
+            $hasil[] = [$kini[0], $kini[1], $titik[0], $titik[1], $s[4]];
+            $kini = $titik;
+        }
+        if (hypot($s[2] - $kini[0], $s[3] - $kini[1]) >= 1e-9) {
+            $hasil[] = [$kini[0], $kini[1], $s[2], $s[3], $s[4]];
+        }
+    }
+    return $hasil;
+}
+
 /**
  * Muka bidang terkecil dari rangkaian garis 020100 di sekitar titik.
  *
- * Garis dipotong pada titik potongnya, lalu setengah-sisi ditelusuri untuk
- * mendapat muka yang tertutup. Dipakai untuk titik di kantong terbuka: batas
- * bidannya mengikuti garis sebelahnya. Jari-jari diulang bila muka belum
- * tertutup pada jendela pertama.
+ * Celah ujung garis sampai 1 satuan disambung lebih dulu, lalu garis dipotong
+ * pada titik potongnya dan setengah-sisi ditelusuri untuk mendapat muka yang
+ * tertutup. Dipakai untuk titik di kantong terbuka: batas bidannya mengikuti
+ * garis sebelahnya. Jari-jari diulang bila muka belum tertutup pada jendela
+ * pertama.
  *
  * @return array{geometry:array,luas:float,keliling:float,handle:string}|null
  */
@@ -211,6 +350,10 @@ function mukaGarisDiSekitar(array $features, float $px, float $py): ?array
                 $segmen[] = [$ax, $ay, $bx, $by, $handle];
             }
         }
+        if (count($segmen) < 3) {
+            continue;
+        }
+        $segmen = sambungCelahSegmen($segmen, TOLERANSI_SAMBUNG_GARIS_DXF);
         if (count($segmen) < 3) {
             continue;
         }

@@ -156,7 +156,7 @@ sip_judul(
                     <a class="tombol tombol-kecil" id="bukaBidang" href="#" style="display:none">Buka bidang</a>
                 </div>
                 <p class="petunjuk" id="infoPenanda">Penunjuk belum aktif. Koordinat X/Y berasal dari DXF lokal, bukan GPS.</p>
-                <p class="petunjuk">Pratinjau memakai poligon tertutup 020100 yang memuat penanda; bila titik di luar, dipakai garis bidang tertutup (LineString yang ujungnya bertemu), lalu rangkaian garis 020100. Bila titik ada di kantong terbuka, “Bidang dari garis sekitar” memotong garis pada titik potong lalu memilih muka terkecil yang memuat penanda, jadi batasnya mengikuti garis sebelahnya. Bidang baru berstatus perlu verifikasi; blok diisi otomatis dari blok resmi yang memuat titik pusat bidang, dan hanya dapat disimpan Super Admin setelah pratinjau.</p>
+                <p class="petunjuk">Pratinjau memakai poligon tertutup 020100 yang memuat penanda; bila titik di luar, dipakai garis bidang tertutup (LineString yang ujungnya bertemu), lalu rangkaian garis 020100. Bila titik ada di kantong terbuka, “Bidang dari garis sekitar” menyambung celah ujung garis sampai 1 satuan lokal DXF (≈ 1 m), memotong garis pada titik potong, lalu memilih muka terkecil yang memuat penanda, jadi batasnya mengikuti garis sebelahnya. Bidang baru berstatus perlu verifikasi; blok diisi otomatis dari blok resmi yang memuat titik pusat bidang, dan hanya dapat disimpan Super Admin setelah pratinjau.</p>
             </div>
         </section>
 
