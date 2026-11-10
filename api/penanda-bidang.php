@@ -376,7 +376,11 @@ function kodeBidangGarisBaru(array $geometri): string
     return 'DXF-020100-B' . str_pad((string) (crc32($kunci) % 100000), 5, '0', STR_PAD_LEFT);
 }
 
-/** @return array{kode:string,id:int,alasan:string}|null */
+/**
+ * Kembaran berstatus 'duplikat' dikecualikan seperti pada bidang_filter():
+ * induk aslinya tetap terdeteksi, jadi baris kembaran tidak memblokir bidang baru.
+ * @return array{kode:string,id:int,alasan:string}|null
+ */
 function duplikatBidang(string $kode, string $wkt): ?array
 {
     $sama = db_one('SELECT id FROM bidang WHERE kode = ? LIMIT 1', [$kode]);
@@ -385,7 +389,7 @@ function duplikatBidang(string $kode, string $wkt): ?array
     }
     $mirip = db_one(
         'SELECT id, kode FROM bidang
-          WHERE status <> \'dihapus\'
+          WHERE status NOT IN (\'dihapus\', \'duplikat\')
             AND MBRIntersects(geom, ST_GeomFromText(?, 4326))
             AND ST_Area(ST_Intersection(geom, ST_GeomFromText(?, 4326)))
                 >= 0.95 * ST_Area(ST_GeomFromText(?, 4326))
