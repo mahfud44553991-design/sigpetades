@@ -5662,8 +5662,13 @@ akal (jalan 764 benih / 1.806 pita-1 / 574 pita-2). Belum diuji dengan klik di
 peramban: halaman memerlukan login Super Admin dan akun uji sudah dihapus, jadi
 verifikasi bersifat statis — `curl` hanya membuktikan pagar tetap berdiri
 (`peta-lama.php` 302 ke login, `api/peta-lama.php?lapisan=garis-selokan` 401).
-Higienitas berkas terjaga: README seluruhnya CRLF dan tool seluruhnya LF, tanpa
-tab dan tanpa karakter non-Latin.
+Higienitas berkas terjaga: README seluruhnya CRLF dan tool seluruhnya LF,
+tanpa tab, dan tanpa aksara di luar skrip Latin — Han, Kana, Hangul, dan
+Sirilik semuanya nol di kedua berkas. Kalimat "tanpa karakter non-Latin"
+harus dibaca begitu, sebab README memang memuat glif diagram dan tanda
+matematika: 728 kemunculan dari 13 aksara, yaitu U+2192 (316), U+2261 (221),
+U+2500 (69), U+2265 (57), U+2212 (20), U+2264 (17), U+2248 (14), U+25BA (5),
+U+2194 (4), U+2518 (2), dan U+2510, U+251C, U+25B2 masing-masing satu.
 
 **Basis data tidak disentuh.** Tabel `bidang` hanya dibaca sebagai permukaan
 (4.176 poligon, 56.315 segmen tepi); tidak ada satu baris pun yang ditulis.
@@ -5740,8 +5745,13 @@ rapi; `.cek` memakai `display:flex` sehingga baris sumber tambahan di dalam
 memuaskan keempat lapis garis (whitelist, centang, gaya, legenda "ada"; 20
 centang = 20 kunci whitelist API). `php -l` bersih dan `node --check` lolos
 untuk ketiga halaman (796 / 878 / 168 baris JS). Grep pada seluruh `*.php` tidak
-menemukan sisa teks label lama. Yang belum diuji hanyalah klik centang di halaman
-asli (butuh login Super Admin). Basis data dan berkas data tidak disentuh.
+menemukan sisa teks label lama. Higienitas ikut diukur ulang: `README.md` 6.009
+baris dan keempat berkas PHP yang disentuh (`peta-lama.php` 1.170, `peta.php`
+1.128, `peta-blok.php` 228, `api/peta-lama.php` 124) seluruhnya CRLF di working
+tree, `tools/garis-batas-020100.php` 733 baris LF, tab nol di semuanya, dan
+aksara di luar skrip Latin nol; catatan glif diagram README ada di §3.77.
+Yang belum diuji hanyalah klik centang di halaman asli (butuh login Super
+Admin). Basis data dan berkas data tidak disentuh.
 
 ---
 
