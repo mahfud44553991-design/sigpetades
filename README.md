@@ -5451,6 +5451,109 @@ hanya diabaikan (kuncinya dibuang saat dimuat).
 
 ---
 
+### 3.76 Semua obyek non-tanah dihapus permanen dari tabel bidang (10 Nov 2026)
+
+Permintaan: **hapus obyek non-tanah yang berbentuk bidang tanah saja**.
+Kandidatnya seluruh baris `bidang.tipe = 'lain'` — poligon hasil impor layer
+DXF kadastrum `020100` plus satu baris batas blok — bukan hanya yang
+berstatus `perlu_verifikasi`. Angka pengukuran disampaikan lebih dulu
+(236 · 697 · 3.088 · 3.623 · 3.773 baris, tergantung saringan yang dipakai),
+lalu pilihan jatuh pada **semua 3.773 baris**, dihapus dengan **`DELETE`
+permanen** dan bukan `status = 'dihapus'`, dengan konsekuensi yang sudah
+dihitung lebih dulu: **3.772 baris `hak` ikut hilang** karena
+`hak.bidang_id` memakai `ON DELETE CASCADE`. Persetujuan terakhir diberikan
+di dalam percakapan ("ya, hapus").
+
+**Yang terhapus.**
+
+| Saringan | Baris |
+|---|---|
+| `sumber = '020100'` (poligon turunan layer DXF kadastrum) | 3.772 |
+| `sumber = 'peta-batas-blok'` | 1 |
+| `status = 'perlu_verifikasi'` | 3.622 |
+| `status = 'duplikat'` | 150 |
+| `status = 'aktif'` | 1 |
+| jumlah luas | 4.202.818,02 m² (420,28 ha) |
+
+**Sebelum dan sesudah.**
+
+| Hal | Sebelum | Sesudah |
+|---|---|---|
+| `bidang` | 7.950 baris — 4.177 `tanah` + 3.773 `lain` | **4.177** baris, seluruhnya `tanah` |
+| Bidang yang lolos saringan aplikasi | 7.796 (4.173 tanah + 3.623 non-tanah) | **4.173** |
+| `SUM(luas_m2)` | 16.913.617,87 m² | **12.710.799,85 m²** |
+| `hak` | 7.947 | **4.175** |
+| Pil *Obyek non-tanah* di Peta Bidang | 3.623 | **0** |
+| `blok` · `buku_c` · `objek_pajak` · `pengguna` | 24 · 1.419 · 3.794 · 1 | tidak berubah |
+
+Angka "sebelum" untuk luas dan `hak` adalah penjumlahan balik dari keadaan
+sesudah (`12.710.799,85 + 4.202.818,02` dan `4.175 + 3.772`); keduanya
+dicocokkan dengan bek penuh sebelum eksekusi.
+
+**Tabel lain tidak ikut berubah.** Diukur dari isi bek sebelum hapus lewat
+`_lama/scratch/dampak-hapus-non-tanah.php` — dump dibuat tanpa
+`--complete-insert`, jadi posisi kolom `bidang_id` diambil dari
+`information_schema` tabel hidup.
+
+| Tabel | Aturan FK | Baris yang menunjuk obyek non-tanah |
+|---|---|---|
+| `buku_c` | `SET NULL` | **0** dari 1.419 baris; kolom `bidang_id` memang sudah NULL seluruhnya sebelum hapus |
+| `objek_pajak` | `SET NULL` | **0** dari 3.794 baris (3.618 di antaranya NULL) |
+| `laporan`, `peralihan` | `SET NULL` | tabel kosong, 0 baris |
+| `hak` | `CASCADE` | **3.772** baris terhapus; 2.029 di antaranya menyimpan nama pemegang, 1.138 nama unik |
+
+Tabel `pemegang` kosong (0 baris) sebelum dan sesudah, jadi nama pada 2.029
+baris `hak` itu hanya teks bebas di dalam baris yang ikut terhapus — tidak ada
+master data yang hilang, tetapi nama-nama tersebut tidak bisa diambil lagi dari
+tabel lain.
+
+**Cara pengerjaan.** (1) `mysqldump` penuh →
+`storage/cadangan/sebelum-hapus-non-tanah-20261110-192909.sql` (9.911.863 B,
+21 tabel). (2) Bek baris saja untuk dua tabel terdampak →
+`storage/cadangan/baris-non-tanah-20261110-192909.sql` (3.936.769 B; 3.773
+INSERT `bidang` dan 3.772 INSERT `hak`); `--single-transaction` wajib, tanpa
+itu `--where` bersubquery kena `ERROR 1100` ("Table 'bidang' was not locked
+with LOCK TABLES"). (3) Kering: `START TRANSACTION`, `DELETE`, ukur
+`ROW_COUNT()`, lalu `ROLLBACK`. (4) Nyata: satu transaksi
+`DELETE FROM bidang WHERE tipe = 'lain'` dengan hasil `bidang_terhapus` 3.773,
+`bidang_sisa` 4.177, `hak_sisa` 4.175, kemudian `COMMIT`.
+
+**Verifikasi.**
+
+- `SELECT COUNT(*) FROM bidang WHERE tipe = 'lain'` → **0**.
+- Kunci asing yatim → **0** baris di `hak`, `buku_c`, `objek_pajak` yang
+  menunjuk id di luar `bidang`.
+- `v_ringkasan_sistem`: `jumlah_bidang` 4.177 = `jumlah_bidang_tanah` 4.177,
+  `jumlah_hak_tercatat` 4.175, `jumlah_blok` 24, `jumlah_objek_pajak` 3.794,
+  `jumlah_buku_c` 1.419.
+- Peramban (login Super Admin, muat ulang tanpa cache pada
+  `http://localhost/sigpetades/peta.php`): `pane-tanah` **4.173** `<path>`,
+  `pane-lain` 0, `.leaflet-interactive` 4.173; `?lapisan=bidang&maks=6000&tipe=lain`
+  mengembalikan 0 fitur dan `tipe=tanah` mengembalikan 4.173 fitur
+  (2.746.242 B); kepala peta "Sumber: 4.173 bidang tanah · 24 blok".
+- Satu jebakan pengujian dicatat supaya tidak dianggap regresi: pane tanah
+  sempat terlihat kosong karena `localStorage` masih menyimpan `bidang: false`
+  dari uji pil sebelumnya, bukan karena data hilang. Setelah pil *Bidang tanah*
+  dinyalakan lagi, seluruh poligon tergambar.
+
+**Kode tidak diubah.** Skema, halaman, dan API dibiarkan seperti adanya: kolom
+`tipe` tetap punya nilai `lain`, pil *Obyek non-tanah* dan saringan
+`?tipe=lain` pada `api/bidang.php` tetap ada (hasilnya sekarang selalu kosong),
+dan `tools/lib-impor.php` tetap memetakan layer `020100` ke
+`['tipe' => 'lain', 'kode' => 'DXF-020100']`.
+
+**Cara memulihkan.** `mysql ... < sebelum-hapus-non-tanah-20261110-192909.sql`
+mengembalikan seluruh basis data ke keadaan 10 Nov 19:29:09; bila yang
+dibutuhkan hanya obyek non-tanahnya,
+`mysql ... < baris-non-tanah-20261110-192909.sql` menambahkan kembali 3.773
+baris `bidang` dan 3.772 baris `hak` tanpa menyentuh data lain. Kedua berkas
+ada di `storage/cadangan/` (tidak dilacak git). Alternatif ketiga — mengimpor
+ulang layer `020100` lewat `tools/impor.php` — membentuk kembali baris
+`tipe = 'lain'`, tetapi dengan id dan kode baru sehingga tautan lama tidak ikut
+pulih.
+
+---
+
 ## 4. Berkas SPPT dari Excel
 
 Importer CSV menerima kolom berikut (nama kolom dibersihkan dari spasi dan tanda
