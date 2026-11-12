@@ -5410,7 +5410,7 @@ pada tabel di bawah).
 attribution `© OpenStreetMap` — itu peta dasar, bukan garis. (2) Lapisan label
 DXF `lapisan=jalan` (**620** titik) dan `lapisan=sungai` (**279** titik) pada
 Peta Bidang, dan ketiga lapis garis turunan kadastrum di Peta Induk
-([§3.73](#373-garis-batas-jalan-batas-perairan-dan-lain-lain-dari-layer-020100-10-nov-2026)).
+([§3.73](#373-garis-batas-jalan-batas-perairan-dan-lain-lain-diturunkan-dari-020100-10-nov-2026)).
 (3) `files/master peta/jalan_osm.json` (353.959 B, unduhan Overpass 19 Okt)
 beserta pemakainya: `tools/lib-impor.php` memotong batas blok ke tepi jalan
 berdasarkan berkas itu ([§3.8](#38-batas-blok-dari-peta-dasar),
@@ -5752,6 +5752,203 @@ tree, `tools/garis-batas-020100.php` 733 baris LF, tab nol di semuanya, dan
 aksara di luar skrip Latin nol; catatan glif diagram README ada di §3.77.
 Yang belum diuji hanyalah klik centang di halaman asli (butuh login Super
 Admin). Basis data dan berkas data tidak disentuh.
+
+---
+
+### 3.79 Lapis Jalan disambung menurut topologinya: 3.144 menjadi 1.981 baris (12 Nov 2026)
+
+Permintaan kerjanya: **perbaiki lagi garis jalan pada layer Jalan (3.144)
+berdasarkan layer Bidang & garis (16.322)**. Yang diperbaiki bukan klasifikasinya
+— [§3.73](#373-garis-batas-jalan-batas-perairan-dan-lain-lain-diturunkan-dari-020100-10-nov-2026)
+sudah memilih serpihan `020100` dengan benar — melainkan cara lapis itu
+disimpan: satu baris untuk **satu** entitas sumber, padahal satu sisi jalan di
+digitasi menjadi beberapa serpihan. Diukur dulu pada berkas hasil commit
+(`_lama/scratch/ukur-topologi-tmp.php`, dijalankan lalu dihapus; simpul = ujung
+yang berjarak ≤ 0,35 m, ambang `TOLERANSI_TEPI` si pembangkit):
+
+| | angka |
+|---|---|
+| baris | 3.144 · 10.898 titik · 129.268,93 m |
+| simpul (0,35 m) | 3.032 |
+| derajat simpul | 1 → 928 · **2 → 1.532** · 3 → 404 · 4 → 137 · 5 → 31 |
+| median / rata-rata panjang baris | 23,81 m / 41,12 m |
+| baris kembar bentuk (deviasi ≤ 0,5 m) | 6 pasang di bahan baku |
+
+Angka **1.532** itu sebabnya lapis ini sukar dibaca: dua potong yang berbagi
+satu titik tetap dua baris, `kode`-nya mengikuti urutan serpihan berkas sumber,
+dan tidak ada satu baris pun yang mewakili satu koridor utuh.
+
+**Alatnya** `tools/rapikan-garis-jalan.php` (CLI; uji kering bawaan,
+`--terapkan` untuk menulis, `--rinci` untuk daftar, `--keluaran=` untuk calon;
+ambang `--toleransi=`, `--belok=`, `--duplikat-maks=`). Empat aturannya, dan
+yang ke-4 itu bukan hiasan:
+
+1. **Simpul.** Ujung baris yang berjarak ≤ 0,35 m dihitung satu titik. Tidak
+   ada koordinat yang digeser; dua ujung yang tidak bertemu tetap dua garis.
+2. **Kembar.** Dua garis terbuka yang berbagi **kedua** simpul dan rata-rata
+   selisih titik tengah segmennya ≤ 0,5 m adalah tepi yang sama, digambar dua
+   kali; yang lebih sedikit titiknya (lalu lebih pendek) dibuang. Enam pasang
+   kena pada bahan baku, semuanya berselisih 0,00–0,03 m: `#2365↔#759`,
+   `#774↔#2346`, `#2671↔#1115`, `#2119↔#2131`, `#2175↔#2252`, `#2377↔#2510`;
+   satu pasang lagi baru muncul sesudah barisnya disambung (aturan 3) dan
+   dibahas di bawah. Sepasang tepi sejajar sebuah jalan (1–15 m) tidak ikut
+   terbuang karena selisih bentuknya jauh di atas ambang itu.
+3. **Sambungan.** Simpul yang tepat memegang **dua** baris menyatukan keduanya
+   selama belokan di simpul itu ≤ 40°. Simpul persimpangan (derajat ≥ 3) tidak
+   disentuh, cincin tidak dipecah. Histogram belokan di 1.503 simpul berderajat
+   2 yang sempat dinilai — 0° 996 · 10° 111 · 20° 32 · 30° 13 · 40° 14 · 50° 15
+   · 60° 18 · 70° 30 · 80° 108 · 90° 101 · 100° 28 · sisanya 37 — punya lembah
+   di 30–50° dan puncak di 70–90°, jadi ambang 40° jatuh di lembah itu: belokan
+   kecil adalah lanjutan koridor, puncak 70–90° adalah sudut jalan yang memang
+   harus tetap terputus.
+4. **Verifikasi.** Setiap baris asal harus cocok titik-demi-titik dengan
+   entitas `020100`-nya lewat properti `indeks`; setiap titik hasil harus pernah
+   menjadi titik salah satu baris asal; panjang total hanya boleh berkurang
+   sebesar kembar yang dibuang.
+
+| | sebelum | sesudah |
+|---|---|---|
+| baris | 3.144 | **1.981** (389 di antaranya kedua ujungnya jatuh di simpul yang sama; dihitung dengan koordinat persis, 385 benar-benar tertutup) |
+| panjang | 129.268,93 m | 129.175,09 m |
+| titik | 10.898 | 9.737 |
+| simpul (0,35 m) | 3.032 | 1.876 |
+| derajat 1 / 2 / 3 / 4 / 5 | 928 / 1.532 / 404 / 137 / 31 | 941 / 372 / 396 / 136 / 31 |
+| median / rata-rata / maksimum | 23,81 / 41,12 / 1.268,03 m | 41,12 / 65,21 / 1.630,48 m |
+| ukuran berkas | 1.184.649 B | 963.370 B |
+| komponen terhubung | 540 | 540 |
+
+**Dijalankan dua kali, diuji untuk ketiga kalinya.** Putaran pertama membuat
+1.155 sambungan dan membuang 6 baris kembar (3.144 → 1.983). Pada hasil itu
+muncul satu kembar yang sebelumnya tidak terlihat: `JALAN-020100-0028`
+(rangkaian baris asli #90 + #91, 24,88 m) ternyata berbagi kedua simpul dengan
+satu garis tunggal asli #2824 (indeks sumber 12492, 25,22 m) dengan deviasi
+0,042 m — sebelumnya ujung-ujungnya dipegang empat baris berbeda sehingga
+aturan "kedua simpul" belum terpenuhi. Putaran kedua membuang #2824 dan
+menyambung satu simpul derajat 2 lagi (belok 1,3°): **1.981 baris**. Uji ketiga
+melaporkan 0 kembar dan 0 sambungan, dan berkas yang ditulis ulang identik
+bita-demi-bita (MD5 `afcf58404e15881c9240f2cfa73cbebe` sebelum dan sesudah) —
+jadi angka itu titik tetapnya. Salinan cadangan dan jejak uji ketiga dibuang
+karena tidak berisi pekerjaan apa pun; yang tersisa tinggal bekasnya sebagai
+penghitung `putaran` 3 di blok `dirapikan` `metadata.json`.
+
+Sambungan dibuat **1.156** (1.155 + 1); 351 simpul berderajat 2 ditolak pada
+putaran pertama dan 345 pada keadaan akhir karena belokannya > 40°. Jumlah
+simpul turun persis sebesar sambungan yang terjadi (3.032 − 1.156 = 1.876).
+Simpul berderajat satu naik 928 → 941 karena tujuh baris kembar yang dibuang
+meninggalkan ujung pasangannya sendirian. Dari 1.156 sambungan, **1.147**
+membuang satu titik (dua baris bertemu di koordinat yang sama persis);
+sembilan sisanya mempertahankan kedua titik sumber dan menarik ruas penghubung
+hairline — itu satu-satunya garis baru yang dibuat alat ini.
+
+**Tuntasan pemeriksaan.** 3.144 dari 3.144 baris bahan baku cocok penuh dengan
+entitas `020100`-nya, 0 sebagian, 0 tanpa `indeks`; pada lapis akhir 1.981 dari
+1.981 baris juga cocok penuh — uji keanggotaan titik dipakai terhadap gabungan
+`indeks_all`, sebab satu baris hasil bisa mewakili beberapa entitas sumber.
+**0** titik hasil yang bukan titik baris asal. Neraca titik: 10.898 − 1.147
+(satu titik tiap sambungan yang presisi) − 14 (tujuh baris kembar × dua titik)
+= 9.737. Diperiksa terpisah pada tingkat segmen
+(`_lama/scratch/ukur-sisi-tmp.php`, dijalankan lalu dihapus): bahan baku 6.035
+bentuk sisi berbeda, hasil 6.039; **9** sisi hasil tidak ada di bahan baku —
+ruas jembatan antara dua salinan simpul yang bergetar, panjangnya 0,017–0,262 m
+dengan total 1,254 m, di baris 22, 43, 195, 207, 236, 680, 922, 1182 dan 1314;
+**5** sisi bahan baku tidak lagi ada, semuanya tepi tunggal baris kembar yang
+dibuang (`#774`, `#2175`, `#2365`, `#2377`, `#2824`) — dua korban lain
+(`#2119`, `#2671`) geometrinya identik dengan pasangannya (deviasi 0,000 m)
+sehingga sisinya tetap terbaca. Neraca panjang: 129.268,93 − 95,08 (kembar)
+= 129.173,85 ditambah jembatan 1,254 m = 129.175,10, sedangkan geometri mentah
+hasilnya 129.175,0929 m — selisih 0,011 m, sama dengan pembulatan dua angka
+setiap angka neraca itu sendiri. Jumlah properti `panjang_m` per baris memberi
+129.175,13, yaitu 0,04 m lebih besar, karena tiap baris dibulatkan sendiri. `jumlah_bagian` seluruh
+hasil berjumlah 3.137 = 3.144 − 7, sebarannya 1 bagian 1.539 baris · 2 → 193 ·
+3 → 95 · 4 → 48 · 5 → 32 · 6 → 28 · sampai maksimum 16. `kode` dinomori ulang
+0001–1981 runtut dan unik, urut menurut `indeks` sumber terkecil tanpa satu
+penurunan pun. Sudut belokan ke-1.156 sambungan: median 2,6°, rata-rata 4,8°,
+terbesar 39,8°; delapan di antaranya ≥ 35° dan **tidak ada** yang mencapai
+ambang 40°.
+
+**Simpul yang sudah dikenal dari review halaman per halaman** diuji ulang
+terhadap cadangan sebelum rapikan (`_lama/scratch/cek-belok-tmp.php`, dijalankan
+lalu dihapus) supaya keputusan alat bisa dibandingkan dengan pengamatan mata;
+sudutnya diukur pada bahan baku. #499↔#501 belok 91,0° (derajat 2) dan
+#501↔#500 89,5° (derajat 2) → **dibiarkan**, sesuai dugaan bahwa rantai itu
+berbelok siku; ketiganya tetap tiga baris tunggal (`JALAN-020100-0337` 27,85 m,
+`-0338` 28,19 m, `-0339` 39,90 m). #253↔#254 98,7° dan #254↔#255 83,8°
+sama-sama di simpul **derajat 3** → dua alasan untuk tidak menyambung, dan
+keempatnya memang keluar sebagai empat baris tunggal (`-0160` 44,71 m, `-0161`
+44,22 m, `-0162` 60,04 m, `-0163` 107,21 m). #502↔#505 90,2° di simpul empat
+baris 263.470,29 · 715.778,76 → tidak disentuh (`-0340` 23,01 m, `-0343`
+14,41 m). #325↔#326 bahkan tidak berbagi simpul (ujungnya berselang 1,06 m).
+Yang seharusnya menyatu juga cocok, dan tiap sambungan bisa dibaca angkanya di
+jejak: rantai yang dulu tercatat terputus-putus #323+#322+#321 (119,16 + 17,59
++ 71,09 m) tersambung dengan belokan 0,4° dan 7,8°, lalu bertambah dua anggota
+lagi (#808 20,79 m, #811 30,47 m; 0,3° dan 1,3°) menjadi satu baris
+`JALAN-020100-0216` 259,11 m lima bagian; #497+#498 (20,20 + 20,63 m) menyeret
+#167 (22,45 m, belokan 1,0° dan 0,5°) menjadi `JALAN-020100-0078` 63,28 m.
+Rantai paling panjang hasil semuanya `JALAN-020100-0977`: 16 baris asli
+(#1468–#1476, #1483, #1484, #1493, #1946–#1948, #2185) menjadi 766,36 m lewat
+15 sambungan bersudut 0,0°–24,0°. Yang lebih pendek tapi dulu mencolok:
+`-0166` #259+#681+#682 = 50,15 m (0,2° dan 3,5°), `-0168` #261+#683+#2336 =
+72,70 m (4,4° dan 5,1°), `-0879` #1336+#1676 = 32,20 m (8,4°), `-1443`
+#2379+#2620 = 25,33 m (0,2°).
+
+**Cincin tidak dipecah, dan aturannya memang tidak pernah menutup dua cincin
+jadi satu.** Lima baris
+`asal: bidang` — satu-satunya yang sumbernya cincin poligon, bukan garis
+terbuka — adalah baris asli #3140–#3144 (indeks 4383, 5065, 14265, 11936,
+12901; 195,7 / 181,38 / 117,03 / 84,95 / 65,84 m). Kelimanya tertutup sejak
+awal dan keluar apa adanya sebagai satu bagian di `-0690`, `-0799`, `-1720`,
+`-1589` dan `-1710`. Dua cincin lain yang pernah dicurigai berlebih, #2918
+(267,95 m) dan #2919 (157,09 m), juga tetap baris tunggal.
+
+**Yang sengaja tidak dikerjakan.** Celah digitasi tidak dijembatani dan tidak
+ada geometri yang dikarang, jadi sisa fragmentasi dilaporkan apa adanya: 941
+ujung bergantung, jaraknya ke ujung bergantung terdekat terpita 85 ≤ 2 m · 327
+2–10 m · 482 10–50 m · 47 > 50 m. Komponen tetap 540 — menyambung di dalam
+satu komponen tidak mengurangi jumlahnya, dan alat ini memang tidak pernah
+menyambung dua komponen. `garis-selokan`, `garis-perairan` dan `garis-lain`
+tidak disentuh sehingga pembagian kelas hasil
+[§3.77](#377-garis-turunan-020100-dipecah-jalan--selokan--perairan-10-nov-2026)
+tetap eksklusif.
+
+**Sajian di Peta Induk tidak diubah.** Panel membaca angka dari metadata
+(`peta-lama.php:20` → `api/peta-lama.php:44`), jadi centang *Jalan* kini
+menampilkan **Jalan (1.981)** tanpa satu baris kode pun berubah; grep pada
+`*.php` di luar `_lama/` hanya menemukan angka 3.144 di blok dokumen alat baru
+yang memang menggambarkan bahan bakunya. `metadata.json` ikut diperbarui:
+`features` 1.981, `panjang_m` 129.175, `cara` pita1 1.036 · benih 568 · pita2
+377 (diwarisi bagian terpanjang), `asal` garis 1.976 · bidang 5, plus blok
+`dirapikan` yang **akumulatif**: `putaran` 3, `pertama_pada` 10:10:53,
+`sebelum_baris` 3.144 dan `sebelum_panjang_m` 129.268,93 (keadaan bahan baku,
+bukan hasil putaran sebelumnya), `duplikat_dibuang` 7, `duplikat_panjang_m`
+95,08, `sambungan` 1.156, `jembatan_m` 1,254 — sedangkan `cincin` 389,
+`ujung_bergantun` 941, `pita_jarak`, `simpul_ditolak_belok` 345 dan
+`belokan_dinilai` menggambarkan keadaan sesudah putaran terakhir, seperti yang
+dijelaskan kunci `catatan` di dalam blok itu sendiri. Akumulasi hanya
+diteruskan kalau ambangnya sama; ganti `--belok=` lalu jalankan ulang, maka
+bloknya dimulai dari nol. Properti baru tiap fitur: `indeks_all` (daftar
+entitas sumber yang sudah disatukan), `jumlah_bagian`, `dirapikan`. Pada baris
+hasil sambungan, `rasio_tepi_bidang` dan `jarak_label_m` adalah rata-rata
+tertimbang panjang dan `cara`/`label` diwarisi bagian terpanjang — karena
+`jarak_label_m` punya dua makna (`cara = benih`: jarak ke label; `pita1`/`pita2`:
+lebar koridor ke tetangga sejajar), nilai campuran tidak boleh dibaca sebagai
+salah satunya. Contoh yang terukur: `-0977` (16 bagian) berjarak 1,88 m,
+`-0216` (5 bagian) 1,12 m, `-0078` (3 bagian) 4,87 m.
+
+**Basis data tidak disentuh** — alat ini bahkan tidak membuka koneksi (grep
+`db_` pada `tools/rapikan-garis-jalan.php` kosong); satu-satunya bahan baca di
+luar lapis itu adalah `020100.geojson` untuk verifikasi. Cadangan bahan baku
+1.184.649 B di `storage/cadangan/garis-jalan-sebelum-rapikan-20261112-101053.geojson`,
+hasil antara (1.983 baris, 964.081 B) di
+`storage/cadangan/garis-jalan-sebelum-rapikan-20261112-102800.geojson`; jejak
+lengkap 253.097 B dan 2.153 B di `storage/rapikan-jalan-20261112-101053.json`
+dan `...-102800.json`, masing-masing berisi daftar sambungan beserta bagian,
+sudut dan titik yang dibuang. Higienitas: alat 747 baris LF tanpa tab (0 CRLF),
+`php -l` bersih; `README.md` seluruhnya CRLF sebelum dan sesudah bagian ini;
+skrip ukur hanya hidup sebentar di `_lama/scratch/` dan sudah dihapus — folder
+itu tidak ikut ke dalam repo; aksara di luar skrip Latin nol di keduanya selain
+glif matematika (≤ ≥ ≈ −) yang sudah dipakai luas di dokumen ini — termasuk
+dua aksara Mandarin yang menyelinap di paragraf "Tuntasan pemeriksaan" ketika
+draf ini ditulis dan dikoreksi di tempat sebelum bagian ini dianggap selesai.
 
 ---
 
