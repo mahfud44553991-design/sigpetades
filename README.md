@@ -5508,9 +5508,9 @@ master data yang hilang, tetapi nama-nama tersebut tidak bisa diambil lagi dari
 tabel lain.
 
 **Cara pengerjaan.** (1) `mysqldump` penuh →
-`storage/cadangan/sebelum-hapus-non-tanah-20261110-192909.sql` (9.911.863 B,
+`sebelum-hapus-non-tanah-20261110-192909.sql` (9.911.863 B,
 21 tabel). (2) Bek baris saja untuk dua tabel terdampak →
-`storage/cadangan/baris-non-tanah-20261110-192909.sql` (3.936.769 B; 3.773
+`baris-non-tanah-20261110-192909.sql` (3.936.769 B; 3.773
 INSERT `bidang` dan 3.772 INSERT `hak`); `--single-transaction` wajib, tanpa
 itu `--where` bersubquery kena `ERROR 1100` ("Table 'bidang' was not locked
 with LOCK TABLES"). (3) Kering: `START TRANSACTION`, `DELETE`, ukur
@@ -5546,9 +5546,17 @@ dan `tools/lib-impor.php` tetap memetakan layer `020100` ke
 mengembalikan seluruh basis data ke keadaan 10 Nov 19:29:09; bila yang
 dibutuhkan hanya obyek non-tanahnya,
 `mysql ... < baris-non-tanah-20261110-192909.sql` menambahkan kembali 3.773
-baris `bidang` dan 3.772 baris `hak` tanpa menyentuh data lain. Kedua berkas
-ada di `storage/cadangan/` (tidak dilacak git). Alternatif ketiga — mengimpor
-ulang layer `020100` lewat `tools/impor.php` — membentuk kembali baris
+baris `bidang` dan 3.772 baris `hak` tanpa menyentuh data lain. **Lokasi
+Kedua berkas itu sekarang `D:/cadangan-sigpetades/2026-11-13/`** — dipindah dari
+`storage/cadangan/` pada 13 Nov 2026 atas permintaan user, jadi tetap di luar repo
+(tidak pernah dilacak git) dan sekaligus di luar document root: tidak ada URL yang
+menjangkaunya, bahkan kalau `.htaccess` bocor. Integritasnya terukur sebelum dan
+sesudah pindah, MD5 `257b1febc53e174f5a3283463a31fb3e` dan
+`efbcd31c8008fcbfa92ae43262de026c`. Delapan dump berstempel 8 Nov yang ada di
+folder itu bersamaan (enam cacat 188-189 KB dengan 10 INSERT vs 25 DROP, dua penuh
+9.903.763 B) dihapus pada hari yang sama, 20.942.060 B dibebaskan, sehingga
+snapshot penuh tertua yang tersisa adalah keadaan 10 Nov 19:29. Alternatif ketiga —
+mengimpor ulang layer `020100` lewat `tools/impor.php` — membentuk kembali baris
 `tipe = 'lain'`, tetapi dengan id dan kode baru sehingga tautan lama tidak ikut
 pulih.
 
@@ -5937,9 +5945,13 @@ salah satunya. Contoh yang terukur: `-0977` (16 bagian) berjarak 1,88 m,
 **Basis data tidak disentuh** — alat ini bahkan tidak membuka koneksi (grep
 `db_` pada `tools/rapikan-garis-jalan.php` kosong); satu-satunya bahan baca di
 luar lapis itu adalah `020100.geojson` untuk verifikasi. Cadangan bahan baku
-1.184.649 B di `storage/cadangan/garis-jalan-sebelum-rapikan-20261112-101053.geojson`,
+1.184.649 B di `garis-jalan-sebelum-rapikan-20261112-101053.geojson`,
 hasil antara (1.983 baris, 964.081 B) di
-`storage/cadangan/garis-jalan-sebelum-rapikan-20261112-102800.geojson`; jejak
+`garis-jalan-sebelum-rapikan-20261112-102800.geojson` — keduanya ditulis ke
+`storage/cadangan/` oleh alat itu (perilaku bawaannya tidak berubah) dan dipindah
+ke `D:/cadangan-sigpetades/2026-11-13/` pada 13 Nov 2026, MD5
+`17b2f2eae32f4346eb00692f6ebdcd73` dan `732cb4a4e421cc5b905a9c48906fd209` sama
+sebelum dan sesudah pindah; jejak
 lengkap 253.097 B dan 2.153 B di `storage/rapikan-jalan-20261112-101053.json`
 dan `...-102800.json`, masing-masing berisi daftar sambungan beserta bagian,
 sudut dan titik yang dibuang. Higienitas: alat 747 baris LF tanpa tab (0 CRLF),
@@ -6161,6 +6173,36 @@ menambah ±3 MB per blok), jadi yang perlu dijaga: salin berkas cadangan keluar
 disk secara berkala dan pantau sisa ruang. Kalau kelak dibutuhkan pemangkasan,
 buat alatnya dengan mode uji kering bawaan dan **pindahkan** berkas lama ke
 arsip, jangan menghapus.
+
+**23 rujukan cadangan lama di README sudah tidak ada di disk (ditemukan 13 Nov
+2026).** Pindai seluruh nama berkas dump yang disebut README (pola
+`sebelum-*`/`sesudah-*` berstempel `2026MMDD-HHMMSS-xxxx.sql`) menghasilkan 23
+berkas unik pada 24 sebutan, semuanya berprefix `storage/cadangan/`, dan
+**nol** di antaranya masih ada: sembilan belas berkas berstempel 1 Nov dan empat
+berstempel 2 Nov. Sebaran sebutannya §3.26 (16), §3.27 (1), §3.28 (2), §3.30–§3.34
+(satu per bagian); `sebelum-identitas-bidang-20261101-100004-9e84.sql` adalah satu
+berkas yang disebut dua kali — di §3.27 dan §3.28 — jadi 24 sebutan itu memang
+hanya 23 berkas. Semuanya terletak sebelum §3.76. Tidak ada satu pun yang
+hilang karena operasi 13 Nov — ketika `storage/cadangan/` dibuka hari itu isinya
+hanya delapan dump 8 Nov, pasangan 10 Nov 19:29, dan dua geojson lapis Jalan;
+penelusuran seluruh docroot dan tiga tingkat ke bawah di `D:/` juga tidak
+menemukan salinannya di tempat lain. Jadi angka-angka di §3.26–§3.34 tetap sah
+sebagai riwayat pekerjaan —
+titik amannya memang pernah dibuat — tetapi **kembali-ke-keadaan-itu tidak mungkin
+lagi**; titik aman tertua yang masih ada ialah keadaan 10 Nov 19:29 di luar document
+root (lihat §3.76).
+
+**Status retensi per 13 Nov 2026, pengingat saat membaca paragraf di atas.** Delapan
+dump 8 Nov dihapus permanen (20.942.060 B dibebaskan) dan sisa isi `storage/cadangan/`
+dipindah keluar document root ke `D:/cadangan-sigpetades/2026-11-13/` (lima entri:
+dua dump 10 Nov + dua geojson lapis Jalan = 15.997.362 B, dan `.dump-err.txt` 0 B;
+MD5 dicocokkan sebelum dan sesudah pindah). Folder `storage/cadangan/`
+kini 0 berkas, sehingga kartu *Pulihkan* di Pengaturan (§3.24) menampilkan daftar
+kosong — `cadangan_daftar()` hanya men-glob folder itu. Angka 142 MB / 63 MB / 20
+berkas `.sql` / 230 jejak JSON pada paragraf 1 Nov itu adalah keadaan saat keputusan
+diambil, bukan keadaan kini; akar `storage/` pun sekarang menampung dua dump 5 Nov
+(2.873.262 B) dan 30 jejak JSON (1.489.863 B), bukan dua dump 20 Okt 11,9 MB dan 230
+jejak 11 MB yang disebut di sana.
 
 ---
 
