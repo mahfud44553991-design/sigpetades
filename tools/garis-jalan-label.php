@@ -55,7 +55,7 @@ declare(strict_types=1);
  *
  * Tahap 2 — sumbu (garis-jalan-sumbu.geojson).
  *  1. potongan tepi yang ujungnya berjarak <= RAGU_SISI dianggap simpul yang
- *     sama, dan potongan yang berbagi simpul adalah satu SISi: dua baris yang
+ *     sama, dan potongan yang berbagi simpul adalah satu SISI: dua baris yang
  *     sebenarnya satu sisi jalan tidak boleh berpasangan satu sama lain;
  *  2. tiap titik sampel sisi A dicari sisi B terdekat dengan syarat: sisi B
  *     bukan sisinya sendiri, lebar koridor >= LEBAR_MIN dan <= --lebar, beda
