@@ -6193,6 +6193,82 @@ dan tidak ikut ke repo: `cek-tepi-vs-terbit.php` (cocokkan superset),
 (glif + baris, kini menerima lebih dari satu berkas dan mencetak daftar codepoint
 asing lengkap dengan jumlahnya).
 
+### 3.81 Blok diambil otomatis dari titik pusat bidang penanda (13 Nov 2026)
+
+Cabang `fitur/simpan-bidang-garis-baru` diminta masuk ke `main`. Sebelum ada
+yang digerakkan, cabang itu dibaca dengan `git merge-tree --write-tree` saja
+(ruang kerja tidak disentuh): tiga berkas konflik
+(`api/penanda-bidang.php`, `peta-blok.php`, `peta-lama.php`) dan satu
+regresi yang tidak terlihat dari daftar nama — `api/bidang.php` hasil
+penggabungan kembali memuat tiga rujukan `jalan_osm`, jadi menggabungkan
+cabang akan menghidupkan kembali garis jalan OSM yang dihapus pada §3.75.
+Sisanya sudah lewat zaman: `garis-baru` dan potongan kantong terbuka sudah ada
+di `main`, penyederhanaan Jalan/Sungai sekarang tinggal di `app/peta-rapi.php`,
+dan cabang tidak membawa apa-apa lagi yang belum. Yang benar-benar hilang
+cuma satu perilaku: **blok ditetapkan otomatis dari titik pusat bidang**.
+Keputusan user: perilaku itu dipindahkan, cabang tidak digabungkan.
+
+**Yang dipasang** `blokPusatBidang()` di `api/penanda-bidang.php` — satu
+pencarian per bidang, dipakai dua jalur simpan:
+
+```sql
+SELECT id, kode
+  FROM blok
+ WHERE geom IS NOT NULL
+   AND batas_perkiraan = 0
+   AND ST_Contains(geom, POINT(?, ?))
+ ORDER BY ST_Area(geom) ASC
+ LIMIT 1
+```
+
+Titik yang diuji adalah pusat yang sama dengan yang ditulis ke
+`pusat_lon`/`pusat_lat`, hasil `siapkanGeometri()`, jadi blok yang tercatat
+memang blok tempat bidang itu berada menurut basis data — bukan dugaan lain
+dari klien. Bila tidak ada yang memuat, `blok_id` tetap `NULL` dan kalimat
+catatan tidak berubah ("perlu verifikasi dan penetapan blok"). Yang berubah
+hanya jalur tulis: `sisipBidangPenanda()` menyertakan kolom `blok_id`,
+`catatanPenanda()` menyisipkan `; blok BLOK 8 dari titik pusat bidang`, dan
+`audit_log.data_sesudah.blok` ikut terisi di jalur tunggal maupun massal.
+Balasan `simpan` kini berbunyi "Bidang baru disimpan sebagai perlu verifikasi
+di BLOK 8." dan `batch-simpan` mengembalikan `blok` per baris. Tidak ada baris
+lama yang ditafsirkan ulang: `UPDATE` tidak dijalankan di mana-mana.
+
+**Yang diukur**, semuanya pada salinan snapshot 10 Nov 2026
+(`sebelum-hapus-non-tanah-20261110-192909.sql` dipulihkan ke basis data baru
+`sipetades_gedong_uji`; `D:\xampp\...\mysql.exe`, 14 s, 988 baris dump). Basis
+data hidup tidak pernah dibuka: dua skrip penghitung memakai DSN PDO yang
+nama basis datanya ditulis tetap, dan skrip penguji API berhenti di baris
+pertama kalau `SIG_DB_NAME` tidak menunjuk ke kercil.
+
+| yang diukur | angka |
+|---|---|
+| baris `blok` dan isinya | 24; 24-24 berpoligon; 0 berbatas perkiraan, jadi penyaring `batas_perkiraan = 0` belum bekerja di data ini |
+| pasangan blok yang saling bersentuh (`ST_Intersects`) | 24 — tapi sentuhan tepi, bukan tumpang tindih muka |
+| pusat bidang yang jatuh di 0 / 1 / >= 2 blok | 44 / 7.902 / 0 dari 7.946 bidang berpusat, jadi urutan `ST_Area` tidak pernah yang memutuskan |
+| kesepakatan dengan `blok_id` yang sudah tersimpan | 7.772 sama dari 7.886 (98,6 %); 114 beda dan pada semuanya blok tersimpan tidak memuat pusat bidangnya sendiri — warisan penetapan lama sebelum geometri blok sekarang |
+| bidang yang belum punya blok dan kini akan terisi | 59 dari 60 sampel |
+| ujian ujung ke ujung lewat API | 6 bidang disimpan (1 `simpan`, 5 `batch-simpan`): 5 dapat `blok_id` (BLOK 8, 21, 3, 23, 5), 1 tetap `NULL`; catatan dan `audit_log` sesuai bentuk di atas |
+
+Cabang itu sendiri dibiarkan apa adanya di `origin`: tidak digabung, tidak
+dihapus, dan tidak ada satu pun hunk-nya yang diambil selain yang di atas.
+Verifikasi peramban belum dilakukan — teks balasan `simpan` hanya dilihat dari
+keluaran CLI. Skrip penguji tinggal di `_lama/scratch/` dan tidak ikut ke repo:
+`uji-blok-pusat.php` (keadaan blok + sampel kesepakatan), `uji-blok-pusat2.php`
+(peta `id`-`kode` blok, cacah blok per titik, kesepakatan menyeluruh) dan
+`uji-blok-penanda.php` (menjalankan `api/penanda-bidang.php` sungguhan terhadap
+kercil lewat salinan tanpa baris bootstrap, pola §3.72).
+
+**Tuntasan pemeriksaan.** Setelah bagian ini ditulis, kedua berkas yang
+bersangkutan diukur ulang: `README.md` 416.401 B / 6.640 baris, 6.639 di
+antaranya dipisah CRLF dan nol baris yang hanya berpisah LF, nol tab;
+`api/penanda-bidang.php` 19.989 B / 535 baris seluruhnya berpisah LF (sama
+seperti sebelum disentuh) dan nol tab. Nol han, hiragana, katakana, hangul dan
+form penuh pada keduanya — aksara di luar Latin-1 di README tetap tanda baca
+dan glif matematika yang sudah dipakai luas di dokumen ini, sedangkan berkas
+API hanya sepasang tanda kutip lengkung yang memang sudah ada. Angka ini
+dipindaikan sendiri dengan `pindai-glif-20261113.php`, bukan diambil dari
+pesan perkakas lain.
+
 ---
 
 ## 4. Berkas SPPT dari Excel

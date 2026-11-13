@@ -53,7 +53,7 @@ if (!is_array($masukan)) {
 $aksi = (string) ($masukan['aksi'] ?? '');
 
 /** Asal geometri, dipakai di catatan bidang dan jejak audit. */
-function catatanPenanda(string $jenis, string $handle, float $x, float $y): string
+function catatanPenanda(string $jenis, string $handle, float $x, float $y, ?array $blok = null): string
 {
     $asal = match ($jenis) {
         'garis' => 'rangkaian garis',
@@ -62,23 +62,60 @@ function catatanPenanda(string $jenis, string $handle, float $x, float $y): stri
         default => 'poligon tertutup ' . ($handle !== '' ? $handle : 'tanpa handle'),
     };
     return sprintf(
-        'Dibuat dari penanda X %.2f Y %.2f pada layer peta induk 020100 (%s); perlu verifikasi dan penetapan blok.',
+        'Dibuat dari penanda X %.2f Y %.2f pada layer peta induk 020100 (%s); perlu verifikasi%s.',
         $x,
         $y,
-        $asal
+        $asal,
+        $blok !== null ? '; blok ' . $blok['kode'] . ' dari titik pusat bidang' : ' dan penetapan blok'
     );
 }
 
+/**
+ * Blok yang menaungi titik pusat bidang.
+ *
+ * Pusat yang dipakai adalah titik yang sama dengan yang disimpan pada baris
+ * ini (`pusat_lon`/`pusat_lat`), jadi blok yang tercatat memang blok tempat
+ * bidang itu berada menurut basis data. Poligon blok terkecil menang kalau
+ * ada yang bertumpuk, dan blok berbatas perkiraan diabaikan supaya bidang
+ * baru tidak otomatis masuk ke blok yang batasnya masih dugaan.
+ *
+ * @param array{lon:?float,lat:?float} $pusat
+ * @return array{id:int,kode:string}|null
+ */
+function blokPusatBidang(?array $pusat): ?array
+{
+    $lon = $pusat['lon'] ?? null;
+    $lat = $pusat['lat'] ?? null;
+    if ($lon === null || $lat === null) {
+        return null;
+    }
+    $blok = db_one(
+        'SELECT id, kode
+           FROM blok
+          WHERE geom IS NOT NULL
+            AND batas_perkiraan = 0
+            AND ST_Contains(geom, POINT(?, ?))
+          ORDER BY ST_Area(geom) ASC
+          LIMIT 1',
+        [(float) $lon, (float) $lat]
+    );
+    if ($blok === null) {
+        return null;
+    }
+    return ['id' => (int) $blok['id'], 'kode' => (string) $blok['kode']];
+}
+
 /** Sisipkan satu bidang hasil penanda beserta hak BLM-nya; mengembalikan id baru. */
-function sisipBidangPenanda(PDO $pdo, string $kode, array $siap, string $catatan, int $idJenisHak): int
+function sisipBidangPenanda(PDO $pdo, string $kode, array $siap, string $catatan, int $idJenisHak, ?int $blokId = null): int
 {
     $pdo->prepare(
         'INSERT INTO bidang
-            (kode, tipe, luas_m2, status, sumber, catatan, geom, pusat_lon, pusat_lat)
-         VALUES (?, \'tanah\', ?, \'perlu_verifikasi\', \'peta-020100\', ?, ST_GeomFromText(?, 4326), ?, ?)'
+            (kode, tipe, luas_m2, blok_id, status, sumber, catatan, geom, pusat_lon, pusat_lat)
+         VALUES (?, \'tanah\', ?, ?, \'perlu_verifikasi\', \'peta-020100\', ?, ST_GeomFromText(?, 4326), ?, ?)'
     )->execute([
         $kode,
         round((float) $siap['luas'], 2),
+        $blokId,
         $catatan,
         $siap['wkt'],
         $siap['pusat']['lon'],
@@ -202,9 +239,11 @@ function susunBatch(array $titik): array
             'status' => 'baru',
             'geometri' => $ditemukan['calon']['geometry'],
         ];
+        $blok = blokPusatBidang($siap['pusat']);
         $bahan[] = $baris + [
             'siap' => $siap,
-            'catatan' => catatanPenanda($jenis, $handle, $x, $y),
+            'blok' => $blok,
+            'catatan' => catatanPenanda($jenis, $handle, $x, $y, $blok),
         ];
     }
 
@@ -316,19 +355,21 @@ if ($aksi === 'simpan') {
         json_error('Jenis hak BLM tidak tersedia. Jalankan sql/01_skema.sql.', 500);
     }
 
+    $blok = blokPusatBidang($pratinjau['pusat'] ?? null);
     $catatan = catatanPenanda(
         (string) $pratinjau['jenis'],
         (string) $pratinjau['handle'],
         (float) $pratinjau['x'],
-        (float) $pratinjau['y']
+        (float) $pratinjau['y'],
+        $blok
     );
 
-    $id = db_transaksi(static function (PDO $pdo) use ($pratinjau, $idJenisHak, $catatan): int {
+    $id = db_transaksi(static function (PDO $pdo) use ($pratinjau, $idJenisHak, $catatan, $blok): int {
         return sisipBidangPenanda($pdo, (string) $pratinjau['kode'], [
             'wkt' => (string) $pratinjau['wkt'],
             'luas' => (float) $pratinjau['luas'],
             'pusat' => $pratinjau['pusat'],
-        ], $catatan, (int) $idJenisHak);
+        ], $catatan, (int) $idJenisHak, $blok['id'] ?? null);
     });
 
     unset($_SESSION['penanda_bidang']);
@@ -339,9 +380,14 @@ if ($aksi === 'simpan') {
         'handle' => $pratinjau['handle'],
         'penanda' => ['x' => $pratinjau['x'], 'y' => $pratinjau['y']],
         'luas_m2' => round((float) $pratinjau['luas'], 2),
+        'blok' => $blok['kode'] ?? null,
     ]);
 
-    json_ok(['id' => $id, 'kode' => $pratinjau['kode']], 'Bidang baru disimpan sebagai perlu verifikasi.');
+    json_ok(
+        ['id' => $id, 'kode' => $pratinjau['kode'], 'blok' => $blok['kode'] ?? null],
+        'Bidang baru disimpan sebagai perlu verifikasi'
+            . ($blok !== null ? ' di ' . $blok['kode'] : '') . '.'
+    );
 }
 
 if ($aksi === 'batch-bersihkan') {
@@ -430,7 +476,14 @@ if ($aksi === 'batch-simpan') {
                 $dilewati[] = ['i' => $bahan['i'], 'kode' => $bahan['kode'], 'duplikat' => $duplikat];
                 continue;
             }
-            $id = sisipBidangPenanda($pdo, $bahan['kode'], $bahan['siap'], $bahan['catatan'], (int) $idJenisHak);
+            $id = sisipBidangPenanda(
+                $pdo,
+                $bahan['kode'],
+                $bahan['siap'],
+                $bahan['catatan'],
+                (int) $idJenisHak,
+                $bahan['blok']['id'] ?? null
+            );
             $dibuat[] = [
                 'id' => $id,
                 'i' => $bahan['i'],
@@ -438,6 +491,7 @@ if ($aksi === 'batch-simpan') {
                 'jenis' => $bahan['jenis'],
                 'handle' => $bahan['handle'],
                 'luas_m2' => $bahan['luas_m2'],
+                'blok' => $bahan['blok']['kode'] ?? null,
             ];
         }
         return ['dibuat' => $dibuat, 'dilewati' => $dilewati];
@@ -460,6 +514,7 @@ if ($aksi === 'batch-simpan') {
                 'handle' => $bidang['handle'],
                 'penanda' => ['x' => $titik[$bidang['i']][0], 'y' => $titik[$bidang['i']][1]],
                 'luas_m2' => $bidang['luas_m2'],
+                'blok' => $bidang['blok'],
                 'massal' => true,
             ]);
     }
