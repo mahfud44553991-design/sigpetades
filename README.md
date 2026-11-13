@@ -5554,8 +5554,12 @@ menjangkaunya, bahkan kalau `.htaccess` bocor. Integritasnya terukur sebelum dan
 sesudah pindah, MD5 `257b1febc53e174f5a3283463a31fb3e` dan
 `efbcd31c8008fcbfa92ae43262de026c`. Delapan dump berstempel 8 Nov yang ada di
 folder itu bersamaan (enam cacat 188-189 KB dengan 10 INSERT vs 25 DROP, dua penuh
-9.903.763 B) dihapus pada hari yang sama, 20.942.060 B dibebaskan, sehingga
-snapshot penuh tertua yang tersisa adalah keadaan 10 Nov 19:29. Alternatif ketiga —
+9.903.763 B) dihapus pada hari yang sama, 20.942.060 B dibebaskan, sehingga di
+antara berkas-berkas itu keadaan tertua yang tersisa adalah 10 Nov 19:29. Kesimpulan
+"keadaan 8 Nov tidak ada lagi" ternyata salah: satu dump penuh 8 Nov 13:42 dan dua
+salinan ekspor JSON 8 Nov 13:41 masih utuh di `storage/impor/`, yaitu folder tempat
+kartu Impor menyimpan berkas unggahan — angka dan MD5-nya dicatat di §9.
+Alternatif ketiga —
 mengimpor ulang layer `020100` lewat `tools/impor.php` — membentuk kembali baris
 `tipe = 'lain'`, tetapi dengan id dan kode baru sehingga tautan lama tidak ikut
 pulih.
@@ -5964,6 +5968,233 @@ draf ini ditulis dan dikoreksi di tempat sebelum bagian ini dianggap selesai.
 
 ---
 
+### 3.80 Garis Jalan dua tahap dari label: tepi lalu sumbu (13 Nov 2026)
+
+Permintaan kerjanya: **Buatkan tools membuat garis turunan Jalan berdasarkan
+Label jalan dari layer Bidang kadastrum Bidang & garis**. Dua keputusan bentuk
+keluaran yang diambil: **tepi dan sumbu keduanya** — satu alat, dua tahap, satu
+berkas per tahap, bisa dipilih lewat flag — dan **sumber geometrinya
+kedua-duanya**, lapis berkas `020100` *dan* tabel `bidang`, bukan salah satunya.
+
+**Alatnya** `tools/garis-jalan-label.php` (CLI, 1.287 baris; uji kering bawaan,
+`--terapkan` baru menulis):
+
+| flag | arti |
+|---|---|
+| `--tahap=tepi\|sumbu\|semua` | bawaan `semua` |
+| `--sumber-tepi=turun\|terbit` | `turun`: tepi hasil tahap 1; `terbit`: lapis Jalan terbit `garis-jalan.geojson` dipakai apa adanya dan tahap 1 dilewati |
+| `--lebar=M` | lebar koridor maksimum tahap 2, bawaan `8,0` m |
+| `--bagi-pasang=F` | bagian titik sampel sebuah baris yang harus berpasangan; bawaan `0` = tiap titik tengah yang lolos semua syarat ikut terpakai |
+| `--eksklusif` | label jalan harus yang terdekat; kandidat yang label terdekatnya kelas lain dibuang |
+| `--rinci` | cetak 40 sumbu terpanjang |
+
+**Bahan yang dibaca.** Tabel di bawah adalah isi `020100.geojson` dan hasil
+`SELECT` biasa pada `bidang` — tidak ada satu baris pun yang ditulis, dan
+tidak ada skrip pengubah geometri yang dilibatkan.
+
+| bahan | yang terbaca | yang dipakai |
+|---|---|---|
+| `020100.geojson` | 13.681 garis terbuka + 2.626 cincin poligon | 13.681 garis + 38 cincin (2.588 cincin ≥ 50 % titiknya sudah tergambar sebagai garis lain) |
+| tabel `bidang` (dibaca saja) | 4.173 persil `status <> 'dihapus'`, 4.176 cincin (2 persil MultiPolygon) | 2 cincin jadi kandidat tepi; 4.171 dibuang karena mengulang |
+| gabungan untuk uji koridor | 56.315 segmen tepi pada kisi 5 m · 185.309 petak permukaan | sisi kiri-kanan sebuah jalan selalu berhadapan ruang kosong, sisi bidang selalu berhadapan bidang lain |
+| `batas-jalan` + `batas-perairan` | 899 label (jalan 622 · selokan 165 · perairan 112) | hanya teks berawalan `JALAN` yang jadi benih; kelas dibaca dari TEKS, bukan dari berkasnya |
+
+**Tahap 1 — tepi (`garis-jalan-tepi.geojson`).** Aturannya disengaja identik
+dengan kelas jalan pada
+[§3.73](#373-garis-batas-jalan-batas-perairan-dan-lain-lain-diturunkan-dari-020100-10-nov-2026)
+supaya hasilnya sebanding: benih = kandidat yang punya titik sampel ≤ 2,0 m dari
+label jalan, pita = kandidat yang ≥ 50 % titik sampelnya punya segmen terklaim
+sejenis ≤ 15 m dengan beda arah ≤ 25° **dan** tengah koridornya ≥ 60 % tidak
+berada di dalam bidang, dua putaran, garis < 2,0 m dibuang.
+
+| | angka |
+|---|---|
+| baris tepi | **3.323** · 11.969 titik · 143.106,1 m · 1.299.654 B |
+| `cara` | pita1 1.891 · pita2 590 · benih 842 |
+| `asal` | garis 3.316 · cincin-020100 6 · cincin-bidang 1 |
+| calon yang ditolak | tolak sejajar 9.993 · tolak koridor 805 · pendek < 2 m 396 |
+| benih berlabel kelas lain | 34 — tetap diklaim (bawaan), baru dibuang bila `--eksklusif` |
+
+Kolom-kolom penolakan itu **tidak boleh dijumlahkan**: 9.993 + 805 + 396 +
+3.323 = 14.517, lebih besar daripada 13.721 calon, karena sebuah kandidat yang
+kandas pada putaran pertama masih bisa terklaim pada putaran kedua (dan
+sebaliknya). Tiap kolom sendiri sudah bebas dari hitung ulang — kuncinya
+dikumpulkan dalam himpunan (`tools/garis-jalan-label.php:772`, diisi di `:801`
+dan `:805`) sehingga calon yang tertolak di kedua putaran hanya muncul sekali
+di kolom itu. Angka 34 yang disebut terakhir bukan penolakan: pada bawaannya
+ia tetap menjadi benih, dan justru itulah selisih 842 − 808 benih antara jalan
+bawaan dan jalan `--eksklusif` di bawah.
+
+Enam baris `asal cincin-020100` menutup daftar dan lima di antaranya cocok
+persis dengan lima baris cincin yang sudah dikenal dari
+[§3.79](#379-lapis-jalan-disambung-menurut-topologinya-3144-menjadi-1981-baris-12-nov-2026):
+indeks 4383 · 5065 · 14265 · 11936 · 12901 menjadi `JALAN-020100-0690`, `-0799`,
+`-1720`, `-1589` dan `-1710` dengan panjang 195,70 · 181,38 · 117,03 · 84,95 ·
+65,84 m. Dua baris penutup lainnya justru **tidak** ada di lapis terbit dan
+termasuk 186 sumber tambahan itu: cincin 020100 indeks 1950 (61,06 m) dan
+cincin tabel bidang indeks 19338 (169,90 m) — yang kedua memang satu-satunya
+baris `sumber: tabel-bidang`.
+
+**Hasilnya superset dari lapis terbit, bukan penggantinya.** Diperiksa dengan
+mencocokkan properti `kunci` tiap baris baru (`G:`/`P:` untuk entitas `020100`,
+`B:` untuk cincin tabel bidang) terhadap gabungan `indeks_all` lapis Jalan
+terbit 1.981 baris hasil
+[§3.79](#379-lapis-jalan-disambung-menurut-topologinya-3144-menjadi-1981-baris-12-nov-2026)
+(`_lama/scratch/cek-tepi-vs-terbit.php`, masih ada): **3.137 dari 3.137 indeks
+sumber terbit ada di bahan baru (100,0 %)**, 1.981 baris terbit utuh
+(0 sebagian, 0 hilang), dan bahan baru kelebihan **186 sumber** (185 entitas
+`020100` + 1 cincin tabel bidang) sepanjang 13.932,2 m. Selisih itu punya
+sebab yang bisa disebut: `tools/garis-batas-020100.php` mengklaim satu garis
+untuk **satu** kelas sehingga tepi yang juga terjaring selokan atau perairan
+keluar dari lapis Jalan, sedangkan alat ini hanya memandang Jalan dan tidak
+memiliki kelas pesaing; satu tambahan lagi memang berasal dari tabel bidang,
+yang tidak pernah dibaca sebagai kandidat oleh si pembangkit.
+
+**Tahap 2 — sumbu (`garis-jalan-sumbu.geojson`).** Empat langkah, semuanya
+topologi plus satu rata-rata koordinat:
+
+1. ujung tepi yang berjarak ≤ 1,0 m dihitung simpul yang sama, dan potongan
+   yang berbagi simpul digabung menjadi satu **sisi** lewat union-find — dua
+   baris yang sebenarnya satu sisi jalan tidak boleh berpasangan satu sama
+   lain;
+2. tiap titik sampel sisi A dicari sisi B terdekat dengan syarat B bukan
+   sisinya sendiri, lebar koridor ≥ 0,25 m dan ≤ `--lebar`, beda arah ≤ 25°,
+   dan tengah antara keduanya tidak berada di dalam bidang;
+3. titik tengah semua pasangan direnggutkan pada ragum 1,2 m; titik tengah dari
+   sisi kiri dan kanan sebuah jalan lurus jatuh di tempat yang sama sehingga
+   keduanya menyatu jadi satu rantai, dan koordinat tiap simpul hasil adalah
+   **rata-rata** seluruh titik yang masuk ke simpul itu;
+4. rantai diputus pada simpul berderajat ≠ 2 (ujung buntu dan persimpangan),
+   jalur < 2,0 m dibuang, sisanya dinomori dari yang terpanjang.
+
+| | angka |
+|---|---|
+| komponen sisi | 501 |
+| baris tepi yang menyumbang titik tengah | 2.444 dari 3.323 |
+| baris tanpa sisi seberang sama sekali | 879 (24.184,3 m) |
+| sisi sejajar tapi koridornya selalu di dalam bidang | 151 |
+| pasangan sisi berbeda · untai titik tengah | 587 · 2.444 |
+| rangka sumbu | 13.940 simpul · 19.140 batang · 645 simpul berderajat ≥ 3 |
+| **segmen sumbu** | **1.816** · 15.291 titik · 30.805,2 m · 1.152.331 B |
+| lebar timbang panjang | 3,07 m · pita lebar ≤ 1 m 57 · 1–2 m 395 · 2–4 m 792 · 4–6 m 478 · > 6 m 94 |
+| lebar per segmen | median 3,02 m · terkecil 0,43 m · terbesar 7,96 m |
+| panjang per segmen | median 8,46 m · terbesar 285,79 m (`SUMBU-0001`, 137 titik, 9 tepi) · 118 untai < 2 m dibuang |
+| jarak tiap titik sumbu ke tepi terdekat | median 1,37 m · maksimum 4,00 m · 15.291 titik diuji · 0 tidak menemukan tepi dalam 10,0 m |
+
+Maksimum 4,00 m itu bukan kebetulan melainkan plafon geometrisnya: sebuah titik
+tengah hanya lahir dari sepasang tepi yang berjarak ≤ `--lebar` 8 m, jadi ia
+tidak pernah lebih jauh dari 4 m dari salah satunya. Diagnostik sisi tunggal
+ikut dilaporkan dan **tidak** mengubah hasil: dari 879 baris tak berpasangan,
+sisi sejajar terdekatnya berada pada ≤ 2 m 19 · 2–4 m 52 · 4–8 m 28 · 8–15 m
+206, dan **574 baris tidak punya sisi sejajar sama sekali** dalam jangkauan uji
+15 m — itu bagian jalan yang di digitasi memang hanya digambar satu garis, jadi
+tidak ada yang bisa dirata-ratakan.
+
+Ada 176 segmen (2.946,4 m, 9,6 % panjang sumbu) yang `jumlah_tepi`-nya 1: titik
+tengahnya datang dari satu sisi saja, karena titik tengah sisi seberangnya pada
+jalur yang sama masuk ke simpul renggutan lain (selisihnya melewati ragum 1,2 m, atau
+sisi seberang itu pasangan utamanya adalah sisi yang berbeda). `lebar_m`-nya
+tetap terukur dan geometrinya tetap di tengah koridor; yang berkurang hanya
+bukti silang dua sisinya.
+
+**Kenapa `--bagi-pasang` bawaannya 0.** Ambang per baris membuat cakupan sumbu
+bergantung pada seberapa pendek baris tepinya, bukan pada geometri jalan.
+Diukur pada bahan yang sama, 13 Nov 2026 (tiga modus terakhir uji kering, tidak
+menyentuh berkas):
+
+| modus | baris tepi terpakai | segmen sumbu | panjang sumbu |
+|---|---|---|---|
+| bawaan (`0`) | 2.444 dari 3.323 | 1.816 | 30.805,2 m |
+| `--bagi-pasang=0,50` | 1.773 | 1.428 | 26.951,0 m |
+| `--sumber-tepi=terbit` (1.981 baris tepi terbit) | 1.304 | 1.189 | 24.316,5 m |
+| `--eksklusif` | 3.170 baris tepi | 1.737 | 29.225,9 m |
+
+Angka `--eksklusif` turun 153 baris tepi, bukan 34 seperti jumlah penolakannya,
+karena sebuah benih yang ditolak pada putaran pertama tidak lagi bisa
+menarik pita di putaran kedua. Pada ambang 0,50 yang 1.550 baris tanpa pasangan
+itu terbagi menjadi **671 yang kandas karena ambangnya sendiri** dan 879 yang
+memang tidak punya sisi seberang — angka 879 itu sama persis dengan jumlah
+baris tak berpasangan pada bawaan di atas, jadi ambang 0,50 hanya membuang
+baris yang separuh panjangnya sudah menemukan pasangan.
+
+**Koma desimal sempat diabaikan alat ini.** `--bagi-pasang` dan `--lebar`
+dibaca dengan `(float) substr(...)`, dan `("0,50")` adalah `0.0` di PHP, jadi
+tiga baris pertama tabel di atas semula dihasilkan angka yang sama persis
+walaupun ambangnya ditulis berbeda. Sekarang keduanya lewat `angkaFlag()`
+(`tools/garis-jalan-label.php:152`) yang menukar koma menjadi titik lalu
+menolak nilai yang bukan angka dengan `GAGAL: --bagi-pasang membutuhkan angka`
+— sehingga `0,50`, `0.50` dan `0,5` setara, dan nilai sampah tidak lagi
+berarti "pakai bawaan". Bawaannya sendiri tidak tersentuh perubahan ini.
+
+**Titik tetap.** `--terapkan` dijalankan tiga kali (10:46, 10:51 dan 11:13,
+jalan ketiga sesudah koreksi koma di atas) dan kedua berkas GeoJSON-nya identik
+bit:
+SHA-256 `54f30b9909866794283ded5ab8b11fec2433300862ce636f91bf640a38fc60f5`
+untuk `garis-jalan-tepi.geojson` dan
+`57a027dcd451be2c48a4738a6ef967c3158e4e737d7a1ac4fd0e38a21682fe2f` untuk
+`garis-jalan-sumbu.geojson` pada ketiga kalinya — yang berubah di antara tiga
+jalan itu hanya kalimat catatan dan `derived_at` di `metadata.json`, jadi
+urutan dan angkanya tidak bergantung pada waktu jalan maupun pada dua suntingan
+perbaikan teks yang disisipkan di antaranya.
+
+**Properti tiap fitur.** Tepi: `kode` `TEPI-0001`…`TEPI-3323`, satu baris per
+sumber, dinomori menurut urutan bahan (3.316 garis terbuka naik menurut
+`indeks`-nya tanpa satu penurunan pun, lalu 6 cincin `020100` dan 1 cincin
+bidang di belakang), disertai `kunci`, `sumber` (`020100` / `tabel-bidang`),
+`indeks`, `panjang_m`, `rasio_tepi_bidang`, `asal`, `cara`, `jarak_label_m` dan
+`label`. Perhatian: `jarak_label_m` punya **dua makna** menurut `cara` — jarak
+ke label untuk `benih`, lebar koridor ke tetangga sejajar untuk
+`pita1`/`pita2` — sama seperti di
+[§3.79](#379-lapis-jalan-disambung-menurut-topologinya-3144-menjadi-1981-baris-12-nov-2026).
+Sumbu: `kode` `SUMBU-0001`…`SUMBU-1816` **urut panjang menurun** (0 naik di
+antara 1.177 perbandingan bertetangga), `sumber` `label-jalan`, `panjang_m`,
+`lebar_m`, `jumlah_bagian` (titik), `jumlah_tepi`, `tepi_all` (daftar `kunci`
+tepi yang ikut), `asal`, `cara_tepi`, `cara` = `sumbu`, `label`.
+`metadata.json` mendapat dua blok lapisan baru, `GARIS JALAN TEPI DARI LABEL`
+(`ambang`, `label`, `permukaan_bidang`, sebaran `asal` dan `cara`) dan
+`GARIS JALAN SUMBU DARI LABEL` (`ambang`, `sisi`, `lebar_m` beserta pita
+lebarnya, `verifikasi`); catatan penolakan tahap 1 tidak ikut ditulis ke sana,
+hanya ke keluaran CLI. Satu entri `notes` akar ditulis ulang tiap jalan
+(ditumpuk, bukan ditambah) beserta `derived_at`-nya; kedua berkas itu
+**tidak** mengubah `features` lapis mana pun yang sudah ada.
+
+**Yang sengaja tidak dikerjakan.** Tidak ada verifikasi titik-demi-titik terhadap
+sumber seperti pada si perapian, sebab koordinat sumbu memang **baru** —
+rata-rata dua tepi, dan itulah seluruh isi tahap 2; yang dilaporkan sebagai
+gantinya adalah jarak tiap titik sumbu ke tepi terdekat. Celah digitasi tidak
+dijembatani. `garis-selokan`, `garis-perairan` dan `garis-lain` tidak disentuh,
+dan `garis-jalan.geojson` terbit juga tidak diubah: ini lapisan baru di
+sebelahnya, bukan perbaikan atas yang lama. **Keduanya belum dipasang di panel
+Peta Induk** — grep pada seluruh `*.php` di luar `_lama/` hanya menemukan nama
+berkasnya di dalam alat itu sendiri (`tools/garis-jalan-label.php:93` dan `:94`),
+jadi tidak ada satu pun halaman atau API yang menayangkannya, dan belum ada
+satu pun yang dilihat di browser. Yang ada baru pemeriksaan tingkat berkas:
+keduanya dibaca ulang setelah ditulis dan seluruh 5.139 fitur bertipe `LineString`
+dengan koordinat numerik.
+
+**Higienitas.** Alat 1.287 baris, LF semua (0 CRLF), 0 tab, `php -l` bersih, dan
+aksara di luar Latin-1 di dalamnya cuma tiga tanda pisah (U+2014) pada blok
+dokumennya — ambangnya ditulis `<=` dan `>=`, bukan glif perbandingan. Satu
+`parse error` (kurung kurawal tak tertutup pada blok `validasi baca ulang`)
+timbul pada jalan `--terapkan` pertama hari ini, diperbaiki, lalu seluruh angka
+di atas diukur dari jalan sesudahnya. `README.md` masih CRLF seluruhnya, 0 LF
+lepas dan 0 tab; sebelum bagian ini dimulai berkasnya mempunyai 6.248 pemisah
+baris, 383.755 B di indeks blob dan 390.003 B sebagai berkas kerja CRLF (jumlah
+sesudahnya sengaja tidak dikutip karena paragraf ini sendiri
+masih akan disunting), dan aksara di luar Latin-1-nya hanya tanda baca dan glif
+yang sudah dipakai luas di dokumen ini
+(`– — … → ↔ − ≈ ≠ ≡ ≤ ≥` serta garis kotak U+2500…); nol han, hiragana,
+katakana, hangul dan form penuh di kedua berkas — diukur per codepoint dengan
+`pindai-glif-20261113.php`, yang juga memergoki satu glif Mandarin yang
+menyelinap ke paragraf `jumlah_tepi` di atas dan dikoreksi di tempat sebelum
+bagian ini dianggap selesai. Skrip penghitungnya tinggal di `_lama/scratch/`
+dan tidak ikut ke repo: `cek-tepi-vs-terbit.php` (cocokkan superset),
+`ringkas-sumbu-20261113.php` (kualitas sumbu) dan `pindai-glif-20261113.php`
+(glif + baris, kini menerima lebih dari satu berkas dan mencetak daftar codepoint
+asing lengkap dengan jumlahnya).
+
+---
+
 ## 4. Berkas SPPT dari Excel
 
 Importer CSV menerima kolom berikut (nama kolom dibersihkan dari spasi dan tanda
@@ -6182,27 +6413,111 @@ berkas unik pada 24 sebutan, semuanya berprefix `storage/cadangan/`, dan
 berstempel 2 Nov. Sebaran sebutannya §3.26 (16), §3.27 (1), §3.28 (2), §3.30–§3.34
 (satu per bagian); `sebelum-identitas-bidang-20261101-100004-9e84.sql` adalah satu
 berkas yang disebut dua kali — di §3.27 dan §3.28 — jadi 24 sebutan itu memang
-hanya 23 berkas. Semuanya terletak sebelum §3.76. Tidak ada satu pun yang
-hilang karena operasi 13 Nov — ketika `storage/cadangan/` dibuka hari itu isinya
-hanya delapan dump 8 Nov, pasangan 10 Nov 19:29, dan dua geojson lapis Jalan;
-penelusuran seluruh docroot dan tiga tingkat ke bawah di `D:/` juga tidak
-menemukan salinannya di tempat lain. Jadi angka-angka di §3.26–§3.34 tetap sah
-sebagai riwayat pekerjaan —
-titik amannya memang pernah dibuat — tetapi **kembali-ke-keadaan-itu tidak mungkin
-lagi**; titik aman tertua yang masih ada ialah keadaan 10 Nov 19:29 di luar document
-root (lihat §3.76).
+hanya 23 berkas. Semuanya terletak sebelum §3.76. Tidak ada satu pun yang hilang
+karena operasi 13 Nov — ketika `storage/cadangan/` dibuka hari itu isinya hanya
+delapan dump 8 Nov, pasangan 10 Nov 19:29, dan dua geojson lapis Jalan; penelusuran
+seluruh docroot dan tiga tingkat ke bawah di `D:/` juga tidak menemukan salinannya
+di tempat lain. Jadi angka-angka di §3.26–§3.34 tetap sah sebagai riwayat pekerjaan
+— titik amannya memang pernah dibuat — tetapi **kembali ke keadaan 1–2 Nov tidak
+mungkin lagi**; titik aman penuh paling tua yang masih ada kini hanyalah keadaan 8
+Nov 13:41–13:42 di `storage/impor/` (dua paragraf di bawah) dan keadaan 10 Nov 19:29
+di luar document root (lihat §3.76).
 
-**Status retensi per 13 Nov 2026, pengingat saat membaca paragraf di atas.** Delapan
-dump 8 Nov dihapus permanen (20.942.060 B dibebaskan) dan sisa isi `storage/cadangan/`
-dipindah keluar document root ke `D:/cadangan-sigpetades/2026-11-13/` (lima entri:
-dua dump 10 Nov + dua geojson lapis Jalan = 15.997.362 B, dan `.dump-err.txt` 0 B;
-MD5 dicocokkan sebelum dan sesudah pindah). Folder `storage/cadangan/`
-kini 0 berkas, sehingga kartu *Pulihkan* di Pengaturan (§3.24) menampilkan daftar
-kosong — `cadangan_daftar()` hanya men-glob folder itu. Angka 142 MB / 63 MB / 20
-berkas `.sql` / 230 jejak JSON pada paragraf 1 Nov itu adalah keadaan saat keputusan
-diambil, bukan keadaan kini; akar `storage/` pun sekarang menampung dua dump 5 Nov
-(2.873.262 B) dan 30 jejak JSON (1.489.863 B), bukan dua dump 20 Okt 11,9 MB dan 230
-jejak 11 MB yang disebut di sana.
+**Pindai seluruh rujukan berkas, hari yang sama: 156 token tidak ditemukan.**
+Cara yang sama dipakai untuk semua rujukan berkas di dalam backtick README — nama
+telanjang, path relatif docroot, maupun path absolut Windows; pola ber-`*` atau
+kuranglebih dan URL dikecualikan. Hasilnya 287 token unik pada 466 sebutan: 81 token
+(116 sebutan) ada tepat di path yang ditulis, 50 token (119 sebutan) tidak ada di
+path itu tetapi nama berkasnya ditemukan di tempat lain dalam docroot, dan **156
+token (231 sebutan) tidak ditemukan sama sekali**. Perinciannya: 73 token (76
+sebutan) ditulis berawalan `storage\` — 30 dump pola `sebelum-*`/`sesudah-*`, 37
+jejak JSON, 2 PNG pratinjau, 2 HTML, satu CSV dan satu SQL — 62 token (134 sebutan)
+berupa nama telanjang (21 dump, 11 `.sql` lain, 10 `.json`, 8 `.csv`, 4 `.geojson`,
+sisanya `.tsv`, `.txt`, `.wkt`, `.xlsx`, `.ini`, `.php`), 17 token (17 sebutan) path
+absolut di bawah `D:\backup\sigpetades\` (13 dump, 3 `.sql`, 1 `.tsv`), dan 4 token
+(4 sebutan) berawalan folder lain: tiga berkas `_lama/scratch/` berekor `-tmp.php`
+yang di dalam README memang dinyatakan "dijalankan lalu dihapus", plus satu
+`lidah-20261106\sebelum-potong-lidah-20261106.sql` tanpa awalan folder. Salah satu
+dari empat `.geojson` nama telanjang itu sebenarnya bukan path: token `.geojson` di
+baris 16 hanyalah sebutan ekstensi. Folder `D:\backup` — sumber 54 sebutan, semuanya
+`D:\backup\sigpetades\…`, tempat dump sesi 6–8 Nov disimpan beserta `SHA256.txt` —
+**tidak ada** di mesin ini: `is_dir` false, akar `D:/` berisi 28 entri dan tidak satu
+pun bernama `backup`, dan glob `D:/*backup*`, `D:/*/backup*`, `D:/**/SHA256.txt`
+maupun `D:/*.sql` semuanya kosong. Dua kandidat lain, `E:/` dan `F:/`, juga `is_dir`
+false sehingga tidak bisa diperiksa. Yang diukur hanyalah cakram mesin ini pada
+13 Nov 2026, jadi angka 156 itu bukan bukti datanya musnah — hanya bukti salinannya
+tidak ada di sini. Pencocokannya juga kasar: token diambil apa adanya dari dalam
+backtick, sehingga yang membawa perintah di depan path (`php tools/…`, `GET api/…`,
+`?unduh=…`) ikut terhitung. Semua angka paragraf ini mengukur README pada keadaan
+commit `866a1a7` (6.248 baris) — sebelum paragraf ini dan dua paragraf sesudahnya
+ditulis — dan tidak dihitung ulang sesudahnya, karena teks baru itu sendiri
+menambah rujukan berkas. Ketiga skrip penghitungnya masih ada di `_lama/scratch/`:
+`ringkas-readme-20261113.php` (klasifikasi token), `rinci-tidakada-20261113.php`
+(perincian per awalan dan ekstensi) dan `hitung-impor-20261113.php` (jumlah baris
+per tabel yang dibaca dari berkas `.sql`).
+
+**Keadaan 8 Nov 13:41–13:42 ternyata masih utuh, di `storage/impor/`.** Kesimpulan
+semula — bahwa tidak ada salinan penuh yang mendahului 10 Nov — salah, dan kedua
+tempatnya (§3.76 dan paragraf di atas) sudah dibetulkan. Penyebabnya: folder tempat
+kartu Impor menyimpan berkas unggahan, yang namanya dibuat server sebagai
+`<stempel-unggah>-<hash>-<nama-asli>` oleh `sql_impor_simpan()` dan padanannya untuk
+JSON, tidak pernah ikut dibersihkan. Isinya empat berkas, 41.814.341 B.
+
+1. `20261108-135556-cdfc66d2-cadangan-20261108-134223-8e7e.sql`, 9.715.994 B: dump
+   lengkap 18 tabel (`CREATE TABLE`) dan empat view (`v_bidang`, `v_rekap_dusun`,
+   `v_ringkasan_sistem`, `v_statistik_pbb`, bagian *temporary* dan *final* keduanya
+   ada) dengan 20 pernyataan `INSERT`. Jumlah baris terbaca dari berkasnya: `bidang`
+   7.947, `hak` 7.945, `objek_pajak` 3.794, `sppt` 3.794, `audit_log` 3.392, `buku_c`
+   1.419, `blok` 24, `setelan` 13, `dusun` 10, `pengguna` 1; `laporan`, `pembayaran`,
+   `pemegang`, `peralihan` dan `preset_peta` tanpa baris. Keadaan ini mendahului
+   penghapusan 3.773 obyek non-tanah 10 Nov, jadi memulihkannya berarti mengembalikan
+   basis data ke 7.947 baris `bidang` (yang dipakai peta kini 4.177).
+2. `20261108-134926-d0bf998a-sipetades-20261108-134100-1b0d.json` dan
+   `20261108-135005-2b088941-sipetades-20261108-134100-1b0d.json`: dua unggahan
+   byte-identik dari satu ekspor JSON, masing-masing 15.954.390 B, MD5 keduanya
+   `fe14f61658c06ba7942c7d1a7db28fd6`. Header-nya `perangkat = SIPETADES`,
+   `basis = sipetades_gedong`, `dibuat = 2026-11-08T13:41:00+07:00`, `versi = 1`;
+   `tabel` memuat 18 entri `kolom` + `baris`, total 28.363 baris (`bidang` 7.947
+   lengkap dengan WKT-nya, `hak` 7.945). Pemulihannya lewat kartu 3 di Pengaturan,
+   bukan lewat `mysql`.
+3. `20261108-143550-52ca6e09-sebelum-impor-sql-20261108-135608-159d.sql`, 189.567 B:
+   salinan unggahan dari dump cacat yang menguras basis data 8 Nov (10 `INSERT`
+   melawan 25 `DROP`, sama dengan ciri enam dump cacat yang dilaporkan di §3.76).
+   Isinya justru satu-satunya salinan dalam bentuk berkas yang ditemukan di cakram
+   ini untuk tiga tabel cadangan: `bidang_duplikat_geom_backup` 207 baris,
+   `bidang_duplikat_backup` 169 dan `bidang_blok3_outside_backup` 50, selain
+   `audit_log` 4 baris. **Jangan pernah diimpor ke basis data mana pun.**
+
+Keempatnya tidak terjangkau URL langsung: permintaan berkasnya 403 dan permintaan
+daftar foldernya 404, diukur 13 Nov lewat Apache lokal. Antarmuka juga tidak
+menawarkannya — gerbang `?unduh=` hanya membuka folder `cadangan` dan `ekspor`
+(`pengaturan.php` baris 34 dan 38), dan aksi *impor-terapkan* hanya berlaku pada
+berkas yang baru diunggah pada sesi yang sama (`$_SESSION['impor_siap']` dan
+`['sql_impor_siap']`, baris 119–121 serta 148–150). Memakai salinan 8 Nov itu
+berarti menyalinnya dari cakram, lalu mengunggahnya ulang lewat kartu Impor atau
+menjalankan `mysql` dari shell. Untuk pemangkasan kelak, folder ini harus
+diperlakukan sebagai cadangan, bukan sebagai sisa unggahan.
+
+**Status retensi per 13 Nov 2026, pengingat saat membaca paragraf-paragraf di
+atas.** Delapan dump 8 Nov di `storage/cadangan/` dihapus permanen (20.942.060 B
+dibebaskan) dan sisa isi folder yang sama dipindah keluar document root ke
+`D:/cadangan-sigpetades/2026-11-13/` (lima entri: dua dump 10 Nov + dua geojson
+lapis Jalan = 15.997.362 B, dan `.dump-err.txt` 0 B; MD5 dicocokkan sebelum dan
+sesudah pindah). Folder `storage/cadangan/` kini 0 berkas, sehingga kartu *Pulihkan*
+di Pengaturan (§3.24) menampilkan daftar kosong — `cadangan_daftar()` hanya men-glob
+folder itu. Angka 142 MB / 63 MB / 20 berkas `.sql` / 230 jejak JSON pada paragraf
+1 Nov itu keadaan saat keputusan diambil, bukan keadaan kini. Yang terukur hari ini:
+`storage/` seluruhnya 37 berkas, 55.907.103 B (53,3 MB) — akar 32 berkas 4.363.125 B,
+`ekspor/` 1 berkas 9.729.637 B, `impor/` 4 berkas 41.814.341 B (paragraf di atas),
+`cache/` dan `cadangan/` kosong. Akar `storage/` menampung 30 jejak JSON 1.489.863 B
+— 28 `rapikan-blok-*.json` berstempel 5 Nov dan dua `rapikan-jalan-*.json` berstempel
+12 Nov — ditambah dua dump sebagian 5 Nov yang isinya hanya tabel `blok` dan
+`bidang`: `sebelum-gabung-blok11-20261105.sql` (1.436.713 B) dan
+`sebelum-hapus-blok-kecil-20261105.sql` (1.436.549 B). Dua dump pemulihan 20 Okt
+11,9 MB yang disebut paragraf 1 Nov sudah tidak ada di akar (`storage/*20261020*`
+mencocokkan nol berkas); dari 20 Okt yang tersisa hanya ekspor JSON
+`storage/ekspor/sipetades-20261020-174305-0fdd.json` 9.729.637 B, jadi angka 9,3 MB
+untuk `ekspor/` masih benar sampai sekarang.
 
 ---
 
