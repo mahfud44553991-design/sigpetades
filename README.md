@@ -6747,6 +6747,74 @@ masih belum dilihat di peramban (§3.72), dan paragraf ini satu-satunya bahan
 terlacak yang bisa di-commit karena semua keluaran giliran tadi berada di
 direktori yang diabaikan git.
 
+### 3.85 Berapa mahalnya "sambungkan semua sumbu jalan" (14 Nov 2026)
+
+Perintah "sambungkan semua sumbu jalan" dijawab dengan mengukur lebih dulu,
+karena "semua" punya dua tafsir yang biayanya jauh berbeda: membesarkan plafon
+jahitan, atau memaksa seluruh jaringan menjadi satu potongan. Sasaran
+ditanyakan; yang dipilih **tahan 3 m, laporkan saja**, jadi tidak ada satu pun
+berkas hasil yang berubah — tepi tetap `061b692f0e83…` 1.553.169 B, sumbu
+`dcbfe2d8ab07…` 1.203.946 B, metadata `eb2186acbf6c…` 18.351 B, dan `JAHIT`
+masih 3,0 m di baris 175.
+
+**Jaringan kini 588 potongan.** Dari berkas terbit: 1.856 untaian, 16.167
+titik untaian, 14.563 posisi unik (pembulatan 3 desimal), 21 cincin. Potongan
+terbesar hanya 707,6 m pada 79 ruas = 2,1 % panjang lapis; enam terbesar
+707,6/79 · 482,6/36 · 481,9/22 · 369,6/22 · 346,8/30 · 329,9/20 (meter/ruas).
+Sebanyak 272 komponen terdiri dari satu ruas saja dan 153 komponen panjangnya
+di bawah 20 m.
+
+**Pecahan ini bukan artefak simpul yang hampir sama.** Menganggap dua posisi
+sebagai satu simpul kalau jaraknya di bawah toleransi T (single linkage) tidak
+menghubungkan satu potongan pun sampai T = 1,0 m, dan hanya satu pada 1,2 m:
+
+| T | simpul aktif | komponen |
+| --- | --- | --- |
+| 0 · 0,001 … 1,0 m | 14.563 · 14.555 | 588 |
+| 1,2 m | 14.509 | 587 |
+| 2,0 m | 12.984 | 552 |
+| 3,0 m | 641 | 476 |
+
+**Biaya menyambungkan, per plafon jarak.** Kandidatnya pasangan ujung dari dua
+komponen berbeda; kolom "sambungan" diambil serakah dari jarak menaik dengan
+union-find, jadi ia adalah batas bawah jumlah ruas dan batas atas manfaatnya.
+Penyaringnya lebih longgar daripada `--terapkan` (hanya jarak + uji arah
+`SUDUT_JAHIT` 25 derajat, tanpa syarat kedua ujung berderajat 1 dan tanpa uji
+koridor bidang/air), sehingga angka di kolom itu tidak akan persis muncul di
+keluaran alat:
+
+| plafon | sambungan | garis baru | rata-rata | potongan tersisa | ditolak uji arah |
+| --- | --- | --- | --- | --- | --- |
+| 3,0 m (kini) | 5 | 11,1 m | 2,22 m | 583 | 87 |
+| 4,0 m | 18 | 58,1 m | 3,23 m | 570 | 163 |
+| 6,0 m | 83 | 371,6 m | 4,48 m | 505 | 308 |
+| 8,0 m | 134 | 718,0 m | 5,36 m | 454 | 443 |
+| 12,0 m | 210 | 1.451,9 m | 6,91 m | 378 | 734 |
+| 20,0 m | 263 | 2.278,0 m | 8,66 m | 325 | 1.734 |
+| 40,0 m | 357 | 4.976,6 m | 13,94 m | 231 | 7.366 |
+
+**"Semua tersambung" hanya sampai dengan mengarang garis.** Kalau uji arah
+dilepas dan plafon dinaikkan sampai 400 m, 587 sambungan (tepat
+`komponen − 1`) menghimpun jaringan jadi satu potongan: 7.530,5 m garis baru =
+22,9 % panjang lapis sumbu, rata-rata 12,83 m per sambungan, terjauh 222,54 m.
+Pada plafon 40 m tanpa uji arah pun sisanya masih 35 potongan. Karena itu
+perintah "sambungkan semua" tidak dikerjakan: yang membedakan sambungan jalan
+dari garis karangan justru uji arah dan ambang 3 m, dan keduanya harus dilepas
+untuk memenuhi perintah itu. Yang benar-benar kurang ada di bahan digitasi —
+gurat DXF berhenti sebelum persimpangan — bukan di ambang turunan; memindahkan
+pekerjaan itu ke alat hanya akan menyembunyikannya.
+
+Pemeriksa: `_lama/scratch/ukur-biaya-sambung-semua.php` (sapuan plafon,
+union-find, uji arah) dan `_lama/scratch/ukur-komponen-toleransi.php`
+(toleransi simpul), keluaran di `_lama/scratch/sambung-semua-25derajat.txt`,
+`sambung-semua-tanpaarah.txt`, `komponen-toleransi.txt`; keduanya baca saja.
+Satu bug sempat keluar dan sudah dibetulkan sebelum angka di atas dicetak:
+`uasort` mempertahankan kunci lama, jadi `$urut[0]` setelah itu bukan elemen
+terbesar — komponen terbesar sempat terbaca 1 ruas 296 m; `usort`
+memperbaikinya dan verifikasi silangnya adalah daftar enam terbesar di atas.
+Yang tidak berubah: `JAHIT`, `SUDUT_JAHIT`, `BENIH`, kedua berkas turunan, dan
+120 label yang masih tanpa sumbu.
+
 ---
 
 ## 4. Berkas SPPT dari Excel
