@@ -6023,8 +6023,9 @@ Kolom-kolom penolakan itu **tidak boleh dijumlahkan**: 9.993 + 805 + 396 +
 3.323 = 14.517, lebih besar daripada 13.721 calon, karena sebuah kandidat yang
 kandas pada putaran pertama masih bisa terklaim pada putaran kedua (dan
 sebaliknya). Tiap kolom sendiri sudah bebas dari hitung ulang — kuncinya
-dikumpulkan dalam himpunan (`tools/garis-jalan-label.php:772`, diisi di `:801`
-dan `:805`) sehingga calon yang tertolak di kedua putaran hanya muncul sekali
+dikumpulkan dalam himpunan (`$tolakSejajar` dan `$tolakKoridor` di
+`tools/garis-jalan-label.php:933` dan `:934`, diisi di `:962` dan `:966`)
+sehingga calon yang tertolak di kedua putaran hanya muncul sekali
 di kolom itu. Angka 34 yang disebut terakhir bukan penolakan: pada bawaannya
 ia tetap menjadi benih, dan justru itulah selisih 842 − 808 benih antara jalan
 bawaan dan jalan `--eksklusif` di bawah.
@@ -6125,8 +6126,9 @@ baris yang separuh panjangnya sudah menemukan pasangan.
 dibaca dengan `(float) substr(...)`, dan `("0,50")` adalah `0.0` di PHP, jadi
 tiga baris pertama tabel di atas semula dihasilkan angka yang sama persis
 walaupun ambangnya ditulis berbeda. Sekarang keduanya lewat `angkaFlag()`
-(`tools/garis-jalan-label.php:152`) yang menukar koma menjadi titik lalu
-menolak nilai yang bukan angka dengan `GAGAL: --bagi-pasang membutuhkan angka`
+(`tools/garis-jalan-label.php:213`, `function angkaFlag`) yang menukar koma
+menjadi titik lalu menolak nilai yang bukan angka dengan pesan
+`GAGAL: --bagi-pasang membutuhkan angka`
 — sehingga `0,50`, `0.50` dan `0,5` setara, dan nilai sampah tidak lagi
 berarti "pakai bawaan". Bawaannya sendiri tidak tersentuh perubahan ini.
 
@@ -6171,8 +6173,9 @@ dan `garis-jalan.geojson` terbit juga tidak diubah: ini lapisan baru di
 sebelahnya, bukan perbaikan atas yang lama. Pada saat bagian ini ditulis
 **keduanya belum dipasang di panel Peta Induk** — grep pada seluruh `*.php` di
 luar `_lama/` hanya menemukan nama berkasnya di dalam alat itu sendiri
-(`tools/garis-jalan-label.php:93` dan `:94`), jadi belum ada satu pun halaman
-atau API yang menayangkannya, dan belum ada satu pun yang dilihat di browser.
+(`tools/garis-jalan-label.php:116` dan `:117`, `BERKAS_TEPI` dan `BERKAS_SUMBU`),
+jadi belum ada satu pun halaman atau API yang menayangkannya, dan belum ada
+satu pun yang dilihat di browser.
 Yang ada baru pemeriksaan tingkat berkas:
 keduanya dibaca ulang setelah ditulis dan seluruh 5.139 fitur bertipe `LineString`
 dengan koordinat numerik.
@@ -6488,19 +6491,26 @@ terukur: nilai per fitur dibulatkan saat ditulis, sehingga penjumlahan 3.323 (te
 dan 1.721 (sumbu) angka yang sudah terpotong tidak lagi sama dengan panjang
 sebenarnya — untuk tepi, 109 properti tersimpan bulat, 462 dengan satu desimal,
 2.752 dengan dua desimal atau lebih; untuk sumbu 19 / 168 / 1.534. Keempat angka
-itu diukur dari berkas `--benih=2`; pada berkas 3 m yang terbit sekarang polanya
-berulang — hitung ulang dari koordinat **174.714,914 m** dan **32.678,704 m**,
-jumlah dari properti **174.714,990 m** dan **32.678,750 m** (`cek-pasang-lapis-jalan.php`
-karena itu mencetak `174715.0` dan `32678.7`), selisih 0,076 m dan 0,046 m, sebaran
-desimal 127 / 560 / 3.287 dan 21 / 187 / 1.753. Angka di bagian ini selalu memakai
+itu diukur dari berkas `--benih=2`; pada berkas 3 m **tanpa jahitan** (keadaan
+terbit sebelum §3.83) polanya berulang — hitung ulang dari koordinat
+**174.714,914 m** dan **32.678,704 m**, jumlah dari properti **174.714,990 m** dan
+**32.678,750 m**, selisih 0,076 m dan 0,046 m, sebaran desimal 127 / 560 / 3.287
+dan 21 / 187 / 1.753. Keadaan yang terbit kini (3 m + jahitan 3 m, 1.856 segmen)
+diukur ulang hari ini dengan skrip yang sama: tepi tidak bergerak
+(**174.714,914** dan **174.714,990 m**) sedangkan sumbu **32.941,117 m** dari
+koordinat dan **32.941,180 m** dari properti, selisih 0,063 m, sebaran desimal
+19 / 182 / 1.655 — `cek-pasang-lapis-jalan.php` mencetak `174715.0` dan
+`32941.2` karena ia memakai cara kedua. Angka di bagian ini selalu memakai
 yang dari koordinat.
 
 **Ditetapkan: bawaan alat kini `BENIH` 3,0 m dan berkas terbit ikut berganti
 (14 Nov, beberapa giliran sesudah pintu mutu).** Konstanta dinaikkan 2,0 → 3,0 m
-di `tools/garis-jalan-label.php:127` dengan alasan terukur di docblock-nya; dua
-rujukan bawaan yang lain di berkas itu (daftar opsi baris 16 dan dok tahap 1 baris 59)
-ikut disunting supaya tidak lagi menyebut 2,0 m. `php -l` bersih, lalu alat
-dijalankan **tanpa flag**. Yang terbit sekarang: tepi **3.974 baris · 174.714,9 m ·
+di `tools/garis-jalan-label.php:137` (`const BENIH`) dengan alasan terukur di
+docblock-nya; dua rujukan bawaan yang lain di berkas itu (daftar opsi baris 16
+dan dok tahap 1 baris 62) ikut disunting supaya tidak lagi menyebut 2,0 m.
+`php -l` bersih, lalu alat dijalankan **tanpa flag**. Yang terbit pada giliran itu,
+ketika penyatuan celah sumbu belum ada (§3.83 mengubah segmen dan panjangnya):
+tepi **3.974 baris · 174.714,9 m ·
 1.553.169 B** dan sumbu **1.961 segmen · 32.678,7 m · 1.231.890 B**; `metadata.json`
 17.685 B membawa `"benih_m": 3` sehingga teks pil panel berubah sendiri tanpa
 menyunting `peta-lama.php`. `--terapkan` dijalankan dua kali berturutan: kedua
