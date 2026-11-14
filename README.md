@@ -6408,9 +6408,49 @@ tepi: 32.678,7 m terhadap 174.714,9 m · 34.686,0/191.932,2 · 35.129,1/200.554,
 · 35.508,2/207.551,6 · 36.356,8/224.663,5. Kenaikan terbesar ada di 2→3 m
 (+14,4 %) dan melandai sesudah 4 m (4→5 m hanya +1,3 %), sedang yang buruk ikut
 naik monoton: pita lebar ">6 m" 91 → 137 → 179 → 181 → 195 → 197 dan sisi tanpa
-sejajar 574 → 990. Jadi ambang lain **belum diterapkan dan keputusannya belum
-diambil** — mutu dua kandidat pertama (3 m dan 4 m) masih diukur sebelum nomor
-apa pun di bagian ini dinyatakan berubah.
+sejajar 574 → 722 → 814 → 866 → 925 → 990. Jadi ambang lain **belum diterapkan dan
+keputusannya belum diambil**; angka-angka itu baru geometri uji kering, dan pintu
+mutu untuk dua kandidat pertama dilaporkan di bawah.
+
+**Pintu mutu 3 m dan 4 m: berkas ditulis, diukur, lalu dikembalikan.** Kedua
+ambang itu di-`--terapkan` sungguhan, lalu diukur ulang dengan
+`ukur-label-tanpa-garis.php` dan `ukur-sumbu-retak-air.php`; keluarannya tersimpan
+di `_lama/scratch/terapkan-{3,4}.txt`, `label-{3,4}.txt` dan `retak-{3,4}.txt`,
+sedangkan kolom bawaan diukur ulang pada 14 Nov dari berkas hidup ke
+`label-2-ulang.txt` dan `retak-2-ulang.txt`.
+
+| ambang benih | tepi baris / m | sumbu segmen / m | label berpunya sumbu (dari 622) | sisi tanpa sejajar <= 15 m | sumbu berlebar > 6 m | titik sumbu di koridor air | panjang terseret | segmen memotong air |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 2,0 m (bawaan, yang terbit) | 3.323 / 143.106,1 | 1.721 / 28.571,1 | **453** | 574 | 91 (5,3 %) | 27 dari 14.210 (0,2 %) | 189,5 m (0,7 %) | 24 (31 potongan) |
+| 3 m | 3.974 / 174.714,9 | 1.961 / 32.678,7 | **502** | 722 | 137 (7,0 %) | 33 dari 16.151 (0,2 %) | 212,7 m (0,7 %) | 26 (33 potongan) |
+| 4 m | 4.327 / 191.932,2 | 2.077 / 34.686,0 | **516** | 814 | 179 (8,6 %) | 39 dari 16.958 (0,2 %) | 258,8 m (0,7 %) | 31 (40 potongan) |
+
+Yang dibeli naiknya ambang: **+49 label pada 3 m dan +63 pada 4 m**, dan air tidak
+kembali bocor — porsinya **identik di ketiga tingkat**, 0,2 % titik dan 0,7 %
+panjang, padahal panjang sumbu naik 14,4 % lalu 21,4 % terhadap keadaan bawaan;
+panjang terseret dalam angka mutlak ikut naik (189,5 → 212,7 → 258,8 m) semata
+karena totalnya yang membesar. Yang memburuk adalah lebar pasangan: sumbu
+berlebar > 6 m naik 91 → 137 → 179 (5,3 % → 8,6 % segmen) dan sisi tanpa
+pasangan sejajar naik 574 → 722 → 814, jadi sebagian dari panjang tambahan itu
+adalah pasangan yang lebih longgar, bukan ruas jalan yang sebelumnya tidak ada.
+Cakupan sumbu terhadap setengah panjang tepi justru **turun** 39,9 % → 37,4 % →
+36,1 % karena tepi tumbuh lebih cepat daripada sumbu (71.553,1 → 87.357,5 →
+95.966,1 m). Segmen yang memotong garis air naik 24 → 26 → 31; yang 24 di
+keadaan bawaan sudah dipastikan persimpangan, sedangkan yang di 3-4 m **belum
+diklasifikasikan satu per satu**. 5, 6 dan 8 m **tidak diujikan** ke pintu mutu: hanya
+geometri uji keringnya yang diukur, dan kurva panjangnya sudah melandai (4→5 m
+hanya +1,3 %), jadi tidak ada alasan menulis berkasnya untuk tiga angka itu.
+
+Setelah pengukuran selesai, **ketiga berkas hidup dikembalikan** dari
+`_lama/cadangan-label-2026-11-14/` dan SHA-256-nya cocok satu per satu
+(`54f30b990986…` tepi, `fc8c258757e6…` sumbu, `3654c697b0a4…` `metadata.json`),
+lalu `_lama/scratch/cek-pasang-lapis-jalan.php` dijalankan ulang dan tetap bersih
+(22 kunci daftar putih = 22 kunci panel, 3.323 dan 1.721 fitur cocok dengan
+metadata, pil aktif bawaan 4). Jadi keadaan terbit per 14 Nov tetap `--benih=2`
+dan tabel di atas adalah bahan keputusan, bukan changelog: kalau ambang nanti
+dinaikkan, `metadata.json` ikut berubah sehingga teks pil panel ikut berubah
+sendiri tanpa menyunting `peta-lama.php`, dan seluruh angka bagian ini harus
+diukur ulang dari berkas yang baru.
 
 **Verifikasi dan higienitas.** `php -l` bersih; dua kali `--terapkan` berturutan
 mencetak berkas identik, SHA-256 `garis-jalan-sumbu.geojson` `fc8c258757e6…`,
