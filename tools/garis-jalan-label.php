@@ -12,6 +12,9 @@ declare(strict_types=1);
  *                              sudah terbit (garis-jalan.geojson) sebagai bahan
  *                              tahap 2 sehingga tahap 1 tidak dijalankan
  *   --lebar=M                  lebar koridor maksimum tahap 2, bawaan 8,0 m
+ *   --benih=M                  jarak terjauh label ke titik sampel sebuah baris
+ *                              agar baris itu jadi benih tahap 1; bawaan 2,0 m
+ *                              (= konstanta BENIH, sama dengan si pembangkit)
  *   --bagi-pasang=F            bagian titik sampel sebuah baris yang harus
  *                              berpasangan; bawaan 0 = terima tiap titik tengah
  *                              yang lolos semua syarat, 0,50 = hanya baris yang
@@ -36,6 +39,11 @@ declare(strict_types=1);
  *    (status <> 'dihapus'). Cincin bidang ikut jadi KANDIDAT tepi, bukan hanya
  *    permukaan; yang >= BAGI_ULANG titiknya sudah tergambar sebagai garis lain
  *    dibuang lebih dulu supaya tidak ada tepi kembar.
+ *  - `garis-selokan.geojson` (783) dan `garis-perairan.geojson` (542) hasil
+ *    tools/garis-batas-020100.php, dibaca saja dan HANYA jadi pemolong tahap 2:
+ *    keduanya tidak pernah jadi kandidat tepi. Alat ini karenanya bergantung
+ *    pada dua lapis terbit itu; kalau keduanya dibangkitkan ulang, jalankan
+ *    alat ini sesudahnya.
  * Permukaan yang diuji saat koridor adalah gabungan cincin 020100 dan poligon
  * tabel bidang — kisi bidang tanah di peta ini sebagian besar tersimpan sebagai
  * garis terbuka, jadi tanpa permukaan itu koridor di dalam sebidang tanah tampak
@@ -60,7 +68,11 @@ declare(strict_types=1);
  *  2. tiap titik sampel sisi A dicari sisi B terdekat dengan syarat: sisi B
  *     bukan sisinya sendiri, lebar koridor >= LEBAR_MIN dan <= --lebar, beda
  *     arah <= SUDUT_PASANG, dan tengah antara kedua tepi tidak berada di dalam
- *     bidang. Pasangan utama sebuah sisi = sisi B yang paling sering menang, dan
+ *     bidang dan tidak berada di antara dua tepi air yang sejajar dengan arah
+ *     pasangan itu (syarat kedua ditambahkan 14 Nov: tanpa itu tepian sebuah
+ *     SALURAN yang berlabel JALAN dipasangkan satu sama lain dan sumbu yang
+ *     lahir adalah sumbu selokan, bukan sumbu jalan). Pasangan utama sebuah sisi
+ *     = sisi B yang paling sering menang, dan
  *     titik tengahnya dipakai bila jumlahnya >= --bagi-pasang bagian titik
  *     sampel sisi itu (bawaan 0, jadi setiap titik tengah yang lolos semua
  *     syarat ikut terpakai);
@@ -103,6 +115,11 @@ const KELAS = [
 ];
 
 // Tahap 1.
+/**
+ * Radius benih bawaan, disengaja sama dengan `tools/garis-batas-020100.php`.
+ * Bisa dinaikkan lewat `--benih=` untuk menguji label yang ditulis di tengah
+ * jalan, bukan di tepinya.
+ */
 const BENIH = 2.0;
 const PITA = 15.0;
 const LANGKAH = 2.0;
@@ -131,6 +148,17 @@ const BAGI_PASANG = 0.0;
 const RAGU_SISI = 1.0;
 const SEL_PASANG = 10.0;
 const RAGU_SUMBU = 1.2;
+/**
+ * Uji koridor air (14 Nov). Tepi air diambil dari dua lapis terbit hasil
+ * tools/garis-batas-020100.php. Sebuah pasangan tepi ditolak bila titik tengah
+ * di antara keduanya berada di antara dua tepi air yang sejajar dengan arah
+ * pasangan itu: itu bukan jalan, itu selokan atau sungai yang kebetulan berlabel
+ * JALAN di sisinya. SUDUT_AIR menjaga persimpangan jalan dengan saluran tetap
+ * utuh, sebab di situ tepi air memotong arah pasangan, tidak sejajar.
+ */
+const BERKAS_AIR = ['garis-selokan', 'garis-perairan'];
+const RAGU_AIR = 3.5;
+const SUDUT_AIR = 25.0;
 /** Jangkauan diagnostik untuk sisi yang tidak terpasang; bukan ambang hasil. */
 const SEBERANG_UJI = 15.0;
 
@@ -375,15 +403,93 @@ function bacaLabel(): array
     return [$kisi, $label, $jumlah];
 }
 
+/**
+ * Tepi air terbit sebagai segmen berarah: [kisi, segmen] dengan id berkas di
+ * kolom keenam, supaya dua segmen dari satu garis tidak dianggap dua tepi.
+ */
+function bacaTepiAir(): array
+{
+    $kisi = [];
+    $segmen = [];
+    $fitur = 0;
+    foreach (BERKAS_AIR as $berkas) {
+        $path = DIR_LAPISAN . '/' . $berkas . '.geojson';
+        if (!is_file($path)) {
+            galat('berkas tepi air tidak ada: ' . $berkas . '.geojson');
+        }
+        foreach (geojsonBaca($path) as $f) {
+            $g = $f['geometry'] ?? null;
+            if (($g['type'] ?? '') !== 'LineString') {
+                continue;
+            }
+            $titik = array_map(static fn(array $p): array => [(float) $p[0], (float) $p[1]],
+                (array) ($g['coordinates'] ?? []));
+            if (count($titik) < 2) {
+                continue;
+            }
+            $fitur++;
+            tambahSegmen($kisi, $segmen, $titik, SEL_PASANG, count($segmen));
+        }
+    }
+    return [$kisi, $segmen, $fitur];
+}
+
+/** Tengah koridor berada di antara dua tepi air yang sejajar dengan arah ini? */
+function diKoridorAir(array $kisi, array $segmen, float $px, float $py, float $arah): bool
+{
+    $batas = (int) ceil(RAGU_AIR / SEL_PASANG);
+    $gx = (int) floor($px / SEL_PASANG);
+    $gy = (int) floor($py / SEL_PASANG);
+    $a = deg2rad($arah);
+    $nx = -sin($a);
+    $ny = cos($a);
+    $sisi = [];
+    for ($ix = $gx - $batas; $ix <= $gx + $batas; $ix++) {
+        for ($iy = $gy - $batas; $iy <= $gy + $batas; $iy++) {
+            foreach (array_keys($kisi[$ix . ':' . $iy] ?? []) as $id) {
+                $s = $segmen[$id];
+                $dx = $s[2] - $s[0];
+                $dy = $s[3] - $s[1];
+                $pan = $dx * $dx + $dy * $dy;
+                if ($pan <= 0.0 || bedaArah($arah, $s[4]) > SUDUT_AIR) {
+                    continue;
+                }
+                $t = max(0.0, min(1.0, (($px - $s[0]) * $dx + ($py - $s[1]) * $dy) / $pan));
+                $fx = $s[0] + $t * $dx;
+                $fy = $s[1] + $t * $dy;
+                $jarak = hypot($px - $fx, $py - $fy);
+                if ($jarak <= 0.05 || $jarak > RAGU_AIR) {
+                    continue;
+                }
+                // Sisi diukur terhadap arah pasangan, bukan arah segmen airnya:
+                // dua tepi satu selokan bisa digitasi dengan arah berlawanan.
+                $belok = ($px - $fx) * $nx + ($py - $fy) * $ny;
+                $lagu = $belok > 0.0 ? 'kiri' : 'kanan';
+                $fid = (int) $s[5];
+                $sisi[$lagu][$fid] = min($sisi[$lagu][$fid] ?? INF, $jarak);
+            }
+        }
+    }
+    foreach ($sisi['kiri'] ?? [] as $fid => $_) {
+        foreach ($sisi['kanan'] ?? [] as $gid => $_) {
+            if ($fid !== $gid) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 /** Cari sisi di seberang koridor: beda sisi, rata, lebar dalam batas, tengah kosong. */
 function pasanganTerdekat(array $kisi, array $segmen, array $komiSegmen, float $px, float $py,
     float $radius, int $komiSendiri, float $arah, array $kisiPoligon, array $poligon,
-    array $poligonBesar): ?array
+    array $poligonBesar, array $kisiAir, array $segmenAir, int &$tolakAir): ?array
 {
     $batas = (int) ceil($radius / SEL_PASANG);
     $gx = (int) floor($px / SEL_PASANG);
     $gy = (int) floor($py / SEL_PASANG);
     $baik = null;
+    $kenaAir = false;
     for ($ix = $gx - $batas; $ix <= $gx + $batas; $ix++) {
         for ($iy = $gy - $batas; $iy <= $gy + $batas; $iy++) {
             foreach (array_keys($kisi[$ix . ':' . $iy] ?? []) as $id) {
@@ -404,11 +510,18 @@ function pasanganTerdekat(array $kisi, array $segmen, array $komiSegmen, float $
                 if (diPoligon(($px + $fx) / 2, ($py + $fy) / 2, $kisiPoligon, $poligon, $poligonBesar)) {
                     continue;
                 }
+                if (diKoridorAir($kisiAir, $segmenAir, ($px + $fx) / 2, ($py + $fy) / 2, $arah)) {
+                    $kenaAir = true;
+                    continue;
+                }
                 if ($baik === null || $jarak < $baik[0]) {
                     $baik = [$jarak, $fx, $fy, $segmen[$id][5]];
                 }
             }
         }
+    }
+    if ($kenaAir) {
+        $tolakAir++;
     }
     return $baik;
 }
@@ -420,7 +533,7 @@ function pasanganTerdekat(array $kisi, array $segmen, array $komiSegmen, float $
  */
 function seberangTerdekat(array $kisi, array $segmen, array $komiSegmen, float $px, float $py,
     float $radius, int $komiSendiri, float $arah, array $kisiPoligon, array $poligon,
-    array $poligonBesar): array
+    array $poligonBesar, array $kisiAir, array $segmenAir): array
 {
     $batas = (int) ceil($radius / SEL_PASANG);
     $gx = (int) floor($px / SEL_PASANG);
@@ -448,6 +561,7 @@ function seberangTerdekat(array $kisi, array $segmen, array $komiSegmen, float $
                     $dekat = $jarak;
                 }
                 if (!diPoligon(($px + $fx) / 2, ($py + $fy) / 2, $kisiPoligon, $poligon, $poligonBesar)
+                    && !diKoridorAir($kisiAir, $segmenAir, ($px + $fx) / 2, ($py + $fy) / 2, $arah)
                     && ($kosong === null || $jarak < $kosong)) {
                     $kosong = $jarak;
                 }
@@ -549,6 +663,7 @@ $eksklusif = false;
 $tahap = 'semua';
 $sumberTepi = 'turun';
 $lebarMaks = 8.0;
+$benihMaks = BENIH;
 $bagiPasang = BAGI_PASANG;
 foreach (array_slice($argv, 1) as $a) {
     if ($a === '--terapkan') {
@@ -565,6 +680,8 @@ foreach (array_slice($argv, 1) as $a) {
         $bagiPasang = angkaFlag(substr($a, 14), '--bagi-pasang');
     } elseif (str_starts_with($a, '--lebar=')) {
         $lebarMaks = angkaFlag(substr($a, 8), '--lebar');
+    } elseif (str_starts_with($a, '--benih=')) {
+        $benihMaks = angkaFlag(substr($a, 8), '--benih');
     } else {
         galat('argumen tidak dikenal: ' . $a);
     }
@@ -584,8 +701,11 @@ if ($lebarMaks <= LEBAR_MIN) {
 if ($bagiPasang < 0.0 || $bagiPasang > 1.0) {
     galat('--bagi-pasang harus antara 0 dan 1');
 }
-printf("mode: tahap %s · sumber tepi %s · lebar koridor maksimum %s m · bagi pasang %s · %s · %s\n",
-    $tahap, $sumberTepi, angkaNum($lebarMaks, 1), angkaNum($bagiPasang, 2),
+if ($benihMaks <= 0.0 || $benihMaks > PITA) {
+    galat('--benih harus antara 0 dan ' . angkaNum(PITA, 1) . ' meter');
+}
+printf("mode: tahap %s · sumber tepi %s · benih %s m · lebar koridor maksimum %s m · bagi pasang %s · %s · %s\n",
+    $tahap, $sumberTepi, angkaNum($benihMaks, 1), angkaNum($lebarMaks, 1), angkaNum($bagiPasang, 2),
     $eksklusif ? 'label jalan harus yang terdekat' : 'kelas lain tidak jadi syarat',
     $terapkan ? 'TERAPKAN' : 'uji kering');
 
@@ -741,7 +861,7 @@ if ($deriveTepi) {
         }
         $jalan = null;
         foreach ($garis['sampel'] as [$x, $y]) {
-            $c = labelTerdekat($kisiLbl, $label, $x, $y, BENIH, 'jalan');
+            $c = labelTerdekat($kisiLbl, $label, $x, $y, $benihMaks, 'jalan');
             if ($c !== null && ($jalan === null || $c[0] < $jalan[0])) {
                 $jalan = $c;
             }
@@ -754,7 +874,7 @@ if ($deriveTepi) {
         }
         $lain = null;
         foreach ($garis['sampel'] as [$x, $y]) {
-            $d = labelTerdekat($kisiLbl, $label, $x, $y, BENIH, 'lain');
+            $d = labelTerdekat($kisiLbl, $label, $x, $y, $benihMaks, 'lain');
             if ($d !== null && ($lain === null || $d[0] < $lain[0])) {
                 $lain = $d;
             }
@@ -931,6 +1051,11 @@ $tunggal = 0;
 $panjangTunggal = 0.0;
 $setengah = 0;
 $koridorTertutup = 0;
+$tolakAir = 0;
+[$kisiAir, $segmenAir, $jumlahAir] = bacaTepiAir();
+printf("tepi air: %d baris dari %s · %d segmen · ragum %s m · sudut %s derajat\n",
+    $jumlahAir, implode(' + ', BERKAS_AIR), count($segmenAir), angkaNum(RAGU_AIR, 1),
+    angkaNum(SUDUT_AIR, 0));
 $pitaTunggal = ['<=2 m' => 0, '2-4 m' => 0, '4-8 m' => 0, '8-15 m' => 0, 'tidak ada sisi sejajar' => 0];
 $jalur = [];
 $pasangan = [];
@@ -939,7 +1064,7 @@ foreach ($tepi as $id => $t) {
     $oleh = [];
     foreach ($s as [$x, $y, $arah]) {
         $p = pasanganTerdekat($kisiPasang, $segmenPasang, $komiSegmen, $x, $y, $lebarMaks, (int) $komi[$id],
-            $arah, $kisiPoligon, $poligon, $poligonBesar);
+            $arah, $kisiPoligon, $poligon, $poligonBesar, $kisiAir, $segmenAir, $tolakAir);
         if ($p === null) {
             continue;
         }
@@ -966,7 +1091,7 @@ foreach ($tepi as $id => $t) {
         $jkosong = null;
         foreach ($s as [$x, $y, $arah]) {
             [$d, $k] = seberangTerdekat($kisiPasang, $segmenPasang, $komiSegmen, $x, $y, SEBERANG_UJI,
-                (int) $komi[$id], $arah, $kisiPoligon, $poligon, $poligonBesar);
+                (int) $komi[$id], $arah, $kisiPoligon, $poligon, $poligonBesar, $kisiAir, $segmenAir);
             if ($d !== null && ($jjarak === null || $d < $jjarak)) {
                 $jjarak = $d;
             }
@@ -997,9 +1122,10 @@ foreach ($tepi as $id => $t) {
 printf("sisi: %d komponen tepi · %d baris menyumbang titik tengah · %d baris tanpa pasangan sama"
     . " sekali (%s m panjangnya, %d di antaranya kandas karena ambang --bagi-pasang %s)\n", $sisi,
     $terpasang, $tunggal, angkaNum($panjangTunggal, 1), $setengah, angkaNum($bagiPasang, 2));
-printf("       sisi tunggal: sisi sejajar terdekat %s · %d sisi sejajar tapi koridornya selalu di dalam"
-    . " bidang\n", json_encode($pitaTunggal, JSON_UNESCAPED_UNICODE), $koridorTertutup);
-printf("koridor: %d pasangan sisi berbeda · %d untai titik tengah\n", count($pasangan), count($jalur));
+printf("       sisi tunggal: sisi sejajar terdekat %s · %d sisi sejajar tapi koridornya selalu"
+    . " tertutup (bidang atau air)\n", json_encode($pitaTunggal, JSON_UNESCAPED_UNICODE), $koridorTertutup);
+printf("koridor: %d pasangan sisi berbeda · %d untai titik tengah · titik sampel dengan kandidat"
+    . " tertolak air: %d\n", count($pasangan), count($jalur), $tolakAir);
 
 // 3. Renggut titik tengah dan rangkai menjadi rantai.
 $raguSum = [];
@@ -1227,7 +1353,7 @@ $meta['layers'][JUDUL_TEPI] = [
         ? 'kandidat 020100 (garis terbuka dan cincin poligon) serta cincin tabel bidang yang membawa label'
             . ' berawalan JALAN (kelas dibaca dari teks, bukan dari berkas asal) serta pita sejajarnya'
         : 'lapis ' . BERKAS_TERBIT . '.geojson yang sudah terbit, dibaca apa adanya sebagai tepi',
-    'ambang' => ['benih_m' => BENIH, 'pita_m' => PITA, 'sudut_derajat' => SUDUT, 'putaran' => PUTARAN,
+    'ambang' => ['benih_m' => $benihMaks, 'pita_m' => PITA, 'sudut_derajat' => SUDUT, 'putaran' => PUTARAN,
         'bagi_sejajar' => BAGI_SEJAJAR, 'bagi_koridor_kosong' => BAGI_KOSONG,
         'min_panjang_m' => MIN_PANJANG, 'langkah_sampel_m' => LANGKAH, 'bagi_ulang_cincin' => BAGI_ULANG,
         'eksklusif' => $eksklusif],
@@ -1274,7 +1400,7 @@ $catatan[] = sprintf(
     . ' (%s m) tidak punya sisi seberang sama sekali sehingga tidak bisa disumbukan. Koordinat sumbu baru,'
     . ' rata-rata dua tepi, bukan titik turunan 020100. Keduanya hanya lapisan referensi dan belum dipasang'
     . ' di panel Peta Induk.',
-    JUDUL_TEPI, JUDUL_SUMBU, date('c'), BENIH, PITA, SUDUT, BAGI_KOSONG * 100, $jumlahPersil, $lebarMaks,
+    JUDUL_TEPI, JUDUL_SUMBU, date('c'), $benihMaks, PITA, SUDUT, BAGI_KOSONG * 100, $jumlahPersil, $lebarMaks,
     $terpasang, count($daftar), angkaNum($panjangSum, 1), $sisi, $tunggal, angkaNum($panjangTunggal, 1)
 );
 $meta['notes'] = $catatan;

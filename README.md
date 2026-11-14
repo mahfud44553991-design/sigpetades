@@ -6182,11 +6182,18 @@ Apache. Di `peta-lama.php` sebuah kelompok baru bertanda "Turunan Jalan dua
 tahap" diberi dua pil tepat di bawah kelompok "Garis turunan": judulnya
 `Layer GARIS JALAN TEPI DARI LABEL` dan `Layer GARIS JALAN SUMBU DARI LABEL`
 (kunci `metadata.json` yang sudah ditulis alat ini), teks pendek "Tepi jalan
-(3.323)" dan "Sumbu jalan (1.816)" sesuai konvensi §3.78, gaya garis `#14b8a6`
-lebar 1,1 dan `#9d174d` lebar 2,2, serta dua swatch legenda. Keduanya mati secara
-bawaan, seperti semua lapis turunan lain, dan tetap hanya ada di panel Peta
+(3.323)" dan "Sumbu jalan (1.816)" sesuai konvensi §3.78 — kedua angka itu dihitung
+dari `metadata.json` saat halaman dimuat, jadi yang terbaca sekarang adalah 1.721
+untuk sumbu (§3.82) — gaya garis `#14b8a6`
+lebar 1,1 dan `#9d174d` lebar 2,2, serta dua swatch legenda. Saat pertama
+dipasang keduanya masih mati bawaan, seperti semua lapis turunan lain; atas
+permintaan 14 Nov keduanya kini `checked`, jadi tepi dan sumbu ikut tergambar
+begitu halaman selesai memuat (urutan muat: 020100, tepi, sumbu, baru calon
+bidang; tambahan berkas pada saat itu 1.299.654 B tepi dan 1.152.331 B sumbu,
+ukuran hari ini di §3.82). Tetap hanya ada di panel Peta
 Induk — Peta Bidang tidak disentuh (§3.75). Muat halaman tidak berubah:
-`pasang()` di naskah JS sudah memetakan kunci `data-lapisan` ke API yang sama.
+`pasang()` di naskah JS sudah memetakan kunci `data-lapisan` ke API yang sama
+dan lingkaran awal hanya memanggil yang tercentang.
 
 Verifikasinya masih tingkat statis, karena halaman minta login Super Admin dan
 akun uji sudah dihapus (§3.72): `php -l` bersih pada kedua berkas, `node --check`
@@ -6194,7 +6201,9 @@ bersih atas 800 baris JS nowdoc halaman, dan `_lama/scratch/cek-pasang-lapis-jal
 mencetak 22 kunci daftar putih = 22 kunci `data-lapisan` di panel, kedua berkas
 GeoJSON ada, cabang gaya dan swatch legenda ditemukan untuk keduanya, jumlah
 fitur nyata sama dengan yang dibaca panel dari `metadata.json` (3.323 dan 1.816,
-seluruhnya `LineString`; panjang terukur 143.106,2 m dan 30.805,2 m). Perubahan
+seluruhnya `LineString`; panjang terukur 143.106,1 m dan 30.805,2 m — keduanya
+diukur ulang hari ini langsung dari berkasnya, dan angka sumbu itu keadaan 13 Nov,
+lihat §3.82). Perubahan
 ini semula dibiarkan di ruang kerja tanpa commit, karena perintahnya "pasang
 langsung tanpa melalui git"; commit berikutnya yang memuat bagian ini
 mengikutkannya ke `main`.
@@ -6297,6 +6306,128 @@ dipindaikan sendiri dengan `pindai-glif-20261113.php`, bukan diambil dari
 pesan perkakas lain. Ukuran `README.md` di atas hanya berlaku sampai paragraf
 pemasangan dua lapis turunan di §3.80 ditulis pada hari yang sama; jumlah sesudah
 itu sengaja tidak dikutip lagi karena paragraf ini sendiri masih akan disunting.
+
+### 3.82 Sumbu jalan tidak lagi melewati selokan dan sungai (14 Nov 2026)
+
+Laporan user: "garis sumbu jalan banyak yang terputus dan ada yang masuk wilayah
+sungai / saluran". Kedua gejala diukur terpisah lebih dulu dengan
+`_lama/scratch/ukur-sumbu-retak-air.php` (baru, hanya membaca berkas terbit; ia
+menggabung tiga uji: celah antarujung sumbu, titik sumbu yang jatuh di antara dua
+tepi air, dan kelas label di titik sumbu), baru alatnya diubah.
+
+**Gejala masuk-air lebih dulu, dan gejala itu memang salah alat.** Pada keluaran
+13 Nov (1.816 segmen / 30.805,2 m / 1.152.331 B) terukur **1.394 dari 15.291 titik
+sumbu (9,1 %) berada di antara dua tepi air**, panjang yang terseret **3.160,6 m
+(10,3 %)**, dan 38 segmen benar-benar memotong garis air (77 potongan). Yang
+terseret itu bukan jalan yang kebetulan dekat saluran: **775 dari 909 tepi** yang
+dipakai rantai-rantai bermasalah itu berimpit <= 0,6 m dengan sebuah garis
+selokan/perairan, hanya 134 yang tidak. Jadi yang terjadi adalah sebuah baris 020100
+yang merupakan **tepi selokan** ikut diklaim sebagai tepi jalan pada tahap 1 —
+wajar, karena jalan raya berjalan di sisi saluran dan label `JALAN` berjarak <= 2 m
+dari garis itu — lalu pada tahap 2 **kedua tepi selokan itu dipasangkan satu sama
+lain**: sejajar, lebarnya 0,5-3,3 m (masuk `--lebar` 8 m), dan titik tengah di
+antara keduanya **tidak berada di dalam bidang mana pun**. Uji permukaan itulah
+satu-satunya rem yang dimiliki tahap 2, dan rem itu sudah tidak bisa menahan air
+sejak 10 Nov: 3.773 obyek `tipe='lain'` — termasuk persil sungai dan saluran —
+dihapus permanen dari tabel `bidang` (§3.74), sehingga koridor air kini tampak
+"kosong" bagi alat ini.
+
+**Aturan baru di tahap 2.** Sebuah pasangan tepi ditolak bila titik tengah koridornya
+terjepit di antara dua tepi air yang **sejajar dengan arah pasangan itu**:
+`bacaTepiAir()` memuat `garis-selokan.geojson` (783) + `garis-perairan.geojson` (542)
+= 1.325 baris / 4.667 segmen ke kisi `SEL_PASANG`, dan `diKoridorAir()` menuntut dua
+baris air **berbeda** berada di sisi yang berlawanan, masing-masing <= `RAGU_AIR`
+3,5 m, dengan beda arah <= `SUDUT_AIR` 25 derajat terhadap arah pasangan. Syarat
+sejajar itu yang menjaga persimpangan jalan dengan saluran tetap utuh: di mulut
+pelabuhan air tepinya memotong, tidak menjepit. Pasangannya di `pasanganTerdekat()`
+(tepat sesudah uji bidang) dan di cabang diagnosis `seberangTerdekat()`, sehingga
+cacah "sisi sejajar tapi koridornya tertutup" ikut menyebut air. Versi pertama
+menyimpulkan sisi dari arah segmen airnya sendiri; karena dua tepi satu selokan bisa
+digitasi berlawanan arah, kedua tepi itu masuk keranjang sisi yang sama dan aturan
+nyaris tidak bekerja — versi itulah yang menghasilkan 1.697 segmen pada percobaan
+pertama hari ini. Setelah sisi diukur terhadap arah pasangan, baris acuan tiap
+kandidat ditandai agar satu baris air tidak dihitung sebagai dua tepinya sendiri.
+
+| keadaan sumbu | sebelum (13 Nov) | sesudah (14 Nov) |
+| --- | --- | --- |
+| segmen / panjang | 1.816 / 30.805,2 m | **1.721 / 28.571,1 m** |
+| titik sumbu | 15.291 | 14.210 |
+| titik terjepit dua tepi air | 1.394 (9,1 %) | **27 (0,2 %)** |
+| panjang terseret | 3.160,6 m (10,3 %) | **189,5 m (0,7 %)** |
+| segmen memotong garis air | 38 (77 potongan) | 24 (31 potongan) |
+| pita lebar "<=1 m" / "1-2 m" | 57 / 395 | 14 / 369 |
+| lebar timbang panjang | 3,07 m | 3,16 m |
+
+Yang tersisa 189,5 m, dan yang terbesar adalah satu rantai `SUMBU-0210` 36,2 m di
+dalam `SALURAN` — di sana arah pasangan menyimpang lebih dari 25 derajat dari
+tepi airnya, jadi ia lolos dengan sah menurut aturan itu. Sisa potongan air yang
+memotong (24 segmen) adalah persimpangan, memang tidak boleh dibuang.
+
+**Yang diukur lalu ditolak.** (1) Aturan "label jalan harus lebih dekat daripada
+label air di titik tengah": pada keluaran lama ia menolak 17 dari 27 titik yang
+tersisa (63,0 %) tetapi juga 1.542 titik yang **bukan** koridor air (10,9 %), karena
+622 label jalan harus menopang 143.106,1 m tepi — terlalu jarang untuk menjadi syarat
+titik per titik. (2) `--eksklusif` (label jalan harus terdekat, tahap 1) justru
+memperburuk cakupan: tepi 3.323 → 3.170 baris dan sumbu 30.805,2 m → 29.225,9 m.
+(3) `--lebar=15` dengan aturan air baru: sumbu 2.015 segmen / 31.688,3 m dan cakupan
+naik 39,9 % → 44,3 %, tetapi pita lebar ">6 m" melompat 91 → 352 dan panjang yang
+terseret naik 0,7 % → 1,4 % — yang didapat bukan sambungan jalan, melainkan pasangan
+silang ke koridor sebelah. Bawaan `--lebar` karenanya tetap 8,0 m.
+
+**Gejala terputus: sebagian besar bukan salah alat.** Panjang sumbu sekarang 39,9 %
+dari setengah panjang tepinya (28.571,1 m terhadap 71.553,0 m): rata-rata hanya dua
+dari lima sisi jalan yang menemukan pasangan. Dari 3.442 ujung sumbu, 589 tidak punya
+lanjutan mana pun dalam 20 m, dan 902 pasang ujung yang **searah** (<= 30 derajat di
+kedua sisi) saling menunggu pada jarak 1,2-20 m — 112 di antaranya cuma 1,2-3 m,
+211 di 3-6 m, 187 di 6-10 m, 391 di 10-20 m. Penyebab yang dilaporkan alat sendiri,
+dan inilah yang menentukan: **574 sisi tidak punya sisi sejajar sama sekali sampai
+15 m**, 206 sisi hanya punya yang berjarak 8-15 m (di luar `--lebar`), dan 196 sisi
+punya pasangan sejajar tapi koridornya selalu tertutup bidang/air. 948 baris tepi
+(26.740,9 m) tidak menyumbang satu titik tengah pun. Angka 574 itu artinya
+digitasi DXF hanya menggambar satu sisi jalan; sumbu di ruas tersebut tidak bisa
+dihitung dari bahan yang ada, dan alat ini tidak akan mengarangnya. Yang bisa
+dilakukan tanpa mengarang — menaikkan `--lebar` — sudah diukur dan ditolak di atas;
+menjahit celah 1,2-3 m antaruntaian yang sejajar belum dikerjakan dan jadi kandidat
+berikutnya kalau memang diminta. Catatan lain dari pengukuran ini: `label` tepi
+hanya berisi **tiga** teks berbeda (`JALAN` 133.065,7 m, `Jalan` 9.818,9 m, `JALAN
+DUSUN` 221,6 m), jadi rujukan per nama jalan tidak mungkin dibuat dari lapis ini.
+
+**Label yang belum punya garis, dan radius benih.** Menjawab laporan kedua,
+`_lama/scratch/ukur-label-tanpa-garis.php` (baru, hanya membaca) memeriksa 622
+label jalan satu per satu: **453 punya sumbu <= 4 m, 169 tidak**. Yang penting,
+tidak satu pun dari 169 itu kehilangan bahan digitasi — jarak terjauh sebuah
+label ke garis 020100 mana pun hanya **6,32 m**, dan mediannya **0,91 m** untuk
+label yang tercakup tetapi **2,11 m** (p90 4,06 m) untuk yang tidak. Angka itu
+menunjuk ke `BENIH` 2,0 m: label yang ditulis di tengah jalan berjarak sekitar
+setengah lebar jalan dari tepinya, sehingga barisnya tidak pernah jadi benih dan
+tidak ikut tumbuh lewat pita. Karena itu `--benih=M` dipasang sebagai flag;
+bawaannya tetap 2,0 m (= nilai si pembangkit) dan `--benih=2` mencetak ulang
+keluaran terbit secara persis (3.323 baris tepi / 143.106,1 m, 1.721 segmen
+sumbu / 28.571,1 m). Sapuan uji kering 3-8 m, panjang sumbu terhadap panjang
+tepi: 32.678,7 m terhadap 174.714,9 m · 34.686,0/191.932,2 · 35.129,1/200.554,6
+· 35.508,2/207.551,6 · 36.356,8/224.663,5. Kenaikan terbesar ada di 2→3 m
+(+14,4 %) dan melandai sesudah 4 m (4→5 m hanya +1,3 %), sedang yang buruk ikut
+naik monoton: pita lebar ">6 m" 91 → 137 → 179 → 181 → 195 → 197 dan sisi tanpa
+sejajar 574 → 990. Jadi ambang lain **belum diterapkan dan keputusannya belum
+diambil** — mutu dua kandidat pertama (3 m dan 4 m) masih diukur sebelum nomor
+apa pun di bagian ini dinyatakan berubah.
+
+**Verifikasi dan higienitas.** `php -l` bersih; dua kali `--terapkan` berturutan
+mencetak berkas identik, SHA-256 `garis-jalan-sumbu.geojson` `fc8c258757e6…`,
+sedangkan `garis-jalan-tepi.geojson` **tidak berubah** (`54f30b990986…`, sama seperti
+sebelum aturan ini) karena tahap 1 tidak disentuh — ini bukti bahwa yang berubah hanya
+tahap 2. `_lama/scratch/cek-pasang-lapis-jalan.php` dijalankan ulang dan tetap bersih:
+22 kunci daftar putih = 22 kunci panel, `fitur nyata 1721 · metadata.json 1721 · cocok`,
+`pil aktif bawaan : 4`. `metadata.json` ditulis ulang oleh alat, jadi teks pil kini
+membaca "Sumbu jalan (1.721)" tanpa menyunting `peta-lama.php`; ukuran berkas sumbu
+1.081.235 B (sebelumnya 1.152.331 B), sehingga angka di §3.80 itu keadaan 13 Nov.
+Keluaran 13 Nov dicadangkan di `_lama/cadangan-sumbu-2026-11-14/`
+(`garis-jalan-sumbu-sebelum-20261114.geojson`, 1.152.331 B, SHA-256 `57a027dcd451…`).
+Alat jadi 1.399 baris / 56.273 B, LF semua, 0 tab, aksara di luar Latin-1 tetap tiga
+U+2014; nol han, hiragana, katakana, hangul dan form penuh terukur per codepoint
+dengan `pindai-glif-20261113.php` — satu glif han sempat lolos ke sebuah komentar
+naskah hari ini, dihapus, lalu berkasnya dipindai ulang. **Keduanya masih belum
+dilihat di peramban** (halaman minta login Super Admin, akun uji terhapus — §3.72).
 
 ---
 

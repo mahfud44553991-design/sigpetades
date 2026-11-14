@@ -287,10 +287,10 @@ sip_judul(
                     asalnya. Perhitungannya ada di README §3.77.</p>
                 <p class="petunjuk">Turunan Jalan dua tahap</p>
                 <label class="cek" title="Layer GARIS JALAN TEPI DARI LABEL">
-                    <input type="checkbox" data-lapisan="garis-jalan-tepi">
+                    <input type="checkbox" data-lapisan="garis-jalan-tepi" checked>
                     Tepi jalan (<?= e(angka($jumlah('GARIS JALAN TEPI DARI LABEL'))) ?>)</label>
                 <label class="cek" title="Layer GARIS JALAN SUMBU DARI LABEL">
-                    <input type="checkbox" data-lapisan="garis-jalan-sumbu">
+                    <input type="checkbox" data-lapisan="garis-jalan-sumbu" checked>
                     Sumbu jalan (<?= e(angka($jumlah('GARIS JALAN SUMBU DARI LABEL'))) ?>)</label>
                 <p class="petunjuk">Kedua lapis dihitung tools/garis-jalan-label.php dari label
                     berawalan JALAN, kandidat 020100, dan poligon bidang. Tahap satu menandai tepian
@@ -321,8 +321,8 @@ sip_judul(
                     <input type="checkbox" data-lapisan="batas-jalan">
                     Label jalan (<?= e(angka($jumlah('BATAS JALAN'))) ?>)</label>
             </div>
-            <p class="petunjuk">Bidang kadastrum dan calon bidang dimuat lebih dulu; sisanya mati secara
-                bawaan agar peta tetap ringan.</p>
+            <p class="petunjuk">Bidang kadastrum, kedua lapis turunan Jalan, dan calon bidang dimuat
+                lebih dulu; sisanya mati secara bawaan agar peta tetap ringan.</p>
             <p class="petunjuk">Calon bidang adalah garis 020100 yang ujungnya hampir bertemu
                 (celah ≤ 1 unit, luas ≥ 20 unit²) dan belum tertutup sebagai bidang. Yang bentuknya
                 sama dengan poligon tertutup dilewati (<?= e(angka((int) ($meta['layers']['CALON BIDANG']['duplicates_skipped'] ?? 0))) ?> duplikat),
