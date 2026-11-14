@@ -12,6 +12,7 @@ declare(strict_types=1);
  *   GET api/peta-lama.php?lapisan=tn-nama
  *   GET api/peta-lama.php?lapisan=garis-jalan   (juga garis-selokan,
  *                                                garis-perairan, garis-lain)
+ *   GET api/peta-lama.php?lapisan=garis-jalan-tepi   (juga garis-jalan-sumbu)
  *   GET api/peta-lama.php?lapisan=bidang-hm   (juga hm, optimalisasi-hm, lb-lai,
  *       010500, 020400, nib-hm, batas-desa, blok, batas-jalan)
  *
@@ -42,6 +43,8 @@ const LAPISAN_PETA_LAMA = [
     'calon-bidang'   => 'calon-bidang.geojson',
     'batas-jalan'    => 'batas-jalan.geojson',
     'garis-jalan'    => 'garis-jalan.geojson',
+    'garis-jalan-tepi' => 'garis-jalan-tepi.geojson',
+    'garis-jalan-sumbu' => 'garis-jalan-sumbu.geojson',
     'garis-selokan'  => 'garis-selokan.geojson',
     'garis-perairan' => 'garis-perairan.geojson',
     'garis-lain'     => 'garis-lain.geojson',

@@ -6164,13 +6164,39 @@ rata-rata dua tepi, dan itulah seluruh isi tahap 2; yang dilaporkan sebagai
 gantinya adalah jarak tiap titik sumbu ke tepi terdekat. Celah digitasi tidak
 dijembatani. `garis-selokan`, `garis-perairan` dan `garis-lain` tidak disentuh,
 dan `garis-jalan.geojson` terbit juga tidak diubah: ini lapisan baru di
-sebelahnya, bukan perbaikan atas yang lama. **Keduanya belum dipasang di panel
-Peta Induk** — grep pada seluruh `*.php` di luar `_lama/` hanya menemukan nama
-berkasnya di dalam alat itu sendiri (`tools/garis-jalan-label.php:93` dan `:94`),
-jadi tidak ada satu pun halaman atau API yang menayangkannya, dan belum ada
-satu pun yang dilihat di browser. Yang ada baru pemeriksaan tingkat berkas:
+sebelahnya, bukan perbaikan atas yang lama. Pada saat bagian ini ditulis
+**keduanya belum dipasang di panel Peta Induk** — grep pada seluruh `*.php` di
+luar `_lama/` hanya menemukan nama berkasnya di dalam alat itu sendiri
+(`tools/garis-jalan-label.php:93` dan `:94`), jadi belum ada satu pun halaman
+atau API yang menayangkannya, dan belum ada satu pun yang dilihat di browser.
+Yang ada baru pemeriksaan tingkat berkas:
 keduanya dibaca ulang setelah ditulis dan seluruh 5.139 fitur bertipe `LineString`
 dengan koordinat numerik.
+
+**Dipasang di panel Peta Induk (13 Nov, sesudah paragraf di atas).** Dua kunci
+masuk ke daftar putih `api/peta-lama.php`: `garis-jalan-tepi` dan
+`garis-jalan-sumbu`, masing-masing menunjuk berkas bernama sama di folder
+`dxf-layers`. Jalan keluar tetap lewat daftar putih, jadi parameter `lapisan`
+tidak pernah menyusun path secara bebas dan folder `files/` tetap ditolak
+Apache. Di `peta-lama.php` sebuah kelompok baru bertanda "Turunan Jalan dua
+tahap" diberi dua pil tepat di bawah kelompok "Garis turunan": judulnya
+`Layer GARIS JALAN TEPI DARI LABEL` dan `Layer GARIS JALAN SUMBU DARI LABEL`
+(kunci `metadata.json` yang sudah ditulis alat ini), teks pendek "Tepi jalan
+(3.323)" dan "Sumbu jalan (1.816)" sesuai konvensi §3.78, gaya garis `#14b8a6`
+lebar 1,1 dan `#9d174d` lebar 2,2, serta dua swatch legenda. Keduanya mati secara
+bawaan, seperti semua lapis turunan lain, dan tetap hanya ada di panel Peta
+Induk — Peta Bidang tidak disentuh (§3.75). Muat halaman tidak berubah:
+`pasang()` di naskah JS sudah memetakan kunci `data-lapisan` ke API yang sama.
+
+Verifikasinya masih tingkat statis, karena halaman minta login Super Admin dan
+akun uji sudah dihapus (§3.72): `php -l` bersih pada kedua berkas, `node --check`
+bersih atas 800 baris JS nowdoc halaman, dan `_lama/scratch/cek-pasang-lapis-jalan.php`
+mencetak 22 kunci daftar putih = 22 kunci `data-lapisan` di panel, kedua berkas
+GeoJSON ada, cabang gaya dan swatch legenda ditemukan untuk keduanya, jumlah
+fitur nyata sama dengan yang dibaca panel dari `metadata.json` (3.323 dan 1.816,
+seluruhnya `LineString`; panjang terukur 143.106,2 m dan 30.805,2 m). Perubahan
+ini dibiarkan di ruang kerja tanpa commit atas permintaan "pasang langsung tanpa
+melalui git".
 
 **Higienitas.** Alat 1.287 baris, LF semua (0 CRLF), 0 tab, `php -l` bersih, dan
 aksara di luar Latin-1 di dalamnya cuma tiga tanda pisah (U+2014) pada blok
@@ -6267,7 +6293,9 @@ form penuh pada keduanya — aksara di luar Latin-1 di README tetap tanda baca
 dan glif matematika yang sudah dipakai luas di dokumen ini, sedangkan berkas
 API hanya sepasang tanda kutip lengkung yang memang sudah ada. Angka ini
 dipindaikan sendiri dengan `pindai-glif-20261113.php`, bukan diambil dari
-pesan perkakas lain.
+pesan perkakas lain. Ukuran `README.md` di atas hanya berlaku sampai paragraf
+pemasangan dua lapis turunan di §3.80 ditulis pada hari yang sama; jumlah sesudah
+itu sengaja tidak dikutip lagi karena paragraf ini sendiri masih akan disunting.
 
 ---
 

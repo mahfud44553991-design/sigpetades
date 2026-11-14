@@ -132,6 +132,8 @@ sip_judul(
                 <span><i style="background:#0ea5e9"></i>Garis selokan</span>
                 <span><i style="background:#1d4ed8"></i>Garis sungai</span>
                 <span><i style="background:#a16207"></i>Garis tanpa label</span>
+                <span><i style="background:#14b8a6"></i>Tepi jalan</span>
+                <span><i style="background:#9d174d"></i>Sumbu jalan</span>
                 <span><i style="background:#d97706"></i>Calon bidang</span>
                 <span><i style="background:#64748b"></i>Label NIB &amp; batas</span>
             </div>
@@ -283,6 +285,17 @@ sip_judul(
                 <p class="petunjuk">Diturunkan dari 13.719 kandidat layer 020100 — 13.681 garis
                     terbuka dan 38 cincin poligon. Kelas dibaca dari teks label, bukan dari berkas
                     asalnya. Perhitungannya ada di README §3.77.</p>
+                <p class="petunjuk">Turunan Jalan dua tahap</p>
+                <label class="cek" title="Layer GARIS JALAN TEPI DARI LABEL">
+                    <input type="checkbox" data-lapisan="garis-jalan-tepi">
+                    Tepi jalan (<?= e(angka($jumlah('GARIS JALAN TEPI DARI LABEL'))) ?>)</label>
+                <label class="cek" title="Layer GARIS JALAN SUMBU DARI LABEL">
+                    <input type="checkbox" data-lapisan="garis-jalan-sumbu">
+                    Sumbu jalan (<?= e(angka($jumlah('GARIS JALAN SUMBU DARI LABEL'))) ?>)</label>
+                <p class="petunjuk">Kedua lapis dihitung tools/garis-jalan-label.php dari label
+                    berawalan JALAN, kandidat 020100, dan poligon bidang. Tahap satu menandai tepian
+                    di kedua sisi, tahap dua memasangkan tepian itu menjadi satu garis tengah per
+                    segmen jalan. Perhitungannya ada di README §3.80.</p>
                 <p class="petunjuk">Lainnya</p>
                 <label class="cek" title="Layer DXF 010500">
                     <input type="checkbox" data-lapisan="010500">
@@ -440,6 +453,8 @@ $naskah = <<<'JS'
         if (nama === 'garis-selokan') return () => ({ color: '#0ea5e9', weight: 1.4, opacity: .95 });
         if (nama === 'garis-perairan') return () => ({ color: '#1d4ed8', weight: 1.7, opacity: .95 });
         if (nama === 'garis-lain') return () => ({ color: '#a16207', weight: 1.3, dashArray: '6 4', opacity: .95 });
+        if (nama === 'garis-jalan-tepi') return () => ({ color: '#14b8a6', weight: 1.1, opacity: .85 });
+        if (nama === 'garis-jalan-sumbu') return () => ({ color: '#9d174d', weight: 2.2, opacity: .95 });
         if (nama === '010500') return () => ({ color: '#64748b', weight: 1, opacity: .8 });
         if (nama === '020400') return () => ({ color: '#475569', weight: 1, opacity: .85 });
         if (nama === 'calon-bidang') return () => ({
