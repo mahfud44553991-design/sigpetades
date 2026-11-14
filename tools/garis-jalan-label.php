@@ -19,11 +19,15 @@ declare(strict_types=1);
  *                              berpasangan; bawaan 0 = terima tiap titik tengah
  *                              yang lolos semua syarat, 0,50 = hanya baris yang
  *                              separuh panjangnya berpasangan
+ *   --jahit=M                  panjang jahitan maksimum antara dua ujung buntu
+ *                              sumbu; bawaan 3,0 m (= konstanta JAHIT),
+ *                              0 = matikan penyambungan celah
  *   --eksklusif                label jalan harus yang terdekat; bila label kelas
  *                              lain lebih dekat, tepinya tidak diklaim
  *   --rinci                    cetak 40 sumbu terpanjang
  *
- * Angka flag (`--lebar`, `--bagi-pasang`) menerima koma atau titik desimal.
+ * Angka flag (`--lebar`, `--bagi-pasang`, `--benih`, `--jahit`) menerima koma
+ * atau titik desimal.
  *
  * Latar. `tools/garis-batas-020100.php` menurunkan empat kelas sekaligus dan
  * mengklaim SATU entitas 020100 per baris, sehingga lapis Jalan berisi tepian
@@ -82,8 +86,14 @@ declare(strict_types=1);
  *     jatuh di tempat yang sama, sehingga keduanya menyatu jadi satu rantai,
  *     dan koordinat simpul hasil adalah rata-rata seluruh titik yang masuk;
  *  4. rantai diputus pada simpul berderajat != 2, yaitu ujung buntu dan
- *     persimpangan, sehingga tiap jalur adalah satu segmen jalan; jalur < 2,0 m
- *     dibuang dan sisanya dinomori dari yang terpanjang.
+ *     persimpangan, sehingga tiap jalur adalah satu segmen jalan;
+ *  5. dua ujung buntu dari dua untaian yang berbeda, berjarak > RAGU_SUMBU dan
+ *     <= --jahit (bawaan JAHIT) serta sama-sama menunjuk satu sama lain <=
+ *     SUDUT_JAHIT, disambungkan dengan satu ruas garis; tengah ruas itu harus
+ *     lolos kedua uji koridor aturan 2, sebuah ujung hanya sekali dipakai, dan
+ *     dua untaian yang berbagi simpul tidak disambung. Ini menutup celah
+ *     digitasi tanpa pernah menutup lingkaran atau memotong persimpangan;
+ *  6. jalur < 2,0 m dibuang dan sisanya dinomori dari yang terpanjang.
  * Tidak ada verifikasi titik-demi-titik terhadap sumber seperti pada si perapian:
  * koordinat sumbu memang BARU, rata-rata dua tepi, dan itu seluruh isi tahap 2.
  * Yang dilaporkan sebagai gantinya: jarak tiap titik sumbu ke tepi terdekat.
@@ -152,6 +162,25 @@ const BAGI_PASANG = 0.0;
 const RAGU_SISI = 1.0;
 const SEL_PASANG = 10.0;
 const RAGU_SUMBU = 1.2;
+/**
+ * Jahit celah (14 Nov). Rantai diputus pada simpul berderajat != 2, jadi satu
+ * celah digitasi di tengah ruas memecah satu jalan menjadi dua SUMBU. Dua ujung
+ * buntu yang saling menunggu lebih jauh dari RAGU_SUMBU tetapi tidak lebih jauh
+ * dari JAHIT, dan yang arah keduanya menunjuk satu sama lain <= SUDUT_JAHIT,
+ * adalah satu ruas yang sama. Ujung yang sudah terjahit tidak dipakai lagi dan
+ * dua untaian yang berbagi simpul tidak disambung, jadi jahitan tidak pernah
+ * menutup lingkaran ataupun memotong persimpangan. Ruas jahitan diuji terhadap
+ * permukaan bidang dan koridor air pada titik tengahnya, seperti pasangan tepi.
+ */
+const JAHIT = 3.0;
+const SUDUT_JAHIT = 25.0;
+/**
+ * Plafon untuk --jahit. Celah yang lebih lebar dari ini tetap terukur sebagai
+ * ujung sepi, tapi menyambungnya berarti mengarang ruas baru, bukan menutup
+ * celah digitasi. 20 m adalah jangkauan diagnostik yang sama dipakai
+ * _lama/scratch/ukur-sumbu-retak-air.php untuk melaporkan kelas celah.
+ */
+const JAHIT_MAKS = 20.0;
 /**
  * Uji koridor air (14 Nov). Tepi air diambil dari dua lapis terbit hasil
  * tools/garis-batas-020100.php. Sebuah pasangan tepi ditolak bila titik tengah
@@ -669,6 +698,7 @@ $sumberTepi = 'turun';
 $lebarMaks = 8.0;
 $benihMaks = BENIH;
 $bagiPasang = BAGI_PASANG;
+$jahitMaks = JAHIT;
 foreach (array_slice($argv, 1) as $a) {
     if ($a === '--terapkan') {
         $terapkan = true;
@@ -686,6 +716,8 @@ foreach (array_slice($argv, 1) as $a) {
         $lebarMaks = angkaFlag(substr($a, 8), '--lebar');
     } elseif (str_starts_with($a, '--benih=')) {
         $benihMaks = angkaFlag(substr($a, 8), '--benih');
+    } elseif (str_starts_with($a, '--jahit=')) {
+        $jahitMaks = angkaFlag(substr($a, 8), '--jahit');
     } else {
         galat('argumen tidak dikenal: ' . $a);
     }
@@ -708,8 +740,13 @@ if ($bagiPasang < 0.0 || $bagiPasang > 1.0) {
 if ($benihMaks <= 0.0 || $benihMaks > PITA) {
     galat('--benih harus antara 0 dan ' . angkaNum(PITA, 1) . ' meter');
 }
-printf("mode: tahap %s · sumber tepi %s · benih %s m · lebar koridor maksimum %s m · bagi pasang %s · %s · %s\n",
+if ($jahitMaks < 0.0 || $jahitMaks > JAHIT_MAKS) {
+    galat('--jahit harus antara 0 dan ' . angkaNum(JAHIT_MAKS, 1) . ' meter; 0 mematikan penyambungan');
+}
+printf("mode: tahap %s · sumber tepi %s · benih %s m · lebar koridor maksimum %s m · bagi pasang %s"
+    . " · jahit celah %s m · %s · %s\n",
     $tahap, $sumberTepi, angkaNum($benihMaks, 1), angkaNum($lebarMaks, 1), angkaNum($bagiPasang, 2),
+    angkaNum($jahitMaks, 1),
     $eksklusif ? 'label jalan harus yang terdekat' : 'kelas lain tidak jadi syarat',
     $terapkan ? 'TERAPKAN' : 'uji kering');
 
@@ -1205,6 +1242,144 @@ foreach ($adj as $a => $nb) {
     }
 }
 
+// 3b. Jahit celah. Dua ujung buntu yang saling menunggu adalah satu ruas jalan
+// yang terdigitasi terputus, bukan persimpangan: ruas sepanjang celah itu
+// ditambahkan ke untaian. Ujung di persimpangan (derajat != 2) tidak disentuh,
+// dua untaian yang berbagi simpul tidak disambung, dan sebuah ujung hanya
+// boleh dipakai sekali, jadi jahitan tidak pernah melingkar atau memotong
+// persimpangan. Titik tengah ruas jahitan diuji terhadap permukaan bidang dan
+// koridor air dengan syarat yang sama seperti pasangan tepi di atas.
+$jahitRuat = 0;
+$jahitPanjang = 0.0;
+$ujngSum = 0;
+$tolakJahit = ['tidak searah' => 0, 'masuk bidang' => 0, 'koridor air' => 0,
+    'sudah terjahit' => 0, 'berbagi simpul' => 0];
+if ($jahitMaks > 0.0) {
+    // Beda dua arah MAJEN dalam derajat, 0..180; bedaArah() membuang informasi
+    // ini karena pasangan tepi memang tidak punya sisi maju.
+    $bedaMaju = static function (float $a, float $b): float {
+        $d = abs(fmod($a - $b, 360.0));
+        return $d > 180.0 ? 360.0 - $d : $d;
+    };
+    $ujng = [];
+    $kisiUjng = [];
+    foreach ($jalurSum as $i => $nd) {
+        foreach ([0, 1] as $p) {
+            $depan = $p === 0 ? $nd[0] : $nd[count($nd) - 1];
+            if (count($adj[$depan] ?? []) !== 1) {
+                continue;
+            }
+            $sebelah = $p === 0 ? $nd[1] : $nd[count($nd) - 2];
+            $x = (float) $titikSum[$depan][0];
+            $y = (float) $titikSum[$depan][1];
+            $id = count($ujng);
+            $ujng[$id] = ['n' => $depan, 'r' => $i, 'x' => $x, 'y' => $y,
+                'arah' => rad2deg(atan2($y - (float) $titikSum[$sebelah][1],
+                    $x - (float) $titikSum[$sebelah][0]))];
+            $kisiUjng[(int) floor($x / $jahitMaks) . ':' . (int) floor($y / $jahitMaks)][$id] = true;
+        }
+    }
+    $ujngSum = count($ujng);
+    $calon = [];
+    foreach ($ujng as $id => $u) {
+        $gx = (int) floor($u['x'] / $jahitMaks);
+        $gy = (int) floor($u['y'] / $jahitMaks);
+        for ($ix = $gx - 1; $ix <= $gx + 1; $ix++) {
+            for ($iy = $gy - 1; $iy <= $gy + 1; $iy++) {
+                foreach (array_keys($kisiUjng[$ix . ':' . $iy] ?? []) as $jd) {
+                    if ($jd <= $id || $ujng[$jd]['r'] === $u['r']) {
+                        continue;
+                    }
+                    $w = $ujng[$jd];
+                    $dx = $w['x'] - $u['x'];
+                    $dy = $w['y'] - $u['y'];
+                    $d = hypot($dx, $dy);
+                    if ($d <= RAGU_SUMBU || $d > $jahitMaks) {
+                        continue;
+                    }
+                    $maju = rad2deg(atan2($dy, $dx));
+                    if ($bedaMaju($u['arah'], $maju) > SUDUT_JAHIT
+                        || $bedaMaju($w['arah'], $maju + 180.0) > SUDUT_JAHIT) {
+                        $tolakJahit['tidak searah']++;
+                        continue;
+                    }
+                    if (diPoligon(($u['x'] + $w['x']) / 2, ($u['y'] + $w['y']) / 2, $kisiPoligon,
+                        $poligon, $poligonBesar)) {
+                        $tolakJahit['masuk bidang']++;
+                        continue;
+                    }
+                    if (diKoridorAir($kisiAir, $segmenAir, ($u['x'] + $w['x']) / 2,
+                        ($u['y'] + $w['y']) / 2, $maju)) {
+                        $tolakJahit['koridor air']++;
+                        continue;
+                    }
+                    $calon[] = ['d' => $d, 'a' => $id, 'b' => $jd];
+                }
+            }
+        }
+    }
+    usort($calon, static fn(array $p, array $q): int => $p['d'] <=> $q['d']);
+    $parentJahit = range(0, max(0, count($jalurSum) - 1));
+    $untai = $jalurSum;
+    $anggota = [];
+    foreach ($jalurSum as $i => $nd) {
+        foreach ($nd as $n) {
+            $anggota[$i][(int) $n] = true;
+        }
+    }
+    $terjahit = [];
+    $untaianSebelum = count($jalurSum);
+    foreach ($calon as $c) {
+        $ra = induk($parentJahit, (int) $ujng[$c['a']]['r']);
+        $rb = induk($parentJahit, (int) $ujng[$c['b']]['r']);
+        $na = (int) $ujng[$c['a']]['n'];
+        $nb = (int) $ujng[$c['b']]['n'];
+        if (isset($terjahit[$na]) || isset($terjahit[$nb])) {
+            $tolakJahit['sudah terjahit']++;
+            continue;
+        }
+        if (count(array_intersect_key($anggota[$ra], $anggota[$rb])) > 0) {
+            $tolakJahit['berbagi simpul']++;
+            continue;
+        }
+        $a = $untai[$ra];
+        $b = $untai[$rb];
+        if ((int) $a[0] === $na) {
+            $a = array_reverse($a);
+        }
+        if ((int) $b[count($b) - 1] === $nb) {
+            $b = array_reverse($b);
+        }
+        $untai[$ra] = array_merge($a, $b);
+        $untai[$rb] = null;
+        $anggota[$ra] += $anggota[$rb];
+        unset($anggota[$rb]);
+        gabung($parentJahit, $ra, $rb);
+        $terjahit[$na] = true;
+        $terjahit[$nb] = true;
+        $jahitRuat++;
+        $jahitPanjang += $c['d'];
+    }
+    if ($jahitRuat > 0) {
+        $rantai = [];
+        foreach ($untai as $nd) {
+            if ($nd !== null) {
+                $rantai[] = $nd;
+            }
+        }
+        $jalurSum = $rantai;
+    }
+    $untaianSesudah = count($jalurSum);
+} else {
+    $untaianSebelum = count($jalurSum);
+    $untaianSesudah = $untaianSebelum;
+}
+printf("jahit celah: %d ruas jahitan sepanjang %s m (celah > %s m dan <= %s m, beda arah majen <= %s"
+    . " derajat) · untaian %d -> %d dari %d ujung buntu · ditolak %s\n", $jahitRuat,
+    angkaNum($jahitPanjang, 1), angkaNum(RAGU_SUMBU, 1), angkaNum($jahitMaks, 1),
+    angkaNum(SUDUT_JAHIT, 0), $untaianSebelum, $untaianSesudah, $ujngSum,
+    json_encode($tolakJahit, JSON_UNESCAPED_UNICODE));
+
 // 4. Satu sumbu per jalur.
 $buangPendekSumbu = 0;
 $fitur = [];
@@ -1374,10 +1549,14 @@ $meta['layers'][JUDUL_SUMBU] = [
     'file' => BERKAS_SUMBU . '.geojson',
     'panjang_m' => (int) round($panjangSum),
     'derived_from' => 'rata-rata dua sisi tepi ' . BERKAS_TEPI . '.geojson yang saling berhadapan di dalam'
-        . ' koridor kosong; satu garis per segmen antara dua ujung atau persimpangan',
+        . ' koridor kosong; satu garis per segmen antara dua ujung, persimpangan, atau ruas jahitan',
     'ambang' => ['lebar_min_m' => LEBAR_MIN, 'lebar_maks_m' => $lebarMaks,
         'sudut_pasang_derajat' => SUDUT_PASANG, 'bagi_pasang' => $bagiPasang, 'ragu_sisi_m' => RAGU_SISI,
-        'ragu_sumbu_m' => RAGU_SUMBU, 'min_panjang_m' => MIN_PANJANG, 'sumber_tepi' => $sumberTepi],
+        'ragu_sumbu_m' => RAGU_SUMBU, 'min_panjang_m' => MIN_PANJANG, 'sumber_tepi' => $sumberTepi,
+        'jahit_m' => $jahitMaks, 'sudut_jahit_derajat' => SUDUT_JAHIT],
+    'jahit' => ['ruas' => $jahitRuat, 'panjang_m' => round($jahitPanjang, 1),
+        'ujung_buntu' => $ujngSum, 'untaian' => $untaianSebelum . ' -> ' . $untaianSesudah,
+        'ditolak' => $tolakJahit],
     'sisi' => ['komponen' => $sisi, 'terpasang' => $terpasang, 'tunggal' => $tunggal,
         'tunggal_setengah' => $setengah, 'koridor_tertutup' => $koridorTertutup,
         'seberang_terdekat' => $pitaTunggal, 'tunggal_panjang_m' => (int) round($panjangTunggal),
@@ -1401,11 +1580,14 @@ $catatan[] = sprintf(
     . ' terhadap gabungan cincin 020100 dan %d persil tabel bidang yang hanya dibaca). Tahap 2'
     . ' merata-ratakan dua sisi yang berhadapan <= %.1f m menjadi satu sumbu per segmen: %d baris tepi'
     . ' menyumbang titik tengah dan lahir %d segmen sumbu sepanjang %s m dari %d komponen sisi; %d baris'
-    . ' (%s m) tidak punya sisi seberang sama sekali sehingga tidak bisa disumbukan. Koordinat sumbu baru,'
-    . ' rata-rata dua tepi, bukan titik turunan 020100. Keduanya hanya lapisan referensi dan belum dipasang'
-    . ' di panel Peta Induk.',
-    JUDUL_TEPI, JUDUL_SUMBU, date('c'), $benihMaks, PITA, SUDUT, BAGI_KOSONG * 100, $jumlahPersil, $lebarMaks,
-    $terpasang, count($daftar), angkaNum($panjangSum, 1), $sisi, $tunggal, angkaNum($panjangTunggal, 1)
+    . ' (%s m) tidak punya sisi seberang sama sekali sehingga tidak bisa disumbukan. %d untaian dijahit'
+    . ' dengan %d ruas sepanjang %s m (celah <= %.1f m, beda arah majen <= %.0f derajat) menjadi %d'
+    . ' untaian. Koordinat sumbu baru, rata-rata dua tepi, bukan titik turunan 020100. Keduanya hanya'
+    . ' lapisan referensi hasil turunan dan sudah dipasang sebagai pil di panel Peta Induk.',
+    JUDUL_TEPI, JUDUL_SUMBU, date('c'), $benihMaks, PITA, SUDUT, BAGI_KOSONG * 100, $jumlahPersil,
+    $lebarMaks, $terpasang, count($daftar), angkaNum($panjangSum, 1), $sisi, $tunggal,
+    angkaNum($panjangTunggal, 1), $untaianSebelum, $jahitRuat, angkaNum($jahitPanjang, 1), $jahitMaks,
+    SUDUT_JAHIT, $untaianSesudah
 );
 $meta['notes'] = $catatan;
 $meta['derived_at'] = date('c');

@@ -6188,7 +6188,8 @@ tahap" diberi dua pil tepat di bawah kelompok "Garis turunan": judulnya
 (kunci `metadata.json` yang sudah ditulis alat ini), teks pendek "Tepi jalan
 (3.323)" dan "Sumbu jalan (1.816)" sesuai konvensi §3.78 — kedua angka itu dihitung
 dari `metadata.json` saat halaman dimuat, jadi yang terbaca adalah 1.721 untuk
-sumbu pada 14 Nov pagi dan 1.961 sejak ambang 3 m diadopsi (§3.82) — gaya garis `#14b8a6`
+sumbu pada 14 Nov pagi, 1.961 sejak ambang 3 m diadopsi (§3.82), dan 1.856 sejak
+celah antaruntaian dijahit (§3.83) — gaya garis `#14b8a6`
 lebar 1,1 dan `#9d174d` lebar 2,2, serta dua swatch legenda. Saat pertama
 dipasang keduanya masih mati bawaan, seperti semua lapis turunan lain; atas
 permintaan 14 Nov keduanya kini `checked`, jadi tepi dan sumbu ikut tergambar
@@ -6391,8 +6392,9 @@ punya pasangan sejajar tapi koridornya selalu tertutup bidang/air. 948 baris tep
 digitasi DXF hanya menggambar satu sisi jalan; sumbu di ruas tersebut tidak bisa
 dihitung dari bahan yang ada, dan alat ini tidak akan mengarangnya. Yang bisa
 dilakukan tanpa mengarang — menaikkan `--lebar` — sudah diukur dan ditolak di atas;
-menjahit celah 1,2-3 m antaruntaian yang sejajar belum dikerjakan dan jadi kandidat
-berikutnya kalau memang diminta. Catatan lain dari pengukuran ini: `label` tepi
+menjahit celah 1,2-3 m antaruntaian yang sejajar ketika itu belum dikerjakan dan
+jadi kandidat berikutnya kalau memang diminta; kandidat itu dikerjakan di §3.83.
+Catatan lain dari pengukuran ini: `label` tepi
 hanya berisi **tiga** teks berbeda (`JALAN` 133.065,7 m, `Jalan` 9.818,9 m, `JALAN
 DUSUN` 221,6 m), jadi rujukan per nama jalan tidak mungkin dibuat dari lapis ini.
 
@@ -6427,7 +6429,7 @@ sedangkan kolom bawaan diukur ulang pada 14 Nov dari berkas hidup ke
 | ambang benih | tepi baris / m | sumbu segmen / m | label berpunya sumbu (dari 622) | sisi tanpa sejajar <= 15 m | sumbu berlebar > 6 m | titik sumbu di koridor air | panjang terseret | segmen memotong air |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | 2,0 m (bawaan ketika tabel ini ditulis) | 3.323 / 143.106,1 | 1.721 / 28.571,1 | **453** | 574 | 91 (5,3 %) | 27 dari 14.210 (0,2 %) | 189,5 m (0,7 %) | 24 (31 potongan) |
-| 3 m (bawaan dan terbit sejak paragraf penutup) | 3.974 / 174.714,9 | 1.961 / 32.678,7 | **502** | 722 | 137 (7,0 %) | 33 dari 16.151 (0,2 %) | 212,7 m (0,7 %) | 26 (33 potongan) |
+| 3 m (bawaan sejak paragraf penutup bagian ini) | 3.974 / 174.714,9 | 1.961 / 32.678,7 | **502** | 722 | 137 (7,0 %) | 33 dari 16.151 (0,2 %) | 212,7 m (0,7 %) | 26 (33 potongan) |
 | 4 m | 4.327 / 191.932,2 | 2.077 / 34.686,0 | **516** | 814 | 179 (8,6 %) | 39 dari 16.958 (0,2 %) | 258,8 m (0,7 %) | 31 (40 potongan) |
 
 Yang dibeli naiknya ambang: **+49 label pada 3 m dan +63 pada 4 m**, dan air tidak
@@ -6519,7 +6521,148 @@ itu. Yang **tidak** berubah: ambang 4 m tetap tidak diambil, dan kedua lapis ini
 tetap belum dilihat di peramban (§3.72). Keluaran sapuan tersimpan di
 `_lama/scratch/adopsi-3m.txt` dan `adopsi-3m-ulang.txt`; alat jadi 1.416 baris /
 57.263 B, LF semua, 0 tab, dan kedua berkas hasil di `/files/` tetap di luar git
-seperti §3.80.
+seperti §3.80. Keadaan yang ditulis paragraf penutup itu sendiri sudah berganti
+beberapa giliran kemudian: celah antaruntaian dijahit (§3.83), sehingga angka
+1.961 segmen tidak lagi menjadi isi berkas terbit.
+
+### 3.83 Jahit celah antara dua ujung buntu sumbu (14 Nov 2026)
+
+Perintah "terapkan" yang kedua tidak menyebut sasarannya, dan dua pembacaan yang
+sama-sama sah masih terbuka (menjahit celah versus menaikkan benih ke 4 m), jadi
+sasaran ditanyakan lebih dulu; yang dipilih adalah kandidat terakhir §3.82 —
+menjahit celah 1,2-3 m antara dua untaian sumbu yang sejajar. Yang dikerjakan
+bukan menambah bahan digitasi dan bukan pula mengarang ruas baru: satu ruas garis
+pendek ditambahkan di antara dua ujung buntu, sehingga sebuah ruas jalan yang
+terdigitasi terputus kembali menjadi satu SUMBU.
+
+**Aturannya ada di tahap 2.** `tools/garis-jalan-label.php` menerima tiga
+konstanta baru (`JAHIT` 3,0 m baris 175, `SUDUT_JAHIT` 25,0 derajat baris 176,
+`JAHIT_MAKS` 20,0 m baris 183 sebagai plafon flag), satu flag `--jahit=M`
+(0 mematikan penyambungan, angka di luar 0-20 ditolak), dan satu blok "3b" di
+baris 1245 yang berjalan sesudah rantai dipecah pada simpul berderajat != 2
+tetapi sebelum fitur disusun. Sebuah jahitan diterima hanya bila: kedua ujung
+berderajat 1 (ujung yang jatuh di persimpangan tidak disentuh, karena putus di
+situ memang disengaja), keduanya berada di untaian berbeda, jaraknya lebih dari
+`RAGU_SUMBU` 1,2 m dan tidak lebih dari 3,0 m, arah majen kedua ujung menunjuk
+satu sama lain tidak lebih dari 25 derajat, dan titik tengah ruas jahitan lolos
+kedua uji koridor yang sudah dipakai pasangan tepi — tidak berada di dalam
+bidang, tidak berada di antara dua tepi air yang sejajar. Kandidat diurutkan
+berdasarkan jarak menaik lalu diambil dengan union-find, sehingga satu ujung
+hanya sekali dipakai dan dua untaian yang berbagi simpul tidak pernah disambung:
+jahitan tidak pernah menutup lingkaran dan tidak pernah memotong persimpangan.
+`--jahit=0` mencetak ulang keluaran §3.82 secara persis (1.961 segmen /
+32.678,7 m), jadi flag mati dan flag bawaan terbedakan tanpa menebak.
+
+**Yang terukur pada bahan 3 m.** Dari 2.105 untaian ada 1.474 ujung buntu; 113
+pasangan diterima dengan panjang jahitan seluruhnya 250,0 m, dan 110 pasangan
+ditolak karena tidak searah — nol ditolak karena masuk bidang, nol karena
+koridor air, nol karena ujungnya sudah terjahit, nol karena kedua untaian
+berbagi simpul. Untaian 2.105 menjadi 1.992 dan keluaran menjadi **1.856 segmen
+· 32.941,1 m**; jalur pendek yang dibuang (< 2,0 m) turun 144 → 136 dan pita
+lebar ">6 m" turun 137 → 132 karena serpihan yang tadinya berdiri sendiri kini
+ikut ruas yang panjang.
+
+`_lama/scratch/cek-jahitan-sumbu.php` (baru) membandingkan berkas hidup dengan
+cadangan keadaan 3 m dan mendaftar ruas yang sama sekali tidak ada di berkas
+lama: 121 ruas, total 262,4 m — 113 di antaranya jahitan dan 8 sisanya bagian
+dari untaian yang dulu dibuang pendek. Semua 121 ruas <= 3,0 m (24 di 1,2-2 m,
+97 di 2-3 m, nol di atas 3 m), dan belokan di kedua ujung setiap jahitan
+berada di 0-21 derajat (median 2,2°, maksimum 20,9°, nol yang melewati 30°):
+yang disambung memang lurus, bukan dua jalan yang kebetulan berdekatan.
+Selisih panjang 262,4 m = 250,0 m jahitan + 12,4 m panjang untaian yang
+kembali terpakai, jadi kedua hitungan itu cocok.
+
+| ukuran | 3 m tanpa jahitan (terbit sebelumnya) | 3 m + jahit 3,0 m (terbit kini) |
+| --- | --- | --- |
+| segmen sumbu | 1.961 | **1.856** |
+| panjang sumbu (koordinat) | 32.678,704 m | **32.941,117 m** |
+| panjang sumbu (jumlah properti) | 32.678,750 m | 32.941,180 m |
+| untaian simpul | 2.105 | 1.992 |
+| segmen yang ikut terputus karena celah sejajar | 1.491 dari 1.961 | **1.342 dari 1.856** |
+| celah sejajar 1,2-20 m, pasangan tak berurutan sejati | 2.191 | **1.973** |
+| … yang jaraknya cuma 1,2-3 m | 251 | **146** |
+| … 1,2-3 m dan salah satu ujungnya di simpul (titik fitur lain <= 1,2 m) | 140 | 140 |
+| … 1,2-3 m di pita arah 25-30 derajat · melibatkan untaian cincin | 4 · 2 | 4 · 2 |
+| … 1,2-3 m yang tidak terhalang aturan mana pun (kandidat jahit) | 105 | **0** |
+| cakupan sumbu terhadap setengah panjang tepi | 37,4 % | **37,7 %** |
+| titik sumbu di koridor air | 33 dari 16.151 (0,2 %) | 33 dari 16.167 (0,2 %) |
+| panjang terseret air | 212,7 m (0,7 %) | 212,7 m (0,6 %) |
+| segmen memotong garis air | 26 (33 potongan) | 26 (33 potongan) |
+| label jalan berpunya sumbu (dari 622) | 502 | 502 |
+
+**Koreksi cara membaca angka §3.82.** `ukur-sumbu-retak-air.php` mencetak
+"pasang ujung" sebagai `intdiv(cacah, 2)` padahal loop-nya sudah melewati
+`$jd <= $id`, jadi setiap pasangan tak berurutan hanya ditemui satu kali dan
+angka yang tercetak itu separuh dari yang sebenarnya. Karena itu 1.095 dan 125
+yang dikutip §3.82 adalah 2.191 dan 251 pasangan sejati. Pemeriksa baru
+`_lama/scratch/ukur-celah-tanpa-bagi.php` menghitung ulang tanpa pembagian,
+sebelah-menyebelah pada berkas cadangan dan berkas hidup, dan angka lamanya
+cocok persis dua kali lipat. Pembanding yang jujur untuk 113 jahitan adalah 251
+pasangan sejati di kelas 1,2-3 m, bukan 125.
+
+**Sisa 146 pasangan terjelaskan semua.** `_lama/scratch/cek-sisa-celah.php`
+(baru) memakai aturan pasangan yang sama lalu menggolongkan setiap pasangan di
+kelas 1,2-3 m: 140 pasangan punya sedikitnya satu ujung yang titik fitur lain
+berada dalam 1,2 m (= `RAGU_SUMBU`), jadi ujung itu memang berdiri di simpul dan
+putus di situ disengaja; 4 pasangan berada di pita arah 25-30 derajat yang
+diterima penguji lama tetapi ditolak `SUDUT_JAHIT`; 2 pasangan melibatkan untaian
+yang menutup sendiri (titik awal = titik akhir), dan berkas sumbu memang berisi
+21 fitur cincin. Yang tanpa alasan: nol. Ketiga golongan mencetak angka yang sama
+persis di berkas lama (140, 4, 2) dan jumlah cincin juga tidak berubah (21), jadi
+jahitan tidak menyentuh satu pun pasangan di luar kelas yang boleh dijahit.
+Pasangan kelas 1,2-3 m berkurang 251 - 146 = 105, sedangkan jahitan yang diterima
+113: alat memandang 2.105 untaian sebelum 144 untaian pendek dibuang, sehingga
+ia juga melihat ujung-ujung yang tidak pernah muncul di berkas terbit.
+
+**Plafon di atas 3,0 m diukur lalu tidak diambil (perintah "pertahankan 3 m").**
+Sapuan uji kering `--jahit=4/6/8` (keluaran `_lama/scratch/jahit-sapu-lebar.txt`,
+tidak ada berkas yang ditulis) menunjukkan bahwa plafon yang lebih longgar hampir
+tidak menambah cakupan sambil memanjangkan garis buatan:
+
+| ambang | ruas jahitan | panjang jahitan | rata-rata ruas | segmen sumbu | panjang sumbu | cakupan | pendek dibuang | ">6 m" | ditolak: searah / air / sudah terjahit |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 3,0 m (terbit) | 113 | 250,0 m | 2,21 m | 1.856 | 32.941,1 m | 37,7 % | 136 | 132 | 110 / 0 / 0 |
+| 4,0 m | 127 | 301,7 m | 2,38 m | 1.844 | 32.996,1 m | 37,8 % | 134 | 129 | 187 / 0 / 1 |
+| 6,0 m | 190 | 603,6 m | 3,18 m | 1.786 | 33.305,8 m | 38,1 % | 129 | 123 | 308 / 1 / 3 |
+| 8,0 m | 234 | 898,7 m | 3,84 m | 1.745 | 33.606,3 m | 38,5 % | 126 | 121 | 419 / 1 / 7 |
+
+Yang memutuskan adalah kolom rata-rata ruas. Lebar koridor timbang panjang tidak
+bergerak (3,27 m di keempat ambang), tetapi rata-rata satu jahitan naik dari
+2,21 m ke 3,84 m, jadi di 6 m dan 8 m sebuah jahitan sepanjang itu rata-rata
+sama dengan lebar jalan yang disambungnya — yang bertemu kemudian bukan lagi dua
+ujung satu ruas yang terputus. Manfaatnya tinggal 0,1 sampai 0,8 persen poin
+cakupan karena ruas jahitan memang pendek, dan dua golongan penolakan yang di
+3,0 m kosong (konflik greedy "sudah terjahit" dan satu "koridor air") baru
+muncul di atasnya. `JAHIT` 3,0 tetap bawaan; flag `--jahit` tetap menerima
+0-20 m supaya keputusan ini bisa diuji ulang tanpa menyunting alat.
+
+**Verifikasi dan higienitas.** `php -l` bersih dan `--terapkan` dijalankan dua
+kali berturutan: `garis-jalan-sumbu.geojson` **identik byte per byte**
+(`dcbfe2d8ab07…`, 1.203.946 B, sebelumnya 1.231.890 B), sedangkan
+`garis-jalan-tepi.geojson` sama sekali tidak berubah (`061b692f0e83…`,
+1.553.169 B) — bukti bahwa tahap 1 tidak disentuh. `metadata.json` 17.685 →
+18.351 B dan hash-nya memang berganti tiap jalan karena cap waktu `derived_at`
+(`c18bcaf7f593…` lalu `eb2186acbf6c…`, 12:46:25); blok `ambang` lapisan sumbu
+kini membawa `"jahit_m": 3` dan `"sudut_jahit_derajat": 25`, plus blok `jahit`
+berisi 113 ruas / 250 m / riwayat penolakan. Teks pil panel mengikuti jumlah
+fiturnya sendiri, 1.856, tanpa menyunting `peta-lama.php`;
+`_lama/scratch/cek-pasang-lapis-jalan.php` tetap bersih: 22 kunci daftar putih =
+22 kunci panel, 3.974 tepi dan 1.856 sumbu cocok dengan `metadata.json`, pil
+aktif bawaan 4, dua swatch legenda ada. Keadaan 3 m tanpa jahitan dicadangkan
+utuh di `_lama/cadangan-jahit-2026-11-14/` (`061b692f0e83…` tepi, `437d7d36a68c…`
+sumbu, `ba14f8d8c24a…` metadata), jadi ia bisa dikembalikan dengan menyalin
+berkas itu atau cukup dengan `--jahit=0`. Keluaran sapuan tersimpan di
+`_lama/scratch/jahit-uji-kering.txt`, `jahit-uji-kering-b.txt`,
+`jahit-terapkan.txt`, `jahit-sapu.txt`, `jahit-daftar.txt`,
+`jahit-celah-bersih.txt` dan `jahit-sisa-celah.txt`, plus sapuan plafon
+`jahit-sapu-lebar.txt`; pemeriksa yang dipakai
+adalah `cek-jahitan-sumbu.php`, `ukur-celah-tanpa-bagi.php`, `cek-sisa-celah.php`
+dan `cek-dua-pasang.php` (semuanya di `_lama/scratch/`, di luar git). Alat jadi
+1.599 baris / 65.587 B, LF semua, 0 tab, nol han-hiragana-katakana-hangul-form
+penuh, aksara di luar Latin-1 tetap tiga U+2014. Yang **tidak** berubah: ambang
+benih tetap 3,0 m (benih 4 m tetap tidak diambil, dan plafon jahit 4-8 m juga
+tidak — lihat paragraf di atas), 120 label masih tanpa sumbu, dan
+kedua lapis ini tetap belum dilihat di peramban (§3.72).
 
 ---
 
