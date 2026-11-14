@@ -6195,8 +6195,9 @@ mencetak 22 kunci daftar putih = 22 kunci `data-lapisan` di panel, kedua berkas
 GeoJSON ada, cabang gaya dan swatch legenda ditemukan untuk keduanya, jumlah
 fitur nyata sama dengan yang dibaca panel dari `metadata.json` (3.323 dan 1.816,
 seluruhnya `LineString`; panjang terukur 143.106,2 m dan 30.805,2 m). Perubahan
-ini dibiarkan di ruang kerja tanpa commit atas permintaan "pasang langsung tanpa
-melalui git".
+ini semula dibiarkan di ruang kerja tanpa commit, karena perintahnya "pasang
+langsung tanpa melalui git"; commit berikutnya yang memuat bagian ini
+mengikutkannya ke `main`.
 
 **Higienitas.** Alat 1.287 baris, LF semua (0 CRLF), 0 tab, `php -l` bersih, dan
 aksara di luar Latin-1 di dalamnya cuma tiga tanda pisah (U+2014) pada blok
