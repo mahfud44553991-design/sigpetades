@@ -6674,6 +6674,79 @@ benih tetap 3,0 m (benih 4 m tetap tidak diambil, dan plafon jahit 4-8 m juga
 tidak — lihat paragraf di atas), 120 label masih tanpa sumbu, dan
 kedua lapis ini tetap belum dilihat di peramban (§3.72).
 
+### 3.84 Periksa ulang jahitan tanpa memakai alat (14 Nov 2026)
+
+Permintaan "perlihatkan semua hasil garis sumbu jalan yang sudah diperbaiki"
+disusul perintah "commit perubahan ini". Tidak ada satu pun berkas hasil yang
+ditulis pada giliran itu: `--jahit` tidak dijalankan, dan ketiga berkas
+turunan masih bernomor hash sama seperti §3.83 (tepi `061b692f0e83…` 1.553.169
+B, sumbu `dcbfe2d8ab07…` 1.203.946 B, metadata `eb2186acbf6c…` 18.351 B),
+begitu pula alatnya (1.599 baris / 65.587 B). Yang dikerjakan adalah mengulang
+pengukuran jahitan **tanpa memakai `tools/garis-jalan-label.php`** — berkas
+hidup dibandingkan dengan cadangan keadaan 3 m di
+`_lama/cadangan-jahit-2026-11-14/` — lalu membuat hasilnya bisa dilihat di
+peramban.
+
+**Dua cara pencocokan gagal, satu bekerja.** Cara pertama membandingkan
+properti `tepi_all` antara dua keadaan dan melaporkan 1.623 dari 1.856 fitur
+"berubah" dengan selisih jumlah panjang negatif — tidak mungkin, sebab satu
+kode tepi `G:NNNN` boleh ikut lebih dari satu untaian, jadi hubungannya
+banyak-ke-banyak dan tidak bisa dipakai sebagai kunci. Cara kedua mencari
+barisan titik untaian lama di dalam untaian baru dan hanya menemukan 30 dari
+113 sambungan, karena sebagian untaian terbit berjalan arah sebaliknya
+sementara urutan titik tidak tahan pembalikan. Yang bekerja hanya
+membandingkan himpunan **pasangan titik bertetangga tanpa urutan**: kunci dua
+koordinat yang dibulatkan 3 desimal lalu ditata menaik. Sebuah ruas di berkas
+baru disebut ruas baru bila pasangnya tidak pernah muncul di berkas lama, dan
+ruas baru di pita (1,2 ; 3,0] m ialah jahitan. Pemeriksanya
+`_lama/scratch/tampil-sumbu-diperbaiki.php` (258 baris / 9.860 B, LF semua, 0
+tab, baca saja — tidak menyentuh berkas hidup maupun basis data).
+
+| ukuran | berkas terbit, pemeriksaan ulang | pembanding di §3.83 |
+| --- | --- | --- |
+| sebelum jahit: untaian · titik · panjang koordinat | 1.961 · 16.151 · 32.678,704 m | keadaan 3 m tanpa jahitan |
+| sesudah: untaian · titik · panjang koordinat | 1.856 · 16.167 · 32.941,117 m | 1.856 · 32.941,117 m |
+| ruas jahitan terdeteksi | 113 | 113 ruas / 250,0 m |
+| untaian yang membawa sedikitnya satu jahitan | 98 (4.314,195 m koordinat · 4.314,210 m properti) | — |
+| ruas baru | 121, total 262,4 m | 121 ruas / 262,4 m (`cek-jahitan-sumbu.php`) |
+| pita panjang tiap ruas baru: 1,2-2,0 · 2,0-3,0 · di atas 3,0 m | 24 · 97 · 0 | 24 · 97 · 0 |
+| ruas baru di luar pita (1,2 ; 3,0] m | 0 | — |
+| selisih jumlah untaian pada berkas | 1.961 − 1.856 = **105** | 2.105 → 1.992 = **113** di rangka |
+
+**Yang baru di sini: 105 bukan 113, dan delapan lokasi dua ruas — keduanya
+terjelaskan.** Alat menghapus 113 untaian di tahap rangka, tetapi berkas
+terbit hanya turun 105 karena delapan untaian pendek (< 2,0 m) yang semula
+dibuang ikut kembali; itu golongan yang sama dengan penurunan 144 → 136 di
+§3.83. Sisa 121 − 113 = 8 ruas baru adalah ruas milik delapan untaian itu,
+bukan jahitan: pada kedelapan lokasinya (dicetak `--rinci`) jahitan tergambar
+lewat satu titik sisipan yang sama sekali tidak ada di berkas lama, sehingga
+satu sambungan menjadi dua segmen. Karena itu jarak dua ujung untaian yang
+tersambung di delapan lokasi itu 3,40-3,94 m — melewati `JAHIT` 3,0 m —
+sementara setiap ruas yang tergambar tetap tidak lebih dari 3,0 m (nol di atas
+3,0 m pada tabel di atas). Ini memperketat cara membaca kalimat "Semua 121
+ruas <= 3,0 m" di §3.83: yang dibatasi 3,0 m ialah panjang tiap ruas gambar,
+bukan rentang ujung-ke-ujung, dan kalau dua angka itu disebut, sebut keduanya
+dengan nama yang berbeda. Hal yang sama berlaku untuk panjang: 250,0 m ialah
+jarak simpul-ke-simpul di rangka, 262,4 m ialah panjang ruas seperti
+tergambar, dan selisihnya 12,4 m adalah untaian pendek yang kembali terpakai —
+persis seperti perhitungan §3.83, tidak ada yang perlu dibetulkan di sana.
+
+**Tampilan peramban.** Koordinat kedua lapis turunan masih meter DXF lokal
+(mis. 261877,85 / 715114,99) dan `peta-lama.php` memang menampilkannya dengan
+`L.CRS.Simple` tanpa peta dasar, jadi berkas GeoJSON-nya tidak bisa langsung
+dibuka di peta web. Flag `--geojson` pada skrip itu menerapkan affine
+`const DXF_KE_WGS84` dari `tools/lib-impor.php:1245`; koefisiennya disalin
+inline ke skrip, sebab `require` berkas itu akan ikut menarik
+`app/bootstrap.php` beserta kredensial dan koneksi PDO. Keluarannya
+`_lama/scratch/sumbu-dijahit-20261114.geojson` (95.329 B, 211 fitur: 98
+untaian dan 113 jahitan) dan fragmen Leaflet yang dihasilkan
+`_lama/scratch/tampil-visual.php` (112.268 B; untaian merah, jahitan kuning
+putus-putus, tabel 98 baris yang bisa diklik). Keduanya di `_lama/scratch/`,
+jadi tetap di luar git. Ini bukan panel aplikasi: kedua lapis di Peta Induk
+masih belum dilihat di peramban (§3.72), dan paragraf ini satu-satunya bahan
+terlacak yang bisa di-commit karena semua keluaran giliran tadi berada di
+direktori yang diabaikan git.
+
 ---
 
 ## 4. Berkas SPPT dari Excel
