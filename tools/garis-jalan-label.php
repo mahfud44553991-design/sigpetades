@@ -13,8 +13,8 @@ declare(strict_types=1);
  *                              tahap 2 sehingga tahap 1 tidak dijalankan
  *   --lebar=M                  lebar koridor maksimum tahap 2, bawaan 8,0 m
  *   --benih=M                  jarak terjauh label ke titik sampel sebuah baris
- *                              agar baris itu jadi benih tahap 1; bawaan 2,0 m
- *                              (= konstanta BENIH, sama dengan si pembangkit)
+ *                              agar baris itu jadi benih tahap 1; bawaan 3,0 m
+ *                              (= konstanta BENIH; si pembangkit memakai 2,0 m)
  *   --bagi-pasang=F            bagian titik sampel sebuah baris yang harus
  *                              berpasangan; bawaan 0 = terima tiap titik tengah
  *                              yang lolos semua syarat, 0,50 = hanya baris yang
@@ -55,11 +55,12 @@ declare(strict_types=1);
  * yang sama. Yang dipakai di sini hanya teks berawalan JALAN.
  *
  * Tahap 1 — tepi (garis-jalan-tepi.geojson). Aturannya disengaja identik dengan
- * kelas jalan pada `tools/garis-batas-020100.php` supaya hasilnya sebanding:
- * benih = kandidat yang punya titik sampel <= 2,0 m dari label jalan; pita =
- * kandidat yang >= 50 % titik sampelnya punya segmen terklaim jenis sama <= 15 m
- * dengan beda arah <= 25 derajat DAN tengah koridornya tidak berada di dalam
- * bidang (>= 60 % kosong), dua putaran; garis < 2,0 m dibuang.
+ * kelas jalan pada `tools/garis-batas-020100.php` kecuali radius benih (lihat
+ * BENIH): benih = kandidat yang punya titik sampel <= BENIH (bawaan 3,0 m) dari
+ * label jalan; pita = kandidat yang >= 50 % titik sampelnya punya segmen
+ * terklaim jenis sama <= 15 m dengan beda arah <= 25 derajat DAN tengah
+ * koridornya tidak berada di dalam bidang (>= 60 % kosong), dua putaran;
+ * garis < 2,0 m dibuang.
  *
  * Tahap 2 — sumbu (garis-jalan-sumbu.geojson).
  *  1. potongan tepi yang ujungnya berjarak <= RAGU_SISI dianggap simpul yang
@@ -116,11 +117,14 @@ const KELAS = [
 
 // Tahap 1.
 /**
- * Radius benih bawaan, disengaja sama dengan `tools/garis-batas-020100.php`.
- * Bisa dinaikkan lewat `--benih=` untuk menguji label yang ditulis di tengah
- * jalan, bukan di tepinya.
+ * Radius benih bawaan. Sengaja dinaikkan dari 2,0 m (= nilai si pembangkit
+ * `tools/garis-batas-020100.php`) pada 14 Nov: label jalan ditulis di tengah
+ * jalan, mediannya 2,11 m dari bahan 020100 untuk label yang tak tercakup,
+ * sehingga 2,0 m tidak pernah menjadikannya benih (README §3.82: +49 label,
+ * intrusi air tetap 0,7 % panjang). Turunkan lewat `--benih=2` untuk mengulang
+ * keluaran lama.
  */
-const BENIH = 2.0;
+const BENIH = 3.0;
 const PITA = 15.0;
 const LANGKAH = 2.0;
 const SUDUT = 25.0;

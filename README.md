@@ -6007,6 +6007,10 @@ label jalan, pita = kandidat yang ≥ 50 % titik sampelnya punya segmen terklaim
 sejenis ≤ 15 m dengan beda arah ≤ 25° **dan** tengah koridornya ≥ 60 % tidak
 berada di dalam bidang, dua putaran, garis < 2,0 m dibuang.
 
+Angka-angka di bawah adalah keadaan radius benih **2,0 m**. Bawaan alat ini
+sendiri dinaikkan menjadi 3,0 m pada 14 Nov (§3.82), jadi tabel itu tidak lagi
+menggambarkan berkas yang terbit; `--benih=2` mencetaknya ulang secara persis.
+
 | | angka |
 |---|---|
 | baris tepi | **3.323** · 11.969 titik · 143.106,1 m · 1.299.654 B |
@@ -6183,8 +6187,8 @@ tahap" diberi dua pil tepat di bawah kelompok "Garis turunan": judulnya
 `Layer GARIS JALAN TEPI DARI LABEL` dan `Layer GARIS JALAN SUMBU DARI LABEL`
 (kunci `metadata.json` yang sudah ditulis alat ini), teks pendek "Tepi jalan
 (3.323)" dan "Sumbu jalan (1.816)" sesuai konvensi §3.78 — kedua angka itu dihitung
-dari `metadata.json` saat halaman dimuat, jadi yang terbaca sekarang adalah 1.721
-untuk sumbu (§3.82) — gaya garis `#14b8a6`
+dari `metadata.json` saat halaman dimuat, jadi yang terbaca adalah 1.721 untuk
+sumbu pada 14 Nov pagi dan 1.961 sejak ambang 3 m diadopsi (§3.82) — gaya garis `#14b8a6`
 lebar 1,1 dan `#9d174d` lebar 2,2, serta dua swatch legenda. Saat pertama
 dipasang keduanya masih mati bawaan, seperti semua lapis turunan lain; atas
 permintaan 14 Nov keduanya kini `checked`, jadi tepi dan sumbu ikut tergambar
@@ -6401,16 +6405,17 @@ label yang tercakup tetapi **2,11 m** (p90 4,06 m) untuk yang tidak. Angka itu
 menunjuk ke `BENIH` 2,0 m: label yang ditulis di tengah jalan berjarak sekitar
 setengah lebar jalan dari tepinya, sehingga barisnya tidak pernah jadi benih dan
 tidak ikut tumbuh lewat pita. Karena itu `--benih=M` dipasang sebagai flag;
-bawaannya tetap 2,0 m (= nilai si pembangkit) dan `--benih=2` mencetak ulang
-keluaran terbit secara persis (3.323 baris tepi / 143.106,1 m, 1.721 segmen
-sumbu / 28.571,1 m). Sapuan uji kering 3-8 m, panjang sumbu terhadap panjang
+pada saat paragraf ini ditulis bawaannya masih 2,0 m (= nilai si pembangkit) dan
+`--benih=2` mencetak ulang keluaran terbit secara persis (3.323 baris tepi /
+143.106,1 m, 1.721 segmen sumbu / 28.571,1 m). Sapuan uji kering 3-8 m, panjang sumbu terhadap panjang
 tepi: 32.678,7 m terhadap 174.714,9 m · 34.686,0/191.932,2 · 35.129,1/200.554,6
 · 35.508,2/207.551,6 · 36.356,8/224.663,5. Kenaikan terbesar ada di 2→3 m
 (+14,4 %) dan melandai sesudah 4 m (4→5 m hanya +1,3 %), sedang yang buruk ikut
 naik monoton: pita lebar ">6 m" 91 → 137 → 179 → 181 → 195 → 197 dan sisi tanpa
 sejajar 574 → 722 → 814 → 866 → 925 → 990. Jadi ambang lain **belum diterapkan dan
 keputusannya belum diambil**; angka-angka itu baru geometri uji kering, dan pintu
-mutu untuk dua kandidat pertama dilaporkan di bawah.
+mutu untuk dua kandidat pertama dilaporkan di bawah, sementara keputusan akhirnya
+ada di paragraf penutup bagian ini.
 
 **Pintu mutu 3 m dan 4 m: berkas ditulis, diukur, lalu dikembalikan.** Kedua
 ambang itu di-`--terapkan` sungguhan, lalu diukur ulang dengan
@@ -6421,8 +6426,8 @@ sedangkan kolom bawaan diukur ulang pada 14 Nov dari berkas hidup ke
 
 | ambang benih | tepi baris / m | sumbu segmen / m | label berpunya sumbu (dari 622) | sisi tanpa sejajar <= 15 m | sumbu berlebar > 6 m | titik sumbu di koridor air | panjang terseret | segmen memotong air |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 2,0 m (bawaan, yang terbit) | 3.323 / 143.106,1 | 1.721 / 28.571,1 | **453** | 574 | 91 (5,3 %) | 27 dari 14.210 (0,2 %) | 189,5 m (0,7 %) | 24 (31 potongan) |
-| 3 m | 3.974 / 174.714,9 | 1.961 / 32.678,7 | **502** | 722 | 137 (7,0 %) | 33 dari 16.151 (0,2 %) | 212,7 m (0,7 %) | 26 (33 potongan) |
+| 2,0 m (bawaan ketika tabel ini ditulis) | 3.323 / 143.106,1 | 1.721 / 28.571,1 | **453** | 574 | 91 (5,3 %) | 27 dari 14.210 (0,2 %) | 189,5 m (0,7 %) | 24 (31 potongan) |
+| 3 m (bawaan dan terbit sejak paragraf penutup) | 3.974 / 174.714,9 | 1.961 / 32.678,7 | **502** | 722 | 137 (7,0 %) | 33 dari 16.151 (0,2 %) | 212,7 m (0,7 %) | 26 (33 potongan) |
 | 4 m | 4.327 / 191.932,2 | 2.077 / 34.686,0 | **516** | 814 | 179 (8,6 %) | 39 dari 16.958 (0,2 %) | 258,8 m (0,7 %) | 31 (40 potongan) |
 
 Yang dibeli naiknya ambang: **+49 label pada 3 m dan +63 pada 4 m**, dan air tidak
@@ -6446,11 +6451,13 @@ Setelah pengukuran selesai, **ketiga berkas hidup dikembalikan** dari
 (`54f30b990986…` tepi, `fc8c258757e6…` sumbu, `3654c697b0a4…` `metadata.json`),
 lalu `_lama/scratch/cek-pasang-lapis-jalan.php` dijalankan ulang dan tetap bersih
 (22 kunci daftar putih = 22 kunci panel, 3.323 dan 1.721 fitur cocok dengan
-metadata, pil aktif bawaan 4). Jadi keadaan terbit per 14 Nov tetap `--benih=2`
-dan tabel di atas adalah bahan keputusan, bukan changelog: kalau ambang nanti
+metadata, pil aktif bawaan 4). Jadi keadaan terbit **pada saat pintu mutu itu
+ditutup** tetap `--benih=2`, dan tabel di atas adalah bahan keputusan, bukan
+changelog. Bahan itu memang dipakai pada hari yang sama: 3 m diadopsi sebagai
+bawaan, dan berkas terbitnya tercatat di paragraf penutup bagian ini. Kalau ambang
 dinaikkan, `metadata.json` ikut berubah sehingga teks pil panel ikut berubah
 sendiri tanpa menyunting `peta-lama.php`, dan seluruh angka bagian ini harus
-diukur ulang dari berkas yang baru.
+diukur ulang dari berkas yang baru — itulah yang dilakukan di bawah.
 
 **Verifikasi dan higienitas.** `php -l` bersih; dua kali `--terapkan` berturutan
 mencetak berkas identik, SHA-256 `garis-jalan-sumbu.geojson` `fc8c258757e6…`,
@@ -6458,8 +6465,9 @@ sedangkan `garis-jalan-tepi.geojson` **tidak berubah** (`54f30b990986…`, sama 
 sebelum aturan ini) karena tahap 1 tidak disentuh — ini bukti bahwa yang berubah hanya
 tahap 2. `_lama/scratch/cek-pasang-lapis-jalan.php` dijalankan ulang dan tetap bersih:
 22 kunci daftar putih = 22 kunci panel, `fitur nyata 1721 · metadata.json 1721 · cocok`,
-`pil aktif bawaan : 4`. `metadata.json` ditulis ulang oleh alat, jadi teks pil kini
-membaca "Sumbu jalan (1.721)" tanpa menyunting `peta-lama.php`; ukuran berkas sumbu
+`pil aktif bawaan : 4`. `metadata.json` ditulis ulang oleh alat, jadi teks pil
+berubah sendiri — saat paragraf ini ditulis membacakan "Sumbu jalan (1.721)",
+1.961 sejak paragraf penutup bagian ini — tanpa menyunting `peta-lama.php`; ukuran berkas sumbu
 1.081.235 B (sebelumnya 1.152.331 B), sehingga angka di §3.80 itu keadaan 13 Nov.
 Keluaran 13 Nov dicadangkan di `_lama/cadangan-sumbu-2026-11-14/`
 (`garis-jalan-sumbu-sebelum-20261114.geojson`, 1.152.331 B, SHA-256 `57a027dcd451…`).
@@ -6477,8 +6485,41 @@ dan sumbu **28.571,139 m**. Dijumlah dari properti `panjang_m` per fitur — car
 terukur: nilai per fitur dibulatkan saat ditulis, sehingga penjumlahan 3.323 (tepi)
 dan 1.721 (sumbu) angka yang sudah terpotong tidak lagi sama dengan panjang
 sebenarnya — untuk tepi, 109 properti tersimpan bulat, 462 dengan satu desimal,
-2.752 dengan dua desimal atau lebih; untuk sumbu 19 / 168 / 1.534. Angka di bagian
-ini selalu memakai yang dari koordinat.
+2.752 dengan dua desimal atau lebih; untuk sumbu 19 / 168 / 1.534. Keempat angka
+itu diukur dari berkas `--benih=2`; pada berkas 3 m yang terbit sekarang polanya
+berulang — hitung ulang dari koordinat **174.714,914 m** dan **32.678,704 m**,
+jumlah dari properti **174.714,990 m** dan **32.678,750 m** (`cek-pasang-lapis-jalan.php`
+karena itu mencetak `174715.0` dan `32678.7`), selisih 0,076 m dan 0,046 m, sebaran
+desimal 127 / 560 / 3.287 dan 21 / 187 / 1.753. Angka di bagian ini selalu memakai
+yang dari koordinat.
+
+**Ditetapkan: bawaan alat kini `BENIH` 3,0 m dan berkas terbit ikut berganti
+(14 Nov, beberapa giliran sesudah pintu mutu).** Konstanta dinaikkan 2,0 → 3,0 m
+di `tools/garis-jalan-label.php:127` dengan alasan terukur di docblock-nya; dua
+rujukan bawaan yang lain di berkas itu (daftar opsi baris 16 dan dok tahap 1 baris 59)
+ikut disunting supaya tidak lagi menyebut 2,0 m. `php -l` bersih, lalu alat
+dijalankan **tanpa flag**. Yang terbit sekarang: tepi **3.974 baris · 174.714,9 m ·
+1.553.169 B** dan sumbu **1.961 segmen · 32.678,7 m · 1.231.890 B**; `metadata.json`
+17.685 B membawa `"benih_m": 3` sehingga teks pil panel berubah sendiri tanpa
+menyunting `peta-lama.php`. `--terapkan` dijalankan dua kali berturutan: kedua
+berkas GeoJSON **identik byte per byte** (`061b692f0e83…` tepi, `437d7d36a68c…`
+sumbu), hanya `metadata.json` yang berganti hash karena di dalamnya ada cap waktu
+`derived_at` (12:00:25 pada jalan kedua, hash `ba14f8d8c24a…`). Semua angka yang
+baru diukur itu cocok satu per satu dengan kolom "3 m" pada tabel pintu mutu:
+502 dari 622 label punya sumbu (120 tidak), 33 dari 16.151 titik sumbu
+di koridor air (0,2 %), 212,7 m panjang terseret (0,7 %), 26 segmen memotong garis
+air (33 potongan), cakupan sumbu 37,4 % terhadap setengah panjang tepi.
+`_lama/scratch/cek-pasang-lapis-jalan.php` tetap bersih: 22 kunci daftar putih =
+22 kunci panel, 3.974 dan 1.961 fitur cocok dengan `metadata.json`, pil aktif bawaan
+4, dua swatch legenda ada. Cadangan 2 m utuh dan tidak disentuh
+(`_lama/cadangan-label-2026-11-14/`: `54f30b990986…` tepi, `fc8c258757e6…` sumbu,
+`3654c697b0a4…` metadata — SHA-256 diperiksa lagi sesudah sapuan), jadi keadaan lama
+masih bisa dicetak ulang lewat `--benih=2` atau dikembalikan dengan menyalin berkas
+itu. Yang **tidak** berubah: ambang 4 m tetap tidak diambil, dan kedua lapis ini
+tetap belum dilihat di peramban (§3.72). Keluaran sapuan tersimpan di
+`_lama/scratch/adopsi-3m.txt` dan `adopsi-3m-ulang.txt`; alat jadi 1.416 baris /
+57.263 B, LF semua, 0 tab, dan kedua berkas hasil di `/files/` tetap di luar git
+seperti §3.80.
 
 ---
 
