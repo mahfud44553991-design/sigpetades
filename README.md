@@ -6426,8 +6426,19 @@ Keluaran 13 Nov dicadangkan di `_lama/cadangan-sumbu-2026-11-14/`
 Alat jadi 1.399 baris / 56.273 B, LF semua, 0 tab, aksara di luar Latin-1 tetap tiga
 U+2014; nol han, hiragana, katakana, hangul dan form penuh terukur per codepoint
 dengan `pindai-glif-20261113.php` — satu glif han sempat lolos ke sebuah komentar
-naskah hari ini, dihapus, lalu berkasnya dipindai ulang. **Keduanya masih belum
-dilihat di peramban** (halaman minta login Super Admin, akun uji terhapus — §3.72).
+naskah hari ini, dihapus, lalu berkasnya dipindai ulang. **Kedua lapis ini masih
+belum dilihat di peramban** (halaman minta login Super Admin, akun uji terhapus — §3.72).
+
+**Panjang lapis ini punya dua angka dan keduanya benar.** Dihitung ulang dari
+koordinat (cara alat sendiri dan cara seluruh angka di atas): tepi **143.106,086 m**
+dan sumbu **28.571,139 m**. Dijumlah dari properti `panjang_m` per fitur — cara
+`cek-pasang-lapis-jalan.php`, yang karena itu mencetak `143106.2` dan `28571.2`:
+**143.106,170 m** dan **28.571,220 m**. Selisihnya 0,084 m dan 0,081 m, dan sumbernya
+terukur: nilai per fitur dibulatkan saat ditulis, sehingga penjumlahan 3.323 (tepi)
+dan 1.721 (sumbu) angka yang sudah terpotong tidak lagi sama dengan panjang
+sebenarnya — untuk tepi, 109 properti tersimpan bulat, 462 dengan satu desimal,
+2.752 dengan dua desimal atau lebih; untuk sumbu 19 / 168 / 1.534. Angka di bagian
+ini selalu memakai yang dari koordinat.
 
 ---
 
