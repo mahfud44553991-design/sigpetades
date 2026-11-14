@@ -6813,7 +6813,114 @@ Satu bug sempat keluar dan sudah dibetulkan sebelum angka di atas dicetak:
 terbesar — komponen terbesar sempat terbaca 1 ruas 296 m; `usort`
 memperbaikinya dan verifikasi silangnya adalah daftar enam terbesar di atas.
 Yang tidak berubah: `JAHIT`, `SUDUT_JAHIT`, `BENIH`, kedua berkas turunan, dan
-120 label yang masih tanpa sumbu.
+120 label yang masih tanpa sumbu (keadaan dua yang terakhir itu berganti di
+§3.86).
+
+### 3.86 Sumbu untuk label yatim dan Jalan Raya Patean (14 Nov 2026)
+
+Perintah "buatkan garis sumbu jalan raya patean dan semua label jalan yang
+belum dibuat" mengerjakan dua hal sekaligus, dan dua-duanya keluar sebagai
+ambang baru di `tools/garis-jalan-label.php`. Tolak ukurnya keadaan §3.83:
+dari 622 label jalan, 502 berjarak <= 4,0 m dari sebuah untaian sumbu dan 120
+tidak; JALAN RAYA PATEAN 10,08 m dari sumbu terdekat. Sesudah kedua ambang
+dipasang dan keluaran ditulis ulang: 533 label tercakup, 89 masih tanpa sumbu,
+Patean 1,16 m.
+
+**Kenapa Patean gagal.** Flag diagnostik baru `--tanya=x,y[,radius]` mencetak,
+untuk tiap baris tepi di sekitar sebuah titik, sisi tempat baris itu bergabung
+dan pemenang pasangan pada tiga radius. Untuk label di
+(261.713,59 / 715.372,20) keluar empat baris: G:5989 dan G:8014 (sisi 2679,
+keduanya `benih-yatim`), G:8527 (sisi 2801, `benih`) dan B:19338 (sisi 2679,
+`benih`, 169,9 m panjangnya). Koridor Patean lebar 9,51 m — sampel di ruas itu
+menemukan seberang pada 9,51 m ke sisi 2801 — tetapi B:19338 menang suara di
+koridor lain: sisi 2025 dengan 24 dari 80 titik sampel. Ronde pertama hanya
+memilih SATU pasangan per baris, jadi ruas 9,51 m itu tidak pernah menyumbang
+titik tengah, dan memperlebar ambang untuk seluruh baris tidak mengubahnya:
+barisnya sudah terpasang. Yang harus diganti adalah butir yang ditanyakan,
+bukan barisnya.
+
+**Ambang pertama: `BENIH_YATIM` 15,0 m.** Tahap 1 memberi benih hanya kepada
+baris tepi yang punya sampel <= `BENIH` 3,0 m dari label, sehingga label yang
+guratnya lebih jauh dari 3,0 m tidak pernah menghasilkan bahan sama sekali.
+Benih
+ronde kedua sekarang hanya ditanyakan kepada label yang sama sekali tidak
+mendapat benih, jadi ia tidak bisa merebut baris milik label lain. Terukur: 12
+dari 59 label semacam itu kini mendapat bahan — 294 baris tepi, tersebar pada
+jarak bulat 3 m:15, 4 m:13, 5 m:14, 6 m:15, 7 m:18, 8 m:15, 9 m:11, 10 m:14,
+11 m:12, 12 m:25, 13 m:72, 14 m:70. Batas atas flag ini `PITA` 15,0 m.
+
+**Ambang kedua: `LEBAR_YATIM` 10,0 m.** Ronde ini dikerjakan dua kali dan
+versi pertama dibuang. Versi pertama menanyakan **baris** yang di ronde 1
+tidak mendapat pasangan sama sekali, dengan radius lebih lebar: 109 dari
+1.430 baris (4.353,2 m) terpasang, keluaran 1.948 segmen / 35.351,4 m dan
+522 label tercakup, sedangkan Patean hanya mundur 10,08 → 9,63 m — persis
+seperti yang diperkirakan diagnosis di atas, karena baris yang sudah menang suara tidak pernah ditanya
+ulang. Versi yang dipakai menanyakan **titik sampel**: hanya sampel yang di
+ronde 1 tidak berpasangan dicari ulang, suara mayorotas tiap baris dibiarkan,
+dan tiap kelompok >= 2 sampel yang jatuh di sisi seberang yang sama menjadi
+untaian baru. Pada radius yang sama: 852 titik sampel berpasangan, 207 untaian
+baru, 37 baris yang semula tanpa pasangan kini terpasang (1.668,6 m), keluaran
+2.034 segmen / 36.903,5 m, 533 label tercakup.
+
+Bahan tahap 1 ikut berubah hanya karena ambang pertama: 3.974 baris /
+174.714,9 m tanpa `BENIH_YATIM`, 4.367 baris / 194.159,5 m dengannya; tiga
+baris terakhir pada tabel memakai bahan yang sama.
+
+| ambang yatim | sumbu segmen / m | ">6 m" | label <= 4 m | Patean |
+| --- | --- | --- | --- | --- |
+| mati (= §3.83) | 1.856 / 32.941,1 | 132 | 502 | 10,08 m |
+| benih 15 saja | 1.926 / 35.088,0 | 167 | 521 | 10,08 m |
+| benih 15 + lebar 10 (dipakai) | 2.034 / 36.903,5 | 261 | 533 | 1,16 m |
+| benih 15 + lebar 12 (ditolak) | 2.200 / 39.880,9 | 428 | tidak diukur | — |
+
+**Kenapa 10,0 m.** Yang dicari ialah ambang bulat terkecil yang melampaui
+koridor Patean 9,51 m; 9,5 m justru tidak cukup. Langkah berikutnya ke
+12,0 m menambah 166 segmen / 2.977,4 m dan menaikkan cacah sumbu
+berkoridor "> 6 m" dari 261 menjadi 428; tambahan cakupannya di radius itu
+tidak diukur lagi karena ukuran kualitas tersebut sudah cukup untuk
+menolaknya. Validasi flag menolak `--lebar-yatim` yang <= `--lebar` atau
+> `SEBERANG_UJI` 15,0 m.
+
+**Keadaan terbit.** `files/sig-pertanahan-gedong-lokal/data/dxf-layers/`:
+tepi 4.367 fitur / 194.159,5 m, 1.705.632 B, `870430f7bce9…`; sumbu 2.034
+fitur / 36.903,5 m, 1.311.108 B, `ced69ef6f5fe…`; metadata 18.658 B. Lebar
+timbang panjang naik 3,27 → 3,61 m dan jarak maksimum titik sumbu ke tepi
+4,00 → 5,00 m; keduanya harga yang dibayar untuk tambahan 178 segmen. Keadaan
+§3.83 dicadangkan di `_lama/cadangan-yatim-2026-11-14/` (tepi
+`061b692f0e83…`, sumbu `dcbfe2d8ab07…`).
+
+Kedua ambang sekarang menjadi bawaan alat, bukan flag: `BENIH_YATIM = 15.0`
+dan `LEBAR_YATIM = 10.0`. Tiga pemeriksaan keluaran: (a) `--benih-yatim=0
+--lebar-yatim=0` mencetak ulang berkas §3.83 sampai identik byte, diuji
+sebelum dan sesudah tahap 2 ditulis ulang; (b) jalan dengan flag 15/10
+menghasilkan byte yang sama dua kali berturut-turut; (c) jalan tanpa flag apa
+pun, setelah konstanta dinaikkan, juga menghasilkan `870430f7bce9…` dan
+`ced69ef6f5fe…` — hanya `derived_at` di metadata yang bergerak. Angka "3.973
+titik tertolak uji air" pada baris `lebar yatim` ialah cacah penolakan ronde
+kedua saja dan nilai cacah itu dikembalikan lagi sebelum dicetak, sehingga
+5.607 pada baris `koridor` hanya memuat ronde pertama.
+
+**Yang belum.** 89 label masih tanpa sumbu dalam 4,0 m.
+`_lama/scratch/pilah-sisa-label.php` menggolongkan sisanya dari berkas terbit:
+0 label tanpa bahan — semuanya sudah punya baris tepi dalam 15,0 m, jadi sisa
+pekerjaannya seluruhnya ada di tahap 2. Menurut jarak ke sumbu terdekat: 4-6 m
+14 label, 6-10 m 19, 10-20 m 26, > 20 m 18, dan tidak ada sumbu dalam 60 m 12.
+Ambang "4,0 m" di situ ialah jari uji pemeriksa, bukan syarat alat. Satu hal
+lain ikut keluar: 2 dari 622 label berawalan JALAN ternyata tersimpan di
+`batas-perairan.geojson`, bukan `batas-jalan.geojson`; pemeriksa itu membaca
+keduanya supaya sama dengan keluaran alat.
+
+Pemeriksa: `--tanya` (diagnostik di dalam alat),
+`_lama/scratch/cek-sumbu-label.php` (lebar koridor per label),
+`_lama/scratch/cek-label-yatim.php` (banding berkas sebelum/sesudah),
+`_lama/scratch/pilah-sisa-label.php` (golongan sisa),
+`_lama/scratch/banding-metadata-tanpa-waktu.php` (metadata tanpa
+`derived_at`), `_lama/scratch/cek-pasang-lapis-jalan.php` (panel; hasil
+"bersih"). Keluaran
+tersimpan sebagai `tanya-patean*.txt`, `yatim-*.txt`, `lebar-yatim-*.txt` (ini
+ronde kedua versi baris yang dibuang), `final-1.txt`, `final-2.txt`,
+`terapkan-konstanta.txt`, `pilah-sisa.txt`. Yang tidak disentuh: basis data,
+berkas DXF sumber, dan dua lapis garis 020100.
 
 ---
 
