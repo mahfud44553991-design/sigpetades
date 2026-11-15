@@ -7023,8 +7023,61 @@ kedua berkas, `node --check` bersih atas 799 baris JS halaman, dan
 `_lama/scratch/cek-pasang-lapis-jalan.php` mencetak 21 kunci daftar putih = 21
 kunci `data-lapisan`, berkas yang dilayani 2.872 fitur `LineString` = angka
 `metadata.json` (148.023,7 m), sumbu 2.034, kedua cabang gaya dan swatch
-legenda ditemukan, hasil "bersih". Halaman belum dilihat di browser karena
-minta login Super Admin.
+legenda ditemukan, hasil "bersih". Halaman sudah dilihat di browser pada
+sesi Super Admin 15 Nov 2026: 21 pil, 20 swatch legenda, permintaan API
+sesuai ukuran berkas, dan cuplikan piksel kanvas menunjukkan warna
+`#0f766e` saat pil Jalan hidup lalu hilang saat dimatikan, tanpa galat
+konsol.
+
+### 3.90 Garis jalan juga muncul di Peta Bidang (15 Nov 2026)
+
+Perintah "terapkan garis jalan pada panel peta" dijawab di `peta.php`, panel
+Peta Bidang yang memakai WGS84. Sebelumnya pil Jalan di sana hanya menaruh
+620 label teks dari lapisan DXF; kini di bawah label itu tergambar 2.872
+garis tepi yang sama dengan pil Jalan Peta Induk (§3.89).
+
+`api/bidang.php` dapat cabang baru `lapisan=garis-jalan`. Berkasnya
+`files/sig-pertanahan-gedong-lokal/data/dxf-layers/garis-jalan-tepi.geojson`
+yang bermeter lokal DXF, jadi tiap titik diterjemahkan `dxfKeWgs84()` dari
+`tools/lib-impor.php` seperti cabang `batas`, dibulatkan 7 desimal, dan
+properti bawaan dipangkas jadi `kode` + `panjang_m`. Galat jika berkas tidak
+ada menyuruh menjalankan `tools/garis-jalan-label.php`. Cabang ini terbuka
+tanpa sesi, sama seperti `batas`; tidak ada data pribadi di dalamnya.
+
+Isi balasan diukur lewat `curl` ke localhost: HTTP 200, 632.249 byte,
+86 ms, 2.872 `LineString`, 11.633 titik, 0 kode kosong, 0 titik cacat,
+semua koordinat di rentang Jawa Tengah, dan jumlah `panjang_m` 148.023,7 m
+— sama dengan angka `metadata.json`.
+
+Di halaman, `muatJalan()` kini menarik `garis-jalan` dan `jalan` bersamaan
+(`Promise.all`), mengosongkan `grup.jalan`, menggambar garis lebih dulu,
+lalu label. Garis digambar pada `L.canvas({ pane: 'pane-jalan',
+padding: 0.4 })` tersendiri supaya pane tidak menumpuk 2.872 `path` SVG;
+label tetap `divIcon` sehingga menimpa kanvas. Gayanya `#0f766e`, lebar
+1,1, kepekatan 0,85, `interactive: false`. Pane jalan diberi
+`pointer-events: none` agar klik pemilihan bidang tidak terhalang garis.
+
+Dua pemanggil `muatJalan()` (dari `terapkanSetelan()` dan dari inisialisasi
+halaman) sempat berlomba dan memuat tiap lapis dua kali — terlihat dua
+permintaan `lapisan=garis-jalan` identik di daftar jaringan. Diganti satu
+janji bersama (`janjiJalan` + `muatJalanSekali()`): setelah perbaikan tiap
+lapis diminta sekali, tercatat 632.549 B untuk `garis-jalan`, 72.791 B
+untuk label, 13.652 B untuk `batas`.
+
+Legenda ikut berubah: baris "Garis jalan" muncul hanya saat `setelan.jalan`
+hidup, memakai aturan baru `.legenda i.contoh-garis-jalan` di
+`assets/css/app.css` (tinggi 2 px, `#0f766e`), dan swatch pil Jalan
+`#555` diganti `#0f766e`. Handler pil Jalan juga memanggil `gambarLegenda()`
+seperti pil Blok, karena sebelumnya legenda tidak ikut menyegar saat pil
+dimatikan.
+
+Pemeriksaan: `php -l` bersih pada `api/bidang.php` dan `peta.php`,
+`node --check` bersih atas 909 baris JS halaman. Di browser sesi Super
+Admin pane `pane-jalan` ber-z 412, `pointer-events: none`, berisi 1 kanvas
+1.386×932 dan 620 label; 17.201 piksel `#0f766e` terhitung pada muat
+pertama. Mematikan pil membuat 0 piksel teal, 0 label, dan baris legenda
+hilang; menyalakannya lagi memulihkan 17.424 piksel teal, 620 label, dan
+baris legenda. Konsol bersih, tanpa galat.
 
 ---
 

@@ -72,7 +72,7 @@ sip_judul(
                 </label>
                 <label class="chip-lapisan">
                     <input type="checkbox" id="tampilJalan" autocomplete="off" checked>
-                    <i style="background:#555"></i>Jalan
+                    <i style="background:#0f766e"></i>Jalan
                 </label>
                 <label class="chip-lapisan">
                     <input type="checkbox" id="tampilSungai" autocomplete="off" checked>
@@ -295,6 +295,7 @@ $naskah = <<<'JS'
         pane.style.zIndex = String(PANES[nama]);
     });
     peta.getPane('pane-batas').style.pointerEvents = 'none';
+    peta.getPane('pane-jalan').style.pointerEvents = 'none';
     peta.getPane('pane-laporan').style.pointerEvents = 'auto';
 
     const grup = {
@@ -302,6 +303,10 @@ $naskah = <<<'JS'
         batas: L.layerGroup(), laporan: L.layerGroup(),
         jalan: L.layerGroup(), sungai: L.layerGroup()
     };
+
+    // 2.872 garis tepi jalan digambar di kanvas supaya pane jalan tidak menumpuk
+    // ribuan elemen SVG; label jalannya tetap div di atas kanvas itu.
+    const kanvasJalan = L.canvas({ pane: 'pane-jalan', padding: 0.4 });
 
     const dasar = {
         jalan: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -439,6 +444,9 @@ $naskah = <<<'JS'
         }
         if (setelan.batas) {
             baris.push('<span><i class="contoh-batas-desa"></i>Batas desa</span>');
+        }
+        if (setelan.jalan) {
+            baris.push('<span><i class="contoh-garis-jalan"></i>Garis jalan</span>');
         }
         document.getElementById('legendaPeta').innerHTML = baris.join('');
     }
@@ -727,10 +735,30 @@ $naskah = <<<'JS'
         });
     }
 
-    async function muatJalan() {
-        const data = await Sip.api('api/bidang.php', { query: { lapisan: 'jalan' } });
+    // Dua pemanggil (terapkanSetelan dan inisialisasi halaman) bisa memanggil
+    // muatJalan() sebelum yang pertama selesai; satu janji dipakai bersama.
+    let janjiJalan = null;
+    function muatJalan() {
+        if (!janjiJalan) {
+            janjiJalan = muatJalanSekali().finally(() => { janjiJalan = null; });
+        }
+        return janjiJalan;
+    }
+
+    async function muatJalanSekali() {
+        const [garis, label] = await Promise.all([
+            Sip.api('api/bidang.php', { query: { lapisan: 'garis-jalan' } }),
+            Sip.api('api/bidang.php', { query: { lapisan: 'jalan' } })
+        ]);
         grup.jalan.clearLayers();
-        (data.features || []).forEach((f) => {
+        kanvasJalan.addTo(peta);
+        L.geoJSON(garis, {
+            renderer: kanvasJalan,
+            pane: 'pane-jalan',
+            interactive: false,
+            style: { color: '#0f766e', weight: 1.1, opacity: .85 }
+        }).addTo(grup.jalan);
+        (label.features || []).forEach((f) => {
             const p = f.properties;
             const koordinat = f.geometry.coordinates;
             L.marker([Number(koordinat[1]), Number(koordinat[0])], {
@@ -913,6 +941,7 @@ $naskah = <<<'JS'
             if (setelan.jalan && !grup.jalan.getLayers().length) {
                 muatJalan().catch((err) => Sip.pesan(err.message, 'gagal'));
             }
+            gambarLegenda();
         });
     }
 
