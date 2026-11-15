@@ -39,6 +39,16 @@ declare(strict_types=1);
  *   --jahit=M                  panjang jahitan maksimum antara dua ujung buntu
  *                              sumbu; bawaan 3,0 m (= konstanta JAHIT),
  *                              0 = matikan penyambungan celah
+ *   --cincin=hapus|simpan      bawaan 'hapus': (a) baris tepi tertutup yang
+ *                              menutup >= 90 % keliling satu persil dibuang, (b)
+ *                              baris yang tergabung dalam komponen tertutup
+ *                              (tiap simpul berderajat 2, ujung dibulatkan 1 cm)
+ *                              juga dibuang, dan (c) sesudah `--tepi=terpakai`
+ *                              komponen sisa yang setiap simpulnya berderajat 2
+ *                              (siklus yang menempel di <= 1 simpul) dibuang
+ *                              berikut rujukannya di `tepi_all`; semuanya
+ *                              keliling bidang tanah, bukan tepi jalan. 'simpan' =
+ *                              keadaan §3.91 (tanpa saringan cincin)
  *   --pembatas-persil=hapus|simpan  bawaan 'hapus': baris tepi yang kedua sisinya
  *                              (offset tegak lurus 0,8 m) jatuh di dalam persil
  *                              yang BERBEDA dibuang, karena garis semacam itu
@@ -56,6 +66,11 @@ declare(strict_types=1);
  *                              radius bawaan 20 m. Cetakannya lebih ringkas: satu
  *                              baris per baris tepi, tanpa rincian tiga radius.
  *                              Baris berawalan # diabaikan.
+ *   --jejak-pasang=BERKAS      diagnostik saja: tulis CSV setiap baris tepi yang
+ *                              akan terbit berisi kunci, bagian titik sampel yang
+ *                              berpasangan (0..1), panjang_m, asal, cara. Bagian
+ *                              itu dihitung dari ronde pertama dan ronde
+ *                              --lebar-yatim, bukan dari pasangan yang menang.
  *
  * Angka flag (`--lebar`, `--bagi-pasang`, `--benih`, `--jahit`) menerima koma
  * atau titik desimal.
@@ -102,6 +117,37 @@ declare(strict_types=1);
  * (`--tepi=terpakai`, bawaan sejak 15 Nov): baris semacam itu tepian bidang
  * tanah yang cuma ikut terklaim lewat benih atau pita, dan menyimpannya membuat
  * lapis tepi jalan terbaca sebagai peta bidang.
+ *
+ * Saringan cincin (15 Nov, `--cincin=hapus` bawaan), tiga lapis. Lapis pertama
+ * dan kedua berlaku SESUDAH tahap 1 dan SEBELUM saringan pembatas persil. Lapis
+ * pertama per baris: baris yang titik awal dan akhirnya sama (<= 5 cm) lalu
+ * >= 90 % titik sampel keliling SATU persil jatuh <= 0,35 m dari baris itu
+ * adalah keliling bidang yang ditulis sebagai satu polilin. Lapis kedua
+ * topologis: ujung tiap baris tepi dibulatkan 1 cm, baris yang berbagi ujung
+ * dianggap bersambung, lalu tiap komponen yang setiap simpulnya berderajat 2
+ * (kembali ke titik awal) dibuang. Jalan lewat, tidak berkeliling; komponen
+ * tertutup adalah keliling sebuah bidang. Lapis per baris perlu lebih dulu
+ * karena keliling persil yang bertemu keliling lain di satu simpul membentuk
+ * komponen berderajat 4, dan komponen semacam itu tidak lagi sederhana. Ukur
+ * 15 Nov pada lapis §3.91 (2.385 baris): 347 baris tertutup, 218 di antaranya
+ * menutup >= 90 % keliling satu persil (26.925,0 m); pada sisa barisnya 228
+ * komponen tertutup (300 baris, 30.356,3 m, 202 di antaranya menempel tepat pada
+ * keliling sebuah bidang).
+ *
+ * Lapis KETIGA (15 Nov, `--cincin=hapus` juga) berlaku SESUDAH `--tepi=terpakai`,
+ * karena pelapisan itulah yang membuat keliling bidang lepas dari jaringan
+ * jalan: baris cincin yang di tahap 1 menempel pada baris lain bisa kehilangan
+ * tetangganya begitu baris tak terpakai dibuang. Pada graf baris yang tinggal
+ * (`siklusLepasTepi`): simpul daun berderajat < 2 dipangkas berulang, lalu tiap
+ * simpul berderajat >= 3 (persimpangan) dicabut, sehingga tersisa komponen
+ * terpencil; komponen yang setiap simpulnya berderajat 2 adalah siklus yang
+ * menempel di <= 1 simpul atau sama sekali lepas — keliling bidang tanah, bukan
+ * jalan. Baris siklus itu dibuang dari berkas terbit, rujukannya dicabut dari
+ * `tepi_all`, dan sumbu yang tinggal tanpa rujukan ikut dibuang; geometri sumbu
+ * lain TIDAK dihitung ulang. Komponen terpencil yang bukan siklus (ada ujung
+ * buntu di dalamnya, mis. sisa digitasi) dibiarkan. Ukur 15 Nov pada lapis
+ * 2.088 baris: 98 siklus lepas, 137 baris, 13.037,2 m, 290 sumbu tersentuh dan
+ * hanya 3 di antaranya jadi tanpa rujukan.
  *
  * Saringan pembatas persil (15 Nov, `--pembatas-persil=hapus` bawaan) berlaku
  * SESUDAH tahap 1 dan SEBELUM tahap 2: tiap baris tepi disampel tiap 2 m, lalu
@@ -217,6 +263,33 @@ const SEL_KISI = 5.0;
  */
 const PERSIL_OFFSET = 0.8;
 const PERSIL_BAGI = 0.8;
+
+/**
+ * Saringan cincin (15 Nov 2026). Ujung tiap baris tepi dibulatkan CINCIN_BULAT
+ * desimal meter (1 cm) supaya dua ujung yang bertemu dianggap satu simpul;
+ * cabang yang menempel dipangkas, lalu siklus sederhana yang tersisa diuji:
+ * titik CINCIN_UJI meter ke arah dalam siklus harus berada di dalam persil pada
+ * >= CINCIN_BAGI bagian titik uji. Siklus seperti itu keliling sebuah bidang
+ * tanah, bukan jalan. Siklus yang mengurung ruang kosong — misalnya dua tepi
+ * jalan yang bertemu di ujung gang — dibiarkan. Ukur 15 Nov pada lapis terbit
+ * 2.685 baris: 228 komponen tertutup, 300 baris (30.356,3 m, 22,4 % panjang),
+ * 202 di antaranya menempel tepat pada keliling sebuah bidang.
+ */
+const CINCIN_BULAT = 2;
+const CINCIN_UJI = 1.0;
+const CINCIN_BAGI = 0.8;
+/**
+ * Saringan keliling satu baris: baris tepi yang titik awal dan titik akhirnya
+ * sama (jarak <= CINCIN_TUTUP) dan yang >= CINCIN_TUTUP_BAGI titik sampel
+ * keliling SATU persil jatuh <= TOLERANSI_TEPI dari baris itu adalah keliling
+ * bidang tanah yang ditulis sebagai satu polilin. Uji ini tidak melihat baris
+ * lain, jadi tetap berlaku ketika dua keliling persil bertemu di satu simpul
+ * (komponen berderajat 4) — bentuk yang lolos dari saringan cincin topologis.
+ * Ukur 15 Nov pada lapis terbit 2.385 baris: 347 baris tertutup, 218 di
+ * antaranya menutup >= 90 % keliling satu persil (26.925,0 m).
+ */
+const CINCIN_TUTUP = 0.05;
+const CINCIN_TUTUP_BAGI = 0.9;
 
 // Tahap 2.
 const LEBAR_MIN = 0.25;
@@ -534,6 +607,448 @@ function pembatasPersil(array $titik, array $kisi, array $poligon, array $besar,
     return [$n > 0 && $dua >= PERSIL_BAGI * $n && $beda >= PERSIL_BAGI * $n, $dua, $beda, $n];
 }
 
+/**
+ * Kunci baris tepi yang membentuk siklus sederhana yang mengurung sebuah bidang
+ * tanah, serta jumlah siklus dan siklus yang diuji. Ujung baris dibulatkan
+ * CINCIN_BULAT desimal supaya dua ujung yang bertemu tetap dianggap satu simpul.
+ *
+ * Langkahnya:
+ *  1. daun (simpul berderajat < 2) dipangkas berulang, jadi cabang yang menempel
+ *     pada sebuah keliling tidak lagi menghalangi pengenalan kelilingnya;
+ *  2. komponen sisa yang setiap simpulnya berderajat 2 adalah siklus sederhana;
+ *  3. titik 1 m ke arah dalam siklus diuji ke poligon tabel bidang. Siklus yang
+ *     mengurung persil (>= CINCIN_BAGI bagian titik uji berada di dalam persil)
+ *     adalah keliling bidang; siklus yang mengurung ruang kosong dibiarkan,
+ *     karena dua tepi jalan yang bertemu di ujung gang juga membentuk siklus.
+ *
+ * @return array{0: array<string, true>, 1: int, 2: int}
+ */
+function cincinTepi(array $tepi, array $kisi, array $poligon, array $besar, array $kisiId,
+    array $besarId): array
+{
+    $simpul = [];
+    $sisi = [];
+    foreach ($tepi as $i => $t) {
+        $titik = $t['titik'];
+        $n = count($titik);
+        if ($n < 2) {
+            continue;
+        }
+        $a = round((float) $titik[0][0], CINCIN_BULAT) . ':' . round((float) $titik[0][1], CINCIN_BULAT);
+        $b = round((float) $titik[$n - 1][0], CINCIN_BULAT) . ':'
+            . round((float) $titik[$n - 1][1], CINCIN_BULAT);
+        $sisi[$i] = [$a, $b];
+        $simpul[$a][] = $i;
+        $simpul[$b][] = $i;
+    }
+
+    // Derajat tiap simpul, lalu pangkas daun sampai tidak ada lagi.
+    $derajat = [];
+    foreach ($simpul as $s => $daftar) {
+        $derajat[$s] = count($daftar);
+    }
+    $hidup = array_fill_keys(array_keys($sisi), true);
+    $antre = [];
+    foreach ($derajat as $s => $d) {
+        if ($d < 2) {
+            $antre[] = $s;
+        }
+    }
+    while ($antre !== []) {
+        $s = array_pop($antre);
+        if (($derajat[$s] ?? 0) >= 2 || !isset($simpul[$s])) {
+            continue;
+        }
+        foreach ($simpul[$s] as $i) {
+            if (!isset($hidup[$i])) {
+                continue;
+            }
+            unset($hidup[$i]);
+            foreach ($sisi[$i] as $lain) {
+                if ($lain === $s) {
+                    continue;
+                }
+                $derajat[$lain]--;
+                if ($derajat[$lain] === 1) {
+                    $antre[] = $lain;
+                }
+            }
+        }
+        $derajat[$s] = 0;
+    }
+    if ($hidup === []) {
+        return [[], 0, 0];
+    }
+
+    // Tetangga dalam inti sisa.
+    $tetangga = [];
+    foreach (array_keys($hidup) as $i) {
+        [$a, $b] = $sisi[$i];
+        $tetangga[$a][] = [$i, $b];
+        $tetangga[$b][] = [$i, $a];
+    }
+
+    $pakai = [];
+    $buang = [];
+    $siklus = 0;
+    $diuji = 0;
+    foreach (array_keys($hidup) as $i) {
+        if (isset($pakai[$i])) {
+            continue;
+        }
+        // Kumpulkan komponen inti.
+        $antre = [$i];
+        $anggota = [];
+        $derajatInti = [];
+        while ($antre !== []) {
+            $j = array_pop($antre);
+            if (isset($pakai[$j])) {
+                continue;
+            }
+            $pakai[$j] = true;
+            $anggota[] = $j;
+            foreach ($sisi[$j] as $s) {
+                $derajatInti[$s] = ($derajatInti[$s] ?? 0) + 1;
+                foreach ($tetangga[$s] as [$k, $lain]) {
+                    if (!isset($pakai[$k])) {
+                        $antre[] = $k;
+                    }
+                }
+            }
+        }
+        $sederhana = true;
+        foreach ($derajatInti as $d) {
+            if ($d !== 2) {
+                $sederhana = false;
+                break;
+            }
+        }
+        if (!$sederhana) {
+            continue;
+        }
+
+        // Telusuri siklus berurutan dari simpul pertamanya.
+        $awal = $sisi[$anggota[0]][0];
+        $urutan = [];
+        $poly = [];
+        $kini = $awal;
+        $dari = -1;
+        while (true) {
+            $pilih = null;
+            foreach ($tetangga[$kini] as [$k, $lain]) {
+                if ($k !== $dari && isset($hidup[$k])) {
+                    $pilih = [$k, $lain];
+                    break;
+                }
+            }
+            if ($pilih === null) {
+                break;
+            }
+            [$k, $lain] = $pilih;
+            $dari = $k;
+            $maju = (round((float) $tepi[$k]['titik'][0][0], CINCIN_BULAT) . ':'
+                . round((float) $tepi[$k]['titik'][0][1], CINCIN_BULAT)) === $kini;
+            $urutan[] = [$k, $maju];
+            $titik = $maju ? $tepi[$k]['titik'] : array_reverse($tepi[$k]['titik']);
+            foreach ($titik as $p) {
+                $poly[] = [(float) $p[0], (float) $p[1]];
+            }
+            $kini = $lain;
+            if ($kini === $awal || count($urutan) > count($anggota) + 1) {
+                break;
+            }
+        }
+        if (count($urutan) < count($anggota) || count($poly) < 4) {
+            continue;
+        }
+        // Titik penutup jangan dihitung dua kali pada luas.
+        $akhir = $poly[count($poly) - 1];
+        if (abs($akhir[0] - $poly[0][0]) <= 0.05 && abs($akhir[1] - $poly[0][1]) <= 0.05) {
+            array_pop($poly);
+        }
+        if (count($poly) < 3) {
+            continue;
+        }
+        $diuji++;
+
+        // Arah dalam siklus dari tanda luas: positif berarti berlawanan jarum
+        // jam, jadi bagian dalam ada di kiri arah telusur.
+        $luas = 0.0;
+        for ($k = 0, $m = count($poly); $k < $m; $k++) {
+            $p = $poly[$k];
+            $q = $poly[($k + 1) % $m];
+            $luas += $p[0] * $q[1] - $q[0] * $p[1];
+        }
+        $luas /= 2.0;
+        if (abs($luas) < 1.0) {
+            continue;
+        }
+        $kiri = $luas > 0.0;
+        $dalam = 0;
+        $uji = 0;
+        foreach ($urutan as [$k, $maju]) {
+            $titik = $tepi[$k]['titik'];
+            $n = count($titik);
+            if ($n < 2) {
+                continue;
+            }
+            // Titik tengah menurut panjang baris, bukan titik tengah talibusur.
+            $sisa = (float) $tepi[$k]['panjang'] / 2.0;
+            $px = (float) $titik[0][0];
+            $py = (float) $titik[0][1];
+            $dx = 0.0;
+            $dy = 0.0;
+            for ($q = 0; $q < $n - 1; $q++) {
+                $x0 = (float) $titik[$q][0];
+                $y0 = (float) $titik[$q][1];
+                $x1 = (float) $titik[$q + 1][0];
+                $y1 = (float) $titik[$q + 1][1];
+                $dx = $x1 - $x0;
+                $dy = $y1 - $y0;
+                $p = hypot($dx, $dy);
+                if ($p <= 0.0) {
+                    continue;
+                }
+                if ($sisa <= $p) {
+                    $t = $sisa / $p;
+                    $px = $x0 + $t * $dx;
+                    $py = $y0 + $t * $dy;
+                    break;
+                }
+                $sisa -= $p;
+            }
+            $p = hypot($dx, $dy);
+            if ($p <= 0.0) {
+                continue;
+            }
+            $arah = $maju ? 1.0 : -1.0;
+            $nx = $kiri ? -$dy / $p : $dy / $p;
+            $ny = $kiri ? $dx / $p : -$dx / $p;
+            $uji++;
+            if (idPersil($px + $arah * $nx * CINCIN_UJI, $py + $arah * $ny * CINCIN_UJI,
+                $kisi, $poligon, $besar, $kisiId, $besarId) !== null) {
+                $dalam++;
+            }
+        }
+        if ($uji === 0 || $dalam < CINCIN_BAGI * $uji) {
+            continue;
+        }
+        $siklus++;
+        foreach ($urutan as [$k]) {
+            $buang[(string) $tepi[$k]['kunci']] = true;
+        }
+    }
+    return [$buang, $siklus, $diuji];
+}
+
+/**
+ * Baris terbit yang membentuk siklus yang menempel ke jaringan jalan pada paling
+ * banyak satu simpul, beserta jumlah siklusnya. Dipakai SESUDAH baris tidak
+ * terpakai dibuang, karena baris yang di tahap klaim masih bersambung ke jaringan
+ * bisa menjadi keliling yang lepas setelah penyaringan itu — persis keluhan
+ * "masih terlihat garis peta bidang tanah".
+ *
+ * Langkahnya sama dengan `cincinTepi` sampai inti, lalu berbeda pada uji akhir:
+ *  1. daun dipangkas berulang;
+ *  2. semua simpul yang (pada inti) bersambung >= 3 dibuang — simpul itu
+ *     persimpangan, dan siklus jalan yang lewat persimpangan tidak boleh ikut;
+ *  3. komponen sisa yang setiap simpulnya bersambung 2 adalah siklus yang hanya
+ *     menempel di satu simpul atau sama sekali lepas: keliling bidang tanah,
+ *     bukan jalan. Siklus yang menyambung ke jaringan di dua simpul atau lebih
+ *     terbelah oleh langkah 2, jadi tidak pernah masuk golongan ini.
+ *
+ * @return array{0: array<int, true>, 1: int}
+ */
+function siklusLepasTepi(array $tepi): array
+{
+    $simpul = [];
+    $sisi = [];
+    foreach ($tepi as $i => $t) {
+        $n = count($t['titik']);
+        if ($n < 2) {
+            continue;
+        }
+        $a = round((float) $t['titik'][0][0], CINCIN_BULAT) . ':'
+            . round((float) $t['titik'][0][1], CINCIN_BULAT);
+        $b = round((float) $t['titik'][$n - 1][0], CINCIN_BULAT) . ':'
+            . round((float) $t['titik'][$n - 1][1], CINCIN_BULAT);
+        $sisi[$i] = [$a, $b];
+        $simpul[$a][] = $i;
+        $simpul[$b][] = $i;
+    }
+    $derajat = [];
+    foreach ($simpul as $s => $daftar) {
+        $derajat[$s] = count($daftar);
+    }
+    $hidup = array_fill_keys(array_keys($sisi), true);
+    $antre = [];
+    foreach ($derajat as $s => $d) {
+        if ($d < 2) {
+            $antre[] = $s;
+        }
+    }
+    while ($antre !== []) {
+        $s = array_pop($antre);
+        if (($derajat[$s] ?? 0) >= 2 || !isset($simpul[$s])) {
+            continue;
+        }
+        foreach ($simpul[$s] as $i) {
+            if (!isset($hidup[$i])) {
+                continue;
+            }
+            unset($hidup[$i]);
+            foreach ($sisi[$i] as $lain) {
+                if ($lain === $s) {
+                    continue;
+                }
+                $derajat[$lain]--;
+                if ($derajat[$lain] === 1) {
+                    $antre[] = $lain;
+                }
+            }
+        }
+        $derajat[$s] = 0;
+    }
+    if ($hidup === []) {
+        return [[], 0];
+    }
+    foreach (array_keys($hidup) as $i) {
+        foreach ($sisi[$i] as $s) {
+            if (($derajat[$s] ?? 0) >= 3) {
+                unset($hidup[$i]);
+                break;
+            }
+        }
+    }
+    $tetangga = [];
+    foreach (array_keys($hidup) as $i) {
+        [$a, $b] = $sisi[$i];
+        $tetangga[$a][] = [$i, $b];
+        $tetangga[$b][] = [$i, $a];
+    }
+    $pakai = [];
+    $buang = [];
+    $siklus = 0;
+    foreach (array_keys($hidup) as $i) {
+        if (isset($pakai[$i])) {
+            continue;
+        }
+        $antre = [$i];
+        $anggota = [];
+        $derajatKomponen = [];
+        while ($antre !== []) {
+            $j = array_pop($antre);
+            if (isset($pakai[$j])) {
+                continue;
+            }
+            $pakai[$j] = true;
+            $anggota[] = $j;
+            foreach ($sisi[$j] as $s) {
+                $derajatKomponen[$s] = ($derajatKomponen[$s] ?? 0) + 1;
+                foreach ($tetangga[$s] ?? [] as [$k]) {
+                    if (!isset($pakai[$k])) {
+                        $antre[] = $k;
+                    }
+                }
+            }
+        }
+        $sederhana = true;
+        foreach ($derajatKomponen as $d) {
+            if ($d !== 2) {
+                $sederhana = false;
+                break;
+            }
+        }
+        if (!$sederhana) {
+            continue;
+        }
+        $siklus++;
+        foreach ($anggota as $j) {
+            $buang[(int) $j] = true;
+        }
+    }
+    return [$buang, $siklus];
+}
+
+/** Apakah titik berada <= radius dari salah satu segmen garis. */
+function dekatGaris(array $titik, float $px, float $py, float $radius): bool
+{
+    for ($i = 0; $i + 1 < count($titik); $i++) {
+        $x0 = (float) $titik[$i][0];
+        $y0 = (float) $titik[$i][1];
+        $dx = (float) $titik[$i + 1][0] - $x0;
+        $dy = (float) $titik[$i + 1][1] - $y0;
+        $pan = $dx * $dx + $dy * $dy;
+        $t = $pan > 0.0 ? max(0.0, min(1.0, (($px - $x0) * $dx + ($py - $y0) * $dy) / $pan)) : 0.0;
+        if (hypot($px - ($x0 + $t * $dx), $py - ($y0 + $t * $dy)) <= $radius) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * Baris tertutup yang sudah menggambar (hampir) seluruh keliling satu bidang
+ * tanah. Titik sampel tiap persil di sekitar baris (LANGKAH 2 m) dihitung yang
+ * jatuh <= TOLERANSI_TEPI dari baris; satu persil saja sudah cukup untuk
+ * menjawab ya. Uji ini tidak memakai topologi, jadi keliling yang bertemu
+ * keliling lain di satu simpul tetap dikenali — hal yang lolos dari `cincinTepi`
+ * karena komponennya tidak lagi sederhana.
+ */
+function tertutupPersil(array $titik, array $kisi, array $poligon, array $besar, array $kisiId,
+    array $besarId): bool
+{
+    $n = count($titik);
+    if ($n < 4) {
+        return false;
+    }
+    if (hypot((float) $titik[0][0] - (float) $titik[$n - 1][0],
+            (float) $titik[0][1] - (float) $titik[$n - 1][1]) > CINCIN_TUTUP) {
+        return false;
+    }
+    $xs = array_column($titik, 0);
+    $ys = array_column($titik, 1);
+    $x0 = (float) min($xs) - TOLERANSI_TEPI;
+    $y0 = (float) min($ys) - TOLERANSI_TEPI;
+    $x1 = (float) max($xs) + TOLERANSI_TEPI;
+    $y1 = (float) max($ys) + TOLERANSI_TEPI;
+    $kandidat = [];
+    for ($gx = (int) floor($x0 / SEL_KISI); $gx <= (int) floor($x1 / SEL_KISI); $gx++) {
+        for ($gy = (int) floor($y0 / SEL_KISI); $gy <= (int) floor($y1 / SEL_KISI); $gy++) {
+            foreach (array_keys($kisi[$gx . ':' . $gy] ?? []) as $id) {
+                if (isset($kisiId[$id])) {
+                    $kandidat[$id] = true;
+                }
+            }
+        }
+    }
+    $daftar = [];
+    foreach (array_keys($kandidat) as $id) {
+        $daftar[] = $poligon[$id];
+    }
+    foreach ($besar as $i => $ring) {
+        if (isset($besarId[$i])) {
+            $daftar[] = $ring;
+        }
+    }
+    foreach ($daftar as $ring) {
+        $s = sampel($ring);
+        if ($s === []) {
+            continue;
+        }
+        $kena = 0;
+        foreach ($s as [$px, $py]) {
+            if (dekatGaris($titik, $px, $py, TOLERANSI_TEPI)) {
+                $kena++;
+            }
+        }
+        if ($kena >= CINCIN_TUTUP_BAGI * count($s)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 /** Kelas sebuah teks label. */
 function kelasLabel(string $teks): ?string
 {
@@ -835,11 +1350,13 @@ $lebarMaks = 8.0;
 $lebarYatim = LEBAR_YATIM;
 $tanya = null;
 $tanyaBerkas = null;
+$jejakPasang = null;
 $benihMaks = BENIH;
 $benihYatim = BENIH_YATIM;
 $bagiPasang = BAGI_PASANG;
 $jahitMaks = JAHIT;
 $pembatasKeluar = 'hapus';
+$cincinKeluar = 'hapus';
 foreach (array_slice($argv, 1) as $a) {
     if ($a === '--terapkan') {
         $terapkan = true;
@@ -886,6 +1403,8 @@ foreach (array_slice($argv, 1) as $a) {
         if ($tanyaBerkas === []) {
             galat('--tanya-berkas tidak berisi satu titik pun');
         }
+    } elseif (str_starts_with($a, '--jejak-pasang=')) {
+        $jejakPasang = substr($a, 15);
     } elseif (str_starts_with($a, '--lebar-yatim=')) {
         $lebarYatim = angkaFlag(substr($a, 14), '--lebar-yatim');
     } elseif (str_starts_with($a, '--lebar=')) {
@@ -898,6 +1417,8 @@ foreach (array_slice($argv, 1) as $a) {
         $jahitMaks = angkaFlag(substr($a, 8), '--jahit');
     } elseif (str_starts_with($a, '--pembatas-persil=')) {
         $pembatasKeluar = substr($a, 18);
+    } elseif (str_starts_with($a, '--cincin=')) {
+        $cincinKeluar = substr($a, 9);
     } else {
         galat('argumen tidak dikenal: ' . $a);
     }
@@ -943,14 +1464,18 @@ if ($jahitMaks < 0.0 || $jahitMaks > JAHIT_MAKS) {
 if (!in_array($pembatasKeluar, ['hapus', 'simpan'], true)) {
     galat('--pembatas-persil harus hapus atau simpan');
 }
+if (!in_array($cincinKeluar, ['hapus', 'simpan'], true)) {
+    galat('--cincin harus hapus atau simpan');
+}
 printf("mode: tahap %s · sumber tepi %s · tepi diterbitkan %s · benih %s m%s · lebar koridor maksimum %s m%s"
-    . " · bagi pasang %s · jahit celah %s m · pembatas persil %s · %s · %s\n",
+    . " · bagi pasang %s · jahit celah %s m · cincin %s · pembatas persil %s · %s · %s\n",
     $tahap, $sumberTepi, $tepiKeluar, angkaNum($benihMaks, 1),
     $benihYatim === 0.0 ? '' : ' + yatim ' . angkaNum($benihYatim, 1),
     angkaNum($lebarMaks, 1),
     $lebarYatim === 0.0 ? '' : ' + yatim ' . angkaNum($lebarYatim, 1),
     angkaNum($bagiPasang, 2),
     angkaNum($jahitMaks, 1),
+    $cincinKeluar,
     $pembatasKeluar,
     $eksklusif ? 'label jalan harus yang terdekat' : 'kelas lain tidak jadi syarat',
     $terapkan ? 'TERAPKAN' : 'uji kering');
@@ -1324,10 +1849,89 @@ if ($tepi === []) {
     galat('tidak ada satu pun tepi yang bisa dipakai');
 }
 
+// Saringan cincin: komponen tepi yang setiap simpulnya berderajat 2 kembali ke
+// titik awal, jadi komponen itu keliling sebuah bidang tanah, bukan tepi jalan.
+// Dibuang sebelum saringan pembatas persil dan sebelum tahap 2 supaya sumbu
+// dibangun tanpa baris itu dan `tepi_all` tidak menunjuk baris yang hilang.
+$jumlahTepiKlaim = count($tepi);
+$tutupDiuji = 0;
+$tutupBuang = 0;
+$tutupPanjang = 0.0;
+$tutupCara = [];
+$tutupAsal = [];
+$cincinBuang = [];
+$cincinKomponen = 0;
+$cincinDiuji = 0;
+$cincinPanjang = 0.0;
+$cincinCara = [];
+$cincinAsal = [];
+if ($cincinKeluar === 'hapus') {
+    // Saringan keliling satu baris lebih dulu: satu polilin tertutup yang
+    // menutup satu persil tidak perlu topologi, dan membuangnya lebih dulu
+    // membuat komponen sisa lebih sederhana bagi saringan cincin di bawahnya.
+    $sisaTepi = [];
+    foreach ($tepi as $t) {
+        $n = count($t['titik']);
+        $tertutup = $n >= 4
+            && hypot((float) $t['titik'][0][0] - (float) $t['titik'][$n - 1][0],
+                (float) $t['titik'][0][1] - (float) $t['titik'][$n - 1][1]) <= CINCIN_TUTUP;
+        if ($tertutup) {
+            $tutupDiuji++;
+        }
+        if ($tertutup && tertutupPersil($t['titik'], $kisiPoligon, $poligon, $poligonBesar,
+                $poligonBidang, $besarBidang)) {
+            $tutupBuang++;
+            $tutupPanjang += $t['panjang'];
+            $tutupCara[$t['cara']] = ($tutupCara[$t['cara']] ?? 0) + 1;
+            $tutupAsal[$t['asal']] = ($tutupAsal[$t['asal']] ?? 0) + 1;
+            continue;
+        }
+        $sisaTepi[] = $t;
+    }
+    $tepi = $sisaTepi;
+    ksort($tutupCara);
+    ksort($tutupAsal);
+    printf("saring keliling satu baris: %d baris tertutup diperiksa · %d menutup >= %d%% keliling"
+        . " satu persil · dibuang %s m (%s; %s) · tersisa %d baris\n", $tutupDiuji, $tutupBuang,
+        (int) round(CINCIN_TUTUP_BAGI * 100), angkaNum($tutupPanjang, 1),
+        json_encode($tutupCara, JSON_UNESCAPED_UNICODE),
+        json_encode($tutupAsal, JSON_UNESCAPED_UNICODE), count($tepi));
+    if ($tepi === []) {
+        galat('saringan keliling satu baris membuang seluruh tepi; pakai --cincin=simpan');
+    }
+
+    [$cincinBuang, $cincinKomponen, $cincinDiuji] = cincinTepi($tepi, $kisiPoligon, $poligon,
+        $poligonBesar, $poligonBidang, $besarBidang);
+    if ($cincinBuang !== []) {
+        $sisaTepi = [];
+        foreach ($tepi as $t) {
+            if (isset($cincinBuang[(string) $t['kunci']])) {
+                $cincinPanjang += $t['panjang'];
+                $cincinCara[$t['cara']] = ($cincinCara[$t['cara']] ?? 0) + 1;
+                $cincinAsal[$t['asal']] = ($cincinAsal[$t['asal']] ?? 0) + 1;
+                continue;
+            }
+            $sisaTepi[] = $t;
+        }
+        $tepi = $sisaTepi;
+    }
+    ksort($cincinCara);
+    ksort($cincinAsal);
+    printf("saring cincin: %d dari %d siklus sederhana mengurung persil · %d baris dibuang (%s m; %s; %s)"
+        . " · tersisa %d baris\n",
+        $cincinKomponen, $cincinDiuji, count($cincinBuang), angkaNum($cincinPanjang, 1),
+        json_encode($cincinCara, JSON_UNESCAPED_UNICODE), json_encode($cincinAsal, JSON_UNESCAPED_UNICODE),
+        count($tepi));
+    if ($tepi === []) {
+        galat('saringan cincin membuang seluruh tepi; pakai --cincin=simpan');
+    }
+} else {
+    echo 'saring cincin: dimatikan (--cincin=simpan).' . PHP_EOL;
+}
+
 // Saringan pembatas persil: baris yang kedua sisinya jatuh di persil berbeda
 // adalah garis bidang tanah, bukan tepi jalan. Dibuang sebelum tahap 2 supaya
 // sumbu dibangun tanpa baris itu dan `tepi_all` tidak menunjuk baris yang hilang.
-$jumlahTepiKlaim = count($tepi);
 $pembatasBuang = 0;
 $pembatasPanjang = 0.0;
 $pembatasAsal = [];
@@ -1456,18 +2060,20 @@ $olehSeberang = static function (int $id, float $radius) use ($tepi, $komi, $kis
     $s = sampel($tepi[$id]['titik']);
     $oleh = [];
     $lubang = [];
-    foreach ($s as [$x, $y, $arah]) {
+    $tutup = array_fill(0, count($s), false);
+    foreach ($s as $k => [$x, $y, $arah]) {
         $p = pasanganTerdekat($kisiPasang, $segmenPasang, $komiSegmen, $x, $y, $radius, (int) $komi[$id],
             $arah, $kisiPoligon, $poligon, $poligonBesar, $kisiAir, $segmenAir, $tolakAir);
         if ($p === null) {
-            $lubang[] = [$x, $y, $arah];
+            $lubang[] = [$x, $y, $arah, $k];
             continue;
         }
+        $tutup[$k] = true;
         $lain = (int) $komi[$p[3]];
         $oleh[$lain]['n'] = ($oleh[$lain]['n'] ?? 0) + 1;
         $oleh[$lain]['titik'][] = [($x + $p[1]) / 2, ($y + $p[2]) / 2, $p[0], $id];
     }
-    return [$oleh, count($s), $lubang];
+    return [$oleh, count($s), $lubang, $tutup];
 };
 
 /** Komponen seberang yang paling sering muncul bagi satu baris. */
@@ -1484,7 +2090,8 @@ $pilihUtama = static function (array $oleh): ?int {
 $sisa = [];
 $lubangBaris = [];
 foreach ($tepi as $id => $t) {
-    [$oleh, $jumlahSampel, $lubang] = $olehSeberang((int) $id, $lebarMaks);
+    [$oleh, $jumlahSampel, $lubang, $tutup] = $olehSeberang((int) $id, $lebarMaks);
+    $tepi[$id]['pasang'] = $tutup;
     if ($lubang !== [] && $lebarYatim > $lebarMaks) {
         $lubangBaris[(int) $id] = $lubang;
     }
@@ -1518,13 +2125,14 @@ if ($lebarYatim > $lebarMaks) {
     $sebelumAir = $tolakAir;
     foreach ($lubangBaris as $id => $lubang) {
         $grup = [];
-        foreach ($lubang as [$x, $y, $arah]) {
+        foreach ($lubang as [$x, $y, $arah, $k]) {
             $p = pasanganTerdekat($kisiPasang, $segmenPasang, $komiSegmen, $x, $y, $lebarYatim,
                 (int) $komi[$id], $arah, $kisiPoligon, $poligon, $poligonBesar, $kisiAir, $segmenAir,
                 $tolakAir);
             if ($p === null) {
                 continue;
             }
+            $tepi[$id]['pasang'][$k] = true;
             $grup[(int) $komi[$p[3]]][] = [($x + $p[1]) / 2, ($y + $p[2]) / 2, $p[0], $id];
         }
         foreach ($grup as $lain => $titik) {
@@ -1959,6 +2567,85 @@ foreach ($jalurSum as $nd) {
 }
 usort($fitur, static fn(array $a, array $b): int => $b['panjang'] <=> $a['panjang']);
 
+// 5. Keluaran tepi. Baris yang tidak dipakai satu pun sumbu (tidak muncul di
+// `tepi_all`) adalah tepian bidang tanah yang ikut terklaim; --tepi=terpakai
+// membuangnya supaya lapis tepi jalan tidak terbaca sebagai peta bidang.
+$idTerpakai = [];
+foreach ($fitur as $f) {
+    foreach ($f['tepi_id'] as $id) {
+        $idTerpakai[(int) $id] = true;
+    }
+}
+ksort($idTerpakai);
+if ($tepiKeluar === 'terpakai' && $fitur === []) {
+    echo 'PERINGATAN: tidak ada sumbu, jadi tidak ada baris yang bisa disebut terpakai;'
+        . ' berkas tepi ditulis utuh (--tepi=semua).' . PHP_EOL;
+    $tepiKeluar = 'semua';
+}
+$tepiTerbit = $tepiKeluar === 'terpakai' ? array_intersect_key($tepi, $idTerpakai) : $tepi;
+
+// 5b. Siklus lepas. Baris yang di tahap klaim masih bersambung ke jaringan bisa
+// menjadi keliling bidang tanah yang hanya menempel di satu simpul sesudah
+// baris tak terpakai dibuang. Saringan ini berjalan pada himpunan terbit, bukan
+// pada klaim; baris yang dibuang juga dicabut dari `tepi_all` setiap sumbu dan
+// sumbu yang kehilangan seluruh rujukannya ikut dibuang. Geometri sumbu tidak
+// dihitung ulang, sama seperti --tepi=terpakai.
+$lepasKomponen = 0;
+$lepasBuang = [];
+$lepasPanjang = 0.0;
+$lepasCara = [];
+$lepasAsal = [];
+$lepasSumbu = 0;
+$lepasTersentuh = 0;
+$lepasRujukan = 0;
+if ($cincinKeluar === 'hapus') {
+    [$lepasBuang, $lepasKomponen] = siklusLepasTepi($tepiTerbit);
+    foreach ($lepasBuang as $id => $_) {
+        $t = $tepi[$id];
+        $lepasPanjang += (float) $t['panjang'];
+        $lepasCara[$t['cara']] = ($lepasCara[$t['cara']] ?? 0) + 1;
+        $lepasAsal[$t['asal']] = ($lepasAsal[$t['asal']] ?? 0) + 1;
+    }
+    if ($lepasBuang !== []) {
+        $tepiTerbit = array_diff_key($tepiTerbit, $lepasBuang);
+        $fiturSisa = [];
+        foreach ($fitur as $f) {
+            $tepinya = [];
+            $idTetap = [];
+            $tercabut = false;
+            foreach ($f['tepi_id'] as $q => $id) {
+                if (isset($lepasBuang[(int) $id])) {
+                    $lepasRujukan++;
+                    $tercabut = true;
+                    continue;
+                }
+                $tepinya[] = $f['tepinya'][$q];
+                $idTetap[] = (int) $id;
+            }
+            if ($tercabut) {
+                $lepasTersentuh++;
+            }
+            if ($tepinya === []) {
+                $lepasSumbu++;
+                continue;
+            }
+            $f['tepinya'] = $tepinya;
+            $f['tepi_id'] = $idTetap;
+            $fiturSisa[] = $f;
+        }
+        $fitur = $fiturSisa;
+    }
+    ksort($lepasCara);
+    ksort($lepasAsal);
+    printf("saring siklus lepas: %d siklus menempel <= 1 simpul · %d baris dibuang (%s m; %s) ·"
+        . " %d rujukan dicabut dari %d sumbu · %d sumbu tanpa rujukan ikut dibuang · tersisa %d baris tepi\n",
+        $lepasKomponen, count($lepasBuang), angkaNum($lepasPanjang, 1),
+        json_encode($lepasCara, JSON_UNESCAPED_UNICODE), $lepasRujukan, $lepasTersentuh, $lepasSumbu,
+        count($tepiTerbit));
+} else {
+    echo 'saring siklus lepas: dimatikan (--cincin=simpan).' . PHP_EOL;
+}
+
 $daftar = [];
 foreach ($fitur as $i => $f) {
     $daftar[] = [
@@ -1980,30 +2667,33 @@ foreach ($fitur as $i => $f) {
     ];
 }
 
-// 5. Keluaran tepi. Baris yang tidak dipakai satu pun sumbu (tidak muncul di
-// `tepi_all`) adalah tepian bidang tanah yang ikut terklaim; --tepi=terpakai
-// membuangnya supaya lapis tepi jalan tidak terbaca sebagai peta bidang.
-$idTerpakai = [];
-foreach ($fitur as $f) {
-    foreach ($f['tepi_id'] as $id) {
-        $idTerpakai[(int) $id] = true;
-    }
-}
-ksort($idTerpakai);
-if ($tepiKeluar === 'terpakai' && $fitur === []) {
-    echo 'PERINGATAN: tidak ada sumbu, jadi tidak ada baris yang bisa disebut terpakai;'
-        . ' berkas tepi ditulis utuh (--tepi=semua).' . PHP_EOL;
-    $tepiKeluar = 'semua';
-}
-$tepiTerbit = $tepiKeluar === 'terpakai' ? array_intersect_key($tepi, $idTerpakai) : $tepi;
 $berkasTepi = $susunTepi($tepiTerbit);
 $panjangTepiTerbit = array_sum(array_map(
     static fn(array $f): float => (float) $f['properties']['panjang_m'], $berkasTepi));
 $panjangTepiBuang = 0.0;
+$terpakaiBuang = 0;
+$terpakaiPanjang = 0.0;
 foreach ($tepi as $id => $t) {
+    $p = round($t['panjang'], 2);
     if (!isset($idTerpakai[$id])) {
-        $panjangTepiBuang += round($t['panjang'], 2);
+        $terpakaiBuang++;
+        $terpakaiPanjang += $p;
+        $panjangTepiBuang += $p;
+    } elseif (isset($lepasBuang[(int) $id])) {
+        $panjangTepiBuang += $p;
     }
+}
+if ($jejakPasang !== null) {
+    $baris = ['kunci,bagi_pasang,panjang_m,asal,cara'];
+    foreach ($tepiTerbit as $id => $t) {
+        $m = $t['pasang'] ?? [];
+        $baris[] = sprintf('%s,%.3f,%.2f,%s,%s', $t['kunci'],
+            $m === [] ? 0.0 : array_sum($m) / count($m), (float) $t['panjang'], $t['asal'], $t['cara']);
+    }
+    if (file_put_contents($jejakPasang, implode(PHP_EOL, $baris) . PHP_EOL) === false) {
+        galat('gagal menulis --jejak-pasang: ' . $jejakPasang);
+    }
+    printf("jejak pasang: %d baris terbit -> %s\n", count($tepiTerbit), $jejakPasang);
 }
 
 sort($jarakTepi);
@@ -2082,9 +2772,25 @@ $meta['layers'][JUDUL_TEPI] = [
     'permukaan_bidang' => ['sumber' => 'tabel bidang (status <> dihapus)', 'persil' => $jumlahPersil,
         'segmen_tepi' => count($segmenTepi)],
     'saring' => ['aturan' => $tepiKeluar, 'klaim_tahap1' => $jumlahTepiKlaim,
+        'keliling_satu_baris' => ['aturan' => $cincinKeluar, 'tutup_m' => CINCIN_TUTUP,
+            'toleransi_m' => TOLERANSI_TEPI, 'bagi_keliling_persil' => CINCIN_TUTUP_BAGI,
+            'tertutup_diuji' => $tutupDiuji, 'dibuang' => $tutupBuang,
+            'dibuang_panjang_m' => round($tutupPanjang, 1), 'cara' => $tutupCara,
+            'asal' => $tutupAsal],
+        'cincin' => ['aturan' => $cincinKeluar, 'simpul_bulat_desimal' => CINCIN_BULAT,
+            'uji_dalam_m' => CINCIN_UJI, 'bagi_dalam_persil' => CINCIN_BAGI,
+            'siklus_diuji' => $cincinDiuji, 'siklus_dibuang' => $cincinKomponen,
+            'dibuang' => count($cincinBuang),
+            'dibuang_panjang_m' => round($cincinPanjang, 1), 'cara' => $cincinCara, 'asal' => $cincinAsal],
         'pembatas_persil' => ['aturan' => $pembatasKeluar, 'offset_m' => PERSIL_OFFSET,
             'bagi_sampel' => PERSIL_BAGI, 'dibuang' => $pembatasBuang,
             'dibuang_panjang_m' => round($pembatasPanjang, 1), 'asal' => $pembatasAsal],
+        'siklus_lepas' => ['aturan' => $cincinKeluar, 'simpul_persimpangan_derajat' => 3,
+            'simpul_bulat_desimal' => CINCIN_BULAT, 'siklus' => $lepasKomponen,
+            'dibuang' => count($lepasBuang), 'dibuang_panjang_m' => round($lepasPanjang, 1),
+            'rujukan_dicabut' => $lepasRujukan, 'sumbu_tersentuh' => $lepasTersentuh,
+            'sumbu_dibuang' => $lepasSumbu,
+            'cara' => $lepasCara, 'asal' => $lepasAsal],
         'dibuang' => count($tepi) - count($tepiTerbit),
         'dibuang_panjang_m' => round($panjangTepiBuang, 1)],
     'asal' => array_count_values(array_column($tepiTerbit, 'asal')),
@@ -2150,7 +2856,46 @@ if ($tepiKeluar === 'terpakai') {
         . ' Baris itu tepian bidang tanah yang ikut terklaim lewat benih atau pita, bukan sisi koridor'
         . ' jalan. Jumlah sumbu tidak berubah sebab penyaringan terjadi sesudah tahap 2.',
         BERKAS_TEPI . '.geojson', count($tepi),
-        count($tepi) - count($tepiTerbit), angkaNum($panjangTepiBuang, 1)
+        $terpakaiBuang, angkaNum($terpakaiPanjang, 1)
+    );
+}
+if ($cincinKeluar === 'hapus' && $tutupBuang > 0) {
+    $catatan[] = sprintf(
+        JUDUL_TEPI . ': %d dari %d baris tepi yang titik awal dan akhirnya sama (%s m) dibuang karena'
+        . ' >= %.0f%% titik sampel keliling SATU persil jatuh <= %.2f m dari baris itu: baris semacam'
+        . ' ini keliling sebuah bidang tanah yang ditulis sebagai satu polilin, bukan tepi jalan. Uji'
+        . ' per baris ini tidak memakai topologi, jadi tetap mengenali keliling yang bertemu keliling'
+        . ' lain di satu simpul. Saringan berjalan sebelum saringan cincin topologis, sebelum saringan'
+        . ' pembatas persil, dan sebelum tahap 2, jadi sumbu dibangun ulang tanpa baris itu.',
+        $tutupBuang, $tutupDiuji, angkaNum($tutupPanjang, 1), CINCIN_TUTUP_BAGI * 100, TOLERANSI_TEPI
+    );
+}
+if ($cincinKeluar === 'hapus' && $cincinBuang !== []) {
+    $catatan[] = sprintf(
+        JUDUL_TEPI . ': %d dari %d siklus sederhana (%d baris, %s m) dibuang karena titik %s m ke arah'
+        . ' dalam siklus itu berada di dalam persil pada >= %.0f%% titik uji — siklus seperti itu'
+        . ' keliling sebuah bidang tanah, bukan tepi jalan. Cabang yang menempel dipangkas lebih dulu,'
+        . ' jadi keliling tetap dikenali walau ada garis lain yang bersambung padanya; siklus yang'
+        . ' mengurung ruang kosong (dua tepi jalan yang bertemu di ujung gang) dibiarkan. Saringan'
+        . ' berjalan sebelum saringan pembatas persil dan sebelum tahap 2, jadi sumbu dibangun ulang'
+        . ' tanpa baris itu dan `tepi_all` tidak menunjuk baris yang hilang. Ujung baris dianggap'
+        . ' satu simpul bila jaraknya <= %s m.',
+        $cincinKomponen, $cincinDiuji, count($cincinBuang), angkaNum($cincinPanjang, 1),
+        angkaNum(CINCIN_UJI, 1), CINCIN_BAGI * 100, angkaNum(10 ** -CINCIN_BULAT, 2)
+    );
+}
+if ($cincinKeluar === 'hapus' && $lepasBuang !== []) {
+    $catatan[] = sprintf(
+        JUDUL_TEPI . ': %d baris terbit (%s m) dicabut karena membentuk %d siklus yang menempel ke'
+        . ' jaringan jalan pada paling banyak satu simpul — keliling bidang tanah atau lingkaran'
+        . ' buntu, bukan jalan lewat. Ujung baris dibulatkan %s m, daun dipangkas, lalu simpul yang'
+        . ' pada inti bersambung >= 3 dibuang; komponen sisa yang setiap simpulnya bersambung 2'
+        . ' adalah siklus lepas. Saringan berjalan SESUDAH --tepi=terpakai, jadi keliling yang baru'
+        . ' terpisah dari jaringan sesudah baris tak terpakai dibuang ikut tertangkap. %d rujukan'
+        . ' dicabut dari `tepi_all` dan %d sumbu yang kehilangan seluruh rujukannya ikut dibuang;'
+        . ' geometri sumbu tidak dihitung ulang, sama seperti penyaringan --tepi=terpakai.',
+        count($lepasBuang), angkaNum($lepasPanjang, 1), $lepasKomponen,
+        angkaNum(10 ** -CINCIN_BULAT, 2), $lepasRujukan, $lepasSumbu
     );
 }
 if ($pembatasKeluar === 'hapus' && $pembatasBuang > 0) {

@@ -7079,8 +7079,9 @@ pertama. Mematikan pil membuat 0 piksel teal, 0 label, dan baris legenda
 hilang; menyalakannya lagi memulihkan 17.424 piksel teal, 620 label, dan
 baris legenda. Konsol bersih, tanpa galat.
 
-Sejak §3.91 isi lapis ini 2.685 baris; angka 2.872 di atas adalah keadaan
-saat pemasangan.
+Sejak §3.92 isi lapis ini 1.951 baris; angka 2.872 di atas adalah keadaan
+saat pemasangan, dan 2.685 di §3.91 adalah keadaan sesudah saringan
+pembatas persil.
 
 ### 3.91 Garis pembatas persil dibuang dari lapis tepi (15 Nov 2026)
 
@@ -7139,7 +7140,140 @@ Bekas berkas sebelum perubahan: `_lama/cadangan-pembatas-persil-2026-11-15/`
 (tepi `7a60dbcb0013…`, sumbu `ced69ef6f5fe…`, metadata 19.346 B).
 `metadata.json` kini punya blok `saring.pembatas_persil` (`aturan`,
 `offset_m`, `bagi_sampel`, `dibuang`, `dibuang_panjang_m`, `asal`) dan
-satu catatan yang menjelaskan saringan sebelum tahap 2.
+satu catatan yang menjelaskan saringan sebelum tahap 2. Saringan cincin
+§3.92 mengubah isi lapis ini lagi menjadi 1.951 baris / 1.512 segmen.
+
+### 3.92 Keliling bidang yang lepas dari jaringan dibuang (15 Nov 2026)
+
+Perintah yang sama ("lapisan peta jalan masih terlihat garis peta bidang
+tanah") menunjukkan sisa cacat yang lolos dari §3.91: baris keliling
+bidang yang di tahap klaim masih menempel pada baris lain, sehingga
+saringan klaim tidak melihatnya sebagai komponen tertutup. Saringan
+`--tepi=terpakai` lalu membuang baris tak terpakai, dan justru
+pelapisan itu memutus baris cincin dari jaringan: sesudahnya sisa
+keliling bidang tinggal menempel di satu simpul atau sama sekali lepas,
+dan lapis tepi terbaca sebagai peta bidang.
+
+Saringan cincin di `tools/garis-jalan-label.php` kini tiga lapis,
+semuanya di bawah `--cincin=hapus|simpan` (bawaan `hapus`; `simpan`
+mengembalikan keadaan §3.91). Lapis (a) per baris: baris yang ujungnya
+sama (<= 5 cm, `CINCIN_TUTUP`) lalu >= 90 % titik sampel keliling SATU
+persil jatuh <= 0,35 m darinya adalah keliling bidang yang ditulis
+sebagai satu polilin. Lapis (b) topologis di aras klaim: ujung
+dibulatkan 1 cm (`CINCIN_BULAT`), baris yang berbagi ujung dianggap
+bersambung, komponen yang setiap simpulnya berderajat 2 dibuang. Lapis
+(a) perlu lebih dulu karena keliling persil yang bertemu keliling lain
+di satu simpul membentuk komponen berderajat 4, dan komponen semacam itu
+tidak lagi sederhana.
+
+Lapis (c), `siklusLepasTepi()`, berjalan SESUDAH `--tepi=terpakai` pada
+himpunan yang akan diterbitkan. Daun dipangkas berulang, lalu tiap
+simpul berderajat >= 3 dicabut bersama sisinya, sehingga tersisa
+komponen terpencil; komponen yang semua simpulnya berderajat 2 adalah
+siklus yang menempel di <= 1 simpul. Barisnya dibuang dari berkas
+terbit, rujukannya dicabut dari `tepi_all`, sumbu yang kehabisan
+rujukan ikut dibuang, dan geometri sumbu lain TIDAK dihitung ulang
+(sama seperti `--tepi=terpakai`). Komponen terpencil yang punya ujung
+buntu (sisa digitasi) dibiarkan, begitu pula lingkaran yang menempel di
+>= 2 persimpangan: bentuk itu juga bentuk jalan, dan memotongnya
+berarti memotong persimpangan.
+
+Ukur 15 Nov. Lapis (a): 582 baris tertutup diperiksa, 417 menutup
+>= 90 % keliling satu persil (54.977,9 m) dan dibuang. Lapis (b): 67
+dari 70 siklus sederhana mengurung persil, 253 baris (10.102,2 m)
+dibuang. Keduanya menyisakan 3.697 baris klaim sebelum saringan
+pembatas persil §3.91. Lapis (c) pada 2.088 baris / 1.515 sumbu: 98
+siklus, 137 baris (13.037,2 m; benih 73, benih-yatim 9, pita1 49, pita2
+6), 349 rujukan dicabut dari 290 sumbu, 3 sumbu kehabisan rujukan.
+Hasil akhir `garis-jalan-tepi.geojson` 1.951 baris / 71.093,8 m
+(sebelumnya 2.088 / 84.131,0 m) dan `garis-jalan-sumbu.geojson` 1.512
+segmen / 27.176,3 m (sebelumnya 1.515 / 27.206,8 m; setelah §3.91
+2.065 / 36.514,4 m).
+
+Verifikasi. `_lama/scratch/cek-saring-cincin.php`: 1.951 kunci di berkas
+tepi = 1.951 kunci unik di `tepi_all`, 0 tepi tanpa sumbu, 0 sumbu tanpa
+tepi, 4.196 rujukan. `_lama/scratch/ukur-kupas-lepas.php` pada berkas
+baru mencetak 0 siklus lepas; sisa 7 komponen terpencil bukan siklus
+(19 baris, 395,3 m). Dua kali `--terapkan` menghasilkan tepi
+`0393f97d…` dan sumbu `f4ef3eef…` identik; `metadata.json` hanya
+berbeda pada waktu pembuatan. `api/bidang.php?lapisan=garis-jalan`
+HTTP 200, 1.951 `LineString`, 392.966 B. Gambar banding
+`_lama/scratch/banding-lepas.png` dan `banding-zoom.png` (SEBELUM 2.088
+baris, SESUDAH 1.951) pada kotak yang sama: keliling bidang hilang,
+lingkaran jalan dan jaringannya utuh.
+
+Ditolak setelah diukur: saringan "baris menutup >= 80 % keliling
+persil" (659 baris, 207 sumbu jadi tanpa rujukan), saringan "siklus
+yang dalamnya persil" (728 baris, 125 sumbu kosong), dan ambang bagian
+pasangan per baris (sisi jalan asli yang panjang ada di 0,5-0,9). Ketiga
+saringan itu menghapus jalan, bukan hanya keliling bidang. Cacat yang
+tersisa dan diketahui: keliling bidang yang menempel di >= 2
+persimpangan tidak bisa dibedakan dari lingkaran jalan tanpa memotong
+jaringan.
+
+Bekas sebelum perubahan: `_lama/cadangan-siklus-lepas-2026-11-15/`
+(tepi `7efc5af1…`, sumbu `08244068…`, metadata `9ce295bd…`).
+`metadata.json` punya blok `saring.keliling_satu_baris`, `saring.cincin`
+dan `saring.siklus_lepas`; blok terakhir memuat `aturan`,
+`simpul_persimpangan_derajat`, `simpul_bulat_desimal`, `siklus`,
+`dibuang`, `dibuang_panjang_m`, `rujukan_dicabut`, `sumbu_tersentuh`,
+`sumbu_dibuang`, `cara`, dan `asal`. Diagnostik `--jejak-pasang=BERKAS`
+menulis CSV bagian pasangan tiap baris terbit.
+
+### 3.93 BLOK 22 dirapikan ke garis luar bidang anggotanya (15 Nov 2026)
+
+Geometri BLOK 22 sebelumnya penyangga 15 m atas gabungan bidang anggota
+(84.860,8 m²), bukan garis luar persil, sehingga gambar blok melebar
+ke jalan dan ke blok tetangga. Permintaan pemilik data: rapikan sesuai
+garis luar keseluruhan bidang tanah, jadikan satu bagian, lalu tutup
+semua celah jalan yang masuk ke dalam blok.
+
+`_lama/scratch/tutup-celah.php` berangkat dari gabungan 104 bidang
+anggota (63.901,3 m²). Pasangan titik tepi satu cincin yang berhadapan
+(talibusur <= 12 m, titik tengah di luar poligon, busur >= 15 m,
+tambalan 0,5 sampai 2.000 m², tidak memotong cincin lain) ditambal
+dengan `ST_Union` dan diulang sampai tidak ada pasangan. Sesudahnya
+Douglas-Peucker 0,2 m, buang tancap, lalu potong terhadap blok lain.
+
+Ukur 15 Nov. 27 celah jalan ditutup (talibusur 0,53-10,53 m; sekitar
+3.629 m²). `ST_Union` MariaDB 10.4 menyisakan tiga tancap selebar nol
+(26,3 m; 70,0 m; 8,1 m) yang tampak sebagai garis menembus persil;
+`rapiBuangTancap()` membuang titik yang dua tetangganya <= 0,5 m.
+Calon akhir: 1 bagian, 113 titik, 0 lubang, 67.520,4 m² (-20,4%);
+irisan dengan blok lain 0,00 m². Bidang anggota yang jatuh di luar
+blok 113,8 m² (0,169%), semuanya serpihan tepi utara yang terpotong
+garis BLOK 21 (blok itu sendiri masih perkiraan).
+
+Kesejajaran ke garis tepi jalan diukur
+`_lama/scratch/ukur-sejajar-calon.php`: dari 1.444,4 m keliling, 718
+sampel tiap 2 m, 236 (32,9%) jatuh <= 0,25 m dari baris tepi, median
+6,64 m, terjauh 94,62 m di cuping tenggara yang tidak bertepi jalan.
+Jadi tepi utara dan selatan menempel jalan, sisi lain mengikuti batas
+belakang persil, bukan digeser ke jalan.
+
+Diterapkan 15 Nov 2026: cadangan penuh
+`sebelum-rapikan-blok-22-20261115-192524-f073.sql` (7.900.354 byte),
+jejak `storage/rapikan-blok-24-20261115-192525.json`, lalu `UPDATE
+blok` id 24 (`geom` dan `sumber_perkiraan` menjadi "gabungan bidang
+anggota + tutup celah jalan; ditetapkan"). Baca ulang: satu bagian,
+0 lubang, 67.520,4 m², selisih tulis-baca 0,00 m². Gambar banding
+`_lama/scratch/blok22-terpasang.png`.
+
+Ditetapkan sebagai batas terpasang 15 Nov 2026: `batas_tersedia` 1,
+`batas_perkiraan` 0. Garis lama dibuat `tools/buat-geometri-blok22.php`
+(selubung cembung titik pusat bidang, dipotong tepi BLOK 7 dan BLOK 16,
+digeser 0,0003 derajat ke luar, `UPDATE blok` tanpa cadangan); berkas
+itu dihapus karena tidak dirujuk berkas lain, dan geometri lamanya
+masih terbaca di cadangan penuh 15 Nov serta di kunci `sebelum.geojson`
+jejak `storage/rapikan-blok-24-20261115-192525.json`.
+
+Calon antara juga dikeluarkan dari `_lama/scratch/`: satu
+`blok22-mentah.geojson`, empat `kandidat-t*.geojson`, dua
+`kandidat-tertutup*.geojson`, dan tiga gambar `blok22.*`, semuanya
+dipindah ke `_lama/cadangan-garis-lama-blok22-2026-11-15/` bersama
+salinan sumber alat yang dihapus. Yang tetap di `_lama/scratch/`:
+`blok22-terpasang.geojson`, `blok22-terpasang.png`, dan
+`kandidat-tertutup-03.geojson` sebagai calon yang terpasang.
 
 ---
 
