@@ -8,6 +8,14 @@ declare(strict_types=1);
  *   php -d memory_limit=1024M tools/garis-jalan-label.php --terapkan
  *
  *   --tahap=tepi|sumbu|semua   bawaan semua
+ *   --tepi=terpakai|semua      isi garis-jalan-tepi.geojson; bawaan 'terpakai'
+ *                              = hanya baris yang kuncinya muncul di `tepi_all`
+ *                              sebuah sumbu, sehingga tepian bidang tanah yang
+ *                              cuma ikut terklaim tidak lagi terbit sebagai tepi
+ *                              jalan. 'semua' = seluruh baris terklaim (keadaan
+ *                              sebelum 15 Nov). Wajib 'semua' bersama --tahap=tepi,
+ *                              sebab tanpa sumbu tidak ada yang menentukan
+ *                              baris mana yang terpakai.
  *   --sumber-tepi=turun|terbit bawaan turun; 'terbit' memakai lapis Jalan yang
  *                              sudah terbit (garis-jalan.geojson) sebagai bahan
  *                              tahap 2 sehingga tahap 1 tidak dijalankan
@@ -84,7 +92,11 @@ declare(strict_types=1);
  * koridornya tidak berada di dalam bidang (>= 60 % kosong), dua putaran;
  * garis < 2,0 m dibuang. Radius kedua (--benih-yatim) hanya ditanyakan pada
  * label yang dalam --benih sama sekali tidak mendapat benih, sehingga label
- * yang sudah terjangkau tidak ikut berubah.
+ * yang sudah terjangkau tidak ikut berubah. Baris yang terklaim di tahap 1
+ * tetapi tidak muncul di `tepi_all` satu pun sumbu dibuang dari berkas terbit
+ * (`--tepi=terpakai`, bawaan sejak 15 Nov): baris semacam itu tepian bidang
+ * tanah yang cuma ikut terklaim lewat benih atau pita, dan menyimpannya membuat
+ * lapis tepi jalan terbaca sebagai peta bidang.
  *
  * Tahap 2 — sumbu (garis-jalan-sumbu.geojson).
  *  1. potongan tepi yang ujungnya berjarak <= RAGU_SISI dianggap simpul yang
@@ -743,6 +755,7 @@ $terapkan = false;
 $rinci = false;
 $eksklusif = false;
 $tahap = 'semua';
+$tepiKeluar = 'terpakai';
 $sumberTepi = 'turun';
 $lebarMaks = 8.0;
 $lebarYatim = LEBAR_YATIM;
@@ -761,6 +774,8 @@ foreach (array_slice($argv, 1) as $a) {
         $eksklusif = true;
     } elseif (str_starts_with($a, '--tahap=')) {
         $tahap = substr($a, 8);
+    } elseif (str_starts_with($a, '--tepi=')) {
+        $tepiKeluar = substr($a, 7);
     } elseif (str_starts_with($a, '--sumber-tepi=')) {
         $sumberTepi = substr($a, 14);
     } elseif (str_starts_with($a, '--bagi-pasang=')) {
@@ -813,6 +828,12 @@ foreach (array_slice($argv, 1) as $a) {
 if (!in_array($tahap, ['tepi', 'sumbu', 'semua'], true)) {
     galat('--tahap harus tepi, sumbu, atau semua');
 }
+if (!in_array($tepiKeluar, ['terpakai', 'semua'], true)) {
+    galat('--tepi harus terpakai atau semua');
+}
+if ($tahap === 'tepi' && $tepiKeluar === 'terpakai') {
+    galat('--tahap=tepi tidak punya sumbu untuk menentukan baris terpakai; pakai --tepi=semua');
+}
 if (!in_array($sumberTepi, ['turun', 'terbit'], true)) {
     galat('--sumber-tepi harus turun atau terbit');
 }
@@ -842,9 +863,9 @@ if ($benihYatim !== 0.0 && ($benihYatim <= $benihMaks || $benihYatim > PITA)) {
 if ($jahitMaks < 0.0 || $jahitMaks > JAHIT_MAKS) {
     galat('--jahit harus antara 0 dan ' . angkaNum(JAHIT_MAKS, 1) . ' meter; 0 mematikan penyambungan');
 }
-printf("mode: tahap %s · sumber tepi %s · benih %s m%s · lebar koridor maksimum %s m%s · bagi pasang %s"
-    . " · jahit celah %s m · %s · %s\n",
-    $tahap, $sumberTepi, angkaNum($benihMaks, 1),
+printf("mode: tahap %s · sumber tepi %s · tepi diterbitkan %s · benih %s m%s · lebar koridor maksimum %s m%s"
+    . " · bagi pasang %s · jahit celah %s m · %s · %s\n",
+    $tahap, $sumberTepi, $tepiKeluar, angkaNum($benihMaks, 1),
     $benihYatim === 0.0 ? '' : ' + yatim ' . angkaNum($benihYatim, 1),
     angkaNum($lebarMaks, 1),
     $lebarYatim === 0.0 ? '' : ' + yatim ' . angkaNum($lebarYatim, 1),
@@ -1213,34 +1234,39 @@ if ($tepi === []) {
     galat('tidak ada satu pun tepi yang bisa dipakai');
 }
 
-$berkasTepi = [];
-foreach ($tepi as $nomor => $t) {
-    $berkasTepi[] = [
-        'type' => 'Feature',
-        'properties' => [
-            'kode' => sprintf('TEPI-%04d', $nomor + 1),
-            'kunci' => $t['kunci'],
-            'sumber' => $t['sumber'],
-            'indeks' => $t['indeks'],
-            'panjang_m' => round($t['panjang'], 2),
-            'rasio_tepi_bidang' => $t['rasioTepi'] === null ? null : round($t['rasioTepi'], 3),
-            'asal' => $t['asal'],
-            'cara' => $t['cara'],
-            'jarak_label_m' => $t['jarak'] === null ? null : round($t['jarak'], 2),
-            'label' => $t['label'],
-        ],
-        'geometry' => ['type' => 'LineString', 'coordinates' => $t['titik']],
-    ];
-}
+$susunTepi = static function (array $baris): array {
+    $keluar = [];
+    $nomor = 0;
+    foreach ($baris as $t) {
+        $keluar[] = [
+            'type' => 'Feature',
+            'properties' => [
+                'kode' => sprintf('TEPI-%04d', ++$nomor),
+                'kunci' => $t['kunci'],
+                'sumber' => $t['sumber'],
+                'indeks' => $t['indeks'],
+                'panjang_m' => round($t['panjang'], 2),
+                'rasio_tepi_bidang' => $t['rasioTepi'] === null ? null : round($t['rasioTepi'], 3),
+                'asal' => $t['asal'],
+                'cara' => $t['cara'],
+                'jarak_label_m' => $t['jarak'] === null ? null : round($t['jarak'], 2),
+                'label' => $t['label'],
+            ],
+            'geometry' => ['type' => 'LineString', 'coordinates' => $t['titik']],
+        ];
+    }
+    return $keluar;
+};
 
-if ($terapkan) {
-    tulisBerkas(BERKAS_TEPI, $berkasTepi);
-}
-printf("%-26s %5d fitur · %10s m · %s\n", BERKAS_TEPI . '.geojson', count($berkasTepi),
-    angkaNum((float) array_sum(array_column($tepi, 'panjang')), 1),
-    $terapkan ? 'ditulis' : 'uji kering');
+$berkasTepi = $susunTepi($tepi);
 
 if ($tahap === 'tepi') {
+    if ($terapkan) {
+        tulisBerkas(BERKAS_TEPI, $berkasTepi);
+    }
+    printf("%-26s %5d fitur · %10s m · %s\n", BERKAS_TEPI . '.geojson', count($berkasTepi),
+        angkaNum((float) array_sum(array_column($tepi, 'panjang')), 1),
+        $terapkan ? 'ditulis' : 'uji kering');
     echo 'tahap sumbu dilewati (--tahap=tepi).' . PHP_EOL;
     exit(0);
 }
@@ -1805,6 +1831,7 @@ foreach ($jalurSum as $nd) {
     $pitaLebar[$pita]++;
     $fitur[] = ['panjang' => $p, 'titik' => $titik, 'lebar' => $lebar,
         'tepinya' => array_map(static fn(int $id): string => $tepi[$id]['kunci'], array_keys($tepinya)),
+        'tepi_id' => array_keys($tepinya),
         'label' => array_key_first($labelnya), 'asal' => count($asal) > 1 ? 'campur' : $asal[0],
         'cara' => $cara, 'pita' => $pita];
 }
@@ -1831,6 +1858,32 @@ foreach ($fitur as $i => $f) {
     ];
 }
 
+// 5. Keluaran tepi. Baris yang tidak dipakai satu pun sumbu (tidak muncul di
+// `tepi_all`) adalah tepian bidang tanah yang ikut terklaim; --tepi=terpakai
+// membuangnya supaya lapis tepi jalan tidak terbaca sebagai peta bidang.
+$idTerpakai = [];
+foreach ($fitur as $f) {
+    foreach ($f['tepi_id'] as $id) {
+        $idTerpakai[(int) $id] = true;
+    }
+}
+ksort($idTerpakai);
+if ($tepiKeluar === 'terpakai' && $fitur === []) {
+    echo 'PERINGATAN: tidak ada sumbu, jadi tidak ada baris yang bisa disebut terpakai;'
+        . ' berkas tepi ditulis utuh (--tepi=semua).' . PHP_EOL;
+    $tepiKeluar = 'semua';
+}
+$tepiTerbit = $tepiKeluar === 'terpakai' ? array_intersect_key($tepi, $idTerpakai) : $tepi;
+$berkasTepi = $susunTepi($tepiTerbit);
+$panjangTepiTerbit = array_sum(array_map(
+    static fn(array $f): float => (float) $f['properties']['panjang_m'], $berkasTepi));
+$panjangTepiBuang = 0.0;
+foreach ($tepi as $id => $t) {
+    if (!isset($idTerpakai[$id])) {
+        $panjangTepiBuang += round($t['panjang'], 2);
+    }
+}
+
 sort($jarakTepi);
 $medan = static fn(array $a): float => $a === [] ? 0.0 : (float) $a[(int) floor(count($a) / 2)];
 $panjangSum = array_sum(array_map(static fn(array $f): float => $f['panjang'], $fitur));
@@ -1844,6 +1897,9 @@ printf("       dibuang pendek (< %s m): %d · jarak titik sumbu ke tepi: median 
     $buangPendekSumbu, angkaNum($medan($jarakTepi), 2),
     angkaNum((float) ($jarakTepi === [] ? 0.0 : max($jarakTepi)), 2), count($jarakTepi), $jarakHilang,
     angkaNum($lebarMaks + 2.0, 1));
+printf("%-26s %5d fitur · %10s m · dibuang %d baris / %s m · %s\n", BERKAS_TEPI . '.geojson',
+    count($berkasTepi), angkaNum($panjangTepiTerbit, 1), count($tepi) - count($tepiTerbit),
+    angkaNum($panjangTepiBuang, 1), $terapkan ? 'ditulis' : 'uji kering');
 
 if ($rinci) {
     foreach (array_slice($fitur, 0, 40) as $i => $f) {
@@ -1854,6 +1910,7 @@ if ($rinci) {
 }
 
 if ($terapkan) {
+    tulisBerkas(BERKAS_TEPI, $berkasTepi);
     tulisBerkas(BERKAS_SUMBU, $daftar);
     foreach ([BERKAS_TEPI, BERKAS_SUMBU] as $berkas) {
         $cek = geojsonBaca(DIR_LAPISAN . '/' . $berkas . '.geojson');
@@ -1889,7 +1946,7 @@ $meta['layers'][JUDUL_TEPI] = [
     'features' => count($berkasTepi),
     'types' => ['line' => count($berkasTepi)],
     'file' => BERKAS_TEPI . '.geojson',
-    'panjang_m' => (int) round(array_sum(array_column($tepi, 'panjang'))),
+    'panjang_m' => (int) round($panjangTepiTerbit),
     'derived_from' => $deriveTepi
         ? 'kandidat 020100 (garis terbuka dan cincin poligon) serta cincin tabel bidang yang membawa label'
             . ' berawalan JALAN (kelas dibaca dari teks, bukan dari berkas asal) serta pita sejajarnya'
@@ -1902,8 +1959,11 @@ $meta['layers'][JUDUL_TEPI] = [
     'label' => $labelJalan,
     'permukaan_bidang' => ['sumber' => 'tabel bidang (status <> dihapus)', 'persil' => $jumlahPersil,
         'segmen_tepi' => count($segmenTepi)],
-    'asal' => array_count_values(array_column($tepi, 'asal')),
-    'cara' => array_count_values(array_column($tepi, 'cara')),
+    'saring' => ['aturan' => $tepiKeluar, 'klaim_tahap1' => count($tepi),
+        'dibuang' => count($tepi) - count($tepiTerbit),
+        'dibuang_panjang_m' => round($panjangTepiBuang, 1)],
+    'asal' => array_count_values(array_column($tepiTerbit, 'asal')),
+    'cara' => array_count_values(array_column($tepiTerbit, 'cara')),
 ];
 
 $meta['layers'][JUDUL_SUMBU] = [
@@ -1957,6 +2017,17 @@ $catatan[] = sprintf(
     angkaNum($panjangTunggal, 1), $untaianSebelum, $jahitRuat, angkaNum($jahitPanjang, 1), $jahitMaks,
     SUDUT_JAHIT, $untaianSesudah
 );
+if ($tepiKeluar === 'terpakai') {
+    $catatan[] = sprintf(
+        JUDUL_TEPI . ': berkas %s hanya memuat baris yang menjadi bahan sebuah sumbu; dari %d baris'
+        . ' hasil klaim tahap 1, %d baris (%s m) tidak muncul di `tepi_all` satu pun sumbu sehingga'
+        . ' dibuang 15 Nov 2026 atas permintaan "hapus garis tepi jalan yang membentuk peta bidang".'
+        . ' Baris itu tepian bidang tanah yang ikut terklaim lewat benih atau pita, bukan sisi koridor'
+        . ' jalan. Jumlah sumbu tidak berubah sebab penyaringan terjadi sesudah tahap 2.',
+        BERKAS_TEPI . '.geojson', count($tepi),
+        count($tepi) - count($tepiTerbit), angkaNum($panjangTepiBuang, 1)
+    );
+}
 $meta['notes'] = $catatan;
 $meta['derived_at'] = date('c');
 if (file_put_contents($berkasMeta, json_encode($meta, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE

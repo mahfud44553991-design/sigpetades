@@ -6920,7 +6920,82 @@ Pemeriksa: `--tanya` (diagnostik di dalam alat),
 tersimpan sebagai `tanya-patean*.txt`, `yatim-*.txt`, `lebar-yatim-*.txt` (ini
 ronde kedua versi baris yang dibuang), `final-1.txt`, `final-2.txt`,
 `terapkan-konstanta.txt`, `pilah-sisa.txt`. Yang tidak disentuh: basis data,
-berkas DXF sumber, dan dua lapis garis 020100.
+berkas DXF sumber, dan dua lapis garis 020100. Keadaan tepi 4.367 baris di
+atas dipangkas ke 2.872 baris di §3.87.
+
+### 3.87 Tepi jalan dipangkas ke baris yang jadi bahan sumbu (15 Nov 2026)
+
+Perintah "hapus garis tepi jalan yang membentuk peta bidang dengan
+mempertahankan garis tepi jalan saja" menyasar ISI lapis tepi, bukan geometri
+sumbu. Satu-satunya kolom yang mungkin memisahkan, `rasio_tepi_bidang`, tidak
+bisa dipakai: nilainya 1 pada 4.265 dari 4.367 baris. Penanda yang dipakai
+karena itu bukan atribut baris melainkan jejak pemakaian: sebuah baris tepi
+adalah tepi jalan kalau `kunci`-nya muncul di `tepi_all` sebuah sumbu.
+
+Dua saringan diukur pada lapis terbit (`_lama/scratch/calon-tepi-jalan.php`).
+A = `kunci` muncul di `tepi_all`: 2.872 baris / 148.023,7 m. B = baris yang
+punya satu titik sampel <= 8,0 m dari sebuah untaian sumbu, termasuk sisi
+koridor yang kalah suara: 605 baris / 20.580,6 m. A+B = 3.477 baris /
+168.604,3 m, dan 890 baris / 25.555,3 m tidak masuk keduanya. Yang dipakai A
+saja: B menyimpan 605 baris yang tidak menjadi bahan satu pun sumbu, jadi
+saringan itu belum menyelesaikan keluhan yang jadi alasan perintahnya.
+
+Alat mendapat flag `--tepi=terpakai|semua` dengan bawaan `terpakai`.
+Penyaringan terjadi SESUDAH tahap 2, sebab hanya di situ `tepi_all` sudah
+terbentuk; berkas tepi karenanya ditulis di ujung bersama sumbu, bukan lagi
+sebelum pemasangan. `kode` dinomori ulang `TEPI-0001` sampai `TEPI-2872`
+berurutan, sedangkan `kunci` tidak berubah sehingga seluruh rujukan `tepi_all`
+tetap sah. `--tepi=semua` mengembalikan keadaan §3.86 dan diwajibkan bersama
+`--tahap=tepi`, yang tidak punya sumbu untuk menentukan baris terpakai.
+Metadata mendapat blok `saring` (aturan, klaim tahap 1, cacah dan panjang yang
+dibuang) dan satu kalimat catatan. Kalimat itu sengaja dibuka dengan judul
+lapis, sebab pembersih catatan hanya menyaring awalan itu; catatan yang dibuka
+dengan kata lain akan menumpuk satu salinan tiap kali alat dijalankan.
+
+**Keadaan terbit.** tepi 2.872 fitur / 148.023,7 m, 1.173.914 B,
+`7a60dbcb0013…`; sumbu tidak berubah 2.034 fitur / 36.903,5 m, 1.311.108 B,
+`ced69ef6f5fe…`; metadata 19.346 B. Yang dibuang 1.495 baris / 46.135,9 m.
+Keadaan §3.86 dicadangkan di `_lama/cadangan-tepi-2026-11-15/` (tepi
+`870430f7bce9…`, sumbu `ced69ef6f5fe…`, metadata 18.658 B). Cacah pil "Tepi
+jalan" di Peta Induk ikut turun ke 2.872 tanpa perubahan kode, sebab pil itu
+membaca `layers[...].features` dari metadata.
+
+Empat pemeriksaan: (a) sesudah penulisan tepi dipindah ke ujung,
+`--tepi=semua` mencetak ulang kedua berkas sampai identik byte —
+`870430f7bce9…` dan `ced69ef6f5fe…`; (b) jalan bawaan tiga kali berturut-turut
+menghasilkan `7a60dbcb0013…` dan `ced69ef6f5fe…` yang sama; (c) metadata
+tetap 19.346 B dengan 13 catatan, 2 di antaranya berawalan judul lapis —
+bukti catatan baru menggantikan, bukan menumpuk; (d)
+`cek-saring-tepi.php` membaca kedua berkas terbit: 2.872 `kunci` unik di tepi,
+2.872 unik di gabungan `tepi_all` (7.192 rujukan), 0 baris tepi tanpa sumbu
+dan 0 `kunci` sumbu tanpa baris tepi. Panjang di blok `saring` dijumlah dari
+`panjang_m` yang dibulatkan per baris supaya bisa dicocokkan langsung dengan
+berkas; jumlah mentah klaim tahap 1 tetap 194.159,5 m seperti §3.86.
+
+### 3.88 Sisa 89 label: 45 tanpa sumbu dekat teksnya (15 Nov 2026)
+
+Sisa §3.86 diukur ulang dan dipisah menurut bahannya
+(`_lama/scratch/kelas-sisa-label.php`, radius uji 4,0 m): 44 label sebenarnya
+sudah punya sumbu 4,46–14,88 m dari teksnya, jadi yang di luar 4,0 m hanyalah
+jari uji pemeriksa; 13 label tidak punya bahan terpakai sama sekali (sumbu
+terdekat 21,87–182,96 m); 32 label bersumbu jauh 15,13–244,27 m.
+
+45 label terakhir (13 + 32) ditanyakan satu per satu memakai flag baru
+`--tanya-berkas=BERKAS`, yang membaca satu titik per baris —
+`x,y[,radius][,nama]`, radius bawaan 20 m, baris berawalan `#` diabaikan —
+lalu digolongkan `_lama/scratch/rangkum-tanya-berkas.php`: 25 titik hanya
+punya satu komponen sisi sehingga tidak ada sisi seberang untuk dipasangkan,
+17 titik punya sisi sejajar tetapi koridornya selalu jatuh di dalam bidang
+tanah, 2 titik menang suara di koridor lain sehingga koridor lokalnya
+tertutup, dan 1 titik punya koridor kosong tetapi tidak terpasang.
+
+Kesimpulannya bukan soal ambang: 25 dari 45 tidak punya kandidat pasangan
+sama sekali sebab `pasanganTerdekat()` sengaja melewati segmen dari komponen
+sisi yang sama (aturan 1 tahap 2), dan 17 sisanya kalah oleh uji permukaan
+bidang. Menutupnya berarti mengubah aturan pemasangan — memasangkan dua tepi
+dari satu komponen sisi, atau melonggarkan uji permukaan — dan itu belum
+dikerjakan. Keluaran tersimpan sebagai `kelas-sisa-label.txt`,
+`tanya-yatim-b.txt` (45 titik masukan) dan `tanya-yatim-b.log` (39.749 B).
 
 ---
 
