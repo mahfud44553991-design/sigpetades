@@ -7496,6 +7496,74 @@ Alat baca saja: `ukur-selisih-blok10.php`, `ukur-blok10-terpasang.php`,
 `cek-blok10-terpasang.php`, `cek-bagian-blok10.php`, dan
 `banding-blok10.php`; penulis `terapkan-blok10.php`.
 
+### 3.98 BLOK 13 dirapikan ke garis luar 188 persilnya (16 Nov 2026)
+
+BLOK 13 (id 12) satu bagian, 2.413 titik, 238.728,9 m² dengan 188
+persil anggota (147 aktif, 41 perlu_verifikasi). Sumber lamanya tertulis
+"Geometri digabungkan menjadi 1 bagian dengan buffer 3.0E-5 (" — 60
+aksara, terpotong di tengah kalimat — dan bentuknya memang selubung:
+garis terpasang berjalan sejajar garis luar persil pada jarak 4,4 m
+(p10 4,4; p90 4,8; terjauh 14,3 m di sisi barat), sehingga pita
+18.035,9 m² di luar persil ikut menjadi bagian blok. Akibatnya garis
+lama juga menumpang tetangga: BLOK 12 seluas 1.644,31 m² dan BLOK 14
+seluas 171,63 m². Ini kasus koreksi selubung, bukan perapian seperti
+§3.97.
+
+Resep §3.93/§3.95 dipakai apa adanya. `tools/rapikan-garis-blok.php 13
+--dari-bidang --paksa --toleransi 0,2` memberi dua bagian, 647 titik,
+214.985,1 m², 18 jembatan, dan satu jembatan dilewati karena koridornya
+jalan `unclassified` 6 m (celah 1,4 m di 110.062839,-7.087339). Dengan
+`--abaikan-jalan` gugus itu disatukan: satu bagian, 650 titik,
+214.987,3 m², 19 jembatan, irisan blok lain 1,3 m² dipotong.
+`tutup-celah.php` (talibusur maksimum 12 m, toleransi 0,2, id 12) lalu
+menambah 65 tambalan (talibusur 0,50-9,21 m; median 2,01 m; 5.702,6 m²;
+terbesar 1.031,7 m² di 110.062886,-7.085765, koridor gang bermulut
+3 m), membuang 8 tancap, dan Douglas-Peucker 0,2 m.
+
+Calon akhir: satu bagian, 0 lubang, 0 cincin memotong diri, 203 titik,
+220.692,8 m² (-18.036,3 m²; -7,55%), keliling 4.018,3 m dari
+sebelumnya 4.017,7 m. Irisan dengan blok lain 0,00 m², dan calon
+seluruhnya berada di dalam garis lama (arah sebaliknya 0,00 m²).
+
+Pita yang dibuang berisi 15.728,2 m² persil hantu `DXF-010500-00001`
+(status `dihapus`), 2.148,6 m² persil milik BLOK 12, 165,8 m² persil
+milik BLOK 14, dan 19,0 m² persil BLOK 13 sendiri (gerus Douglas-
+Peucker). Persil anggota yang tinggal di luar garis 19 persil, 19,05 m²,
+terbesar 5,46 m² `DXF-020100-G01900`; pada garis lama 0 persil. Isi
+bukan-persil di dalam blok turun dari 21.404,7 m² dalam 20 komponen
+menjadi 5.552,5 m² dalam 35 komponen (terbesar 5.148,0 m² di
+110.061991,-7.087565, jaringan gang).
+
+Jarak ke tetangga: BLOK 12 menempel (0,10 menjadi 0,00 m; irisan
+1.644,31 menjadi 0,00), BLOK 14 0,00 menjadi 3,02 m (irisan 171,63
+menjadi 0,00), BLOK 20 4,02 menjadi 8,46 m, BLOK 10 62,14 menjadi
+66,58 m, BLOK 19 86,42 menjadi 90,86 m, BLOK 15 127,42 menjadi 131,85
+m. Dua persil ber-`blok_id` 14 (BLOK 12), yaitu `DXF-020100-G01449`
+(5.420,2 m² di atas `HM-0810`) dan `DXF-020100-G01970` (1.582,6 m² di
+atas `DXF-020100-G03347`), bertumpang di persil BLOK 13; itu duplikat
+persil di data sumber, bukan akibat garis blok, jadi tidak diubah.
+
+Diterapkan 16 Nov 2026 pukul 06:49: cadangan penuh
+`sebelum-rapikan-blok-13-20261116-064950-cc6e.sql` (7.886.617 byte),
+jejak `storage/rapikan-blok-12-20261116-064951.json`, lalu `UPDATE
+blok` id 12 (`geom` dan `sumber_perkiraan` menjadi "garis luar bidang
+anggota + tutup celah jalan; ditetapkan"). Bendera `batas_tersedia` 1
+dan `batas_perkiraan` 0 tidak berubah. Baca ulang: satu bagian, 0
+lubang, 204 koordinat (203 titik unik), 220.693,0 m², selisih
+tulis-baca 0,00 m², dan `ST_Equals` dengan calon bernilai 1.
+Angka 220.692,8 / 220.693,0 / 220.692,9 m² adalah satu bentuk yang sama
+pada tiga dasar lintang (titik cincin, pusat blok sebelum dan sesudah
+tulis); selisihnya 0,2 m² ke bawah.
+
+Gambar `_lama/scratch/banding-blok13-terpasang.png`: kiri dari jejak
+06:49, kanan dari `blok.geom`. Calon di `_lama/scratch/`:
+`blok13-dari-bidang.geojson` (dua bagian),
+`blok13-dari-bidang-satu.geojson` (650 titik), dan
+`blok13-tertutup-satu.geojson` (terpasang); jejak tambalan di
+`tutup-celah-jejak-blok13.txt`. Alat baca saja: `ukur-selisih-blok13.php`,
+`ukur-isi-blok13.php`, `cek-blok13-terpasang.php`, `banding-blok13.php`,
+dan `banding-blok13-terpasang.php`; penulis `terapkan-blok13.php`.
+
 ---
 
 ## 4. Berkas SPPT dari Excel
