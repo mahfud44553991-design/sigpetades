@@ -7275,6 +7275,116 @@ salinan sumber alat yang dihapus. Yang tetap di `_lama/scratch/`:
 `blok22-terpasang.geojson`, `blok22-terpasang.png`, dan
 `kandidat-tertutup-03.geojson` sebagai calon yang terpasang.
 
+### 3.94 BLOK 21: celah ditutup pada batas yang sudah terpasang (15 Nov
+2026)
+
+BLOK 21 (id 23) tidak dirapikan dengan cara BLOK 22. Batas terpasangnya
+sudah mengikuti tepi jalan, bukan penyangga: dari 184 titik tepi, jarak ke
+larutan 334 bidang anggota berjarak median 5,18 m (90,2% <= 10 m, terjauh
+60,00 m). Karena itu 26.515,5 m² blok tanpa bidang anggota bukan tanah yang
+belum diklaim, melainkan margin jalan selebar beberapa meter ditambah gang
+antar baris persil; satu poligonnya 24.011,1 m² dengan 30 cincin dalam.
+Gambar banding `_lama/scratch/blok21-terpasang.png`: bidang abu, margin
+tanpa persil merah muda, garis lama biru putus.
+
+Percobaan menyusun ulang dari persil tetap dijalankan sebagai pembanding dan
+hasilnya ditolak. Ke-334 bidang larut menjadi GeometryCollection (36 poligon
++ 3 LineString degenerat) sehingga `tools/rapikan-garis-blok.php` berhenti;
+`rapiPoligonDariGeoJson()` sekarang hanya mengumpulkan anggota poligonal.
+Dengan `--dari-bidang --paksa` hasilnya 202.230,3 m² dan 35 jembatan, lalu
+`tutup-celah.php` menambah 60 tambalan menjadi 217.003,6 m². Calon itu
+sempat ditolak karena satu potongan 13.231,5 m² tanpa persil di sekitar
+110,059474,-7,096356 dan 11.934,1 m² di sisi lain yang hilang. §3.95
+menunjukkan potongan itu jaringan gang dalam blok, sehingga jalur persil
+kemudian dipakai ulang.
+
+Yang diterapkan: `tutup-celah.php` pada batas terpasang, lima celah
+(talibusur 2,48-11,94 m; 39,2 / 23,5 / 49,9 / 43,9 / 19,4 m²; seluruhnya
+175,9 m²), Douglas-Peucker 0,2 m, tancap dibuang, potong blok tetangga.
+Hasil: satu bagian, 0 lubang, 0 cincin memotong diri, 479 menjadi 183 titik
+tepi, 228.541,6 menjadi 228.654,9 m² (+113,2 m²; +0,05%), keliling 2.520,6
+menjadi 2.446,3 m, irisan dengan blok lain 0,00 m². Bidang anggota yang
+jatuh di luar blok 386,1 menjadi 304,5 m² (0,150%; terbesar 268,1 m² di
+110,058870,-7,095998).
+
+Kesejajaran ke garis tepi jalan diukur
+`_lama/scratch/ukur-sejajar-calon.php`: 1.163 sampel tiap 2 m, 570 (49,0%)
+<= 0,25 m dari baris tepi (sebelum 40,9%), median 0,31 m (sebelum 1,00 m),
+terjauh 68,98 m di cuping timur laut yang tidak bertepi jalan. Cuping tipis
+di ujung timur laut itu sudah ada pada garis lama dan tidak diubah.
+
+Diterapkan 15 Nov 2026: cadangan penuh
+`sebelum-rapikan-blok-21-20261115-195525-1394.sql` (7.891.898 byte), jejak
+`storage/rapikan-blok-23-20261115-195526.json`, lalu `UPDATE blok` id 23
+(`geom` dan `sumber_perkiraan` menjadi "batas blok lama + tutup celah jalan;
+ditetapkan"). `batas_tersedia` 1 dan `batas_perkiraan` 0 sudah terpasang
+sebelum ini dan tidak diubah. Baca ulang: satu bagian, 0 lubang, 183 titik,
+228.654,9 m², selisih tulis-baca 0,00 m².
+
+Dua catatan pengukuran. `ST_Centroid` MariaDB 10.4 mengembalikan NULL untuk
+GeometryCollection hasil `ST_GeomFromGeoJSON` berkas FeatureCollection,
+sehingga luas terbaca +0,77% kalau lintang pusat dipakai untuk konversi
+derajat ke meter; skrip ukur di sini memakai satu lintang acuan dari
+`blok.geom` (-7,0941). Angka "irisan blok lain" keluaran `tutup-celah.php`
+(57,0 m²) juga bukan irisan nyata: `ST_Difference` menormalkan titik cubit
+sehingga luas berkurang; irisan terukur lewat `ST_Intersection` 0,001 m²
+dengan BLOK 22 sebelum dan 0,00 m² sesudah.
+
+Bidang yang pusatnya di dalam BLOK 21 tetapi blok_id-nya lain atau kosong
+tetap 15 baris (8 bidang ±4.993,6 m² milik BLOK 20/22/23, 7 bidang
+±1.855,7 m² tanpa blok). Itu urusan penetapan blok bidang, bukan geometri
+blok, jadi tidak diubah di sini.
+
+### 3.95 BLOK 21 disusun ulang dari 333 persil, mulut jalannya ditutup (15
+Nov 2026)
+
+§3.94 hanya menutup lima celah kecil pada garis lama, sedangkan garis lama
+itu sendiri berjarak median 5,18 m di luar larutan persil. Permintaan
+pemilik data: garis luar keseluruhan bidang tanah, satu bagian, dan celah
+jalan yang masuk ditutup. Jalur persil yang sempat ditolak di §3.94 karena
+potongan 13.231,5 m² tanpa persil kini dipakai ulang; potongan itu ternyata
+jaringan gang dalam blok (pemeriksaannya di bawah).
+
+Data hidup bergerak selama pengerjaan. 146 bidang dibuat 15 Nov pukul
+14:56-14:59; satu di antaranya, DXF-020100-05996 (id 23180, 36,5 m²),
+sempat menjadi anggota BLOK 21 lalu pindah ke blok 24 pukul 20:11:44
+(terbaca pada cadangan pukul 20:07). Anggota BLOK 21 karena itu 334
+menjadi 333, dan calon dibangun ulang dari 333 bidang terkini.
+
+`tools/rapikan-garis-blok.php --dari-bidang --paksa` (toleransi 0,2 m,
+rapat 30 m, abaikan jalan) atas 333 bidang menghasilkan dua bagian
+202.500,3 m²; jembatan pita 1,5 m menyatukannya menjadi satu bagian
+202.454,9 m² (777 titik). `tutup-celah.php` lalu menambal 78 pasangan titik
+tepi (talibusur 0,44-11,63 m; total 14.650,3 m²; terbesar 1.921,3 m²),
+disusul Douglas-Peucker 0,2 m, buang tancap, dan potong blok tetangga.
+
+Hasil: satu bagian, 0 lubang, 144 titik, 217.111,1 m². Naik 14.656,2 m²
+dari calon berjembatan 202.454,9 m², sepadan dengan jumlah tambalan
+14.650,3 m²; selisih 5,9 m² berasal dari tambalan yang saling menimpa dan
+penyederhanaan.
+
+Pemeriksaan. Irisan dengan blok lain 0,00 m². Bidang anggota yang jatuh di
+luar garis 22,40 m² (0,011%), terbesar 3,53 m² pada HM-1316. Sisa luas yang
+bukan persil 14.769,3 m² dalam 40 komponen; komponen terbesar 13.831 m²
+dengan 684 titik dan 14 cincin, kotak pembatas 672 x 490 m terisi 4,2%,
+jadi bentuk jaringan koridor, bukan cuping padat. Ini memperbaiki klaim
+§3.94.
+
+Diterapkan 15 Nov 2026: cadangan penuh
+`sebelum-rapikan-blok-21-20261115-201724-7cd1.sql` (7.899.092 byte), jejak
+`storage/rapikan-blok-23-20261115-201725.json`, lalu `UPDATE blok` id 23
+(`geom` dan `sumber_perkiraan` menjadi "garis luar bidang anggota + tutup
+celah jalan; ditetapkan"). Bendera `batas_tersedia` 1 dan
+`batas_perkiraan` 0 tidak berubah. Baca ulang: satu bagian, 0 lubang,
+144 titik, 217.111,1 m², selisih tulis-baca 0,00 m².
+
+Gambar banding `_lama/scratch/banding-blok21.png`: panel kanan dibaca
+langsung dari `blok.geom`, panel kiri dari jejak pukul 19:55 (228.541,6 m²,
+garis lama + lima tambalan §3.94). Calon yang tersisa di `_lama/scratch/`:
+`blok21-dari-bidang-02.geojson` (dua bagian 202.500,3 m²),
+`blok21-dari-bidang-02-satu-b.geojson` (berjembatan 202.454,9 m²), dan
+`blok21-dari-bidang-tertutup-b.geojson` (terpasang).
+
 ---
 
 ## 4. Berkas SPPT dari Excel

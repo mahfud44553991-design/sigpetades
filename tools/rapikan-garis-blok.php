@@ -378,6 +378,19 @@ function rapiPoligonDariGeoJson(array $geometri): array
     if (($geometri['type'] ?? '') === 'MultiPolygon') {
         return $geometri['coordinates'];
     }
+    if (($geometri['type'] ?? '') === 'GeometryCollection') {
+        $kumpul = [];
+        foreach (($geometri['geometries'] ?? []) as $satu) {
+            if (in_array($satu['type'] ?? '', ['Polygon', 'MultiPolygon'], true)) {
+                foreach (rapiPoligonDariGeoJson($satu) as $p) {
+                    $kumpul[] = $p;
+                }
+            }
+        }
+        if ($kumpul !== []) {
+            return $kumpul;
+        }
+    }
 
     throw new RuntimeException('Geometri blok bukan Polygon/MultiPolygon: ' . ($geometri['type'] ?? 'kosong'));
 }
