@@ -6997,6 +6997,35 @@ dari satu komponen sisi, atau melonggarkan uji permukaan — dan itu belum
 dikerjakan. Keluaran tersimpan sebagai `kelas-sisa-label.txt`,
 `tanya-yatim-b.txt` (45 titik masukan) dan `tanya-yatim-b.log` (39.749 B).
 
+### 3.89 Pil Jalan di panel kini berisi garis tepi (15 Nov 2026)
+
+Perintah "terbitkan garis tepi jalan pada layer jalan di panel peta" dijawab
+dengan mengganti isi pil, bukan menambah pil lain. Kunci `garis-jalan` di
+`api/peta-lama.php` kini menunjuk `garis-jalan-tepi.geojson`; kunci
+`garis-jalan-tepi` dihapus karena isinya pindah ke kunci itu, sedangkan
+`garis-jalan-sumbu` tetap. Daftar putih dan panel sama-sama 21 kunci.
+
+Di `peta-lama.php` pil itu tetap bernama pendek "Jalan (2.872)" — angka dibaca
+dari `GARIS JALAN TEPI DARI LABEL` di `metadata.json` — tetapi `title`-nya
+kini `Layer GARIS JALAN TEPI DARI LABEL` dan pil itu `checked`, menggantikan
+centang bawaan pil tepi yang lama. Gaya garis memakai warna Jalan `#0f766e`
+dengan lebar 1,1 seperti tepi sebelumnya. Pil "Tepi jalan" dan swatch legenda
+`#14b8a6` dihapus; swatch "Garis jalan" `#0f766e` tetap dan sekarang mewakili
+isi itu. Catatan kelompok diperbarui: Jalan berasal dari alat label, sedangkan
+Selokan, Sungai, dan Tanpa label tetap dari penurunan 020100 (§3.77). Kelompok
+"Turunan Jalan dua tahap" tinggal berisi pil Sumbu jalan. Pil aktif bawaan
+tetap empat: 020100, garis-jalan, garis-jalan-sumbu, calon-bidang.
+
+`garis-jalan.geojson` (1.981 baris / 129.175,1 m, hasil §3.79) tidak lagi
+ditawarkan panel, tetapi berkasnya tetap di disk dan tetap menjadi bahan
+`--sumber-tepi=terbit` di alat label. Pemeriksaan statis: `php -l` bersih pada
+kedua berkas, `node --check` bersih atas 799 baris JS halaman, dan
+`_lama/scratch/cek-pasang-lapis-jalan.php` mencetak 21 kunci daftar putih = 21
+kunci `data-lapisan`, berkas yang dilayani 2.872 fitur `LineString` = angka
+`metadata.json` (148.023,7 m), sumbu 2.034, kedua cabang gaya dan swatch
+legenda ditemukan, hasil "bersih". Halaman belum dilihat di browser karena
+minta login Super Admin.
+
 ---
 
 ## 4. Berkas SPPT dari Excel

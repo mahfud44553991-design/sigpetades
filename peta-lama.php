@@ -132,7 +132,6 @@ sip_judul(
                 <span><i style="background:#0ea5e9"></i>Garis selokan</span>
                 <span><i style="background:#1d4ed8"></i>Garis sungai</span>
                 <span><i style="background:#a16207"></i>Garis tanpa label</span>
-                <span><i style="background:#14b8a6"></i>Tepi jalan</span>
                 <span><i style="background:#9d174d"></i>Sumbu jalan</span>
                 <span><i style="background:#d97706"></i>Calon bidang</span>
                 <span><i style="background:#64748b"></i>Label NIB &amp; batas</span>
@@ -270,9 +269,9 @@ sip_judul(
                     <input type="checkbox" data-lapisan="optimalisasi-hm">
                     Optimalisasi (<?= e(angka($jumlah('OPTIMALISASI HM'))) ?>)</label>
                 <p class="petunjuk">Garis turunan</p>
-                <label class="cek" title="Layer GARIS BATAS JALAN 020100">
-                    <input type="checkbox" data-lapisan="garis-jalan">
-                    Jalan (<?= e(angka($jumlah('GARIS BATAS JALAN 020100'))) ?>)</label>
+                <label class="cek" title="Layer GARIS JALAN TEPI DARI LABEL">
+                    <input type="checkbox" data-lapisan="garis-jalan" checked>
+                    Jalan (<?= e(angka($jumlah('GARIS JALAN TEPI DARI LABEL'))) ?>)</label>
                 <label class="cek" title="Layer GARIS SELOKAN 020100">
                     <input type="checkbox" data-lapisan="garis-selokan">
                     Selokan (<?= e(angka($jumlah('GARIS SELOKAN 020100'))) ?>)</label>
@@ -282,20 +281,19 @@ sip_judul(
                 <label class="cek" title="Layer GARIS LAIN 020100">
                     <input type="checkbox" data-lapisan="garis-lain">
                     Tanpa label (<?= e(angka($jumlah('GARIS LAIN 020100'))) ?>)</label>
-                <p class="petunjuk">Diturunkan dari 13.719 kandidat layer 020100 — 13.681 garis
-                    terbuka dan 38 cincin poligon. Kelas dibaca dari teks label, bukan dari berkas
-                    asalnya. Perhitungannya ada di README §3.77.</p>
+                <p class="petunjuk">Selokan, Sungai, dan Tanpa label diturunkan dari 13.719
+                    kandidat layer 020100 — 13.681 garis terbuka dan 38 cincin poligon. Kelas
+                    dibaca dari teks label, bukan dari berkas asalnya. Jalan kini berisi garis
+                    tepi dari tools/garis-jalan-label.php (§3.80, §3.87). Perhitungan kelas ada
+                    di README §3.77.</p>
                 <p class="petunjuk">Turunan Jalan dua tahap</p>
-                <label class="cek" title="Layer GARIS JALAN TEPI DARI LABEL">
-                    <input type="checkbox" data-lapisan="garis-jalan-tepi" checked>
-                    Tepi jalan (<?= e(angka($jumlah('GARIS JALAN TEPI DARI LABEL'))) ?>)</label>
                 <label class="cek" title="Layer GARIS JALAN SUMBU DARI LABEL">
                     <input type="checkbox" data-lapisan="garis-jalan-sumbu" checked>
                     Sumbu jalan (<?= e(angka($jumlah('GARIS JALAN SUMBU DARI LABEL'))) ?>)</label>
-                <p class="petunjuk">Kedua lapis dihitung tools/garis-jalan-label.php dari label
-                    berawalan JALAN, kandidat 020100, dan poligon bidang. Tahap satu menandai tepian
-                    di kedua sisi, tahap dua memasangkan tepian itu menjadi satu garis tengah per
-                    segmen jalan. Perhitungannya ada di README §3.80.</p>
+                <p class="petunjuk">Garis tepi terbit sebagai pil Jalan di kelompok di atas; sumbu
+                    dihitung tools/garis-jalan-label.php dari pecahan jalan. Tahap satu menandai
+                    tepian di kedua sisi, tahap dua memasangkan tepian itu menjadi satu garis
+                    tengah per segmen jalan. Perhitungannya ada di README §3.80.</p>
                 <p class="petunjuk">Lainnya</p>
                 <label class="cek" title="Layer DXF 010500">
                     <input type="checkbox" data-lapisan="010500">
@@ -449,11 +447,10 @@ $naskah = <<<'JS'
         }
         if (nama === 'optimalisasi-hm') return () => ({ color: '#b45309', weight: 1.6, dashArray: '6 4', opacity: .95 });
         if (nama === 'lb-lai') return () => ({ color: '#7c3aed', weight: 1.4, dashArray: '2 4', opacity: .9 });
-        if (nama === 'garis-jalan') return () => ({ color: '#0f766e', weight: 1.7, opacity: .95 });
+        if (nama === 'garis-jalan') return () => ({ color: '#0f766e', weight: 1.1, opacity: .85 });
         if (nama === 'garis-selokan') return () => ({ color: '#0ea5e9', weight: 1.4, opacity: .95 });
         if (nama === 'garis-perairan') return () => ({ color: '#1d4ed8', weight: 1.7, opacity: .95 });
         if (nama === 'garis-lain') return () => ({ color: '#a16207', weight: 1.3, dashArray: '6 4', opacity: .95 });
-        if (nama === 'garis-jalan-tepi') return () => ({ color: '#14b8a6', weight: 1.1, opacity: .85 });
         if (nama === 'garis-jalan-sumbu') return () => ({ color: '#9d174d', weight: 2.2, opacity: .95 });
         if (nama === '010500') return () => ({ color: '#64748b', weight: 1, opacity: .8 });
         if (nama === '020400') return () => ({ color: '#475569', weight: 1, opacity: .85 });
