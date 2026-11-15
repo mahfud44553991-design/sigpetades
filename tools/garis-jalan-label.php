@@ -38,6 +38,11 @@ declare(strict_types=1);
  *                              titik itu cetak sisi tempat ia bergabung, pemenang
  *                              pasangan pada tiga radius, serta apakah ronde pertama
  *                              memberinya pasangan. Koordinat pakai titik desimal.
+ *   --tanya-berkas=BERKAS      diagnostik yang sama untuk banyak titik sekaligus,
+ *                              satu titik per baris: x,y[,radius][,nama], dengan
+ *                              radius bawaan 20 m. Cetakannya lebih ringkas: satu
+ *                              baris per baris tepi, tanpa rincian tiga radius.
+ *                              Baris berawalan # diabaikan.
  *
  * Angka flag (`--lebar`, `--bagi-pasang`, `--benih`, `--jahit`) menerima koma
  * atau titik desimal.
@@ -742,6 +747,7 @@ $sumberTepi = 'turun';
 $lebarMaks = 8.0;
 $lebarYatim = LEBAR_YATIM;
 $tanya = null;
+$tanyaBerkas = null;
 $benihMaks = BENIH;
 $benihYatim = BENIH_YATIM;
 $bagiPasang = BAGI_PASANG;
@@ -765,6 +771,31 @@ foreach (array_slice($argv, 1) as $a) {
             galat('--tanya memakai pemisah koma: --tanya=x,y[.radius]; pakai titik desimal untuk koordinat');
         }
         $tanya = [(float) $bag[0], (float) $bag[1], count($bag) === 3 ? angkaFlag($bag[2], 'radius') : 20.0];
+    } elseif (str_starts_with($a, '--tanya-berkas=')) {
+        $tanyaBerkas = [];
+        $isi = @file_get_contents(substr($a, 15));
+        if ($isi === false) {
+            galat('--tanya-berkas tidak terbaca: ' . substr($a, 15));
+        }
+        foreach (preg_split('/\r\n|\n|\r/', (string) $isi) as $no => $baris) {
+            $baris = trim($baris);
+            if ($baris === '' || $baris[0] === '#') {
+                continue;
+            }
+            $bag = explode(',', $baris);
+            if (count($bag) < 2 || count($bag) > 4) {
+                galat('--tanya-berkas baris ' . ($no + 1) . ': pakai x,y[,radius][,nama]');
+            }
+            [$tx, $ty] = [(float) $bag[0], (float) $bag[1]];
+            $tr = isset($bag[2]) && trim($bag[2]) !== '' ? angkaFlag($bag[2], 'radius') : 20.0;
+            if ($tr <= 0.0) {
+                galat('--tanya-berkas baris ' . ($no + 1) . ': radius harus lebih besar dari 0');
+            }
+            $tanyaBerkas[] = [trim($bag[3] ?? ''), $tx, $ty, $tr];
+        }
+        if ($tanyaBerkas === []) {
+            galat('--tanya-berkas tidak berisi satu titik pun');
+        }
     } elseif (str_starts_with($a, '--lebar-yatim=')) {
         $lebarYatim = angkaFlag(substr($a, 14), '--lebar-yatim');
     } elseif (str_starts_with($a, '--lebar=')) {
@@ -1412,15 +1443,15 @@ printf("       sisi tunggal: sisi sejajar terdekat %s · %d sisi sejajar tapi ko
 printf("koridor: %d pasangan sisi berbeda · %d untai titik tengah · titik sampel dengan kandidat"
     . " tertolak air: %d\n", count($pasangan), count($jalur), $tolakAir);
 
-if ($tanya !== null) {
-    $tolakAirSimbul = 0;
-    [$tx, $ty, $tr] = $tanya;
-    printf("%stanya: titik (%s, %s) radius %s m%s", PHP_EOL, angkaNum($tx, 2), angkaNum($ty, 2),
-        angkaNum($tr, 1), PHP_EOL);
+// Baris tepi yang menyentuh radius sebuah titik tanya: kunci, cara, panjang, dan
+// sampel terdekat (jarak, x, y, arah). Dipakai --tanya dan --tanya-berkas.
+$barisTanya = static function (float $tx, float $ty, float $tr) use ($tepi): array {
+    $kumpul = [];
     foreach ($tepi as $id => $t) {
+        $s = sampel($t['titik']);
         $jmin = INF;
         $uji = null;
-        foreach (sampel($t['titik']) as [$x, $y, $arah]) {
+        foreach ($s as [$x, $y, $arah]) {
             $d = hypot($x - $tx, $y - $ty);
             if ($d < $jmin) {
                 $jmin = $d;
@@ -1430,9 +1461,20 @@ if ($tanya !== null) {
         if ($jmin > $tr) {
             continue;
         }
+        $kumpul[(int) $id] = [$t['kunci'], $t['cara'], $t['panjang'], $jmin, $uji, count($s)];
+    }
+    return $kumpul;
+};
+
+if ($tanya !== null) {
+    $tolakAirSimbul = 0;
+    [$tx, $ty, $tr] = $tanya;
+    printf("%stanya: titik (%s, %s) radius %s m%s", PHP_EOL, angkaNum($tx, 2), angkaNum($ty, 2),
+        angkaNum($tr, 1), PHP_EOL);
+    foreach ($barisTanya($tx, $ty, $tr) as $id => [$kunci, $cara, $panjang, $jmin, $uji, $jumlahTitik]) {
         [$x, $y, $arah] = $uji;
-        printf("  %-12s sisi %6d · %-12s · %6s m · sampel terdekat %5s m arah %5s%s", $t['kunci'],
-            (int) $komi[$id], $t['cara'], angkaNum($t['panjang'], 1), angkaNum($jmin, 2),
+        printf("  %-12s sisi %6d · %-12s · %6s m · sampel terdekat %5s m arah %5s%s", $kunci,
+            (int) $komi[$id], $cara, angkaNum($panjang, 1), angkaNum($jmin, 2),
             angkaNum($arah, 1), PHP_EOL);
         foreach ([[$lebarMaks, 'ronde 1'], [$lebarYatim > $lebarMaks ? $lebarYatim : 12.0, 'lebar yatim'],
             [SEBERANG_UJI, 'uji seberang']] as [$r, $nama]) {
@@ -1449,10 +1491,42 @@ if ($tanya !== null) {
                 $dekat === null ? '-' : angkaNum($dekat, 2), $kosong === null ? '-' : angkaNum($kosong, 2),
                 $utama === null ? 'tidak ada komponen pemenang'
                     : sprintf('pemenang sisi %d dengan %d dari %d titik', $utama, $oleh[$utama]['n'],
-                        count(sampel($t['titik']))));
+                        $jumlahTitik));
         }
         printf("     %s%s%s", isset($sisa[$id]) ? 'ronde 1 tanpa pasangan (' . $sisa[$id] . ')'
             : 'ronde 1 terpasang', PHP_EOL, PHP_EOL);
+    }
+}
+
+if ($tanyaBerkas !== null) {
+    $tolakAirSimbul = 0;
+    foreach ($tanyaBerkas as [$nama, $tx, $ty, $tr]) {
+        printf("%stanya berkas: %s(%s, %s) radius %s m%s", PHP_EOL, $nama === '' ? '' : $nama . ' ',
+            angkaNum($tx, 2), angkaNum($ty, 2), angkaNum($tr, 1), PHP_EOL);
+        foreach ($barisTanya($tx, $ty, $tr) as $id => [$kunci, $cara, $panjang, $jmin, $uji]) {
+            [$x, $y, $arah] = $uji;
+            [$oleh, $jumlahSampel] = $olehSeberang($id, $lebarMaks);
+            $utama = $pilihUtama($oleh);
+            $p = pasanganTerdekat($kisiPasang, $segmenPasang, $komiSegmen, $x, $y, $lebarYatim,
+                (int) $komi[$id], $arah, $kisiPoligon, $poligon, $poligonBesar, $kisiAir, $segmenAir,
+                $tolakAirSimbul);
+            [$dekat, $kosong] = seberangTerdekat($kisiPasang, $segmenPasang, $komiSegmen, $x, $y,
+                $lebarYatim, (int) $komi[$id], $arah, $kisiPoligon, $poligon, $poligonBesar, $kisiAir,
+                $segmenAir);
+            if (isset($sisa[$id])) {
+                $ronde1 = 'tanpa pasangan (' . $sisa[$id] . ')';
+            } elseif ($utama === null) {
+                $ronde1 = 'terpasang';
+            } else {
+                $ronde1 = sprintf('menang sisi %d %d/%d titik', $utama, $oleh[$utama]['n'], $jumlahSampel);
+            }
+            printf("  %-12s sisi %6d · %-12s · %6s m · %5s m · %-26s · yatim %s · seberang %s,"
+                . " kosong %s%s", $kunci, (int) $komi[$id], $cara, angkaNum($panjang, 1),
+                angkaNum($jmin, 2), $ronde1,
+                $p === null ? 'tidak ada' : angkaNum($p[0], 2) . ' m sisi ' . (int) $komi[$p[3]],
+                $dekat === null ? '-' : angkaNum($dekat, 2), $kosong === null ? '-' : angkaNum($kosong, 2),
+                PHP_EOL);
+        }
     }
 }
 
