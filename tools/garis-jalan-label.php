@@ -39,6 +39,11 @@ declare(strict_types=1);
  *   --jahit=M                  panjang jahitan maksimum antara dua ujung buntu
  *                              sumbu; bawaan 3,0 m (= konstanta JAHIT),
  *                              0 = matikan penyambungan celah
+ *   --pembatas-persil=hapus|simpan  bawaan 'hapus': baris tepi yang kedua sisinya
+ *                              (offset tegak lurus 0,8 m) jatuh di dalam persil
+ *                              yang BERBEDA dibuang, karena garis semacam itu
+ *                              pembatas dua bidang tanah, bukan tepi jalan.
+ *                              'simpan' = keadaan §3.87/§3.89 (tanpa saringan)
  *   --eksklusif                label jalan harus yang terdekat; bila label kelas
  *                              lain lebih dekat, tepinya tidak diklaim
  *   --rinci                    cetak 40 sumbu terpanjang
@@ -97,6 +102,15 @@ declare(strict_types=1);
  * (`--tepi=terpakai`, bawaan sejak 15 Nov): baris semacam itu tepian bidang
  * tanah yang cuma ikut terklaim lewat benih atau pita, dan menyimpannya membuat
  * lapis tepi jalan terbaca sebagai peta bidang.
+ *
+ * Saringan pembatas persil (15 Nov, `--pembatas-persil=hapus` bawaan) berlaku
+ * SESUDAH tahap 1 dan SEBELUM tahap 2: tiap baris tepi disampel tiap 2 m, lalu
+ * dua titik 0,8 m di kiri-kanan garis diuji terhadap poligon tabel bidang. Bila
+ * >= 80 % sampel punya persil di kedua sisi dan persilnya berbeda, baris itu
+ * garis bidang tanah yang ikut terklaim (biasanya lewat pita), bukan tepi jalan,
+ * jadi dibuang dari `$tepi`. Karena tahap 2 membaca `$tepi` yang sama, sumbu
+ * ikut dibangun ulang tanpa baris itu dan `tepi_all` tetap menunjuk baris yang
+ * ada.
  *
  * Tahap 2 — sumbu (garis-jalan-sumbu.geojson).
  *  1. potongan tepi yang ujungnya berjarak <= RAGU_SISI dianggap simpul yang
@@ -193,6 +207,16 @@ const MIN_PANJANG = 2.0;
 const BAGI_ULANG = 0.5;
 const SEL = 25.0;
 const SEL_KISI = 5.0;
+/**
+ * Saringan pembatas persil (15 Nov 2026). Sebuah baris tepi disampel tiap
+ * LANGKAH, lalu dua titik OFFSET tegak lurus di kiri dan kanan diuji ke poligon
+ * tabel bidang. Baris dianggap pembatas persil bila kedua sisi berada di dalam
+ * persil yang berbeda pada >= BAGI_PERSIL bagian sampel. Ukur 15 Nov pada lapis
+ * terbit 2.872 baris: 197 baris (13.200,9 m, 8,9 % panjang) memenuhi syarat itu
+ * dan garisnya memang duduk di batas dua persil yang berbagi sisi.
+ */
+const PERSIL_OFFSET = 0.8;
+const PERSIL_BAGI = 0.8;
 
 // Tahap 2.
 const LEBAR_MIN = 0.25;
@@ -458,6 +482,56 @@ function diPoligon(float $x, float $y, array $kisi, array $poligon, array $besar
         }
     }
     return false;
+}
+
+/**
+ * Id persil tabel bidang yang memuat titik, atau null. Kisi permukaan yang sama
+ * dengan `diPoligon` dipakai ulang; `$kisiId`/`$besarId` memetakan indeks
+ * poligon ke id bidang, sehingga cincin 020100 yang tidak punya id dilewati.
+ */
+function idPersil(float $x, float $y, array $kisi, array $poligon, array $besar, array $kisiId,
+    array $besarId): ?int
+{
+    foreach (array_keys($kisi[(int) floor($x / SEL_KISI) . ':' . (int) floor($y / SEL_KISI)] ?? []) as $id) {
+        if (isset($kisiId[$id]) && dalamRing($x, $y, $poligon[$id])) {
+            return (int) $kisiId[$id];
+        }
+    }
+    foreach ($besar as $i => $ring) {
+        if (isset($besarId[$i]) && dalamRing($x, $y, $ring)) {
+            return (int) $besarId[$i];
+        }
+    }
+    return null;
+}
+
+/**
+ * Uji pembatas persil: [pembatas?, sampel dua sisi, sampel dua persil, jumlah
+ * sampel]. Arah normal diambil dari arah segmen sampel, jadi putaran garis tidak
+ * mengubah hasil.
+ */
+function pembatasPersil(array $titik, array $kisi, array $poligon, array $besar, array $kisiId,
+    array $besarId): array
+{
+    $dua = 0;
+    $beda = 0;
+    $n = 0;
+    foreach (sampel($titik) as [$x, $y, $arah]) {
+        $n++;
+        $nx = -sin(deg2rad($arah));
+        $ny = cos(deg2rad($arah));
+        $kiri = idPersil($x + $nx * PERSIL_OFFSET, $y + $ny * PERSIL_OFFSET, $kisi, $poligon, $besar,
+            $kisiId, $besarId);
+        $kanan = idPersil($x - $nx * PERSIL_OFFSET, $y - $ny * PERSIL_OFFSET, $kisi, $poligon, $besar,
+            $kisiId, $besarId);
+        if ($kiri !== null && $kanan !== null) {
+            $dua++;
+            if ($kiri !== $kanan) {
+                $beda++;
+            }
+        }
+    }
+    return [$n > 0 && $dua >= PERSIL_BAGI * $n && $beda >= PERSIL_BAGI * $n, $dua, $beda, $n];
 }
 
 /** Kelas sebuah teks label. */
@@ -765,6 +839,7 @@ $benihMaks = BENIH;
 $benihYatim = BENIH_YATIM;
 $bagiPasang = BAGI_PASANG;
 $jahitMaks = JAHIT;
+$pembatasKeluar = 'hapus';
 foreach (array_slice($argv, 1) as $a) {
     if ($a === '--terapkan') {
         $terapkan = true;
@@ -821,6 +896,8 @@ foreach (array_slice($argv, 1) as $a) {
         $benihMaks = angkaFlag(substr($a, 8), '--benih');
     } elseif (str_starts_with($a, '--jahit=')) {
         $jahitMaks = angkaFlag(substr($a, 8), '--jahit');
+    } elseif (str_starts_with($a, '--pembatas-persil=')) {
+        $pembatasKeluar = substr($a, 18);
     } else {
         galat('argumen tidak dikenal: ' . $a);
     }
@@ -863,14 +940,18 @@ if ($benihYatim !== 0.0 && ($benihYatim <= $benihMaks || $benihYatim > PITA)) {
 if ($jahitMaks < 0.0 || $jahitMaks > JAHIT_MAKS) {
     galat('--jahit harus antara 0 dan ' . angkaNum(JAHIT_MAKS, 1) . ' meter; 0 mematikan penyambungan');
 }
+if (!in_array($pembatasKeluar, ['hapus', 'simpan'], true)) {
+    galat('--pembatas-persil harus hapus atau simpan');
+}
 printf("mode: tahap %s · sumber tepi %s · tepi diterbitkan %s · benih %s m%s · lebar koridor maksimum %s m%s"
-    . " · bagi pasang %s · jahit celah %s m · %s · %s\n",
+    . " · bagi pasang %s · jahit celah %s m · pembatas persil %s · %s · %s\n",
     $tahap, $sumberTepi, $tepiKeluar, angkaNum($benihMaks, 1),
     $benihYatim === 0.0 ? '' : ' + yatim ' . angkaNum($benihYatim, 1),
     angkaNum($lebarMaks, 1),
     $lebarYatim === 0.0 ? '' : ' + yatim ' . angkaNum($lebarYatim, 1),
     angkaNum($bagiPasang, 2),
     angkaNum($jahitMaks, 1),
+    $pembatasKeluar,
     $eksklusif ? 'label jalan harus yang terdekat' : 'kelas lain tidak jadi syarat',
     $terapkan ? 'TERAPKAN' : 'uji kering');
 
@@ -886,6 +967,8 @@ $segmenUlang = [];
 $kisiPoligon = [];
 $poligon = [];
 $poligonBesar = [];
+$poligonBidang = [];
+$besarBidang = [];
 $kandidat = [];
 $cincin020100 = [];
 $cincinBidang = [];
@@ -926,8 +1009,15 @@ foreach ((array) db_all('SELECT id, ST_AsGeoJSON(geom) AS geojson FROM bidang '
     }
     foreach (cincinDariGeojson($geometri) as $ring) {
         $jumlahPersil++;
+        $sebelumPoligon = count($poligon);
+        $sebelumBesar = count($poligonBesar);
         tambahSegmen($kisiTepi, $segmenTepi, $ring, SEL_KISI);
         tambahPoligon($kisiPoligon, $poligon, $poligonBesar, $ring, SEL_KISI);
+        if (count($poligon) > $sebelumPoligon) {
+            $poligonBidang[$sebelumPoligon] = (int) $baris['id'];
+        } elseif (count($poligonBesar) > $sebelumBesar) {
+            $besarBidang[$sebelumBesar] = (int) $baris['id'];
+        }
         if ($deriveTepi) {
             $cincinBidang[(int) $baris['id']] = $ring;
         }
@@ -1232,6 +1322,38 @@ if ($deriveTepi) {
 
 if ($tepi === []) {
     galat('tidak ada satu pun tepi yang bisa dipakai');
+}
+
+// Saringan pembatas persil: baris yang kedua sisinya jatuh di persil berbeda
+// adalah garis bidang tanah, bukan tepi jalan. Dibuang sebelum tahap 2 supaya
+// sumbu dibangun tanpa baris itu dan `tepi_all` tidak menunjuk baris yang hilang.
+$jumlahTepiKlaim = count($tepi);
+$pembatasBuang = 0;
+$pembatasPanjang = 0.0;
+$pembatasAsal = [];
+if ($pembatasKeluar === 'hapus') {
+    $sisaTepi = [];
+    foreach ($tepi as $t) {
+        [$pembatas] = pembatasPersil($t['titik'], $kisiPoligon, $poligon, $poligonBesar,
+            $poligonBidang, $besarBidang);
+        if ($pembatas) {
+            $pembatasBuang++;
+            $pembatasPanjang += $t['panjang'];
+            $pembatasAsal[$t['asal']] = ($pembatasAsal[$t['asal']] ?? 0) + 1;
+            continue;
+        }
+        $sisaTepi[] = $t;
+    }
+    $tepi = $sisaTepi;
+    ksort($pembatasAsal);
+    printf("saring pembatas persil: %d baris klaim dibuang (%s m; %s) · tersisa %d baris\n",
+        $pembatasBuang, angkaNum($pembatasPanjang, 1), json_encode($pembatasAsal, JSON_UNESCAPED_UNICODE),
+        count($tepi));
+    if ($tepi === []) {
+        galat('saringan pembatas persil membuang seluruh tepi; pakai --pembatas-persil=simpan');
+    }
+} else {
+    echo 'saring pembatas persil: dimatikan (--pembatas-persil=simpan).' . PHP_EOL;
 }
 
 $susunTepi = static function (array $baris): array {
@@ -1959,7 +2081,10 @@ $meta['layers'][JUDUL_TEPI] = [
     'label' => $labelJalan,
     'permukaan_bidang' => ['sumber' => 'tabel bidang (status <> dihapus)', 'persil' => $jumlahPersil,
         'segmen_tepi' => count($segmenTepi)],
-    'saring' => ['aturan' => $tepiKeluar, 'klaim_tahap1' => count($tepi),
+    'saring' => ['aturan' => $tepiKeluar, 'klaim_tahap1' => $jumlahTepiKlaim,
+        'pembatas_persil' => ['aturan' => $pembatasKeluar, 'offset_m' => PERSIL_OFFSET,
+            'bagi_sampel' => PERSIL_BAGI, 'dibuang' => $pembatasBuang,
+            'dibuang_panjang_m' => round($pembatasPanjang, 1), 'asal' => $pembatasAsal],
         'dibuang' => count($tepi) - count($tepiTerbit),
         'dibuang_panjang_m' => round($panjangTepiBuang, 1)],
     'asal' => array_count_values(array_column($tepiTerbit, 'asal')),
@@ -2020,12 +2145,21 @@ $catatan[] = sprintf(
 if ($tepiKeluar === 'terpakai') {
     $catatan[] = sprintf(
         JUDUL_TEPI . ': berkas %s hanya memuat baris yang menjadi bahan sebuah sumbu; dari %d baris'
-        . ' hasil klaim tahap 1, %d baris (%s m) tidak muncul di `tepi_all` satu pun sumbu sehingga'
+        . ' sisa sesudah saringan, %d baris (%s m) tidak muncul di `tepi_all` satu pun sumbu sehingga'
         . ' dibuang 15 Nov 2026 atas permintaan "hapus garis tepi jalan yang membentuk peta bidang".'
         . ' Baris itu tepian bidang tanah yang ikut terklaim lewat benih atau pita, bukan sisi koridor'
         . ' jalan. Jumlah sumbu tidak berubah sebab penyaringan terjadi sesudah tahap 2.',
         BERKAS_TEPI . '.geojson', count($tepi),
         count($tepi) - count($tepiTerbit), angkaNum($panjangTepiBuang, 1)
+    );
+}
+if ($pembatasKeluar === 'hapus' && $pembatasBuang > 0) {
+    $catatan[] = sprintf(
+        JUDUL_TEPI . ': %d baris klaim tahap 1 (%s m) dibuang karena kedua sisinya, pada offset tegak'
+        . ' lurus %.1f m, jatuh di persil yang berbeda pada >= %.0f%% titik sampel: garis itu pembatas'
+        . ' dua bidang tanah, bukan tepi jalan. Saringan berjalan sebelum tahap 2, jadi sumbu dibangun'
+        . ' ulang tanpa baris itu dan `tepi_all` tidak menunjuk baris yang hilang.',
+        $pembatasBuang, angkaNum($pembatasPanjang, 1), PERSIL_OFFSET, PERSIL_BAGI * 100
     );
 }
 $meta['notes'] = $catatan;

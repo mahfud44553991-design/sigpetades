@@ -7079,6 +7079,68 @@ pertama. Mematikan pil membuat 0 piksel teal, 0 label, dan baris legenda
 hilang; menyalakannya lagi memulihkan 17.424 piksel teal, 620 label, dan
 baris legenda. Konsol bersih, tanpa galat.
 
+Sejak §3.91 isi lapis ini 2.685 baris; angka 2.872 di atas adalah keadaan
+saat pemasangan.
+
+### 3.91 Garis pembatas persil dibuang dari lapis tepi (15 Nov 2026)
+
+Perintah "hapus garis jalan yang membentuk garis bidang tanah" menunjuk
+cacat yang bisa diukur. Sebagian baris tepi hasil klaim tahap 1 bukan sisi
+jalan: garisnya berimpit dengan sisi dua bidang tanah yang kebetulan
+berada di dalam pita label. Ukur 15 Nov pada lapis terbit sebelum
+perubahan (2.872 baris): tiap baris disampel tiap 2 m, lalu dua titik
+0,8 m tegak lurus di kiri dan kanan diuji ke poligon tabel bidang.
+197 baris (13.200,9 m, 8,9 % panjang) punya persil BERBEDA di kedua sisi
+pada >= 80 % sampel; 2.545 baris (83,7 %) hanya satu sisinya di dalam
+persil, dan 130 (7,4 %) tidak menyentuh persil. Asal ke-197 baris: 194
+garis terbuka 020100, 2 cincin 020100, 1 cincin bidang. Pratinjau
+Leaflet 2.872 garis (teal), 197 calon (merah), dan garis bidang (biru)
+menunjukkan calon merah duduk tepat di batas dua persil, bukan di jalan.
+
+Saringan dipasang di `tools/garis-jalan-label.php` sebagai
+`--pembatas-persil=hapus|simpan`, bawaan `hapus` sejak 15 Nov;
+`--pembatas-persil=simpan` mengembalikan keadaan §3.87/§3.89. Saringan
+berjalan SESUDAH tahap 1 dan SEBELUM tahap 2. Sampel memakai `sampel()`
+yang sudah ada dan id persil dibaca `idPersil()` dari kisi permukaan yang
+sama (`$kisiPoligon` + `$poligon`), dengan dua peta kecil
+`$poligonBidang`/`$besarBidang` yang menautkan indeks poligon ke id
+bidang, jadi tidak ada salinan cincin kedua. Ambangnya `PERSIL_OFFSET`
+0,8 m dan `PERSIL_BAGI` 0,8. Karena tahap 2 membaca `$tepi` yang sama,
+sumbu dibangun ulang tanpa baris itu dan `tepi_all` tidak menunjuk baris
+yang hilang.
+
+Hasil pada bahan 15 Nov: dari 4.367 baris klaim tahap 1, 1.113 baris
+(40.700,8 m; 1.111 `garis` dan 2 `cincin-020100`) dibuang, tersisa
+3.254. Saringan `--tepi=terpakai` lalu membuang 569 baris (17.917,2 m)
+yang tidak dipakai sumbu, sehingga `garis-jalan-tepi.geojson` memuat
+2.685 baris / 135.541,5 m (sebelumnya 2.872 / 148.023,7 m). Sumbu menjadi
+2.065 segmen / 36.514,4 m (sebelumnya 2.034 / 36.903,5 m): jumlah segmen
+naik 31 dan panjang turun 389,1 m karena pasangan tepi disusun ulang
+tanpa baris pembatas. Berkasnya 1.095.582 B dan 1.309.575 B.
+
+Verifikasi. Penyaring bebas `_lama/scratch/daftar-pembatas-persil.php`
+(ditulis terpisah dari alat, cincin MultiPolygon diuji per bagian)
+mencetak 197 baris pada berkas lama dan 0 baris pada berkas baru.
+Perbandingan `kunci` antara berkas lama dan baru: ke-197 baris pembatas
+hilang semua; 21 baris bukan-pembatas (687,6 m) juga hilang dan 31 baris
+baru (1.406,3 m) muncul, keduanya akibat sumbu dibangun ulang sebab
+berkas tepi terbit hanya memuat baris yang jadi bahan sumbu.
+`_lama/scratch/cek-saring-tepi.php`: 2.685 kunci di berkas = 2.685 kunci
+di `tepi_all`, 0 tepi tanpa sumbu, 0 sumbu tanpa tepi, 2.065 sumbu /
+36.514,5 m / 6.772 rujukan. Dua kali `--terapkan` menghasilkan berkas
+identik (SHA-256 tepi `9ac85b61…`, sumbu `cb4103c8…`). Panel Peta Induk
+membaca angka baru dari `metadata.json` (Jalan 2.685, Sumbu jalan 2.065);
+`api/bidang.php?lapisan=garis-jalan` mengembalikan 2.685 `LineString`,
+135.541 m, 589.948 B, HTTP 200. Di Peta Bidang kanvas `pane-jalan`
+berisi 16.505 piksel teal (sebelumnya 17.201) dan 620 label, konsol
+bersih, legenda tidak berubah.
+
+Bekas berkas sebelum perubahan: `_lama/cadangan-pembatas-persil-2026-11-15/`
+(tepi `7a60dbcb0013…`, sumbu `ced69ef6f5fe…`, metadata 19.346 B).
+`metadata.json` kini punya blok `saring.pembatas_persil` (`aturan`,
+`offset_m`, `bagi_sampel`, `dibuang`, `dibuang_panjang_m`, `asal`) dan
+satu catatan yang menjelaskan saringan sebelum tahap 2.
+
 ---
 
 ## 4. Berkas SPPT dari Excel
