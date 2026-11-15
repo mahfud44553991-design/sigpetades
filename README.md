@@ -7436,6 +7436,66 @@ dari `blok.geom`. Calon di `_lama/scratch/`: `blok19-dari-bidang.geojson`
 Alat baca saja: `ukur-selisih-blok19.php`, `ukur-calon-blok19.php`,
 `banding-blok19.php`; penulis `terapkan-blok19.php`.
 
+### 3.97 BLOK 10 dirapikan ke garis luar 228 persilnya (16 Nov 2026)
+
+BLOK 10 (id 17) sebelumnya dua bagian: 244.734,8 m² dalam 267 titik dan
+serpihan 163,4 m² (24 x 16 m, pusat 110.070623,-7.085475), total
+244.898,2 m²; sumber lama "MASTER.dxf + 474 geometri bidang BLOK 10"
+dengan 228 persil anggota. Kasusnya lebih ringan daripada §3.96: tepi
+terpasang sudah mengikuti garis luar persil, jarak titik calon ke tepi
+lama median 0,0 m (p90 1,5 m), jadi hasilnya perapian, bukan koreksi
+selubung.
+
+Resep §3.93/§3.95 dipakai apa adanya. `tools/rapikan-garis-blok.php 10
+--dari-bidang --paksa --toleransi 0,2` memberi tiga bagian, 671 titik,
+235.995,8 m², 15 jembatan, dan 2 jembatan dilewati karena koridornya
+jalan permukiman 6 m. Dua gugus persil (7.586,7 dan 9.386,7 m²)
+terpisah 2,18-2,44 m oleh jalan itu, jadi `--abaikan-jalan` dipakai
+untuk menyatukannya: satu bagian, 677 titik, 236.002,7 m², 17
+jembatan. `tutup-celah.php` (talibusur maksimum 12 m, toleransi 0,2,
+id 17) lalu menambah 57 tambalan (talibusur 0,46-11,76 m; 8.101,2 m²;
+terbesar 1.038,4 m² di 110.066044,-7.084869), membuang tancap, dan
+Douglas-Peucker 0,2 m.
+
+Calon akhir: satu bagian, 0 lubang, 157 titik, 244.107,1 m² (-791,1 m²;
+-0,32%). Irisan dengan blok lain 0,00 m². Keliling 4.091,5 menjadi
+3.601,7 m (-489,8 m; -12,0%). Serpihan lama tidak dibuang: titik
+pusatnya kini berada di dalam satu bagian itu, sebab tambalan mulut
+jalur menyambungnya ke badan utama.
+
+Pita yang dibuang 1.310,7 m² dalam 20 komponen (terbesar 1.030,0 m²,
+201 x 123 m, pusat 110.067934,-7.084686; lalu 142,8 m², 72,4 m², dan
+26,3 m²), sedangkan 519,6 m² justru ditambahkan di mulut jalur, jadi
+selisih bersihnya -791,1 m². Isi pita hanya persil hantu
+`DXF-010500-00001` (status `dihapus`) seluas 1.310,70 m² dan 19 persil
+anggota 20,33 m²; tidak ada persil tetangga yang tertelan. Persil
+anggota di luar garis 18 persil, 20,33 m², 5 di antaranya di atas 1 m²
+(15,60 m²), terbesar 7,45 m² `DXF-020100-G00895`.
+
+Jaringan gang di dalam blok menyusut dari 9.149,3 m² dalam 27 komponen
+menjadi 8.378,6 m² dalam 35 komponen. Jarak ke tetangga hanya bergerak
+di BLOK 15 (0,00 menjadi 3,72 m; sebelumnya bersentuhan), BLOK 13
+(61,43 menjadi 62,14 m), dan BLOK 8 (136,22 menjadi 136,37 m); BLOK 9
+tetap 2,51 m dan BLOK 14 tetap 3,59 m.
+
+Diterapkan 16 Nov 2026 pukul 06:33: cadangan penuh
+`sebelum-rapikan-blok-10-20261116-063347-bf2f.sql` (7.888.292 byte),
+jejak `storage/rapikan-blok-17-20261116-063348.json`, lalu `UPDATE
+blok` id 17 (`geom` dan `sumber_perkiraan` menjadi "garis luar bidang
+anggota + tutup celah jalan; ditetapkan"). Bendera `batas_tersedia` 1
+dan `batas_perkiraan` 0 tidak berubah. Baca ulang: satu bagian, 0
+lubang, 157 titik, 244.107,1 m², selisih tulis-baca 0,00 m².
+
+Gambar `_lama/scratch/banding-blok10-terpasang.png`: kiri dari jejak
+06:33, kanan dari `blok.geom`. Calon di `_lama/scratch/`:
+`blok10-dari-bidang-02.geojson` (tiga bagian),
+`blok10-dari-bidang-satu.geojson` (677 titik),
+`blok10-tertutup.geojson` (tiga bagian; ditolak penutup celah karena
+bukan satu bagian), dan `blok10-tertutup-satu.geojson` (terpasang).
+Alat baca saja: `ukur-selisih-blok10.php`, `ukur-blok10-terpasang.php`,
+`cek-blok10-terpasang.php`, `cek-bagian-blok10.php`, dan
+`banding-blok10.php`; penulis `terapkan-blok10.php`.
+
 ---
 
 ## 4. Berkas SPPT dari Excel
