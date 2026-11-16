@@ -161,7 +161,7 @@ sip_judul(
                 </div>
                 <a class="tombol tombol-kecil jarak-atas" id="keDigitasi" href="<?= e(sip_url('digitasi-baru.php', ['dari' => 'pratinjau'])) ?>">Digitasi Obyek Baru</a>
                 <p class="petunjuk" id="infoPenanda">Penunjuk belum aktif. Koordinat X/Y berasal dari DXF lokal, bukan GPS.</p>
-                <p class="petunjuk">Pratinjau memakai poligon tertutup 020100 yang memuat penanda; bila titik di luar, dipakai garis bidang tertutup (LineString yang ujungnya bertemu), lalu rangkaian garis 020100. Bila titik ada di celah di antara Bidang kadastrum, pratinjau memilih muka terkecil yang dibatasi garis dan tepi cincin poligon 020100, jadi bidang baru mengisi celah itu. “Bidang dari garis sekitar” memakai garis terbuka saja. Bidang baru berstatus perlu verifikasi, tanpa blok, dan hanya dapat disimpan Super Admin setelah pratinjau.</p>
+                <p class="petunjuk">Pratinjau memakai poligon tertutup 020100 yang memuat penanda; bila titik di luar, dipakai garis bidang tertutup (LineString yang ujungnya bertemu), lalu rangkaian garis 020100. Bila titik ada di celah di antara Bidang kadastrum, pratinjau memilih muka terkecil yang dibatasi garis dan tepi cincin poligon 020100, jadi bidang baru mengisi celah itu; penanda yang jatuh tepat di tepi garis (kurang dari 1 m di luar muka) memakai muka terkecil di tepi itu. “Bidang dari garis sekitar” memakai garis terbuka saja. Bidang baru berstatus perlu verifikasi, tanpa blok, dan hanya dapat disimpan Super Admin setelah pratinjau.</p>
             </div>
         </section>
 

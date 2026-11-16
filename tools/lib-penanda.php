@@ -174,6 +174,26 @@ function titikDalamPoligon(array $poligon, float $x, float $y): bool
     return $dalam;
 }
 
+/** Jarak titik ke tepi cincin (segmen terdekat), dalam meter DXF. */
+function jarakTitikKeCincin(array $cincin, float $x, float $y): float
+{
+    $dekat = INF;
+    for ($i = 1, $n = count($cincin); $i < $n; $i++) {
+        $ax = (float) $cincin[$i - 1][0];
+        $ay = (float) $cincin[$i - 1][1];
+        $bx = (float) $cincin[$i][0];
+        $by = (float) $cincin[$i][1];
+        $dx = $bx - $ax;
+        $dy = $by - $ay;
+        $panjang = $dx * $dx + $dy * $dy;
+        $t = $panjang > 0
+            ? max(0.0, min(1.0, (($x - $ax) * $dx + ($y - $ay) * $dy) / $panjang))
+            : 0.0;
+        $dekat = min($dekat, hypot($x - ($ax + $t * $dx), $y - ($ay + $t * $dy)));
+    }
+    return $dekat;
+}
+
 function luasPoligonDxf(array $poligon): float
 {
     $luas = 0.0;
@@ -318,12 +338,26 @@ function kodeBidangPetaInduk(int $indeks, string $jenis): string
  * yang sudah tertutup. Tanpa itu celah yang hanya dibatasi tepi poligon (tidak
  * ada garis terpisah di sana) tidak pernah membentuk muka.
  *
- * @return array{geometry:array,luas:float,keliling:float,handle:string}|null
+ * $jariJari dan $batasLuas bisa dilebarkan pemanggil untuk titik yang mukanya
+ * baru tertutup jauh dari penanda. Penanda yang jatuh tepat di garis batas
+ * (kurang dari 1 m di luar muka) tetap memakai muka terkecil di tepinya, supaya
+ * titik yang digeser sedikit tidak kehilangan bidangnya.
+ *
+ * @param array<int,float> $jariJari
+ * @return array{geometry:array,luas:float,keliling:float,handle:string,radius:float}|null
  */
-function mukaGarisDiSekitar(array $features, float $px, float $py, bool $denganPoligon = false): ?array
-{
-    $batasLuas = 200000.0;
-    foreach ([250.0, 400.0, 600.0] as $radius) {
+function mukaGarisDiSekitar(
+    array $features,
+    float $px,
+    float $py,
+    bool $denganPoligon = false,
+    array $jariJari = [250.0, 400.0, 600.0],
+    float $batasLuas = 200000.0
+): ?array {
+    $toleransiTepi = 1.0;
+    $terbaikTepi = null;
+    $luasTepi = INF;
+    foreach ($jariJari as $radius) {
         $segmen = [];
         foreach ($features as $fitur) {
             $geometri = $fitur['geometry'] ?? [];
@@ -366,8 +400,9 @@ function mukaGarisDiSekitar(array $features, float $px, float $py, bool $denganP
 
         // Hanya segmen yang berbagi petak kisi diuji saling memotong. Tanpa
         // kisi, satu jendela di daerah padat menguji jutaan pasangan dan satu
-        // penanda butuh beberapa detik.
-        $sisih = max(1.0, $radius / 3.0);
+        // penanda butuh beberapa detik. Ukuran petak ditahan di 50 m supaya
+        // jendela besar tidak melahirkan petak raksasa yang menghabiskan memori.
+        $sisih = max(1.0, min(50.0, $radius / 6.0));
         $petak = [];
         foreach ($segmen as $indeks => [$ax, $ay, $bx, $by]) {
             $gxAwal = (int) floor(min($ax, $bx) / $sisih);
@@ -515,32 +550,55 @@ function mukaGarisDiSekitar(array $features, float $px, float $py, bool $denganP
             $cincin[] = $cincin[0];
             $dua = 0.0;
             $keliling = 0.0;
+            $xmin = INF;
+            $ymin = INF;
+            $xmax = -INF;
+            $ymax = -INF;
             for ($i = 0, $akhir = count($cincin) - 1; $i < $akhir; $i++) {
                 $dua += $cincin[$i][0] * $cincin[$i + 1][1] - $cincin[$i + 1][0] * $cincin[$i][1];
                 $keliling += hypot($cincin[$i + 1][0] - $cincin[$i][0], $cincin[$i + 1][1] - $cincin[$i][1]);
+                $xmin = min($xmin, $cincin[$i][0]);
+                $ymin = min($ymin, $cincin[$i][1]);
+                $xmax = max($xmax, $cincin[$i][0]);
+                $ymax = max($ymax, $cincin[$i][1]);
             }
             $luas = $dua / 2;
-            if ($luas <= 1.0 || $luas > $batasLuas || $luas >= $luasTerbaik) {
+            if ($luas <= 1.0 || $luas > $batasLuas) {
                 continue;
             }
-            if (!titikDalamCincin($cincin, $px, $py)) {
+            if (titikDalamCincin($cincin, $px, $py)) {
+                if ($luas < $luasTerbaik) {
+                    $terbaik = [
+                        'geometry' => ['type' => 'Polygon', 'coordinates' => [$cincin]],
+                        'luas' => $luas,
+                        'keliling' => $keliling,
+                        'handle' => implode(', ', array_values(array_unique($handle))),
+                        'radius' => $radius,
+                    ];
+                    $luasTerbaik = $luas;
+                }
                 continue;
             }
-            $terbaik = [
-                'geometry' => ['type' => 'Polygon', 'coordinates' => [$cincin]],
-                'luas' => $luas,
-                'keliling' => $keliling,
-                'handle' => implode(', ', array_values(array_unique($handle))),
-                'radius' => $radius,
-            ];
-            $luasTerbaik = $luas;
+            if ($luas < $luasTepi
+                && $px >= $xmin - $toleransiTepi && $px <= $xmax + $toleransiTepi
+                && $py >= $ymin - $toleransiTepi && $py <= $ymax + $toleransiTepi
+                && jarakTitikKeCincin($cincin, $px, $py) <= $toleransiTepi) {
+                $terbaikTepi = [
+                    'geometry' => ['type' => 'Polygon', 'coordinates' => [$cincin]],
+                    'luas' => $luas,
+                    'keliling' => $keliling,
+                    'handle' => implode(', ', array_values(array_unique($handle))),
+                    'radius' => $radius,
+                ];
+                $luasTepi = $luas;
+            }
         }
 
         if ($terbaik !== null) {
             return $terbaik;
         }
     }
-    return null;
+    return $terbaikTepi;
 }
 
 /** Kode bidang garis baru: tetap untuk cincin yang sama, awalan B. */

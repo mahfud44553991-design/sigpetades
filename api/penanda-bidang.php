@@ -304,7 +304,7 @@ if ($aksi === 'pratinjau') {
 
     $ditemukan = bidangDariPenanda(fiturLapisanPetaInduk('020100'), $x, $y, null, true);
     if ($ditemukan === null) {
-        json_error('Penanda tidak berada di dalam poligon tertutup, garis bidang tertutup, rangkaian garis 020100 yang menutup, maupun muka yang dibatasi Bidang kadastrum di sekitarnya. Geser penanda ke dalam celah di antara bidang kadastrum, atau pakai “Bidang dari garis sekitar”.', 422);
+        json_error('Penanda tidak berada di dalam poligon tertutup, garis bidang tertutup, rangkaian garis 020100 yang menutup, maupun muka tertutup dari garis sekitarnya. Titik ini belum punya batas tertutup; digitasi batas bidangnya lebih dulu, atau geser penanda ke celah di antara bidang kadastrum.', 422);
     }
 
     kirimPratinjau($ditemukan['calon'], $ditemukan['jenis'], $ditemukan['kode'], $x, $y, $pengguna);
