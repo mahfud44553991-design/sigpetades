@@ -568,30 +568,6 @@ input[readonly], input:disabled, select:disabled, textarea:disabled { background
 .setir-peta button:hover { background: var(--hijau-muda); }
 .setir-peta svg { width: 16px; height: 16px; }
 
-.kartu-bidang {
-    position: absolute; z-index: 300; top: 22px; right: 74px; width: 254px; padding: 12px 14px 10px;
-    background: #fff; border-radius: 14px; box-shadow: 0 14px 34px rgba(10, 47, 79, .26);
-    font-size: 11.5px; color: #46564f;
-}
-.kartu-bidang-kepala { display: flex; align-items: center; gap: 9px; padding-bottom: 9px; border-bottom: 1px solid var(--garis); }
-.kartu-bidang-kepala strong { font-size: 12.5px; color: var(--biru); }
-.kartu-bidang-ikon {
-    width: 28px; height: 28px; flex: 0 0 auto; display: grid; place-items: center;
-    border-radius: 50%; background: var(--hijau); color: #fff;
-}
-.kartu-bidang-ikon svg { width: 16px; height: 16px; }
-.kartu-bidang-isi { margin: 9px 0 0; display: grid; grid-template-columns: 74px minmax(0, 1fr); gap: 4px 6px; }
-.kartu-bidang-isi dt { color: var(--redup); }
-.kartu-bidang-isi dd { margin: 0; font-weight: 700; color: #2f4a3f; overflow-wrap: anywhere; }
-.kartu-bidang-kaki { margin-top: 9px; padding-top: 8px; border-top: 1px dashed var(--garis); color: var(--redup); font-size: 10px; }
-
-.penanda-bidang { background: none; border: 0; }
-.penanda-bidang i {
-    display: block; width: 22px; height: 22px; margin: 0 auto;
-    border-radius: 50% 50% 50% 0; background: #e23b2e; border: 2.5px solid #fff;
-    transform: rotate(-45deg); box-shadow: 0 4px 10px rgba(0, 0, 0, .4);
-}
-
 /* pita biru */
 .pita {
     position: absolute; inset: auto 0 0 0; height: 178px; color: #fff;
@@ -637,7 +613,6 @@ input[readonly], input:disabled, select:disabled, textarea:disabled { background
     .pintu-ikon { width: 54px; height: 54px; border-radius: 15px; }
     .pintu-ikon svg { width: 24px; height: 24px; }
     .panel-peta { height: 360px; }
-    .kartu-bidang { right: auto; left: 22px; width: 222px; }
     .pita { height: 232px; clip-path: polygon(0 34px, 100% 0, 100% 100%, 0 100%); }
     .pita-dalam { align-items: center; flex-direction: column; justify-content: flex-end; padding-bottom: 18px; }
     .pita-merek, .pita-angka { padding-bottom: 0; margin-bottom: 0; }

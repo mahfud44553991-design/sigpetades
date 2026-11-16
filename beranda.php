@@ -8,8 +8,10 @@ declare(strict_types=1);
  *
  * Panel kanan bukan gambar hiasan: isinya geometri asli dari MariaDB supaya yang
  * dilihat orang di halaman depan sama dengan yang nanti dibuka petugas di peta.
- * Geometri diambil apa adanya karena MariaDB 10.4 tidak punya `ST_Simplify`, dan
- * 235 bidang hanya 59 KB — masih layak dibaca tanpa login.
+ * Semua bidang aktif desa dimuat sekaligus agar panel menampilkan peta desa utuh,
+ * bukan satu blok contoh. Geometri diambil apa adanya karena MariaDB 10.4 tidak
+ * punya `ST_Simplify`: koordinat dibulatkan 6 desimal (±11 cm) dan digambar di
+ * kanvas Leaflet supaya ribuan persil tetap ringan.
  */
 
 require __DIR__ . '/app/bootstrap.php';
@@ -32,59 +34,27 @@ $jumlahPemegang = (int) db_value(
      WHERE h.pemegang_nama IS NOT NULL AND TRIM(h.pemegang_nama) <> ''"
 );
 
-// Satu blok penuh sebagai sampel: bidang-bidangnya berdempetan, jadi panel kanannya
-// terbaca seperti petak sawah, bukan titik-titik acak.
-$contoh = db_one(
-    "SELECT b.blok_id, bl.nama, COUNT(*) AS jumlah
-     FROM bidang b JOIN blok bl ON bl.id = b.blok_id
-     WHERE b.status NOT IN ('dihapus', 'duplikat') AND b.geom IS NOT NULL AND b.tipe = 'tanah'
-     GROUP BY b.blok_id, bl.nama ORDER BY jumlah DESC LIMIT 1"
-);
-
+// Seluruh desa: semua bidang aktif dimuat sekaligus supaya panel kanan berisi peta
+// desa utuh. Panel hanya menggambar geometri, jadi atributnya cukup kode blok untuk
+// mewarnai; koordinat 6 desimal (±11 cm) memangkas muatan tanpa terlihat.
 $fitur = [];
-if ($contoh !== null) {
-    foreach (db_all(
-        "SELECT b.id, b.kode, b.luas_m2, b.status,
-                ST_AsGeoJSON(b.geom) AS geojson,
-                ST_X(ST_Centroid(b.geom)) AS lon, ST_Y(ST_Centroid(b.geom)) AS lat,
-                (SELECT jh.kode FROM hak h JOIN jenis_hak jh ON jh.id = h.jenis_hak_id
-                  WHERE h.bidang_id = b.id ORDER BY h.id DESC LIMIT 1) AS hak_kode,
-                (SELECT jh.nama FROM hak h JOIN jenis_hak jh ON jh.id = h.jenis_hak_id
-                  WHERE h.bidang_id = b.id ORDER BY h.id DESC LIMIT 1) AS hak_nama,
-                jp.nama AS penggunaan
-         FROM bidang b
-         LEFT JOIN jenis_penggunaan jp ON jp.id = b.jenis_penggunaan_id
-         WHERE b.blok_id = ? AND b.status NOT IN ('dihapus', 'duplikat') AND b.geom IS NOT NULL
-         ORDER BY b.id LIMIT 260",
-        [(int) $contoh['blok_id']]
-    ) as $b) {
-        $geo = json_decode((string) $b['geojson'], true);
-        if (!is_array($geo)) {
-            continue;
-        }
-        $fitur[] = [
-            'id' => (int) $b['id'],
-            'kode' => (string) $b['kode'],
-            'luas' => $b['luas_m2'] === null ? null : (float) $b['luas_m2'],
-            'status' => (string) $b['status'],
-            'hak' => $b['hak_nama'],
-            'hak_kode' => $b['hak_kode'],
-            'penggunaan' => $b['penggunaan'],
-            'lon' => (float) $b['lon'],
-            'lat' => (float) $b['lat'],
-            'geo' => $geo,
-        ];
+foreach (db_all(
+    "SELECT bl.kode AS blok, ST_AsGeoJSON(b.geom, 6) AS geojson
+     FROM bidang b
+     LEFT JOIN blok bl ON bl.id = b.blok_id
+     WHERE b.status NOT IN ('dihapus', 'duplikat') AND b.geom IS NOT NULL
+     ORDER BY b.id"
+) as $b) {
+    $geo = json_decode((string) $b['geojson'], true);
+    if (!is_array($geo)) {
+        continue;
     }
+    $fitur[] = [
+        'type' => 'Feature',
+        'geometry' => $geo,
+        'properties' => ['blok' => $b['blok']],
+    ];
 }
-
-// Bidang yang ditonjolkan di kartu info: cari yang paling lengkap datanya.
-$pilihan = null;
-foreach ($fitur as $f) {
-    if ($f['hak'] !== null && $f['luas'] !== null && $pilihan === null) {
-        $pilihan = $f;
-    }
-}
-$pilihan ??= $fitur[0] ?? null;
 
 $pintu = [
     ['peta.php', 'Peta Interaktif', 'Bidang, batas blok, dan citra satelit dalam satu tampilan.',
@@ -96,8 +66,6 @@ $pintu = [
     ['laporan.php', 'Laporan & Statistik', 'Rekap PBB per dusun, realisasi, dan piutang satu tahun pajak.',
         '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>'],
 ];
-
-$sampelBlok = $contoh['nama'] ?? ('Desa ' . $desa);
 
 sip_header('Beranda', 'beranda', ['penuh' => true, 'leaflet' => true]);
 ?>
@@ -163,7 +131,7 @@ sip_header('Beranda', 'beranda', ['penuh' => true, 'leaflet' => true]);
 
         <div class="hero-kanan">
             <div class="panel-peta">
-                <div id="peta-hero" class="peta-hero" aria-label="Contoh bidang tanah di <?= e($sampelBlok) ?>"></div>
+                <div id="peta-hero" class="peta-hero" aria-label="Peta bidang tanah seluruh Desa <?= e($desa) ?>"></div>
                 <div class="kompas" aria-hidden="true">
                     <svg viewBox="0 0 60 60" fill="none" stroke="currentColor" stroke-width="1.6">
                         <circle cx="30" cy="30" r="21"/>
@@ -176,28 +144,11 @@ sip_header('Beranda', 'beranda', ['penuh' => true, 'leaflet' => true]);
                 <div class="setir-peta" role="group" aria-label="Kontrol peta">
                     <button type="button" id="perbesar" aria-label="Perbesar">+</button>
                     <button type="button" id="perkecil" aria-label="Perkecil">&minus;</button>
-                    <button type="button" id="pusatkan" aria-label="Kembali ke seluruh blok">
+                    <button type="button" id="pusatkan" aria-label="Kembali ke seluruh desa">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9">
                             <circle cx="12" cy="12" r="4"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4" stroke-linecap="round"/>
                         </svg>
                     </button>
-                </div>
-                <div class="kartu-bidang" id="kartuBidang">
-                    <p class="kartu-bidang-kepala">
-                        <span class="kartu-bidang-ikon" aria-hidden="true">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9">
-                                <path d="M12 3 4 7v10l8 4 8-4V7Z"/><path d="M12 3v18M4 7l8 4 8-4"/>
-                            </svg>
-                        </span>
-                        <strong id="cbJudul">Bidang <?= e($pilihan['kode'] ?? '') ?></strong>
-                    </p>
-                    <dl class="kartu-bidang-isi">
-                        <dt>Luas</dt><dd id="cbLuas">—</dd>
-                        <dt>Jenis Hak</dt><dd id="cbHak">—</dd>
-                        <dt>Pemilik</dt><dd id="cbPemilik">—</dd>
-                        <dt>Penggunaan</dt><dd id="cbPenggunaan">—</dd>
-                    </dl>
-                    <p class="kartu-bidang-kaki"><span id="cbBlok">—</span> · klik bidang lain untuk mengganti</p>
                 </div>
             </div>
         </div>
@@ -264,7 +215,7 @@ $naskah = <<<'JS'
     const peta = L.map('peta-hero', {
         zoomControl: false, attributionControl: true, scrollWheelZoom: false,
         dragging: true, doubleClickZoom: true, boxZoom: false, keyboard: false,
-        touchZoom: false, zoomSnap: .25,
+        touchZoom: false, zoomSnap: .25, preferCanvas: true,
     });
     peta.attributionControl.setPrefix('');
 
@@ -272,68 +223,40 @@ $naskah = <<<'JS'
         maxZoom: 19, attribution: 'Citra &copy; Esri',
     }).addTo(peta);
 
-    const palet = { HM: '#1f9d4d', HP: '#0f4c81', HGB: '#0f4c81', HGU: '#0f4c81', KDH: '#b07d2a', BCD: '#b07d2a' };
-    const rona = (f) => (f.status === 'perlu_verifikasi' ? '#8a968f' : (palet[f.hak_kode] || '#8a968f'));
-    const angka = (v, d) => v == null ? 'belum dihitung'
-        : Number(v).toLocaleString('id-ID', { minimumFractionDigits: d || 0, maximumFractionDigits: d || 0 }) + ' m\u00B2';
+    // Sudut emas, sama dengan warna blok di peta.php: tiap blok dapat rona sendiri.
+    const warnaBlok = (kode) => {
+        const cocok = String(kode || '').match(/(\d+)/);
+        const nomor = cocok ? Number(cocok[1]) : 0;
+        return nomor ? 'hsl(' + Math.round((nomor * 137.508) % 360) + ', 38%, 44%)' : '#9aa8a2';
+    };
+    const rona = (p) => warnaBlok(p.blok);
 
-    let pilih = null;
-    const lapisan = [];
-    DATA.fitur.forEach((f) => {
-        const l = L.geoJSON(f.geo ? { type: 'Feature', geometry: f.geo, properties: {} } : null, {
-            style: { color: '#ffffff', weight: .8, opacity: .8, fillColor: rona(f), fillOpacity: .55 },
-        });
-        l.on('click', () => tampilkan(f));
-        l.addTo(peta);
-        lapisan.push({ f, l });
-    });
+    const grup = L.geoJSON(DATA.fitur, {
+        style: (f) => ({
+            color: '#ffffff', weight: .7, opacity: .75,
+            fillColor: rona(f.properties), fillOpacity: .55,
+        }),
+    }).addTo(peta);
 
-    function tampilkan(f) {
-        pilih = f;
-        lapisan.forEach((x) => x.l.setStyle(x.f === f
-            ? { color: '#12351f', weight: 2.4, opacity: 1, fillColor: rona(x.f), fillOpacity: .82 }
-            : { color: '#ffffff', weight: .8, opacity: .8, fillColor: rona(x.f), fillOpacity: .55 }));
-        document.getElementById('cbJudul').textContent = 'Bidang ' + f.kode;
-        document.getElementById('cbLuas').textContent = angka(f.luas, f.luas && f.luas % 1 ? 2 : 0);
-        document.getElementById('cbHak').textContent = f.hak || 'belum tercatat';
-        document.getElementById('cbPemilik').textContent = 'tersedia untuk petugas';
-        document.getElementById('cbPenggunaan').textContent = f.penggunaan || 'belum tercatat';
-        document.getElementById('cbBlok').textContent = DATA.blok;
-        if (penanda) { penanda.setLatLng([f.lat, f.lon]); } else {
-            penanda = L.marker([f.lat, f.lon], {
-                icon: L.divIcon({ className: 'penanda-bidang', html: '<i></i>', iconSize: [26, 34], iconAnchor: [13, 32] }),
-                interactive: false,
-            }).addTo(peta);
+    function seluruhDesa() {
+        const batas = grup.getBounds();
+        if (batas.isValid()) {
+            peta.fitBounds(batas.pad(.04));
+        } else {
+            peta.setView([DATA.pusat.lat, DATA.pusat.lon], 15);
         }
     }
-
-    let penanda = null;
-    if (DATA.fitur.length) {
-        const awal = DATA.fitur.find((f) => f.hak && f.luas) || DATA.fitur[0];
-        peta.fitBounds(L.geoJSON({ type: 'FeatureCollection', features: DATA.fitur.map((f) => ({
-            type: 'Feature', geometry: f.geo, properties: {},
-        })) }).getBounds().pad(.06));
-        tampilkan(awal);
-    } else {
-        peta.setView([DATA.pusat.lat, DATA.pusat.lon], 15);
-    }
+    seluruhDesa();
 
     document.getElementById('perbesar').addEventListener('click', () => peta.setZoom(peta.getZoom() + 1));
     document.getElementById('perkecil').addEventListener('click', () => peta.setZoom(peta.getZoom() - 1));
-    document.getElementById('pusatkan').addEventListener('click', () => {
-        if (DATA.fitur.length) {
-            peta.fitBounds(L.geoJSON({ type: 'FeatureCollection', features: DATA.fitur.map((f) => ({
-                type: 'Feature', geometry: f.geo, properties: {},
-            })) }).getBounds().pad(.06));
-        }
-    });
+    document.getElementById('pusatkan').addEventListener('click', seluruhDesa);
 })();
 </script>
 JS;
 $kaki = '<script>window.SIP_HERO = '
     . json_encode([
-        'blok' => $sampelBlok,
-        'fitur' => $fitur,
+        'fitur' => ['type' => 'FeatureCollection', 'features' => $fitur],
         'pusat' => ['lat' => (float) setelan('peta_lat_pusat', '-7.0872'),
             'lon' => (float) setelan('peta_lon_pusat', '110.0693')],
     ], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP)
