@@ -99,6 +99,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             $nama = post_str('nama_lengkap');
             $username = post_str('username');
             $peran = post_str('peran');
+            $jabatan = post_str('jabatan');
             $sandi = (string) ($_POST['password'] ?? '');
             if (len_utf8($nama) < 3 || len_utf8($nama) > 100) {
                 throw new RuntimeException('Nama lengkap wajib 3–100 karakter.');
@@ -109,12 +110,20 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             if (!array_key_exists($peran, LABEL_PERAN)) {
                 throw new RuntimeException('Peran tidak dikenal.');
             }
+            if (len_utf8($jabatan) > 60) {
+                throw new RuntimeException('Jabatan maksimal 60 karakter.');
+            }
+            // Jabatan kosong diisi label peran supaya daftar akun tidak menampilkan
+            // peran dan jabatan yang saling bertentangan.
+            if ($jabatan === '') {
+                $jabatan = peran_label($peran);
+            }
             periksa_sandi($sandi);
             if (db_value('SELECT id FROM pengguna WHERE username = ?', [$username]) !== null) {
                 throw new RuntimeException('Nama pengguna itu sudah dipakai.');
             }
 
-            $baru = db_transaksi(static function (PDO $pdo) use ($username, $sandi, $nama, $peran, $pengguna): int {
+            $baru = db_transaksi(static function (PDO $pdo) use ($username, $sandi, $nama, $jabatan, $peran, $pengguna): int {
                 $statement = $pdo->prepare(
                     'INSERT INTO pengguna (username, password_hash, nama_lengkap, jabatan, peran, is_active)
                      VALUES (?, ?, ?, ?, ?, 1)'
@@ -123,7 +132,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                     $username,
                     password_hash($sandi, PASSWORD_DEFAULT),
                     $nama,
-                    peran_label($peran),
+                    $jabatan,
                     $peran,
                 ]);
                 return (int) $pdo->lastInsertId();
@@ -147,6 +156,15 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             if (!array_key_exists($peran, LABEL_PERAN)) {
                 throw new RuntimeException('Peran tidak dikenal.');
             }
+            $jabatan = post_str('jabatan');
+            if (len_utf8($jabatan) > 60) {
+                throw new RuntimeException('Jabatan maksimal 60 karakter.');
+            }
+            // Jabatan yang belum pernah disesuaikan (masih sama dengan label peran
+            // lama, atau dikosongkan) ikut label peran baru agar tetap sinkron.
+            if ($jabatan === '' || $jabatan === peran_label($target['peran'])) {
+                $jabatan = peran_label($peran);
+            }
             $aktif = post_str('is_active') === '1';
             $superTerakhir = $target['peran'] === PERAN_SUPER && (int) $target['is_active'] === 1 && $jumlahSuperAktif <= 1;
             if ((int) $target['id'] === (int) $pengguna['id'] && $peran !== $target['peran']) {
@@ -157,7 +175,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
             }
 
             db_exec('UPDATE pengguna SET nama_lengkap = ?, jabatan = ?, peran = ?, is_active = ? WHERE id = ?',
-                [$nama, post_str('jabatan'), $peran, $aktif ? 1 : 0, $target['id']]);
+                [$nama, $jabatan, $peran, $aktif ? 1 : 0, $target['id']]);
             audit('ubah', 'pengguna', (string) $target['id'],
                 'Akun ' . $target['username'] . ' diperbarui (' . peran_label($peran) . ', ' . ($aktif ? 'aktif' : 'nonaktif') . ')',
                 ['peran' => $target['peran'], 'is_active' => $target['is_active']],
