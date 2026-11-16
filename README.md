@@ -7606,6 +7606,62 @@ kini memilih pita yang tidak kosong (arah `calon - terpasang` bila
 `cek-g01484-blok13.php` mengukur persil pindahan terhadap garis terpasang
 maupun calon.
 
+### 3.100 BLOK 8 dipangkas dari kerah penyangga 15 m (16 Nov 2026)
+
+Garis BLOK 8 (id 19) adalah "gabungan bidang anggota + penyangga 15 m":
+satu bagian, 215 koordinat (214 titik unik), 267.877,5 m², dengan
+`batas_tersedia` 1 dan `batas_perkiraan` 0. Kumpulan anggotanya 163
+persil (90 aktif, 73 perlu_verifikasi). Kerah 15 m itu menempel persil di
+barat dan timur (median 0,0 m), tetapi menonjol sampai 15,4 m di utara
+dan 8,0 m di selatan (median selatan 3,4 m, p90 keseluruhan 6,1 m).
+
+Resep yang sama dengan §3.97 dan §3.98: union persil anggota
+(`--dari-bidang --paksa --toleransi=0,2`, tanpa `--abaikan-jalan`)
+memberi satu bagian, 372 titik, 256.580,8 m², 8 jembatan, irisan blok
+lain 16,4 m² dipotong. `tutup-celah.php` (12 m, 0,2, id 19) menambah 23
+tambalan (talibusur terpanjang 10,82 m), membuang 30 tancap, memangkas
+39,6 m² terhadap garis blok lain, lalu Douglas-Peucker 0,2 m.
+
+Calon akhir: satu bagian, 0 lubang, 135 koordinat (134 titik unik),
+262.231,6 m² (-5.647,2 m²; -2,11%). Selisihnya satu arah: `terpasang -
+calon` 5.647,2 m² dalam 16 komponen (terbesar 2.620,0; 2.150,4;
+871,4 m²), sedangkan `calon - terpasang` 1,5 m² dalam 12 komponen
+nyaris nol.
+
+Pita yang dibuang berisi 5.647,17 m² persil hantu `DXF-010500-00001`
+(status `dihapus`), 871,6 m² persil BLOK 6 (`DXF-020100-G00819` 498,63
+ditambah `DXF-020100-G03332` 372,76), 14,5 m² persil BLOK 4, 6,2 m²
+BLOK 5, 1,1 m² BLOK 1, 1,9 m² BLOK 18, dan 5,9 m² persil BLOK 8 sendiri
+(gerus Douglas-Peucker). Persil anggota yang tinggal di luar garis naik
+dari 11 persil/8,99 m² menjadi 22 persil/13,72 m², terbesar 3,55 m²
+`DXF-020100-G00825`; kenaikan itu wajar karena garis kini mengikuti tepi
+persil, bukan kerah yang menutupi tonjolan kecil, dan totalnya tinggal
+13,72 m². Isi bukan-persil di dalam blok turun dari 10.149,5 m² dalam
+26 komponen menjadi 5.404,5 m² dalam 34 komponen (terbesar 5.307,1 m² di
+110.075136,-7.082810, jaringan gang).
+
+Jarak ke tetangga: BLOK 3 0,00 menjadi 3,64 m, BLOK 5 0,00 menjadi
+2,36 m, BLOK 15 0,00 menjadi 4,41 m; BLOK 7, 9, dan 16 tetap menempel
+(0,00 m); BLOK 17 31,19 menjadi 46,19 m, BLOK 18 36,70 menjadi 51,68 m,
+BLOK 6 101,99 m, BLOK 10 136,37 m.
+
+Diterapkan 16 Nov 2026 pukul 07:10: cadangan penuh
+`sebelum-rapikan-blok-8-20261116-071012-2e80.sql` (7.854.295 byte),
+jejak `storage/rapikan-blok-19-20261116-071013.json`, lalu `UPDATE blok`
+id 19 (`geom` dan `sumber_perkiraan` menjadi "garis luar bidang anggota +
+tutup celah jalan; ditetapkan"). Bendera 1/0 tidak berubah. Baca ulang:
+satu bagian, 0 lubang, 135 koordinat, 262.231,8 m², selisih tulis-baca
+0,00 m², `ST_Equals` dengan calon bernilai 1, dan irisan blok lain
+0,00 m². Angka 262.231,6 dan 262.231,8 m² adalah satu bentuk yang sama
+pada dua dasar lintang (pusat blok sebelum dan sesudah tulis).
+
+Calon `_lama/scratch/blok8-tertutup-satu.geojson`, union
+`blok8-dari-bidang.geojson`, jejak tambalan `tutup-celah-jejak.txt`,
+gambar banding `banding-blok8-calon.png`. Alat baca saja:
+`ukur-selisih-blok8.php`, `ukur-isi-blok8.php`,
+`cek-blok8-terpasang.php`, `banding-blok8.php`; penulis
+`terapkan-blok8.php`.
+
 ---
 
 ## 4. Berkas SPPT dari Excel
