@@ -341,7 +341,7 @@ sip_judul('Super Admin', 'Akun pengguna & pengaturan desa',
                             <input id="u-sandi" name="password" type="password" minlength="12" required autocomplete="new-password">
                         </div>
                     </div>
-                    <p class="petunjuk">Minimal 12 karakter, mengandung huruf dan angka. Pengamat (baca) tidak dapat mengubah data apa pun; Operator e-SPPT hanya mencatat pembayaran PBB, Operator Buku C hanya mengubah indeks Buku C, dan Operator Peralihan hanya mencatat peralihan hak.</p>
+                    <p class="petunjuk">Minimal 12 karakter, mengandung huruf dan angka. Pengamat (baca) tidak dapat mengubah data apa pun; Operator e-SPPT mengelola panel e-SPPT, Operator Buku C hanya mengubah indeks Buku C, dan Operator Peralihan hanya mencatat peralihan hak.</p>
                     <button class="tombol tombol-utama" type="submit">Buat akun</button>
                 </form>
             </div>
