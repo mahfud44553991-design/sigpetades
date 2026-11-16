@@ -71,6 +71,14 @@ declare(strict_types=1);
  *                              berpasangan (0..1), panjang_m, asal, cara. Bagian
  *                              itu dihitung dari ronde pertama dan ronde
  *                              --lebar-yatim, bukan dari pasangan yang menang.
+ *   --label-yatim=M            tahap 3: untuk label jalan yang sumbu terdekatnya
+ *                              lebih jauh dari M meter, jalankan penelusuran
+ *                              koridor dua sisi dari teks label memakai baris
+ *                              tepi, cincin persil, serta garis/cincin 020100;
+ *                              bawaan 15,0 m (= YATIM_SUMBU), 0 = mati. Tiap titik
+ *                              keluaran adalah titik tengah dua titik terdekat
+ *                              pada dua baris nyata, dan ujung rantai dipangkas
+ *                              begitu menempel sumbu yang sudah ada.
  *
  * Angka flag (`--lebar`, `--bagi-pasang`, `--benih`, `--jahit`) menerima koma
  * atau titik desimal.
@@ -192,6 +200,17 @@ declare(strict_types=1);
  * Tidak ada verifikasi titik-demi-titik terhadap sumber seperti pada si perapian:
  * koordinat sumbu memang BARU, rata-rata dua tepi, dan itu seluruh isi tahap 2.
  * Yang dilaporkan sebagai gantinya: jarak tiap titik sumbu ke tepi terdekat.
+ *
+ * Tahap 3 — sumbu untuk label yatim (--label-yatim, bawaan 15,0 m).
+ * Label jalan yang tidak punya sumbu dalam radius itu didekati dari teksnya:
+ * pasangan dua baris nyata yang berhadapan (baris tepi terbit, cincin persil,
+ * dan garis/cincin 020100) menjadi benih, lalu koridor ditelusuri per
+ * LANGKAH 2,0 m dengan syarat yang sama seperti tahap 2 (lebar <= --lebar, beda
+ * arah <= SUDUT, tengah bukan bidang dan bukan koridor air). Titik keluaran
+ * tetap titik tengah dua titik terdekat; tidak ada titik karangan. Rantai
+ * dipangkas begitu salah satu titiknya menempel sumbu yang sudah ada atau rantai
+ * yatim sebelumnya, lalu dibuang bila sisa panjangnya < MIN_PANJANG. Label yang
+ * tetap tanpa rantai dilaporkan sebagai sisa, bukan ditutup dengan garis buatan.
  *
  * Uji kering adalah bawaan; tanpa --terapkan tidak ada berkas yang ditulis.
  * Tabel bidang hanya dibaca, tidak ada satu baris pun yang ditulis.
@@ -1337,6 +1356,319 @@ function cincinDariGeojson(array $geometri): array
 }
 
 // ---------------------------------------------------------------------------
+// Tahap 3: sumbu untuk label jalan yang belum punya sumbu dekat teksnya.
+// Kandidat sisi = baris tepi terbit + cincin persil + garis/cincin 020100,
+// sebab di banyak tempat koridor jalan justru dibatasi garis persil yang tidak
+// masuk lapis tepi. Setiap titik keluaran adalah titik tengah dua titik
+// terdekat pada dua baris nyata yang berhadapan; tidak ada titik yang dikarang.
+// Ujung rantai dipangkas begitu menempel sumbu yang sudah ada (atau rantai
+// yatim sebelumnya) supaya satu koridor tidak digambar dua kali.
+// ---------------------------------------------------------------------------
+
+const YATIM_SUMBU = 15.0;
+const YATIM_KANDIDAT = 12.0;
+const YATIM_TENGAH = 4.0;
+const YATIM_DARI = 2.5;
+const YATIM_MAJU = 1.5;
+const YATIM_BIDANG = 2.0;
+const YATIM_PANGKAS = 1.2;
+const YATIM_LANGKAH = 60;
+
+/**
+ * @param list<array{kunci:string,titik:list<array{0:float,1:float}>,id?:int}> $kandidat
+ * @param array<int,array{0:string,1:float,2:float,3:string}> $label
+ * @param list<array{titik:list<array{0:float,1:float}>}> $sumbuLama
+ * @return array{fitur:list<array>,cacah:array<string,int>,sebab:array<string,int>,
+ *     berhenti:array<string,int>,sisa:list<array{0:float,1:float,2:string}>,panjang:float}
+ */
+function sumbuYatimJalan(array $kandidat, array $label, array $sumbuLama, array $kisiPoligon,
+    array $poligon, array $poligonBesar, array $kisiAir, array $segmenAir, float $radiusSumbu,
+    float $lebar): array
+{
+    $kisi = [];
+    $segmen = [];
+    foreach ($kandidat as $id => $k) {
+        tambahSegmen($kisi, $segmen, $k['titik'], SEL_KISI, $id);
+    }
+    $kisiSumbu = [];
+    $segmenSumbu = [];
+    foreach ($sumbuLama as $s) {
+        tambahSegmen($kisiSumbu, $segmenSumbu, $s['titik'], SEL_KISI);
+    }
+
+    // bedaArah() mengukur sumbu, bukan orientasi; sebelum dirata-ratakan
+    // sebagai vektor, tiap arah dibalik 180 derajat bila menjauhi acuan.
+    $searah = static function (float $h, float $acuan): float {
+        return $h + 180.0 * round(($acuan - $h) / 180.0);
+    };
+
+    /** Pasangan sisi kiri/kanan terdekat untuk satu titik dan arah. */
+    $pasang = static function (float $px, float $py, float $ax, float $ay) use ($kisi, $segmen, $kandidat,
+        $lebar): ?array {
+        $nx = -$ay;
+        $ny = $ax;
+        $arah = rad2deg(atan2($ay, $ax));
+        $batas = (int) ceil($lebar / SEL_KISI);
+        $gx = (int) floor($px / SEL_KISI);
+        $gy = (int) floor($py / SEL_KISI);
+        $sisi = ['kiri' => null, 'kanan' => null];
+        for ($ix = $gx - $batas; $ix <= $gx + $batas; $ix++) {
+            for ($iy = $gy - $batas; $iy <= $gy + $batas; $iy++) {
+                foreach (array_keys($kisi[$ix . ':' . $iy] ?? []) as $sid) {
+                    $s = $segmen[$sid];
+                    if (bedaArah($arah, (float) $s[4]) > SUDUT) {
+                        continue;
+                    }
+                    $dx = $s[2] - $s[0];
+                    $dy = $s[3] - $s[1];
+                    $pan = $dx * $dx + $dy * $dy;
+                    $t = $pan > 0.0
+                        ? max(0.0, min(1.0, (($px - $s[0]) * $dx + ($py - $s[1]) * $dy) / $pan)) : 0.0;
+                    $fx = $s[0] + $t * $dx;
+                    $fy = $s[1] + $t * $dy;
+                    $d = hypot($px - $fx, $py - $fy);
+                    if ($d < LEBAR_MIN || $d > $lebar) {
+                        continue;
+                    }
+                    $lagu = (($px - $fx) * $nx + ($py - $fy) * $ny) > 0.0 ? 'kiri' : 'kanan';
+                    if ($sisi[$lagu] === null || $d < $sisi[$lagu]['d']) {
+                        $sisi[$lagu] = ['d' => $d, 'x' => $fx, 'y' => $fy, 'arah' => (float) $s[4],
+                            'kunci' => $kandidat[(int) $s[5]]['kunci']];
+                    }
+                }
+            }
+        }
+        if ($sisi['kiri'] === null || $sisi['kanan'] === null
+            || $sisi['kiri']['kunci'] === $sisi['kanan']['kunci']) {
+            return null;
+        }
+        if (bedaArah($sisi['kiri']['arah'], $sisi['kanan']['arah']) > SUDUT) {
+            return null;
+        }
+        return [$sisi['kiri'], $sisi['kanan']];
+    };
+
+    $cacah = ['rantai >=10 m' => 0, 'rantai 4-10 m' => 0, 'rantai 2-4 m' => 0, 'gagal' => 0];
+    $sebab = ['sumbu dekat' => 0, 'tanpa benih' => 0, 'rantai pendek' => 0, 'terpasang' => 0];
+    $berhenti = ['tanpa sisi' => 0, 'koridor air' => 0, 'arah buntu' => 0, 'tutup bidang' => 0];
+    $tanpaBenih = [];
+    $fitur = [];
+    $sisa = [];
+    $panjangYatim = 0.0;
+    foreach ($label as $l) {
+        if ($l[3] !== 'jalan') {
+            continue;
+        }
+        [$teks, $x, $y] = [(string) $l[0], (float) $l[1], (float) $l[2]];
+        $dSumbu = jarakSegmen($kisiSumbu, $segmenSumbu, $x, $y, $radiusSumbu, SEL_KISI);
+        if ($dSumbu !== null) {
+            $sebab['sumbu dekat']++;
+            continue;
+        }
+        // Benih: pasangan dua baris berbeda pada sisi berlawanan, tengahnya
+        // masih di dalam koridor jalan yang ditunjuk teks label. Teks biasanya
+        // diletakkan di pinggir jalan, jadi tengah pasangan boleh sampai 4 m
+        // dari teks selama ruas penghubung kedua titik singgung memotong arah
+        // jalan dan teks masih <= 2,5 m darinya.
+        $dekat = [];
+        $batas = (int) ceil(YATIM_KANDIDAT / SEL_KISI);
+        $gx = (int) floor($x / SEL_KISI);
+        $gy = (int) floor($y / SEL_KISI);
+        for ($ix = $gx - $batas; $ix <= $gx + $batas; $ix++) {
+            for ($iy = $gy - $batas; $iy <= $gy + $batas; $iy++) {
+                foreach (array_keys($kisi[$ix . ':' . $iy] ?? []) as $sid) {
+                    $s = $segmen[$sid];
+                    $dx = $s[2] - $s[0];
+                    $dy = $s[3] - $s[1];
+                    $pan = $dx * $dx + $dy * $dy;
+                    $t = $pan > 0.0
+                        ? max(0.0, min(1.0, (($x - $s[0]) * $dx + ($y - $s[1]) * $dy) / $pan)) : 0.0;
+                    $fx = $s[0] + $t * $dx;
+                    $fy = $s[1] + $t * $dy;
+                    $d = hypot($x - $fx, $y - $fy);
+                    if ($d > YATIM_KANDIDAT) {
+                        continue;
+                    }
+                    $kid = (int) $s[5];
+                    if (!isset($dekat[$kid]) || $d < $dekat[$kid]['d']) {
+                        $dekat[$kid] = ['d' => $d,
+                            'u' => [$fx, $fy, (float) $s[4], $kandidat[$kid]['kunci']]];
+                    }
+                }
+            }
+        }
+        $seed = null;
+        $seedArah = 0.0;
+        $seedKunci = [];
+        $alasan = 0;
+        foreach ($dekat as $a) {
+            foreach ($dekat as $b) {
+                if ($a['u'][3] === $b['u'][3]) {
+                    continue;
+                }
+                $alasan = max($alasan, 1);
+                [$x1, $y1, $h1] = $a['u'];
+                [$x2, $y2, $h2] = $b['u'];
+                $w = hypot($x2 - $x1, $y2 - $y1);
+                if ($w < LEBAR_MIN) {
+                    continue;
+                }
+                if ($w > $lebar || bedaArah($h1, $h2) > SUDUT) {
+                    $alasan = max($alasan, 2);
+                    continue;
+                }
+                $mx = ($x1 + $x2) / 2;
+                $my = ($y1 + $y2) / 2;
+                $dr = hypot($mx - $x, $my - $y);
+                if ($dr > YATIM_TENGAH) {
+                    $alasan = max($alasan, 3);
+                    continue;
+                }
+                $ruas = $w * $w;
+                $t = max(0.0, min(1.0, (($x - $x1) * ($x2 - $x1) + ($y - $y1) * ($y2 - $y1)) / $ruas));
+                if (hypot($x - ($x1 + $t * ($x2 - $x1)), $y - ($y1 + $t * ($y2 - $y1))) > YATIM_DARI) {
+                    $alasan = max($alasan, 4);
+                    continue;
+                }
+                $ah = rad2deg(atan2(sin(deg2rad($h1)) + sin(deg2rad($searah($h2, $h1))),
+                    cos(deg2rad($h1)) + cos(deg2rad($searah($h2, $h1)))));
+                if (abs((($x2 - $x1) / $w) * cos(deg2rad($ah)) + (($y2 - $y1) / $w) * sin(deg2rad($ah)))
+                    > 0.574) {
+                    $alasan = max($alasan, 5);
+                    continue;
+                }
+                if ($dr > YATIM_DARI
+                    && diPoligon($mx, $my, $kisiPoligon, $poligon, $poligonBesar)) {
+                    $alasan = max($alasan, 6);
+                    continue;
+                }
+                if (diKoridorAir($kisiAir, $segmenAir, $mx, $my, $ah)) {
+                    $alasan = max($alasan, 7);
+                    continue;
+                }
+                if ($pasang($mx, $my, cos(deg2rad($ah)), sin(deg2rad($ah))) === null) {
+                    $alasan = max($alasan, 8);
+                    continue;
+                }
+                if ($seed === null || $dr < $seed['dari']) {
+                    $seed = ['x' => $mx, 'y' => $my, 'dari' => $dr];
+                    $seedArah = $ah;
+                    $seedKunci = [$a['u'][3], $b['u'][3]];
+                }
+            }
+        }
+        if ($seed === null) {
+            $cacah['gagal']++;
+            $sebab['tanpa benih']++;
+            $kunciAlasan = [0 => 'satu sisi saja', 1 => 'garis berimpit', 2 => 'koridor lebar atau tak sejajar',
+                3 => 'tengah koridor jauh dari teks', 4 => 'teks jauh dari ruas', 5 => 'teks bukan di tengah',
+                6 => 'koridor masuk bidang', 7 => 'koridor air', 8 => 'benih buntu'][$alasan];
+            $tanpaBenih[$kunciAlasan] = ($tanpaBenih[$kunciAlasan] ?? 0) + 1;
+            $sisa[] = [$x, $y, 'tanpa benih: ' . $kunciAlasan];
+            continue;
+        }
+        $pusat = [$seed['x'], $seed['y']];
+        $kunciPakai = [];
+        foreach ($seedKunci as $k) {
+            $kunciPakai[$k] = true;
+        }
+        $wSum = 0.0;
+        $wN = 0;
+        $wMin = INF;
+        $jalan = static function (array $mulai, float $arahAwal) use ($pasang, $searah, $kisiPoligon,
+            $poligon, $poligonBesar, $kisiAir, $segmenAir, $x, $y, &$kunciPakai, &$berhenti, &$wSum,
+            &$wN, &$wMin): array {
+            $p = $mulai;
+            $arahKini = $arahAwal;
+            $titik = [];
+            for ($i = 0; $i < YATIM_LANGKAH; $i++) {
+                $pas = $pasang($p[0], $p[1], cos(deg2rad($arahKini)), sin(deg2rad($arahKini)));
+                if ($pas === null) {
+                    $berhenti['tanpa sisi']++;
+                    break;
+                }
+                [$k, $n] = $pas;
+                $mx = ($k['x'] + $n['x']) / 2;
+                $my = ($k['y'] + $n['y']) / 2;
+                if (hypot($mx - $p[0], $my - $p[1]) > YATIM_MAJU) {
+                    $berhenti['arah buntu']++;
+                    break;
+                }
+                if (diKoridorAir($kisiAir, $segmenAir, $mx, $my, $arahKini)) {
+                    $berhenti['koridor air']++;
+                    break;
+                }
+                if (hypot($mx - $x, $my - $y) > YATIM_BIDANG
+                    && diPoligon($mx, $my, $kisiPoligon, $poligon, $poligonBesar)) {
+                    $berhenti['tutup bidang']++;
+                    break;
+                }
+                $titik[] = [$mx, $my];
+                $kunciPakai[$k['kunci']] = true;
+                $kunciPakai[$n['kunci']] = true;
+                $wSum += hypot($k['x'] - $n['x'], $k['y'] - $n['y']);
+                $wMin = min($wMin, hypot($k['x'] - $n['x'], $k['y'] - $n['y']));
+                $wN++;
+                $arahKini = rad2deg(atan2(
+                    sin(deg2rad($searah($k['arah'], $arahKini))) + sin(deg2rad($searah($n['arah'], $arahKini))),
+                    cos(deg2rad($searah($k['arah'], $arahKini))) + cos(deg2rad($searah($n['arah'], $arahKini)))));
+                $p = [$mx + cos(deg2rad($arahKini)) * LANGKAH, $my + sin(deg2rad($arahKini)) * LANGKAH];
+            }
+            return $titik;
+        };
+        $maju = $jalan($pusat, $seedArah);
+        $mundur = $jalan($pusat, $seedArah + 180.0);
+        $potong = static function (array $titik) use ($kisiSumbu, $segmenSumbu): array {
+            $keluar = [];
+            foreach ($titik as $tp) {
+                if (jarakSegmen($kisiSumbu, $segmenSumbu, (float) $tp[0], (float) $tp[1],
+                    YATIM_PANGKAS, SEL_KISI) !== null) {
+                    break;
+                }
+                $keluar[] = $tp;
+            }
+            return $keluar;
+        };
+        $maju = $potong($maju);
+        $mundur = $potong($mundur);
+        $bersih = [];
+        foreach (array_merge(array_reverse($mundur), [$pusat], $maju) as $tp) {
+            if ($bersih === [] || hypot($tp[0] - $bersih[count($bersih) - 1][0],
+                $tp[1] - $bersih[count($bersih) - 1][1]) >= 0.05) {
+                $bersih[] = $tp;
+            }
+        }
+        $p = panjang($bersih);
+        if ($p < MIN_PANJANG) {
+            $cacah['gagal']++;
+            $sebab['rantai pendek']++;
+            $sisa[] = [$x, $y, 'rantai ' . angkaNum($p, 2) . ' m'];
+            continue;
+        }
+        $sebab['terpasang']++;
+        $cacah[$p >= 10.0 ? 'rantai >=10 m' : ($p >= 4.0 ? 'rantai 4-10 m' : 'rantai 2-4 m')]++;
+        $panjangYatim += $p;
+        $fitur[] = ['titik' => $bersih, 'panjang' => $p, 'lebar' => $wN > 0 ? $wSum / $wN : 0.0,
+            'lebar_min' => $wMin === INF ? 0.0 : $wMin,
+            'tepinya' => array_keys($kunciPakai), 'label' => $teks];
+        tambahSegmen($kisiSumbu, $segmenSumbu, $bersih, SEL_KISI);
+    }
+    $terjangkau = 0;
+    foreach ($label as $l) {
+        if ($l[3] !== 'jalan') {
+            continue;
+        }
+        if (jarakSegmen($kisiSumbu, $segmenSumbu, (float) $l[1], (float) $l[2], $radiusSumbu,
+            SEL_KISI) !== null) {
+            $terjangkau++;
+        }
+    }
+    return ['fitur' => $fitur, 'cacah' => $cacah, 'sebab' => $sebab, 'berhenti' => $berhenti,
+        'tanpa_benih' => $tanpaBenih, 'sisa' => $sisa, 'panjang' => $panjangYatim,
+        'terjangkau' => $terjangkau];
+}
+
+// ---------------------------------------------------------------------------
 // Argumen
 // ---------------------------------------------------------------------------
 
@@ -1357,6 +1689,7 @@ $bagiPasang = BAGI_PASANG;
 $jahitMaks = JAHIT;
 $pembatasKeluar = 'hapus';
 $cincinKeluar = 'hapus';
+$radiusYatim = YATIM_SUMBU;
 foreach (array_slice($argv, 1) as $a) {
     if ($a === '--terapkan') {
         $terapkan = true;
@@ -1419,6 +1752,8 @@ foreach (array_slice($argv, 1) as $a) {
         $pembatasKeluar = substr($a, 18);
     } elseif (str_starts_with($a, '--cincin=')) {
         $cincinKeluar = substr($a, 9);
+    } elseif (str_starts_with($a, '--label-yatim=')) {
+        $radiusYatim = angkaFlag(substr($a, 14), '--label-yatim');
     } else {
         galat('argumen tidak dikenal: ' . $a);
     }
@@ -1467,6 +1802,9 @@ if (!in_array($pembatasKeluar, ['hapus', 'simpan'], true)) {
 if (!in_array($cincinKeluar, ['hapus', 'simpan'], true)) {
     galat('--cincin harus hapus atau simpan');
 }
+if ($radiusYatim !== 0.0 && ($radiusYatim < 5.0 || $radiusYatim > 50.0)) {
+    galat('--label-yatim harus 0 (mati) atau antara 5 dan 50 meter');
+}
 printf("mode: tahap %s · sumber tepi %s · tepi diterbitkan %s · benih %s m%s · lebar koridor maksimum %s m%s"
     . " · bagi pasang %s · jahit celah %s m · cincin %s · pembatas persil %s · %s · %s\n",
     $tahap, $sumberTepi, $tepiKeluar, angkaNum($benihMaks, 1),
@@ -1479,6 +1817,9 @@ printf("mode: tahap %s · sumber tepi %s · tepi diterbitkan %s · benih %s m%s 
     $pembatasKeluar,
     $eksklusif ? 'label jalan harus yang terdekat' : 'kelas lain tidak jadi syarat',
     $terapkan ? 'TERAPKAN' : 'uji kering');
+printf("label yatim: %s\n", $radiusYatim === 0.0
+    ? 'dimatikan (--label-yatim=0)'
+    : 'label jalan tanpa sumbu dalam ' . angkaNum($radiusYatim, 1) . ' m dikejar rantai baru');
 
 // ---------------------------------------------------------------------------
 // Bahan: 020100, tabel bidang, dan label
@@ -1497,6 +1838,9 @@ $besarBidang = [];
 $kandidat = [];
 $cincin020100 = [];
 $cincinBidang = [];
+$garisYatim = [];
+$cincinYatim = [];
+$ringYatim = [];
 $jumlahPoligon020100 = 0;
 
 foreach (geojsonBaca(DIR_LAPISAN . '/' . BERKAS_SUMBER . '.geojson') as $indeks => $f) {
@@ -1511,12 +1855,18 @@ foreach (geojsonBaca(DIR_LAPISAN . '/' . BERKAS_SUMBER . '.geojson') as $indeks 
         if ($deriveTepi && count($ring) >= 4) {
             $cincin020100[(int) $indeks] = $ring;
         }
+        if ($radiusYatim > 0.0 && count($ring) >= 4) {
+            $cincinYatim[(int) $indeks] = $ring;
+        }
     } elseif ($tipe === 'LineString' && count((array) ($g['coordinates'] ?? [])) >= 2) {
         $titik = array_map(static fn(array $p): array => [(float) $p[0], (float) $p[1]],
             (array) $g['coordinates']);
         if ($deriveTepi) {
             $kandidat['G:' . (int) $indeks] = ['titik' => $titik, 'panjang' => panjang($titik),
                 'sumber' => '020100', 'indeks' => (int) $indeks, 'asal' => 'garis'];
+        }
+        if ($radiusYatim > 0.0) {
+            $garisYatim[(int) $indeks] = $titik;
         }
         tambahSegmen($kisiUlang, $segmenUlang, $titik, SEL_KISI);
     }
@@ -1532,6 +1882,7 @@ foreach ((array) db_all('SELECT id, ST_AsGeoJSON(geom) AS geojson FROM bidang '
     if (!is_array($geometri)) {
         continue;
     }
+    $urutPersil = 0;
     foreach (cincinDariGeojson($geometri) as $ring) {
         $jumlahPersil++;
         $sebelumPoligon = count($poligon);
@@ -1546,6 +1897,11 @@ foreach ((array) db_all('SELECT id, ST_AsGeoJSON(geom) AS geojson FROM bidang '
         if ($deriveTepi) {
             $cincinBidang[(int) $baris['id']] = $ring;
         }
+        if ($radiusYatim > 0.0) {
+            $ringYatim[] = ['kunci' => 'persil:' . (int) $baris['id'] . ':' . $urutPersil,
+                'titik' => $ring];
+        }
+        $urutPersil++;
     }
 }
 printf("bidang dari basis data (dibaca saja): %d persil · %d segmen tepi total · kisi permukaan"
@@ -2567,6 +2923,57 @@ foreach ($jalurSum as $nd) {
 }
 usort($fitur, static fn(array $a, array $b): int => $b['panjang'] <=> $a['panjang']);
 
+// ---------------------------------------------------------------------------
+// Tahap 3: label jalan tanpa sumbu dekat teksnya. Berjalan pada himpunan tepi
+// sebelum --tepi=terpakai membuang baris, jadi baris yang dipakai rantai yatim
+// ikut dipertahankan; setelah saring siklus lepas, rujukan yang hilang dicabut.
+// ---------------------------------------------------------------------------
+$yatimFitur = [];
+$yatim = null;
+$yatimKandidat = ['tepi' => 0, 'persil' => 0, 'garis' => 0, 'cincin' => 0];
+$idKunci = [];
+foreach ($tepi as $id => $t) {
+    $idKunci['tepi:' . $t['kunci']] = (int) $id;
+}
+if ($radiusYatim > 0.0) {
+    $kandidatYatim = [];
+    foreach ($tepi as $id => $t) {
+        $kandidatYatim[] = ['kunci' => 'tepi:' . $t['kunci'], 'titik' => $t['titik'], 'id' => (int) $id];
+        $yatimKandidat['tepi']++;
+    }
+    foreach ($ringYatim as $r) {
+        $kandidatYatim[] = $r;
+        $yatimKandidat['persil']++;
+    }
+    foreach ($garisYatim as $indeks => $titik) {
+        $kandidatYatim[] = ['kunci' => 'garis:' . $indeks, 'titik' => $titik];
+        $yatimKandidat['garis']++;
+    }
+    foreach ($cincinYatim as $indeks => $ring) {
+        $kandidatYatim[] = ['kunci' => 'cincin:' . $indeks, 'titik' => $ring];
+        $yatimKandidat['cincin']++;
+    }
+    $sumbuLama = array_map(static fn(array $f): array => ['titik' => $f['titik']], $fitur);
+    $yatim = sumbuYatimJalan($kandidatYatim, $label, $sumbuLama, $kisiPoligon, $poligon,
+        $poligonBesar, $kisiAir, $segmenAir, $radiusYatim, $lebarMaks);
+    $yatimFitur = $yatim['fitur'];
+    printf("label yatim: %d kandidat (%s) · %d label jalan · %d rantai baru / %s m\n",
+        count($kandidatYatim), implode(', ', array_map(
+            static fn(string $k, int $n): string => $k . ' ' . $n,
+            array_keys($yatimKandidat), array_values($yatimKandidat))), $labelJalan,
+        count($yatimFitur), angkaNum($yatim['panjang'], 1));
+    printf("             penanda: %s\n             berhenti: %s\n",
+        json_encode($yatim['sebab'], JSON_UNESCAPED_UNICODE),
+        json_encode($yatim['berhenti'], JSON_UNESCAPED_UNICODE));
+    printf("             label jalan terjangkau sumbu dalam %s m: %d dari %d\n",
+        angkaNum($radiusYatim, 1), $yatim['terjangkau'], $labelJalan);
+    if (($yatim['tanpa_benih'] ?? []) !== []) {
+        printf("             tanpa benih: %s\n", json_encode($yatim['tanpa_benih'], JSON_UNESCAPED_UNICODE));
+    }
+} else {
+    echo 'label yatim: dimatikan (--label-yatim=0).' . PHP_EOL;
+}
+
 // 5. Keluaran tepi. Baris yang tidak dipakai satu pun sumbu (tidak muncul di
 // `tepi_all`) adalah tepian bidang tanah yang ikut terklaim; --tepi=terpakai
 // membuangnya supaya lapis tepi jalan tidak terbaca sebagai peta bidang.
@@ -2574,6 +2981,13 @@ $idTerpakai = [];
 foreach ($fitur as $f) {
     foreach ($f['tepi_id'] as $id) {
         $idTerpakai[(int) $id] = true;
+    }
+}
+foreach ($yatimFitur as $f) {
+    foreach ($f['tepinya'] as $kunci) {
+        if (isset($idKunci[$kunci])) {
+            $idTerpakai[$idKunci[$kunci]] = true;
+        }
     }
 }
 ksort($idTerpakai);
@@ -2646,6 +3060,29 @@ if ($cincinKeluar === 'hapus') {
     echo 'saring siklus lepas: dimatikan (--cincin=simpan).' . PHP_EOL;
 }
 
+if ($yatimFitur !== []) {
+    $kunciTerbit = [];
+    foreach ($tepiTerbit as $t) {
+        $kunciTerbit['tepi:' . $t['kunci']] = true;
+    }
+    $cabutYatim = 0;
+    foreach ($yatimFitur as &$f) {
+        $tetap = [];
+        foreach ($f['tepinya'] as $kunci) {
+            if (str_starts_with($kunci, 'tepi:') && !isset($kunciTerbit[$kunci])) {
+                $cabutYatim++;
+                continue;
+            }
+            $tetap[] = $kunci;
+        }
+        $f['tepinya'] = $tetap;
+    }
+    unset($f);
+    if ($cabutYatim > 0) {
+        printf("label yatim: %d rujukan tepi dicabut saring siklus lepas\n", $cabutYatim);
+    }
+}
+
 $daftar = [];
 foreach ($fitur as $i => $f) {
     $daftar[] = [
@@ -2661,6 +3098,36 @@ foreach ($fitur as $i => $f) {
             'asal' => $f['asal'],
             'cara_tepi' => $f['cara'],
             'cara' => 'sumbu',
+            'label' => $f['label'],
+        ],
+        'geometry' => ['type' => 'LineString', 'coordinates' => $f['titik']],
+    ];
+}
+
+$panjangYatim = 0.0;
+foreach ($yatimFitur as $f) {
+    $asalYatim = [];
+    foreach ($f['tepinya'] as $kunci) {
+        $asalYatim[str_starts_with($kunci, 'persil:') ? 'bidang'
+            : (str_starts_with($kunci, 'tepi:') ? 'terbit' : '020100')] = true;
+    }
+    $asalYatim = array_keys($asalYatim);
+    $panjangYatim += $f['panjang'];
+    $daftar[] = [
+        'type' => 'Feature',
+        'properties' => [
+            'kode' => sprintf('SUMBU-%04d', count($daftar) + 1),
+            'sumber' => 'label-jalan',
+            'panjang_m' => round($f['panjang'], 2),
+            'lebar_m' => round($f['lebar'], 2),
+            'jumlah_bagian' => count($f['titik']),
+            'jumlah_tepi' => count($f['tepinya']),
+            'tepi_all' => array_map(
+                static fn(string $k): string => str_starts_with($k, 'tepi:') ? substr($k, 5) : $k,
+                $f['tepinya']),
+            'asal' => count($asalYatim) > 1 ? 'campur' : ($asalYatim[0] ?? 'yatim'),
+            'cara_tepi' => ['label-yatim' => count($f['tepinya'])],
+            'cara' => 'sumbu-yatim',
             'label' => $f['label'],
         ],
         'geometry' => ['type' => 'LineString', 'coordinates' => $f['titik']],
@@ -2702,8 +3169,27 @@ $panjangSum = array_sum(array_map(static fn(array $f): float => $f['panjang'], $
 $lebarSum = $panjangSum > 0.0
     ? array_sum(array_map(static fn(array $f): float => $f['lebar'] * $f['panjang'], $fitur)) / $panjangSum
     : 0.0;
-printf("sumbu: %d segmen · %s m · lebar timbang panjang %s m · pita lebar %s\n", count($fitur),
-    angkaNum($panjangSum, 1), angkaNum($lebarSum, 2), json_encode($pitaLebar, JSON_UNESCAPED_UNICODE));
+foreach ($yatimFitur as $f) {
+    $pita = match (true) {
+        $f['lebar'] <= 1.0 => '<=1 m',
+        $f['lebar'] <= 2.0 => '1-2 m',
+        $f['lebar'] <= 4.0 => '2-4 m',
+        $f['lebar'] <= 6.0 => '4-6 m',
+        default => '>6 m',
+    };
+    $pitaLebar[$pita]++;
+}
+if ($panjangYatim > 0.0) {
+    $lebarYatimRata = array_sum(array_map(
+        static fn(array $f): float => $f['lebar'] * $f['panjang'], $yatimFitur)) / $panjangYatim;
+    $lebarSum = $panjangSum > 0.0
+        ? ($lebarSum * $panjangSum + $lebarYatimRata * $panjangYatim) / ($panjangSum + $panjangYatim)
+        : $lebarYatimRata;
+    $panjangSum += $panjangYatim;
+}
+printf("sumbu: %d segmen · %s m (termasuk %s m dari %d rantai label yatim) · lebar timbang panjang %s m"
+    . " · pita lebar %s\n", count($daftar), angkaNum($panjangSum, 1), angkaNum($panjangYatim, 1),
+    count($yatimFitur), angkaNum($lebarSum, 2), json_encode($pitaLebar, JSON_UNESCAPED_UNICODE));
 printf("       dibuang pendek (< %s m): %d · jarak titik sumbu ke tepi: median %s m, maksimum %s m"
     . " (%d titik diuji, %d tidak menemukan tepi dalam %s m)\n", angkaNum(MIN_PANJANG, 1),
     $buangPendekSumbu, angkaNum($medan($jarakTepi), 2),
@@ -2803,7 +3289,10 @@ $meta['layers'][JUDUL_SUMBU] = [
     'file' => BERKAS_SUMBU . '.geojson',
     'panjang_m' => (int) round($panjangSum),
     'derived_from' => 'rata-rata dua sisi tepi ' . BERKAS_TEPI . '.geojson yang saling berhadapan di dalam'
-        . ' koridor kosong; satu garis per segmen antara dua ujung, persimpangan, atau ruas jahitan',
+        . ' koridor kosong; satu garis per segmen antara dua ujung, persimpangan, atau ruas jahitan.'
+        . ' Rantai label yatim (label jalan tanpa sumbu dalam ' . angkaNum($radiusYatim, 1) . ' m) boleh'
+        . ' memasangkan tepi dengan cincin persil atau garis/cincin 020100, dan dipangkas begitu'
+        . ' menempel sumbu yang sudah ada',
     'ambang' => ['lebar_min_m' => LEBAR_MIN, 'lebar_maks_m' => $lebarMaks,
         'lebar_yatim_m' => $lebarYatim,
         'sudut_pasang_derajat' => SUDUT_PASANG, 'bagi_pasang' => $bagiPasang, 'ragu_sisi_m' => RAGU_SISI,
@@ -2820,6 +3309,13 @@ $meta['layers'][JUDUL_SUMBU] = [
         'yatim_untai' => count($jalur) - $untaiSebelum,
         'yatim_panjang_m' => round($panjangTerbaiki, 1),
         'yatim_tolak_air' => $tolakAirYatim],
+    'label_yatim' => ['aturan' => $radiusYatim > 0.0 ? 'aktif' : 'mati',
+        'radius_sumbu_m' => $radiusYatim, 'lebar_koridor_m' => $lebarMaks,
+        'langkah_m' => LANGKAH, 'pangkas_sumbu_m' => YATIM_PANGKAS,
+        'kandidat' => $yatimKandidat, 'label_jalan' => $labelJalan,
+        'rantai' => count($yatimFitur), 'panjang_m' => round($panjangYatim, 1),
+        'penanda' => $yatim['sebab'] ?? [], 'berhenti' => $yatim['berhenti'] ?? [],
+        'sisa_tanpa_rantai' => count($yatim['sisa'] ?? [])],
     'lebar_m' => ['timbang_panjang' => round($lebarSum, 2), 'pita' => $pitaLebar],
     'verifikasi' => ['titik_diuji' => count($jarakTepi), 'tanpa_tepi' => $jarakHilang,
         'ke_tepi_median_m' => round($medan($jarakTepi), 2),
