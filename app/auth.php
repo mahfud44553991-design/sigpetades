@@ -10,17 +10,31 @@ declare(strict_types=1);
 const PERAN_SUPER = 'super_admin';
 const PERAN_ADMIN = 'admin';
 const PERAN_KEWIL = 'kewilayahan';
+const PERAN_ESPPT = 'esppt';
+const PERAN_BUKU_C = 'buku_c';
+const PERAN_PERALIHAN = 'peralihan';
 const PERAN_BACA  = 'baca';
 
 const LABEL_PERAN = [
     PERAN_SUPER => 'Super Admin',
     PERAN_ADMIN => 'Admin',
     PERAN_KEWIL => 'Kewilayahan',
+    PERAN_ESPPT => 'Operator e-SPPT',
+    PERAN_BUKU_C => 'Operator Buku C',
+    PERAN_PERALIHAN => 'Operator Peralihan',
     PERAN_BACA  => 'Pengamat (hanya baca)',
 ];
 
 /** Peran yang boleh mengubah data pertanahan. */
 const PERAN_PENGELOLA = [PERAN_SUPER, PERAN_ADMIN];
+
+/**
+ * Wewenang tiap modul dipisah supaya operator hanya menyentuh tata usahanya
+ * sendiri; data bidang/blok tetap milik pengelola pertanahan.
+ */
+const PERAN_PENGELOLA_SPPT = [PERAN_SUPER, PERAN_ADMIN, PERAN_ESPPT];
+const PERAN_PENGELOLA_BUKU_C = [PERAN_SUPER, PERAN_ADMIN, PERAN_BUKU_C];
+const PERAN_PENGELOLA_PERALIHAN = [PERAN_SUPER, PERAN_ADMIN, PERAN_PERALIHAN];
 
 function peran_label(?string $peran): string
 {
@@ -171,6 +185,24 @@ function boleh_kelola(): bool
 {
     $pengguna = pengguna_aktif();
     return $pengguna !== null && in_array($pengguna['peran'], PERAN_PENGELOLA, true);
+}
+
+function boleh_kelola_sppt(): bool
+{
+    $pengguna = pengguna_aktif();
+    return $pengguna !== null && in_array($pengguna['peran'], PERAN_PENGELOLA_SPPT, true);
+}
+
+function boleh_kelola_buku_c(): bool
+{
+    $pengguna = pengguna_aktif();
+    return $pengguna !== null && in_array($pengguna['peran'], PERAN_PENGELOLA_BUKU_C, true);
+}
+
+function boleh_kelola_peralihan(): bool
+{
+    $pengguna = pengguna_aktif();
+    return $pengguna !== null && in_array($pengguna['peran'], PERAN_PENGELOLA_PERALIHAN, true);
 }
 
 function boleh_baca_pribadi(): bool

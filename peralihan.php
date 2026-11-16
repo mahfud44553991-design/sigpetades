@@ -12,7 +12,7 @@ declare(strict_types=1);
 require __DIR__ . '/app/bootstrap.php';
 
 $pengguna = wajib_masuk();
-$kelola = boleh_kelola();
+$kelola = boleh_kelola_peralihan();
 
 const STATUS_PERALIHAN = [
     'Diajukan' => 'lencana-kuning',
@@ -28,7 +28,7 @@ $tahunTersedia = array_map('strval', db_all('SELECT DISTINCT YEAR(tanggal) t FRO
 // Pendaftaran & perubahan
 // ---------------------------------------------------------------------------
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
-    wajib_masuk(PERAN_PENGELOLA);
+    wajib_masuk(PERAN_PENGELOLA_PERALIHAN);
     wajib_csrf();
 
     $aksi = post_str('aksi');

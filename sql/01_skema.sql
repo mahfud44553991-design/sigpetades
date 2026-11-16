@@ -38,7 +38,7 @@ CREATE TABLE `pengguna` (
   `password_hash`   varchar(255) NOT NULL,
   `nama_lengkap`    varchar(100) NOT NULL,
   `jabatan`         varchar(60)  NOT NULL DEFAULT '',
-  `peran`           enum('super_admin','admin','kewilayahan','baca') NOT NULL DEFAULT 'baca',
+  `peran`           enum('super_admin','admin','kewilayahan','esppt','buku_c','peralihan','baca') NOT NULL DEFAULT 'baca',
   `is_active`       tinyint(1)   NOT NULL DEFAULT 1,
   `gagal_login`     smallint(6)  NOT NULL DEFAULT 0,
   `terkunci_sampai` datetime     DEFAULT NULL,

@@ -14,7 +14,7 @@ declare(strict_types=1);
 require __DIR__ . '/app/bootstrap.php';
 
 $pengguna = wajib_masuk();
-$bolehUbah = boleh_kelola();
+$bolehUbah = boleh_kelola_buku_c();
 
 const JENIS_BUKU_C = ['C-1', 'C-2', 'C-3'];
 
@@ -65,7 +65,7 @@ if (get_str('ekspor') === 'csv') {
 // Perubahan data (pengelola saja)
 // ---------------------------------------------------------------------------
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
-    wajib_masuk(PERAN_PENGELOLA);
+    wajib_masuk(PERAN_PENGELOLA_BUKU_C);
     wajib_csrf();
 
     $id = post_int('id');

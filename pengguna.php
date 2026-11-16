@@ -241,7 +241,11 @@ sip_judul('Super Admin', 'Akun pengguna & pengaturan desa',
                                 </td>
                                 <td class="nobreak"><?= e($u['username']) ?></td>
                                 <td><?= e($u['jabatan'] ?: '—') ?></td>
-                                <td><span class="lencana <?= $u['peran'] === PERAN_SUPER ? 'lencana-biru' : ($u['peran'] === PERAN_BACA ? 'lencana-abu' : 'lencana-hijau') ?>"><?= e(peran_label($u['peran'])) ?></span></td>
+                                <td><span class="lencana <?= e([
+                                    PERAN_SUPER => 'lencana-biru',
+                                    PERAN_ESPPT => 'lencana-kuning',
+                                    PERAN_BACA  => 'lencana-abu',
+                                ][$u['peran']] ?? 'lencana-hijau') ?>"><?= e(peran_label($u['peran'])) ?></span></td>
                                 <td class="tengah">
                                     <?php if ($terkunci): ?>
                                         <span class="lencana lencana-merah">Terkunci</span>
@@ -319,7 +323,7 @@ sip_judul('Super Admin', 'Akun pengguna & pengaturan desa',
                             <input id="u-sandi" name="password" type="password" minlength="12" required autocomplete="new-password">
                         </div>
                     </div>
-                    <p class="petunjuk">Minimal 12 karakter, mengandung huruf dan angka. Pengamat (baca) tidak dapat mengubah data apa pun.</p>
+                    <p class="petunjuk">Minimal 12 karakter, mengandung huruf dan angka. Pengamat (baca) tidak dapat mengubah data apa pun; Operator e-SPPT hanya mencatat pembayaran PBB, Operator Buku C hanya mengubah indeks Buku C, dan Operator Peralihan hanya mencatat peralihan hak.</p>
                     <button class="tombol tombol-utama" type="submit">Buat akun</button>
                 </form>
             </div>

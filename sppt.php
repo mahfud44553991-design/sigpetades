@@ -13,7 +13,7 @@ declare(strict_types=1);
 require __DIR__ . '/app/bootstrap.php';
 
 $pengguna = wajib_masuk();
-$bolehUbah = boleh_kelola();
+$bolehUbah = boleh_kelola_sppt();
 
 const STATUS_BAYAR = [
     'Lunas' => 'lencana-hijau',
@@ -81,7 +81,7 @@ if (get_str('ekspor') === 'csv') {
 // Pencatatan pembayaran
 // ---------------------------------------------------------------------------
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
-    wajib_masuk(PERAN_PENGELOLA);
+    wajib_masuk(PERAN_PENGELOLA_SPPT);
     wajib_csrf();
 
     $nop = normalkan_nop(post_str('nop'));
