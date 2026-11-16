@@ -7564,6 +7564,48 @@ Gambar `_lama/scratch/banding-blok13-terpasang.png`: kiri dari jejak
 `ukur-isi-blok13.php`, `cek-blok13-terpasang.php`, `banding-blok13.php`,
 dan `banding-blok13-terpasang.php`; penulis `terapkan-blok13.php`.
 
+### 3.99 BLOK 13 disusulkan setelah satu persil pindah blok (16 Nov 2026)
+
+Lima menit setelah garis §3.98 ditulis, pukul 06:54:19, Super Admin
+memindahkan persil `DXF-020100-G01484` (148,41 m², status aktif) dari
+`blok_id` 14 (BLOK 12) ke `blok_id` 12 (BLOK 13) lewat halaman bidang;
+audit_log 3642 mencatat data sebelum dan sesudahnya. Persil itu seluruhnya
+berada di luar garis yang terpasang, jadi hitungan anggota berubah dari
+188 persil/19 di luar garis (19,05 m²) menjadi 189 persil/20 di luar
+garis (167,46 m²) tanpa satu titik pun berubah pada `blok.geom`.
+
+Resep yang sama diulang dari kumpulan persil sekarang, bukan dari garis
+lama. Union `--dari-bidang --paksa --toleransi=0,2 --abaikan-jalan`
+memberi satu bagian, 651 titik, 215.135,7 m², 19 jembatan, irisan blok
+lain 1,3 m² dipotong; `tutup-celah.php` (12 m, 0,2, id 12) menambah 65
+tambalan, membuang 8 tancap, lalu Douglas-Peucker 0,2 m. Calon baru: satu
+bagian, 0 lubang, 205 koordinat (204 titik unik), 220.841,4 m².
+
+Selisih terhadap garis §3.98 hanya satu arah: `terpasang - calon` 0,00 m²
+dalam 0 komponen, sedangkan `calon - terpasang` 148,4 m² dalam satu
+komponen 15 x 16 m di 110.059739,-7.086102 yang isinya persis persil
+G01484 (irisan 148,41 m²). Tidak ada bagian lain yang bergeser, dan jarak
+ke tetangga tetap: BLOK 12 0,00 m (menempel, irisan 0,00), BLOK 14 3,02
+m, BLOK 20 8,46 m, BLOK 19 90,86 m, BLOK 10 66,58 m.
+
+Diterapkan 16 Nov 2026 pukul 06:59: cadangan penuh
+`sebelum-rapikan-blok-13-20261116-065916-8cc9.sql` (7.851.423 byte),
+jejak `storage/rapikan-blok-12-20261116-065917.json`, lalu `UPDATE blok`
+id 12 dengan `sumber_perkiraan` yang sama. Baca ulang: satu bagian, 0
+lubang, 205 koordinat, 220.841,4 m², selisih tulis-baca 0,00 m²,
+`ST_Equals` dengan calon bernilai 1; bendera 1/0 tidak berubah; irisan
+blok lain 0,00 m². Sesudahnya anggota 189 persil dengan 19 persil di luar
+garis (19,05 m², terbesar 5,46 m² `DXF-020100-G01900`), dan G01484 kini
+0,00 m² di luar garis.
+
+Calon `_lama/scratch/blok13-tertutup-satu-ulang.geojson`; jejak tambalan
+`tutup-celah-jejak.txt` dengan salinan lama
+`tutup-celah-jejak-sebelum-ulang-blok13.txt`. `ukur-selisih-blok13.php`
+kini memilih pita yang tidak kosong (arah `calon - terpasang` bila
+`terpasang - calon` nol) supaya tidak galat pada `jarakM(null)`, dan
+`cek-g01484-blok13.php` mengukur persil pindahan terhadap garis terpasang
+maupun calon.
+
 ---
 
 ## 4. Berkas SPPT dari Excel
