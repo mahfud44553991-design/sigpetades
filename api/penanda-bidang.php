@@ -14,9 +14,11 @@ declare(strict_types=1);
  *
  * Pratinjau memilih bidang terkecil yang memuat titik: poligon tertutup
  * 020100, lalu garis bidang tertutup (LineString yang ujungnya bertemu),
- * lalu rangkaian seluruh garis 020100 yang membentuk cincin. Untuk titik di
- * kantong terbuka, "garis-baru" memotong garis pada titik potong lalu
- * menelusuri muka terkecil yang memuat titik, sehingga batasnya mengikuti
+ * lalu rangkaian seluruh garis 020100 yang membentuk cincin. Titik yang kalah
+ * pada ketiganya dicocokkan ke Bidang kadastrum: persil tabel bidang yang
+ * memuat titik, lalu muka yang dibatasi garis dan tepi cincin Polygon 020100.
+ * Untuk titik di kantong terbuka, "garis-baru" memotong garis pada titik potong
+ * lalu menelusuri muka terkecil yang memuat titik, sehingga batasnya mengikuti
  * garis sebelahnya. Geometri selalu dibaca ulang dari berkas layer di server,
  * tidak pernah dari klien.
  *
@@ -58,6 +60,7 @@ function catatanPenanda(string $jenis, string $handle, float $x, float $y, ?arra
     $asal = match ($jenis) {
         'garis' => 'rangkaian garis',
         'garis-baru' => 'garis bidang baru dari garis sekitar ' . ($handle !== '' ? $handle : 'tanpa handle'),
+        'kadastrum' => 'Bidang kadastrum ' . ($handle !== '' ? $handle : 'tanpa handle'),
         'garis-tertutup' => 'garis bidang tertutup ' . ($handle !== '' ? $handle : 'tanpa handle'),
         default => 'poligon tertutup ' . ($handle !== '' ? $handle : 'tanpa handle'),
     };
@@ -187,7 +190,7 @@ function susunBatch(array $titik): array
     foreach ($titik as $nomor => [$x, $y]) {
         $baris = ['i' => $nomor, 'x' => $x, 'y' => $y];
 
-        $ditemukan = bidangDiTitik($konteks, $x, $y);
+        $ditemukan = bidangDiTitik($konteks, $x, $y, true, true);
         if ($ditemukan === null) {
             $hasil[] = $baris + [
                 'status' => 'gagal',
@@ -299,9 +302,9 @@ if ($aksi === 'pratinjau') {
         json_error('Koordinat penanda tidak sah.', 422);
     }
 
-    $ditemukan = bidangDariPenanda(fiturLapisanPetaInduk('020100'), $x, $y);
+    $ditemukan = bidangDariPenanda(fiturLapisanPetaInduk('020100'), $x, $y, null, true);
     if ($ditemukan === null) {
-        json_error('Penanda tidak berada di dalam poligon tertutup, garis bidang tertutup, atau rangkaian garis 020100 yang menutup. Pakai “Bidang dari garis sekitar” untuk membentuk bidang baru.', 422);
+        json_error('Penanda tidak berada di dalam poligon tertutup, garis bidang tertutup, rangkaian garis 020100 yang menutup, maupun muka yang dibatasi Bidang kadastrum di sekitarnya. Geser penanda ke dalam celah di antara bidang kadastrum, atau pakai “Bidang dari garis sekitar”.', 422);
     }
 
     kirimPratinjau($ditemukan['calon'], $ditemukan['jenis'], $ditemukan['kode'], $x, $y, $pengguna);

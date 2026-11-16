@@ -161,7 +161,7 @@ sip_judul(
                 </div>
                 <a class="tombol tombol-kecil jarak-atas" id="keDigitasi" href="<?= e(sip_url('digitasi-baru.php', ['dari' => 'pratinjau'])) ?>">Digitasi Obyek Baru</a>
                 <p class="petunjuk" id="infoPenanda">Penunjuk belum aktif. Koordinat X/Y berasal dari DXF lokal, bukan GPS.</p>
-                <p class="petunjuk">Pratinjau memakai poligon tertutup 020100 yang memuat penanda; bila titik di luar, dipakai garis bidang tertutup (LineString yang ujungnya bertemu), lalu rangkaian garis 020100. Bila titik ada di kantong terbuka, “Bidang dari garis sekitar” memotong garis pada titik potong lalu memilih muka terkecil yang memuat penanda, jadi batasnya mengikuti garis sebelahnya. Bidang baru berstatus perlu verifikasi, tanpa blok, dan hanya dapat disimpan Super Admin setelah pratinjau.</p>
+                <p class="petunjuk">Pratinjau memakai poligon tertutup 020100 yang memuat penanda; bila titik di luar, dipakai garis bidang tertutup (LineString yang ujungnya bertemu), lalu rangkaian garis 020100. Bila titik ada di celah di antara Bidang kadastrum, pratinjau memilih muka terkecil yang dibatasi garis dan tepi cincin poligon 020100, jadi bidang baru mengisi celah itu. “Bidang dari garis sekitar” memakai garis terbuka saja. Bidang baru berstatus perlu verifikasi, tanpa blok, dan hanya dapat disimpan Super Admin setelah pratinjau.</p>
             </div>
         </section>
 
@@ -434,6 +434,14 @@ $naskah = <<<'JS'
         'batas-jalan': 'jalan-label'
     };
 
+    const LABEL_JENIS_PENANDA = {
+        'tertutup': 'poligon tertutup',
+        'garis-tertutup': 'garis bidang tertutup',
+        'garis': 'rangkaian garis',
+        'garis-baru': 'garis dari tepi sekitar',
+        'kadastrum': 'Bidang kadastrum'
+    };
+
     function gayaLapisan(nama) {
         if (nama === 'bidang-hm') {
             return (f) => (f.properties && f.properties.closed)
@@ -619,7 +627,9 @@ $naskah = <<<'JS'
                 ? 'Garis bidang tertutup ' + (isi.handle || 'tanpa handle')
                 : isi.jenis === 'garis-baru'
                     ? 'Garis bidang baru (' + (isi.handle || 'tanpa handle') + ')'
-                    : 'Rangkaian garis 020100';
+                    : isi.jenis === 'kadastrum'
+                        ? 'Muka Bidang kadastrum (' + (isi.handle || 'tanpa handle') + ')'
+                        : 'Rangkaian garis 020100';
         document.getElementById('penandaKode').textContent = isi.kode;
 
         const lapisan = L.geoJSON(
@@ -655,7 +665,8 @@ $naskah = <<<'JS'
             + (isi.jenis === 'tertutup' ? 'poligon tertutup 020100.'
                 : isi.jenis === 'garis-tertutup' ? 'garis bidang tertutup 020100.'
                     : isi.jenis === 'garis-baru' ? 'garis bidang baru dari garis sekitar 020100.'
-                        : 'rangkaian garis 020100.');
+                        : isi.jenis === 'kadastrum' ? 'muka tertutup dari Bidang kadastrum 020100.'
+                            : 'rangkaian garis 020100.');
     }
 
     async function mintaPratinjau(aksi = 'pratinjau') {
@@ -727,7 +738,7 @@ $naskah = <<<'JS'
         const keterangan = f
             ? (f.geometry.type === 'LineString' ? 'di dalam garis bidang tertutup' : 'di dalam bidang tertutup')
                 + ' 020100 (handle ' + ((f.properties || {}).dxf_handle || '—') + ').'
-            : 'di luar bidang atau garis bidang tertutup 020100.';
+            : 'di luar bidang atau garis bidang tertutup 020100; pratinjau memakai Bidang kadastrum di sekitarnya.';
         document.getElementById('infoPenanda').textContent = 'Penanda ' + keterangan;
         info.textContent = 'X ' + koordDxf(latlng.lng) + ' · Y ' + koordDxf(latlng.lat) + ' — ' + keterangan;
     }
@@ -824,7 +835,7 @@ $naskah = <<<'JS'
         const kanan = document.createElement('span');
         kanan.className = 'rapek-kanan';
         kanan.textContent = h.status === 'baru'
-            ? Sip.angka(h.luas_m2, 1) + ' m² · ' + h.jenis
+            ? Sip.angka(h.luas_m2, 1) + ' m² · ' + (LABEL_JENIS_PENANDA[h.jenis] || h.jenis)
             : h.status === 'kembar'
                 ? 'dilewati · ' + ((h.duplikat && h.duplikat.kode) || 'titik lain di muka yang sama')
                 : 'gagal';

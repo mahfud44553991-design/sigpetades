@@ -314,31 +314,45 @@ function kodeBidangPetaInduk(int $indeks, string $jenis): string
  * bidannya mengikuti garis sebelahnya. Jari-jari diulang bila muka belum
  * tertutup pada jendela pertama.
  *
+ * $denganPoligon ikut memotong cincin Polygon 020100 — tepi Bidang kadastrum
+ * yang sudah tertutup. Tanpa itu celah yang hanya dibatasi tepi poligon (tidak
+ * ada garis terpisah di sana) tidak pernah membentuk muka.
+ *
  * @return array{geometry:array,luas:float,keliling:float,handle:string}|null
  */
-function mukaGarisDiSekitar(array $features, float $px, float $py): ?array
+function mukaGarisDiSekitar(array $features, float $px, float $py, bool $denganPoligon = false): ?array
 {
     $batasLuas = 200000.0;
     foreach ([250.0, 400.0, 600.0] as $radius) {
         $segmen = [];
         foreach ($features as $fitur) {
             $geometri = $fitur['geometry'] ?? [];
-            if (($geometri['type'] ?? '') !== 'LineString') {
+            $tipe = (string) ($geometri['type'] ?? '');
+            $cincin = [];
+            if ($tipe === 'LineString') {
+                $cincin = [$geometri['coordinates'] ?? []];
+            } elseif ($denganPoligon && $tipe === 'Polygon') {
+                $cincin = $geometri['coordinates'] ?? [];
+            } else {
                 continue;
             }
-            $koordinat = $geometri['coordinates'] ?? [];
             $handle = (string) ($fitur['properties']['dxf_handle'] ?? '');
-            for ($i = 1, $n = count($koordinat); $i < $n; $i++) {
-                $ax = (float) $koordinat[$i - 1][0];
-                $ay = (float) $koordinat[$i - 1][1];
-                $bx = (float) $koordinat[$i][0];
-                $by = (float) $koordinat[$i][1];
-                if (($ax === $bx && $ay === $by)
-                    || max($ax, $bx) < $px - $radius || min($ax, $bx) > $px + $radius
-                    || max($ay, $by) < $py - $radius || min($ay, $by) > $py + $radius) {
+            foreach ($cincin as $koordinat) {
+                if (!is_array($koordinat)) {
                     continue;
                 }
-                $segmen[] = [$ax, $ay, $bx, $by, $handle];
+                for ($i = 1, $n = count($koordinat); $i < $n; $i++) {
+                    $ax = (float) $koordinat[$i - 1][0];
+                    $ay = (float) $koordinat[$i - 1][1];
+                    $bx = (float) $koordinat[$i][0];
+                    $by = (float) $koordinat[$i][1];
+                    if (($ax === $bx && $ay === $by)
+                        || max($ax, $bx) < $px - $radius || min($ax, $bx) > $px + $radius
+                        || max($ay, $by) < $py - $radius || min($ay, $by) > $py + $radius) {
+                        continue;
+                    }
+                    $segmen[] = [$ax, $ay, $bx, $by, $handle];
+                }
             }
         }
         if (count($segmen) < 3) {
@@ -540,6 +554,63 @@ function kodeBidangGarisBaru(array $geometri): string
 }
 
 /**
+ * Persil Bidang kadastrum yang memuat titik, dikembalikan dalam koordinat DXF.
+ *
+ * Tabel bidang menyimpan persil yang tidak selalu berasal dari cincin layer
+ * 020100 — misalnya persil yang dulu dibentuk lewat "Bidang dari garis
+ * sekitar". Untuk titik seperti itu tiga langkah layer selalu kalah, padahal
+ * bidangnya sudah ada. Yang diambil bagian poligon terkecil yang benar-benar
+ * memuat titik, lalu tepinya dikembalikan ke meter DXF supaya jalur pratinjau
+ * yang sama bisa memakainya.
+ *
+ * @return array{geometry:array,handle:string,kode:string}|null
+ */
+function bidangKadastrumDiTitik(float $lon, float $lat): ?array
+{
+    $baris = db_one(
+        'SELECT kode, ST_AsGeoJSON(geom) AS geojson
+           FROM bidang
+          WHERE geom IS NOT NULL
+            AND status <> \'dihapus\'
+            AND ST_Contains(geom, POINT(?, ?))
+          ORDER BY ST_Area(geom) ASC
+          LIMIT 1',
+        [$lon, $lat]
+    );
+    if ($baris === null) {
+        return null;
+    }
+    $geometri = json_decode((string) $baris['geojson'], true);
+    if (!is_array($geometri)) {
+        return null;
+    }
+    $tipe = (string) ($geometri['type'] ?? '');
+    $poligon = $tipe === 'Polygon'
+        ? [$geometri['coordinates'] ?? []]
+        : ($tipe === 'MultiPolygon' ? ($geometri['coordinates'] ?? []) : []);
+    $titik = wgs84KeDxf($lon, $lat);
+    foreach ($poligon as $bagian) {
+        $cincin = [];
+        foreach ($bagian as $r) {
+            $q = [];
+            foreach ($r as $pasangan) {
+                $q[] = wgs84KeDxf((float) $pasangan[0], (float) $pasangan[1]);
+            }
+            $cincin[] = $q;
+        }
+        if ($cincin !== [] && titikDalamPoligon($cincin, (float) $titik[0], (float) $titik[1])) {
+            return [
+                'geometry' => ['type' => 'Polygon', 'coordinates' => $cincin],
+                'handle' => (string) $baris['kode'],
+                'kode' => (string) $baris['kode'],
+            ];
+        }
+    }
+
+    return null;
+}
+
+/**
  * Bahan penurunan yang bisa dipakai berulang kali.
  *
  * Batas luar tiap fitur selalu disusun karena murah dibandingkan uji
@@ -575,9 +646,13 @@ function konteksPenandaPetaInduk(string $lapisan = '020100'): array
  * terkecil hasil potongan garis di sekitarnya, sehingga kantong terbuka seperti
  * gang ikut terbentuk.
  *
+ * $kadastrum menambahkan sumber Bidang kadastrum untuk titik yang tetap kalah:
+ * persil tabel bidang yang memuat titik, lalu muka yang juga memotong tepi
+ * cincin Polygon 020100. Jenis hasilnya "kadastrum", bukan "garis-baru".
+ *
  * @return array{calon:array,jenis:string,kode:string}|null
  */
-function bidangDiTitik(array $konteks, float $x, float $y, bool $garisBaru = true): ?array
+function bidangDiTitik(array $konteks, float $x, float $y, bool $garisBaru = true, bool $kadastrum = false): ?array
 {
     $fitur = $konteks['fitur'];
     $batas = $konteks['batas'];
@@ -609,27 +684,42 @@ function bidangDiTitik(array $konteks, float $x, float $y, bool $garisBaru = tru
         return null;
     }
 
+    if ($kadastrum) {
+        $wgs84 = dxfKeWgs84($x, $y);
+        $persil = bidangKadastrumDiTitik((float) $wgs84[0], (float) $wgs84[1]);
+        if ($persil !== null) {
+            return ['calon' => $persil, 'jenis' => 'kadastrum', 'kode' => $persil['kode']];
+        }
+    }
+
     $calon = mukaGarisDiSekitar($fitur, $x, $y);
+    if ($calon === null && $kadastrum) {
+        $calon = mukaGarisDiSekitar($fitur, $x, $y, true);
+    }
     if ($calon === null) {
         return null;
     }
 
     return [
         'calon' => $calon,
-        'jenis' => 'garis-baru',
+        'jenis' => $kadastrum ? 'kadastrum' : 'garis-baru',
         'kode' => kodeBidangGarisBaru($calon['geometry']),
     ];
 }
 
 /**
  * Cari bidang yang memuat penanda: poligon tertutup, lalu garis bidang tertutup,
- * lalu rangkaian garis 020100. Kantong terbuka TIDAK dicoba; itu tugas tombol
- * "Bidang dari garis sekitar".
+ * lalu rangkaian garis 020100. Kantong terbuka TIDAK dicoba di sini; itu tugas
+ * tombol "Bidang dari garis sekitar".
+ *
+ * Dengan $kadastrum true, titik yang kalah pada ketiga langkah itu masih dicoba
+ * pada Bidang kadastrum lewat bidangDiTitik(): persil tabel bidang yang memuat
+ * titik, lalu muka yang dibatasi garis dan tepi cincin Polygon 020100.
  *
  * @param array<int, array>|null $bangunan hasil poligonDariGarisPetaInduk() bila sudah disusun
  * @return array{calon:array,jenis:string,kode:string}|null
  */
-function bidangDariPenanda(array $features, float $x, float $y, ?array $bangunan = null): ?array
+function bidangDariPenanda(array $features, float $x, float $y, ?array $bangunan = null, bool $kadastrum = false): ?array
 {
-    return bidangDiTitik(konteksPenanda($features, $bangunan), $x, $y, false);
+    return bidangDiTitik(konteksPenanda($features, $bangunan), $x, $y, $kadastrum, $kadastrum);
 }
