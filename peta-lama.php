@@ -340,7 +340,7 @@ sip_judul(
                     tepian di kedua sisi, tahap dua memasangkan tepian itu menjadi satu garis
                     tengah per segmen jalan. Perhitungannya ada di README §3.80.</p>
                 <label class="cek" title="Sumbu yang digambar dengan alat Sumbu jalan">
-                    <input type="checkbox" data-lapisan="garis-jalan-sumbu-manual">
+                    <input type="checkbox" data-lapisan="garis-jalan-sumbu-manual"<?= $jumlahSumbuManual > 0 ? ' checked' : '' ?>>
                     Sumbu manual (<b id="jumlahSumbuManual"><?= e(angka($jumlahSumbuManual)) ?></b>)</label>
                 <p class="petunjuk">Sumbu manual digambar dari halaman ini dan tersimpan di berkas
                     garis-sumbu-manual.geojson yang terpisah, jadi tidak terhapus saat
@@ -1111,7 +1111,7 @@ $naskah = <<<'JS'
 
     async function muatUlangSumbuManual() {
         const kotak = document.querySelector('[data-lapisan="garis-jalan-sumbu-manual"]');
-        if (!kotak || !kotak.checked) return;
+        if (kotak) kotak.checked = true;
         if (grup['garis-jalan-sumbu-manual']) {
             peta.removeLayer(grup['garis-jalan-sumbu-manual']);
             delete grup['garis-jalan-sumbu-manual'];
