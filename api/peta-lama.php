@@ -15,6 +15,8 @@ declare(strict_types=1);
  *       garis-jalan kini menyajikan garis-jalan-tepi.geojson, yaitu garis tepi
  *       jalan hasil tools/garis-jalan-label.php (sejak 15 Nov 2026).
  *   GET api/peta-lama.php?lapisan=garis-jalan-sumbu
+ *   GET api/peta-lama.php?lapisan=garis-jalan-sumbu-manual  (sumbu hasil alat
+ *       "Sumbu jalan" di Peta Induk; berkasnya terpisah dari hasil turunan)
  *   GET api/peta-lama.php?lapisan=bidang-hm   (juga hm, optimalisasi-hm, lb-lai,
  *       010500, 020400, nib-hm, batas-desa, blok, batas-jalan)
  *
@@ -46,6 +48,7 @@ const LAPISAN_PETA_LAMA = [
     'batas-jalan'    => 'batas-jalan.geojson',
     'garis-jalan'    => 'garis-jalan-tepi.geojson',
     'garis-jalan-sumbu' => 'garis-jalan-sumbu.geojson',
+    'garis-jalan-sumbu-manual' => 'garis-sumbu-manual.geojson',
     'garis-selokan'  => 'garis-selokan.geojson',
     'garis-perairan' => 'garis-perairan.geojson',
     'garis-lain'     => 'garis-lain.geojson',
@@ -118,6 +121,10 @@ if ($lapisan === 'batas-blok') {
 }
 
 $berkas = __DIR__ . '/../files/sig-pertanahan-gedong-lokal/data/dxf-layers/' . LAPISAN_PETA_LAMA[$lapisan];
+if ($lapisan === 'garis-jalan-sumbu-manual' && !is_file($berkas)) {
+    // Belum ada sumbu manual: lapisan tetap bisa dicentang tanpa galat.
+    json_response(['type' => 'FeatureCollection', 'features' => []]);
+}
 if (!is_file($berkas)) {
     json_error('Berkas lapisan peta lama tidak ditemukan.', 404);
 }
