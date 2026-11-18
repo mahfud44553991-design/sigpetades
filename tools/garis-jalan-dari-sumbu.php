@@ -11,6 +11,7 @@ declare(strict_types=1);
  *   --lebar-yatim=M    lebar koridor ronde kedua untuk titik sampel yang belum
  *                      berpasangan, bawaan 10,0 m; 0 = mati
  *   --langkah=M        jarak titik sampel, bawaan 2,0 m
+ *   --sambung=M        ambang jahit ujung rantai, bawaan 8,0 m
  *   --rinci            cetak 25 sumbu dengan cakupan sisi terlemah
  *   --tanya=KODE       cetak rincian klaim dan terbitan satu sumbu
  *
@@ -34,9 +35,10 @@ declare(strict_types=1);
  * dibuang. Klaim dicatat per sumbu dan sisi, jadi sumbu yang bersebelahan atau
  * berimpit tetap punya untaian sendiri walau memakai segmen sisi yang sama.
  * Baris per sumbu+sisi kemudian disambung menurut posisinya di sepanjang sumbu:
- * ujung yang berjarak <= LANGKAH disatukan menjadi satu rantai dengan garis
- * penghubung lurus, sedangkan celah lebih besar dibiarkan putus karena berarti
- * sisi jalan memang tidak ditemukan di situ (mulut persimpangan, saluran air).
+ * ujung yang berjarak <= --sambung (bawaan 8 m) disatukan menjadi satu rantai
+ * dengan garis penghubung lurus, sedangkan celah lebih besar dibiarkan putus
+ * karena berarti sisi jalan memang tidak ditemukan di situ (mulut persimpangan,
+ * saluran air).
  *
  * Persil untuk uji koridor dibaca dari tabel `bidang` (status <> 'dihapus'),
  * hanya baca. Lapis air dibaca dari `garis-selokan.geojson` dan
@@ -59,6 +61,7 @@ const LEBAR_YATIM_BAWAAN = 10.0;
 const LEBAR_MIN = 0.25;
 const SUDUT_PASANG = 25.0;
 const MIN_TEPI = 1.0;
+const AMBANG_SAMBUNG = 8.0;
 const SEL = 10.0;
 const SEL_KISI = 5.0;
 const RAGU_AIR = 3.5;
@@ -419,6 +422,7 @@ $terapkan = false;
 $lebar = LEBAR_BAWAAN;
 $lebarYatim = LEBAR_YATIM_BAWAAN;
 $langkah = LANGKAH_BAWAAN;
+$sambung = AMBANG_SAMBUNG;
 $rinci = false;
 $tanya = null;
 foreach (array_slice($argv, 1) as $arg) {
@@ -434,6 +438,8 @@ foreach (array_slice($argv, 1) as $arg) {
         $lebarYatim = (float) str_replace(',', '.', substr($arg, 14));
     } elseif (str_starts_with($arg, '--langkah=')) {
         $langkah = (float) str_replace(',', '.', substr($arg, 10));
+    } elseif (str_starts_with($arg, '--sambung=')) {
+        $sambung = (float) str_replace(',', '.', substr($arg, 10));
     } else {
         galat('flag tidak dikenal: ' . $arg);
     }
@@ -446,6 +452,9 @@ if ($lebarYatim !== 0.0 && ($lebarYatim < $lebar || $lebarYatim > 15.0)) {
 }
 if ($langkah < 0.5 || $langkah > 5.0) {
     galat('--langkah harus antara 0,5 dan 5 meter');
+}
+if ($sambung < 0.0 || $sambung > 500.0) {
+    galat('--sambung harus antara 0 dan 500 meter');
 }
 
 printf("mode: %s · koridor %s m%s · langkah sampel %s m · keluaran %s.geojson\n",
@@ -804,6 +813,7 @@ $putusPasang = 0;
 $putusPanjang = 0.0;
 $rantai = [];
 $rantaiGrup = [];
+$celahSisa = [];
 foreach ($perGrup as $kunciGrup => $anggota) {
     usort($anggota, static fn(array $x, array $y): int => $x['s'] <=> $y['s']);
     $jalur = null;
@@ -820,6 +830,7 @@ foreach ($perGrup as $kunciGrup => $anggota) {
             continue;
         }
         $ujung = $jalur[count($jalur) - 1];
+        $pangkal = $jalur[0];
         $awalRuas = $c[0];
         $akhirRuas = $c[count($c) - 1];
         $keUjungAwal = hypot((float) $ujung[0] - (float) $awalRuas[0],
@@ -827,7 +838,12 @@ foreach ($perGrup as $kunciGrup => $anggota) {
         $keUjungAkhir = hypot((float) $ujung[0] - (float) $akhirRuas[0],
             (float) $ujung[1] - (float) $akhirRuas[1]);
         $gap = min($keUjungAwal, $keUjungAkhir);
-        if ($gap <= $langkah) {
+        $kePangkalAwal = hypot((float) $pangkal[0] - (float) $awalRuas[0],
+            (float) $pangkal[1] - (float) $awalRuas[1]);
+        $kePangkalAkhir = hypot((float) $pangkal[0] - (float) $akhirRuas[0],
+            (float) $pangkal[1] - (float) $akhirRuas[1]);
+        $gapPangkal = min($kePangkalAwal, $kePangkalAkhir);
+        if ($gap <= $sambung && $gap <= $gapPangkal) {
             $sambungPasang++;
             $sambungPanjang += $gap;
             $sambungM += $gap;
@@ -843,13 +859,7 @@ foreach ($perGrup as $kunciGrup => $anggota) {
             }
             continue;
         }
-        $pangkal = $jalur[0];
-        $kePangkalAwal = hypot((float) $pangkal[0] - (float) $awalRuas[0],
-            (float) $pangkal[1] - (float) $awalRuas[1]);
-        $kePangkalAkhir = hypot((float) $pangkal[0] - (float) $akhirRuas[0],
-            (float) $pangkal[1] - (float) $akhirRuas[1]);
-        $gapPangkal = min($kePangkalAwal, $kePangkalAkhir);
-        if ($gapPangkal <= $langkah) {
+        if ($gapPangkal <= $sambung) {
             $sambungPasang++;
             $sambungPanjang += $gapPangkal;
             $sambungM += $gapPangkal;
@@ -865,6 +875,7 @@ foreach ($perGrup as $kunciGrup => $anggota) {
         }
         $putusPasang++;
         $putusPanjang += min($gap, $gapPangkal);
+        $celahSisa[] = ['grup' => $kunciGrup, 'm' => min($gap, $gapPangkal)];
         $rantai[] = [$jalur, $asal, $potongan, $sambungM];
         $rantaiGrup[$kunciGrup] = ($rantaiGrup[$kunciGrup] ?? 0) + 1;
         $jalur = $c;
@@ -912,10 +923,37 @@ unset($f);
 printf("sambung: %d rantai dari %d baris · %d sambungan lurus %s m (ambang %s m)"
     . " · %d pasangan putus > ambang (%s m)\n",
     count($fiturKeluar), $barisTerbit, $sambungPasang, angkaNum($sambungPanjang, 1),
-    angkaNum($langkah, 1), $putusPasang, angkaNum($putusPanjang, 1));
+    angkaNum($sambung, 1), $putusPasang, angkaNum($putusPanjang, 1));
 printf("grup sumbu+sisi: %d · utuh satu rantai: %d · masih terputus: %d\n",
     count($rantaiGrup), count(array_filter($rantaiGrup, static fn(int $n): bool => $n === 1)),
     count(array_filter($rantaiGrup, static fn(int $n): bool => $n > 1)));
+if ($celahSisa !== []) {
+    usort($celahSisa, static fn(array $x, array $y): int => $y['m'] <=> $x['m']);
+    printf("celah terbesar: %s m (%s) · semua grup utuh bila ambang >= %s m\n",
+        angkaNum($celahSisa[0]['m'], 1), str_replace('|', ' ', $celahSisa[0]['grup']),
+        angkaNum($celahSisa[0]['m'], 1));
+    $lima = array_slice($celahSisa, 0, 5);
+    foreach ($lima as $c) {
+        printf("  %s m · %s\n", angkaNum($c['m'], 1), str_replace('|', ' ', $c['grup']));
+    }
+    $kelas = [5, 10, 15, 20, 30, 50, INF];
+    $batas = 0.0;
+    foreach ($kelas as $atas) {
+        $n = 0;
+        $m = 0.0;
+        foreach ($celahSisa as $c) {
+            if ($c['m'] > $batas && $c['m'] <= $atas) {
+                $n++;
+                $m += $c['m'];
+            }
+        }
+        if ($n > 0) {
+            printf("  celah %s-%s m: %d pasang · %s m\n", angkaNum($batas, 0),
+                $atas === INF ? 'lebih' : angkaNum($atas, 0), $n, angkaNum($m, 1));
+        }
+        $batas = $atas;
+    }
+}
 
 $sumbuBerbaris = [];
 foreach ($fiturKeluar as $f) {
