@@ -14,7 +14,7 @@ declare(strict_types=1);
  * garis-sumbu-manual.geojson, bukan di garis-jalan-sumbu.geojson, supaya
  * menjalankan ulang tools/garis-jalan-label.php tidak menghapus sumbu yang
  * digambar tangan. Berkas itu disajikan lewat api/peta-lama.php dengan nama
- * lapisan garis-jalan-sumbu-manual.
+ * lapisan garis-jalan-sumbu, digabung dengan sumbu hasil turunan.
  */
 
 require __DIR__ . '/../app/bootstrap.php';

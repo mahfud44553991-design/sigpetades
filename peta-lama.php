@@ -144,7 +144,6 @@ sip_judul(
                 <span><i style="background:#1d4ed8"></i>Garis sungai</span>
                 <span><i style="background:#a16207"></i>Garis tanpa label</span>
                 <span><i style="background:#9d174d"></i>Sumbu jalan</span>
-                <span><i style="background:#db2777; border-radius:2px"></i>Sumbu manual</span>
                 <span><i style="background:#d97706"></i>Calon bidang</span>
                 <span><i style="background:#64748b"></i>Label NIB &amp; batas</span>
             </div>
@@ -220,7 +219,7 @@ sip_judul(
                         <button class="tombol tombol-kecil" type="button" id="sumbuBatal" disabled>Batal</button>
                         <button class="tombol tombol-kecil tombol-utama" type="button" id="sumbuSimpan" disabled>Simpan sumbu</button>
                     </div>
-                    <p class="petunjuk jarak-atas">Klik garis “Sumbu manual” di peta, atau di dekatnya, untuk memilihnya; lalu potong di satu titik atau hapus seluruh garis.</p>
+                    <p class="petunjuk jarak-atas">Klik garis sumbu yang dibuat dengan alat ini di peta, atau di dekatnya, untuk memilihnya; lalu potong di satu titik atau hapus seluruh garis.</p>
                     <dl class="daftar-kecil">
                         <li><span class="redup">Garis terpilih</span><span class="rapek-kanan" id="sumbuGarisTerpilih">–</span></li>
                     </dl>
@@ -235,7 +234,8 @@ sip_judul(
                     </div>
                     <p class="petunjuk" id="infoSumbu" data-tersimpan="<?= (int) $jumlahSumbuManual ?>">Alat mati. Sumbu tersimpan: <?= e(angka($jumlahSumbuManual)) ?>.</p>
                     <p class="petunjuk">Sumbu disimpan di berkas garis-sumbu-manual.geojson, terpisah dari sumbu
-                        turunan tools/garis-jalan-label.php, lalu tampil sebagai lapis “Sumbu manual”. Panjang
+                        turunan tools/garis-jalan-label.php supaya tidak terhapus saat alat itu dijalankan ulang,
+                        lalu ikut tampil di lapis “Sumbu jalan”. Panjang
                         dihitung dari jarak lurus antar titik dalam meter DXF, jadi titik yang jarang membuat
                         panjang tercatat lebih pendek daripada lengkung jalan. Titik minimal dua; penyimpanan
                         hanya untuk Super Admin dan Admin.</p>
@@ -343,17 +343,15 @@ sip_judul(
                 <p class="petunjuk">Turunan Jalan dua tahap</p>
                 <label class="cek" title="Layer GARIS JALAN SUMBU DARI LABEL">
                     <input type="checkbox" data-lapisan="garis-jalan-sumbu" checked>
-                    Sumbu jalan (<?= e(angka($jumlah('GARIS JALAN SUMBU DARI LABEL'))) ?>)</label>
+                    Sumbu jalan (<b id="jumlahSumbuJalan"
+                        data-turunan="<?= (int) $jumlah('GARIS JALAN SUMBU DARI LABEL') ?>"><?= e(angka($jumlah('GARIS JALAN SUMBU DARI LABEL') + $jumlahSumbuManual)) ?></b>)</label>
                 <p class="petunjuk">Garis tepi terbit sebagai pil Jalan di kelompok di atas; sumbu
                     dihitung tools/garis-jalan-label.php dari pecahan jalan. Tahap satu menandai
                     tepian di kedua sisi, tahap dua memasangkan tepian itu menjadi satu garis
-                    tengah per segmen jalan. Perhitungannya ada di README §3.80.</p>
-                <label class="cek" title="Sumbu yang digambar dengan alat Sumbu jalan">
-                    <input type="checkbox" data-lapisan="garis-jalan-sumbu-manual"<?= $jumlahSumbuManual > 0 ? ' checked' : '' ?>>
-                    Sumbu manual (<b id="jumlahSumbuManual"><?= e(angka($jumlahSumbuManual)) ?></b>)</label>
-                <p class="petunjuk">Sumbu manual digambar dari halaman ini dan tersimpan di berkas
-                    garis-sumbu-manual.geojson yang terpisah, jadi tidak terhapus saat
-                    tools/garis-jalan-label.php dijalankan ulang.</p>
+                    tengah per segmen jalan. Sumbu yang digambar dengan alat Sumbu jalan di
+                    halaman ini ikut tampil di lapis yang sama; berkasnya tetap terpisah supaya
+                    tidak terhapus saat alat penurunan dijalankan ulang. Perhitungannya ada di
+                    README §3.80.</p>
                 <p class="petunjuk">Lainnya</p>
                 <label class="cek" title="Layer DXF 010500">
                     <input type="checkbox" data-lapisan="010500">
@@ -544,7 +542,6 @@ $naskah = <<<'JS'
         if (nama === 'garis-perairan') return () => ({ color: '#1d4ed8', weight: 1.7, opacity: .95 });
         if (nama === 'garis-lain') return () => ({ color: '#a16207', weight: 1.3, dashArray: '6 4', opacity: .95 });
         if (nama === 'garis-jalan-sumbu') return () => ({ color: '#9d174d', weight: 2.2, opacity: .95 });
-        if (nama === 'garis-jalan-sumbu-manual') return () => ({ color: '#db2777', weight: 2.6, opacity: .95 });
         if (nama === '010500') return () => ({ color: '#64748b', weight: 1, opacity: .8 });
         if (nama === '020400') return () => ({ color: '#475569', weight: 1, opacity: .85 });
         if (nama === 'calon-bidang') return () => ({
@@ -1119,19 +1116,23 @@ $naskah = <<<'JS'
 
     function perbaruiJumlahSumbu(jumlah) {
         jumlahSumbuTersimpan = jumlah;
-        const label = document.getElementById('jumlahSumbuManual');
-        if (label) label.textContent = Sip.angka(jumlah);
+        const label = document.getElementById('jumlahSumbuJalan');
+        if (label) {
+            const turunan = Number(label.dataset.turunan) || 0;
+            label.textContent = Sip.angka(turunan + jumlah);
+        }
         if (elemenInfoSumbu) elemenInfoSumbu.dataset.tersimpan = String(jumlah);
     }
 
     async function muatUlangSumbuManual() {
-        const kotak = document.querySelector('[data-lapisan="garis-jalan-sumbu-manual"]');
-        if (kotak) kotak.checked = true;
-        if (grup['garis-jalan-sumbu-manual']) {
-            peta.removeLayer(grup['garis-jalan-sumbu-manual']);
-            delete grup['garis-jalan-sumbu-manual'];
+        const nama = 'garis-jalan-sumbu';
+        const kotak = document.querySelector('[data-lapisan="' + nama + '"]');
+        if (grup[nama]) {
+            peta.removeLayer(grup[nama]);
+            delete grup[nama];
         }
-        await pasang('garis-jalan-sumbu-manual', true);
+        if (kotak && !kotak.checked) return;
+        await pasang(nama, true);
     }
 
     async function simpanSumbu() {
@@ -1235,12 +1236,13 @@ $naskah = <<<'JS'
     // Cari garis manual terdekat dalam piksel layar supaya klik yang meleset beberapa
     // piksel dari garis tipis tetap memilih garis itu, bukan jatuh ke peta kosong.
     function sumbuManualTerdekat(latlng, toleransiPx) {
-        const lapisan = grup['garis-jalan-sumbu-manual'];
+        const lapisan = grup['garis-jalan-sumbu'];
         if (!lapisan || !peta.hasLayer(lapisan)) return null;
         const klik = peta.latLngToContainerPoint(latlng);
         let terbaik = null;
         lapisan.eachLayer((l) => {
-            if (!l.feature || typeof l.getLatLngs !== 'function') return;
+            if (!l.feature || !l.feature.properties || l.feature.properties.sumber !== 'manual') return;
+            if (typeof l.getLatLngs !== 'function') return;
             const ruas = l.getLatLngs();
             const daftar = ruas.length && Array.isArray(ruas[0]) ? ruas : [ruas];
             daftar.forEach((baris) => {
@@ -1259,7 +1261,8 @@ $naskah = <<<'JS'
 
     function lekatkanPilihSumbu(lapisan) {
         lapisan.eachLayer((l) => {
-            if (!l.feature) return;
+            if (!l.feature || !l.feature.properties) return;
+            if (l.feature.properties.sumber !== 'manual') return;
             l.on('click', (ev) => {
                 if (modeSumbu || modePotongSumbu || modePenunjuk) return;
                 L.DomEvent.stopPropagation(ev);
@@ -1363,7 +1366,7 @@ $naskah = <<<'JS'
         if (!hidup) {
             if (grup[nama]) peta.removeLayer(grup[nama]);
             if (nama === '020100') peta.removeLayer(grupTitik);
-            if (nama === 'garis-jalan-sumbu-manual') lepasPilihanSumbu('');
+            if (nama === 'garis-jalan-sumbu') lepasPilihanSumbu('');
             return;
         }
         if (grup[nama]) {
@@ -1377,7 +1380,7 @@ $naskah = <<<'JS'
         try {
             const data = await Sip.api('api/peta-lama.php', { query: { lapisan: nama } });
             grup[nama] = bangun(nama, data);
-            if (nama === 'garis-jalan-sumbu-manual') lekatkanPilihSumbu(grup[nama]);
+            if (nama === 'garis-jalan-sumbu') lekatkanPilihSumbu(grup[nama]);
             const kotak = document.querySelector('[data-lapisan="' + nama + '"]');
             if (!kotak || kotak.checked) grup[nama].addTo(peta);
             if (nama === '020100') {

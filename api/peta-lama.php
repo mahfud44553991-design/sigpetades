@@ -15,8 +15,10 @@ declare(strict_types=1);
  *       garis-jalan kini menyajikan garis-jalan-tepi.geojson, yaitu garis tepi
  *       jalan hasil tools/garis-jalan-label.php (sejak 15 Nov 2026).
  *   GET api/peta-lama.php?lapisan=garis-jalan-sumbu
- *   GET api/peta-lama.php?lapisan=garis-jalan-sumbu-manual  (sumbu hasil alat
- *       "Sumbu jalan" di Peta Induk; berkasnya terpisah dari hasil turunan)
+ *       Satu lapis berisi sumbu turunan garis-jalan-sumbu.geojson dan sumbu
+ *       hasil alat "Sumbu jalan" di Peta Induk (garis-sumbu-manual.geojson);
+ *       berkas manual tetap terpisah supaya tidak terhapus saat alat
+ *       penurunan dijalankan ulang.
  *   GET api/peta-lama.php?lapisan=bidang-hm   (juga hm, optimalisasi-hm, lb-lai,
  *       010500, 020400, nib-hm, batas-desa, blok, batas-jalan)
  *
@@ -48,7 +50,6 @@ const LAPISAN_PETA_LAMA = [
     'batas-jalan'    => 'batas-jalan.geojson',
     'garis-jalan'    => 'garis-jalan-tepi.geojson',
     'garis-jalan-sumbu' => 'garis-jalan-sumbu.geojson',
-    'garis-jalan-sumbu-manual' => 'garis-sumbu-manual.geojson',
     'garis-selokan'  => 'garis-selokan.geojson',
     'garis-perairan' => 'garis-perairan.geojson',
     'garis-lain'     => 'garis-lain.geojson',
@@ -121,10 +122,32 @@ if ($lapisan === 'batas-blok') {
 }
 
 $berkas = __DIR__ . '/../files/sig-pertanahan-gedong-lokal/data/dxf-layers/' . LAPISAN_PETA_LAMA[$lapisan];
-if ($lapisan === 'garis-jalan-sumbu-manual' && !is_file($berkas)) {
-    // Belum ada sumbu manual: lapisan tetap bisa dicentang tanpa galat.
-    json_response(['type' => 'FeatureCollection', 'features' => []]);
+
+if ($lapisan === 'garis-jalan-sumbu') {
+    // Satu lapis berisi sumbu turunan tools/garis-jalan-label.php dan sumbu yang
+    // digambar dengan alat Sumbu jalan. Berkas manual tetap terpisah supaya tidak
+    // terhapus saat alat penurunan dijalankan ulang.
+    $turunan = is_file($berkas) ? json_decode((string) file_get_contents($berkas), true) : null;
+    if (!is_array($turunan) || ($turunan['type'] ?? '') !== 'FeatureCollection'
+        || !is_array($turunan['features'] ?? null)) {
+        json_error('Berkas sumbu jalan tidak dapat dibaca.', 500);
+    }
+    $fitur = array_values(array_filter($turunan['features'], 'is_array'));
+    $berkasManual = __DIR__ . '/../files/sig-pertanahan-gedong-lokal/data/dxf-layers/garis-sumbu-manual.geojson';
+    if (is_file($berkasManual)) {
+        $manual = json_decode((string) file_get_contents($berkasManual), true);
+        if (is_array($manual) && ($manual['type'] ?? '') === 'FeatureCollection'
+            && is_array($manual['features'] ?? null)) {
+            foreach ($manual['features'] as $f) {
+                if (is_array($f)) {
+                    $fitur[] = $f;
+                }
+            }
+        }
+    }
+    json_response(['type' => 'FeatureCollection', 'features' => $fitur]);
 }
+
 if (!is_file($berkas)) {
     json_error('Berkas lapisan peta lama tidak ditemukan.', 404);
 }
