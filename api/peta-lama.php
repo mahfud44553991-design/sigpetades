@@ -12,8 +12,10 @@ declare(strict_types=1);
  *   GET api/peta-lama.php?lapisan=tn-nama
  *   GET api/peta-lama.php?lapisan=garis-jalan   (juga garis-selokan,
  *                                                garis-perairan, garis-lain)
- *       garis-jalan kini menyajikan garis-jalan-tepi.geojson, yaitu garis tepi
- *       jalan hasil tools/garis-jalan-label.php (sejak 15 Nov 2026).
+ *       garis-jalan menyajikan garis-jalan-dari-sumbu.geojson, yaitu garis tepi
+ *       jalan yang diturunkan dari SEMUA sumbu jalan (1.560 sumbu label + 130
+ *       sumbu manual) oleh tools/garis-jalan-dari-sumbu.php (sejak 18 Nov 2026).
+ *       Berkas lama garis-jalan-tepi.geojson tetap di disk, tidak lagi disajikan.
  *   GET api/peta-lama.php?lapisan=garis-jalan-sumbu
  *       Satu lapis berisi sumbu turunan garis-jalan-sumbu.geojson dan sumbu
  *       hasil alat "Garis manual" di Peta Induk (garis-sumbu-manual.geojson);
@@ -21,6 +23,9 @@ declare(strict_types=1);
  *       penurunan dijalankan ulang.
  *   GET api/peta-lama.php?lapisan=bidang-hm   (juga hm, optimalisasi-hm, lb-lai,
  *       020400, nib-hm, batas-desa, blok, batas-jalan)
+ *   GET api/peta-lama.php?lapisan=titik-obyek
+ *       Titik obyek dari alat "Penanda titik obyek" (titik-obyek-manual.geojson).
+ *       Sebelum ada titik tersimpan, lapis ini menjawab koleksi kosong.
  *   GET api/peta-lama.php?lapisan=010500
  *       Poligon garis luar desa digabung dengan garis manual hasil alat
  *       "Garis manual" (garis-luar-desa-manual.geojson).
@@ -51,12 +56,18 @@ const LAPISAN_PETA_LAMA = [
     'blok'           => 'blok.geojson',
     'calon-bidang'   => 'calon-bidang.geojson',
     'batas-jalan'    => 'batas-jalan.geojson',
-    'garis-jalan'    => 'garis-jalan-tepi.geojson',
+    'garis-jalan'    => 'garis-jalan-dari-sumbu.geojson',
     'garis-jalan-sumbu' => 'garis-jalan-sumbu.geojson',
     'garis-selokan'  => 'garis-selokan.geojson',
     'garis-perairan' => 'garis-perairan.geojson',
     'garis-lain'     => 'garis-lain.geojson',
+    'titik-obyek'    => 'titik-obyek-manual.geojson',
 ];
+
+// Lapis yang berkasnya belum tentu ada karena baru terisi dari alat di Peta
+// Induk; selama belum ada titik, jawab koleksi kosong supaya lapis tetap bisa
+// dicentang tanpa galat 404.
+const LAPISAN_BOLEH_KOSONG = ['titik-obyek'];
 
 const GARIS_MANUAL_PER_LAPISAN = [
     'garis-jalan-sumbu' => 'garis-sumbu-manual.geojson',
@@ -158,6 +169,9 @@ if (isset(GARIS_MANUAL_PER_LAPISAN[$lapisan])) {
 }
 
 if (!is_file($berkas)) {
+    if (in_array($lapisan, LAPISAN_BOLEH_KOSONG, true)) {
+        json_response(['type' => 'FeatureCollection', 'features' => []]);
+    }
     json_error('Berkas lapisan peta lama tidak ditemukan.', 404);
 }
 

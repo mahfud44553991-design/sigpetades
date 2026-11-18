@@ -75,6 +75,13 @@ $jumlahPoligonLayer = [
 ];
 $jumlahPoligonLayer['020100'] = (int) ($meta['layers']['020100']['features'] ?? 0);
 
+$berkasGarisJalan = __DIR__ . '/files/sig-pertanahan-gedong-lokal/data/dxf-layers/garis-jalan-dari-sumbu.geojson';
+$jumlahGarisJalan = 0;
+if (is_file($berkasGarisJalan)) {
+    $isiGarisJalan = json_decode((string) file_get_contents($berkasGarisJalan), true);
+    $jumlahGarisJalan = is_array($isiGarisJalan['features'] ?? null) ? count($isiGarisJalan['features']) : 0;
+}
+
 $berkasSumbuManual = __DIR__ . '/files/sig-pertanahan-gedong-lokal/data/dxf-layers/garis-sumbu-manual.geojson';
 $jumlahSumbuManual = 0;
 if (is_file($berkasSumbuManual)) {
@@ -87,6 +94,13 @@ $jumlahBatasManual = 0;
 if (is_file($berkasBatasManual)) {
     $isiBatasManual = json_decode((string) file_get_contents($berkasBatasManual), true);
     $jumlahBatasManual = is_array($isiBatasManual['features'] ?? null) ? count($isiBatasManual['features']) : 0;
+}
+
+$berkasTitikObyek = __DIR__ . '/files/sig-pertanahan-gedong-lokal/data/dxf-layers/titik-obyek-manual.geojson';
+$jumlahTitikObyek = 0;
+if (is_file($berkasTitikObyek)) {
+    $isiTitikObyek = json_decode((string) file_get_contents($berkasTitikObyek), true);
+    $jumlahTitikObyek = is_array($isiTitikObyek['features'] ?? null) ? count($isiTitikObyek['features']) : 0;
 }
 
 sip_header('Peta Induk', 'peta-lama', ['leaflet' => true]);
@@ -151,6 +165,7 @@ sip_judul(
                 <span><i style="background:#1d4ed8"></i>Garis sungai</span>
                 <span><i style="background:#a16207"></i>Garis tanpa label</span>
                 <span><i style="background:#9d174d"></i>Sumbu jalan</span>
+                <span><i style="background:#0891b2; border-radius:50%"></i>Titik obyek</span>
                 <span><i style="background:#d97706"></i>Calon bidang</span>
                 <span><i style="background:#64748b"></i>Label NIB &amp; batas</span>
             </div>
@@ -263,6 +278,47 @@ sip_judul(
             </section>
         <?php endif; ?>
 
+        <?php if ($kelola): ?>
+            <section class="kartu">
+                <header class="kepala-kartu">
+                    <div><h2>Penanda titik obyek</h2><p>Tandai bangunan, pohon, atau obyek lain di peta</p></div>
+                </header>
+                <div class="isi-kartu">
+                    <div class="lapangan">
+                        <label for="obyekNama">Nama obyek</label>
+                        <input id="obyekNama" maxlength="80" placeholder="Misalnya Balai desa" autocomplete="off">
+                    </div>
+                    <div class="lapangan jarak-atas">
+                        <label for="obyekJenis">Jenis</label>
+                        <select class="pilih-kecil" id="obyekJenis">
+                            <option value="Bangunan">Bangunan</option>
+                            <option value="Pohon">Pohon</option>
+                            <option value="Sumur">Sumur</option>
+                            <option value="Patok">Patok</option>
+                            <option value="Saluran">Saluran</option>
+                            <option value="Lainnya">Lainnya</option>
+                        </select>
+                    </div>
+                    <div class="baris-tombol jarak-atas">
+                        <button class="tombol tombol-kecil" type="button" id="alatObyek" aria-pressed="false">Pasang titik</button>
+                        <button class="tombol tombol-kecil" type="button" id="obyekBatal" disabled>Batal</button>
+                        <button class="tombol tombol-kecil tombol-utama" type="button" id="obyekSimpan" disabled>Simpan titik</button>
+                    </div>
+                    <dl class="daftar-kecil jarak-atas">
+                        <li><span class="redup">Titik tersimpan</span><span class="rapek-kanan" id="obyekJumlah"><?= e(angka($jumlahTitikObyek)) ?></span></li>
+                        <li><span class="redup">Titik baru</span><span class="rapek-kanan" id="obyekPosisi">–</span></li>
+                    </dl>
+                    <ul class="daftar-kecil jarak-atas" id="obyekDaftar"></ul>
+                    <p class="petunjuk" id="infoObyek" data-tersimpan="<?= (int) $jumlahTitikObyek ?>">Alat mati. Titik obyek tersimpan: <?= e(angka($jumlahTitikObyek)) ?>.</p>
+                    <p class="petunjuk">Titik obyek adalah penanda kerja, bukan bidang tanah: tidak masuk tabel bidang dan
+                        tidak mengubah blok. Simpanannya satu berkas GeoJSON
+                        (titik-obyek-manual.geojson) yang ikut tampil sebagai lapis “Titik obyek”. Klik baris daftar
+                        untuk menyorot titiknya, atau Hapus untuk membuang satu titik. Klik peta sekali lagi untuk
+                        memindahkan titik baru yang belum disimpan.</p>
+                </div>
+            </section>
+        <?php endif; ?>
+
         <?php if ($pengguna['peran'] === PERAN_SUPER): ?>
             <section class="kartu">
                 <header class="kepala-kartu">
@@ -343,9 +399,9 @@ sip_judul(
                     <input type="checkbox" data-lapisan="optimalisasi-hm">
                     Optimalisasi (<?= e(angka($jumlah('OPTIMALISASI HM'))) ?>)</label>
                 <p class="petunjuk">Garis turunan</p>
-                <label class="cek" title="Layer GARIS JALAN TEPI DARI LABEL">
+                <label class="cek" title="Layer GARIS JALAN DARI SUMBU">
                     <input type="checkbox" data-lapisan="garis-jalan" checked>
-                    Jalan (<?= e(angka($jumlah('GARIS JALAN TEPI DARI LABEL'))) ?>)</label>
+                    Jalan (<?= e(angka($jumlahGarisJalan)) ?>)</label>
                 <label class="cek" title="Layer GARIS SELOKAN 020100">
                     <input type="checkbox" data-lapisan="garis-selokan">
                     Selokan (<?= e(angka($jumlah('GARIS SELOKAN 020100'))) ?>)</label>
@@ -358,19 +414,20 @@ sip_judul(
                 <p class="petunjuk">Selokan, Sungai, dan Tanpa label diturunkan dari 13.719
                     kandidat layer 020100 — 13.681 garis terbuka dan 38 cincin poligon. Kelas
                     dibaca dari teks label, bukan dari berkas asalnya. Jalan kini berisi garis
-                    tepi dari tools/garis-jalan-label.php (§3.80, §3.87). Perhitungan kelas ada
-                    di README §3.77.</p>
+                    tepi yang diturunkan dari semua sumbu jalan oleh
+                    tools/garis-jalan-dari-sumbu.php. Perhitungan kelas ada di README §3.77.</p>
                 <p class="petunjuk">Turunan Jalan dua tahap</p>
                 <label class="cek" title="Layer GARIS JALAN SUMBU DARI LABEL">
                     <input type="checkbox" data-lapisan="garis-jalan-sumbu" checked>
                     Sumbu jalan (<b id="jumlahSumbuJalan"
                         data-turunan="<?= (int) $jumlah('GARIS JALAN SUMBU DARI LABEL') ?>"><?= e(angka($jumlah('GARIS JALAN SUMBU DARI LABEL') + $jumlahSumbuManual)) ?></b>)</label>
-                <p class="petunjuk">Garis tepi terbit sebagai pil Jalan di kelompok di atas; sumbu
-                    dihitung tools/garis-jalan-label.php dari pecahan jalan. Tahap satu menandai
-                    tepian di kedua sisi, tahap dua memasangkan tepian itu menjadi satu garis
-                    tengah per segmen jalan. Sumbu yang digambar dengan alat Sumbu jalan di
-                    halaman ini ikut tampil di lapis yang sama; berkasnya tetap terpisah supaya
-                    tidak terhapus saat alat penurunan dijalankan ulang. Perhitungannya ada di
+                <p class="petunjuk">Garis tepi terbit sebagai pil Jalan di kelompok di atas,
+                    diturunkan tools/garis-jalan-dari-sumbu.php dari SELURUH sumbu jalan:
+                    tiap titik sampel sumbu dipasangkan ke garis sisi bidang 020100 terdekat
+                    di kiri dan kanan. Sumbu dihitung tools/garis-jalan-label.php dari pecahan
+                    jalan; sumbu yang digambar dengan alat Sumbu jalan di halaman ini ikut
+                    tampil di lapis yang sama, dan berkasnya tetap terpisah supaya tidak
+                    terhapus saat alat penurunan dijalankan ulang. Perhitungannya ada di
                     README §3.80.</p>
                 <p class="petunjuk">Lainnya</p>
                 <label class="cek" title="Layer DXF 010500">
@@ -380,6 +437,10 @@ sip_judul(
                 <label class="cek" title="Layer DXF 020400, artinya belum diketahui">
                     <input type="checkbox" data-lapisan="020400">
                     Sisa 020400 (<?= e(angka($jumlah('020400'))) ?>)</label>
+                <p class="petunjuk">Obyek manual</p>
+                <label class="cek" title="Titik obyek dari alat Penanda titik obyek">
+                    <input type="checkbox" data-lapisan="titik-obyek" checked>
+                    Titik obyek (<b id="jumlahTitikObyek"><?= e(angka($jumlahTitikObyek)) ?></b>)</label>
                 <p class="petunjuk">Belum terpetakan</p>
                 <label class="cek" title="Garis 020100 yang hampir tertutup">
                     <input type="checkbox" data-lapisan="calon-bidang" checked>
@@ -436,6 +497,8 @@ sip_judul(
 #petaLama.mode-sumbu .leaflet-interactive { cursor: crosshair !important; }
 #petaLama.mode-potong,
 #petaLama.mode-potong .leaflet-interactive { cursor: crosshair !important; }
+#petaLama.mode-obyek,
+#petaLama.mode-obyek .leaflet-interactive { cursor: crosshair !important; }
 .penanda-pin { background: none; border: none; }
 .penanda-pin span {
     display: block;
@@ -460,9 +523,22 @@ sip_judul(
     border: 2px solid #fff;
     box-shadow: 0 0 0 1px rgba(15, 23, 42, .45);
 }
+.obyek-pin { background: none; border: none; }
+.obyek-pin span {
+    display: block;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #0891b2;
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 1px rgba(15, 23, 42, .45), 0 0 0 6px rgba(8, 145, 178, .22);
+}
 #batchDaftar li { cursor: pointer; }
 #batchDaftar li:hover { background: #f2f7f4; }
 #batchDaftar .cek-baris { align-self: center; margin: 0 2px 0 0; }
+#obyekDaftar li { cursor: pointer; }
+#obyekDaftar li:hover { background: #f2f7f4; }
+#obyekDaftar .hapus-obyek { padding: 2px 8px; font-size: 11px; }
 @media (max-width: 720px) {
     .kepala-peta { flex-wrap: wrap; }
     .baris-peta { width: 100%; }
@@ -520,6 +596,13 @@ $naskah = <<<'JS'
     const sorotanSumbu = L.featureGroup().addTo(peta);
     let sumbuTerpilih = null;
     let modePotongSumbu = false;
+
+    const elemenInfoObyek = document.getElementById('infoObyek');
+    const grupObyekBaru = L.featureGroup().addTo(peta);
+    const sorotanObyek = L.featureGroup().addTo(peta);
+    let jumlahTitikObyek = elemenInfoObyek ? (Number(elemenInfoObyek.dataset.tersimpan) || 0) : 0;
+    let titikObyekBaru = null;
+    let modeObyek = false;
 
     function namaLapisManual() {
         return LAPIS_MANUAL[lapisManual].nama;
@@ -627,6 +710,24 @@ $naskah = <<<'JS'
                     dashArray: '3 5',
                     fillOpacity: 0
                 })
+            });
+        }
+        if (nama === 'titik-obyek') {
+            return L.geoJSON(data, {
+                pointToLayer: (f, ll) => {
+                    const p = f.properties || {};
+                    const isi = '<strong>' + Sip.esc(p.nama || 'Titik obyek') + '</strong>'
+                        + (p.jenis ? '<br>' + Sip.esc(p.jenis) : '')
+                        + (p.kode ? '<br>' + Sip.esc(p.kode) : '')
+                        + (p.dibuat_oleh
+                            ? '<br><span class="redup">' + Sip.esc(p.dibuat_oleh) + ' · '
+                                + Sip.esc(p.dibuat_pada || '') + '</span>'
+                            : '');
+                    return L.circleMarker(ll, {
+                        radius: 7, color: '#ffffff', weight: 2, opacity: 1,
+                        fillColor: '#0891b2', fillOpacity: 1
+                    }).bindPopup(isi);
+                }
             });
         }
         return L.geoJSON(data, {
@@ -1235,6 +1336,7 @@ $naskah = <<<'JS'
             aturPotongSumbu(false);
             if (modePenunjuk) aturPenunjuk(false);
             if (modeMassal) aturMassal(false);
+            if (modeObyek) aturObyek(false);
         }
         const tombol = document.getElementById('alatSumbu');
         tombol.setAttribute('aria-pressed', hidup ? 'true' : 'false');
@@ -1415,6 +1517,7 @@ $naskah = <<<'JS'
             if (modeSumbu) aturSumbu(false);
             if (modePenunjuk) aturPenunjuk(false);
             if (modeMassal) aturMassal(false);
+            if (modeObyek) aturObyek(false);
         }
         tombol.classList.toggle('tombol-utama', modePotongSumbu);
         tombol.textContent = modePotongSumbu ? 'Batalkan potong' : 'Potong di titik';
@@ -1479,8 +1582,218 @@ $naskah = <<<'JS'
         }
     }
 
+    const ikonObyekBaru = L.divIcon({
+        className: 'obyek-pin',
+        html: '<span></span>',
+        iconSize: [14, 14],
+        iconAnchor: [7, 7]
+    });
+
+    function infoObyekDiam() {
+        return 'Alat mati. Titik obyek tersimpan: ' + Sip.angka(jumlahTitikObyek) + '.';
+    }
+
+    function pesanObyek() {
+        return modeObyek
+            ? 'Klik peta untuk menaruh titik obyek. Isi nama dan jenis, lalu Simpan titik.'
+            : infoObyekDiam();
+    }
+
+    function perbaruiObyek() {
+        if (!elemenInfoObyek) return;
+        const label = document.getElementById('obyekJumlah');
+        if (label) label.textContent = Sip.angka(jumlahTitikObyek);
+        const labelLapis = document.getElementById('jumlahTitikObyek');
+        if (labelLapis) labelLapis.textContent = Sip.angka(jumlahTitikObyek);
+        const posisi = document.getElementById('obyekPosisi');
+        if (posisi) {
+            posisi.textContent = titikObyekBaru
+                ? 'X ' + koordDxf(titikObyekBaru.lng) + ' · Y ' + koordDxf(titikObyekBaru.lat)
+                : '–';
+        }
+        const batal = document.getElementById('obyekBatal');
+        if (batal) batal.disabled = !titikObyekBaru;
+        const simpan = document.getElementById('obyekSimpan');
+        if (simpan) simpan.disabled = !titikObyekBaru;
+    }
+
+    function gambarTitikObyekBaru() {
+        grupObyekBaru.clearLayers();
+        if (!titikObyekBaru) return;
+        L.marker(titikObyekBaru, { icon: ikonObyekBaru, keyboard: false }).addTo(grupObyekBaru);
+    }
+
+    function aturObyek(hidup) {
+        if (!elemenInfoObyek) return;
+        modeObyek = hidup;
+        if (hidup) {
+            if (modeSumbu) aturSumbu(false);
+            if (modePotongSumbu) aturPotongSumbu(false);
+            if (modePenunjuk) aturPenunjuk(false);
+            if (modeMassal) aturMassal(false);
+        }
+        const tombol = document.getElementById('alatObyek');
+        tombol.setAttribute('aria-pressed', hidup ? 'true' : 'false');
+        tombol.textContent = hidup ? 'Matikan titik' : 'Pasang titik';
+        tombol.classList.toggle('tombol-utama', hidup);
+        document.getElementById('petaLama').classList.toggle('mode-obyek', hidup);
+        elemenInfoObyek.textContent = pesanObyek();
+        if (hidup) info.textContent = 'Titik obyek: klik satu titik di peta.';
+    }
+
+    function letakkanTitikObyek(latlng) {
+        titikObyekBaru = latlng;
+        gambarTitikObyekBaru();
+        perbaruiObyek();
+        if (elemenInfoObyek) {
+            elemenInfoObyek.textContent = 'Titik baru di X ' + koordDxf(latlng.lng) + ' · Y '
+                + koordDxf(latlng.lat) + '. Isi nama, lalu Simpan titik.';
+        }
+        info.textContent = 'Titik obyek: X ' + koordDxf(latlng.lng) + ' · Y ' + koordDxf(latlng.lat) + '.';
+        const isian = document.getElementById('obyekNama');
+        if (isian) isian.focus();
+    }
+
+    function batalTitikObyek(pesan) {
+        titikObyekBaru = null;
+        gambarTitikObyekBaru();
+        perbaruiObyek();
+        if (elemenInfoObyek) {
+            elemenInfoObyek.textContent = pesan || ('Titik baru dibatalkan. ' + pesanObyek());
+        }
+    }
+
+    function renderDaftarTitikObyek() {
+        const daftar = document.getElementById('obyekDaftar');
+        if (!daftar) return;
+        daftar.textContent = '';
+        const lapisan = grup['titik-obyek'];
+        const baris = [];
+        if (lapisan) {
+            lapisan.eachLayer((l) => {
+                if (l.feature) baris.push(l);
+            });
+        }
+        if (baris.length === 0) {
+            const li = document.createElement('li');
+            const redup = document.createElement('span');
+            redup.className = 'redup';
+            redup.textContent = 'Belum ada titik obyek tersimpan.';
+            li.appendChild(redup);
+            daftar.appendChild(li);
+            return;
+        }
+        baris.forEach((lapis) => {
+            const p = lapis.feature.properties || {};
+            const li = document.createElement('li');
+            const kiri = document.createElement('span');
+            kiri.textContent = (p.nama || '(tanpa nama)') + ' · ' + (p.jenis || 'Lainnya');
+            const kanan = document.createElement('span');
+            kanan.className = 'redup';
+            kanan.textContent = p.kode || '';
+            const hapus = document.createElement('button');
+            hapus.type = 'button';
+            hapus.className = 'tombol tombol-kecil hapus-obyek';
+            hapus.textContent = 'Hapus';
+            hapus.addEventListener('click', (ev) => {
+                ev.stopPropagation();
+                hapusTitikObyek(String(p.kode || '')).catch((err) => Sip.pesan(err.message, 'gagal'));
+            });
+            li.appendChild(kiri);
+            li.appendChild(kanan);
+            li.appendChild(hapus);
+            li.addEventListener('click', () => sorotTitikObyek(lapis));
+            daftar.appendChild(li);
+        });
+    }
+
+    function sorotTitikObyek(lapis) {
+        if (!lapis || typeof lapis.getLatLng !== 'function') return;
+        const posisi = lapis.getLatLng();
+        sorotanObyek.clearLayers();
+        L.circleMarker(posisi, {
+            radius: 13, color: '#f59e0b', weight: 3, opacity: .95, fillOpacity: 0, interactive: false
+        }).addTo(sorotanObyek);
+        peta.setView(posisi, Math.max(peta.getZoom(), 0));
+        if (typeof lapis.openPopup === 'function') lapis.openPopup();
+    }
+
+    async function muatUlangTitikObyek() {
+        if (grup['titik-obyek']) {
+            peta.removeLayer(grup['titik-obyek']);
+            delete grup['titik-obyek'];
+        }
+        const kotakLapis = document.querySelector('[data-lapisan="titik-obyek"]');
+        if (kotakLapis && !kotakLapis.checked) kotakLapis.checked = true;
+        await pasang('titik-obyek', true);
+        renderDaftarTitikObyek();
+    }
+
+    async function simpanTitikObyek() {
+        if (!titikObyekBaru) return;
+        const isianNama = document.getElementById('obyekNama');
+        const isianJenis = document.getElementById('obyekJenis');
+        const nama = isianNama ? isianNama.value.trim() : '';
+        if (nama === '') {
+            if (isianNama) isianNama.focus();
+            Sip.pesan('Isi nama obyek dulu.', 'gagal');
+            return;
+        }
+        const tombol = document.getElementById('obyekSimpan');
+        tombol.disabled = true;
+        try {
+            const hasil = await Sip.api('api/titik-obyek.php', {
+                method: 'POST',
+                json: {
+                    aksi: 'simpan',
+                    nama: nama,
+                    jenis: isianJenis ? isianJenis.value : 'Lainnya',
+                    titik: [titikObyekBaru.lng, titikObyekBaru.lat]
+                }
+            });
+            jumlahTitikObyek = Number(hasil.jumlah) || 0;
+            titikObyekBaru = null;
+            gambarTitikObyekBaru();
+            if (isianNama) isianNama.value = '';
+            perbaruiObyek();
+            await muatUlangTitikObyek();
+            if (elemenInfoObyek) elemenInfoObyek.textContent = hasil.pesan + ' ' + pesanObyek();
+            info.textContent = hasil.pesan;
+            Sip.pesan(hasil.pesan, 'berhasil');
+        } catch (err) {
+            if (elemenInfoObyek) elemenInfoObyek.textContent = err.message;
+            Sip.pesan(err.message, 'gagal');
+        } finally {
+            perbaruiObyek();
+        }
+    }
+
+    async function hapusTitikObyek(kode) {
+        if (kode === '') return;
+        if (!window.confirm('Hapus titik obyek ' + kode
+            + ' dari berkas titik-obyek-manual.geojson?')) {
+            return;
+        }
+        try {
+            const hasil = await Sip.api('api/titik-obyek.php', {
+                method: 'POST',
+                json: { aksi: 'hapus', kode: kode }
+            });
+            jumlahTitikObyek = Number(hasil.jumlah) || 0;
+            perbaruiObyek();
+            await muatUlangTitikObyek();
+            if (elemenInfoObyek) elemenInfoObyek.textContent = hasil.pesan + ' ' + pesanObyek();
+            info.textContent = hasil.pesan;
+            Sip.pesan(hasil.pesan, 'berhasil');
+        } catch (err) {
+            if (elemenInfoObyek) elemenInfoObyek.textContent = err.message;
+            Sip.pesan(err.message, 'gagal');
+        }
+    }
+
     function aturPenunjuk(hidup) {
         if (hidup && modeSumbu) aturSumbu(false);
+        if (hidup && modeObyek) aturObyek(false);
         modePenunjuk = hidup;
         if (!hidup && modeMassal) aturMassal(false);
         tombolPenunjuk.setAttribute('aria-pressed', hidup ? 'true' : 'false');
@@ -1603,12 +1916,21 @@ $naskah = <<<'JS'
                 + ' — klik di garis untuk memotong.';
             return;
         }
+        if (modeObyek) {
+            info.textContent = 'Titik obyek: X ' + koordDxf(e.latlng.lng) + ' · Y ' + koordDxf(e.latlng.lat)
+                + ' — klik untuk menaruh titik.';
+            return;
+        }
         if (!modePenunjuk) return;
         info.textContent = 'Penunjuk: X ' + koordDxf(e.latlng.lng) + ' · Y ' + koordDxf(e.latlng.lat)
             + ' — klik untuk menaruh penanda.';
     });
 
     peta.on('click', (e) => {
+        if (modeObyek) {
+            letakkanTitikObyek(e.latlng);
+            return;
+        }
         if (modeSumbu) {
             tambahTitikSumbu(e.latlng);
             return;
@@ -1631,6 +1953,7 @@ $naskah = <<<'JS'
 
     function aturMassal(hidup) {
         if (hidup && modeSumbu) aturSumbu(false);
+        if (hidup && modeObyek) aturObyek(false);
         modeMassal = hidup;
         const kotak = document.getElementById('modeBatch');
         kotak.checked = hidup;
@@ -1743,6 +2066,21 @@ $naskah = <<<'JS'
         perbaruiSumbu();
     }
 
+    if (elemenInfoObyek) {
+        document.getElementById('alatObyek').addEventListener('click', () => aturObyek(!modeObyek));
+        document.getElementById('obyekBatal').addEventListener('click', () => batalTitikObyek(''));
+        document.getElementById('obyekSimpan').addEventListener('click', () => {
+            simpanTitikObyek().catch((err) => Sip.pesan(err.message, 'gagal'));
+        });
+        document.getElementById('obyekNama').addEventListener('keydown', (ev) => {
+            if (ev.key === 'Enter') {
+                ev.preventDefault();
+                simpanTitikObyek().catch((err) => Sip.pesan(err.message, 'gagal'));
+            }
+        });
+        perbaruiObyek();
+    }
+
     document.getElementById('keDigitasi').addEventListener('click', async (ev) => {
         ev.preventDefault();
         const tujuan = new URL(ev.currentTarget.href, location.href);
@@ -1792,6 +2130,7 @@ $naskah = <<<'JS'
                     await pasang(k.dataset.lapisan, true);
                 }
             }
+            renderDaftarTitikObyek();
             info.textContent = 'Layer DXF siap. Koordinat lokal — bukan titik GPS.';
         } catch (err) {
             Sip.pesan(err.message, 'gagal');
