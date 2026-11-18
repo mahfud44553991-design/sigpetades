@@ -9,6 +9,8 @@ declare(strict_types=1);
  *   POST {aksi: "bersihkan"}
  *   POST {aksi: "simpan", token: "<token pratinjau>"}
  *   POST {aksi: "batch-pratinjau", titik: [[x, y], ...]}
+ *   POST {aksi: "batch-gabung", token: "<token pratinjau massal>", pilih: [i, ...]}
+ *   POST {aksi: "batch-lepas-gabung", token: "<token pratinjau massal>", pilih: [i, ...]}
  *   POST {aksi: "batch-simpan", token: "<token pratinjau massal>"}
  *   POST {aksi: "batch-bersihkan"}
  *
@@ -30,6 +32,10 @@ declare(strict_types=1);
  * yang sama dan geometri yang masuk ke basis data tidak pernah datang dari
  * klien. Satu batch ditulis dalam satu transaksi: satu baris gagal, semua
  * batal.
+ *
+ * "batch-gabung" menyimpan kelompok nomor penanda di sesi; geometri union
+ * dihitung ulang di server dari layer (tools/lib-penanda.php gabungPoligonDxf)
+ * saat pratinjau dijawab dan saat menyimpan. Klien hanya mengirim nomor baris.
  */
 
 require __DIR__ . '/../app/bootstrap.php';
@@ -253,6 +259,218 @@ function susunBatch(array $titik): array
     return ['hasil' => $hasil, 'bahan' => $bahan];
 }
 
+/**
+ * Ambil sesi pratinjau massal yang cocok dengan token, atau hentikan permintaan.
+ *
+ * @return array<string, mixed>
+ */
+function sesiBatch(string $token): array
+{
+    $pratinjau = $_SESSION['penanda_batch'] ?? null;
+    if (!is_array($pratinjau) || !isset($pratinjau['token']) || $token === ''
+        || !hash_equals((string) $pratinjau['token'], $token)) {
+        json_error('Pratinjau massal tidak ditemukan. Ulangi pratinjau bidang.', 410);
+    }
+    if ((int) $pratinjau['pengguna_id'] !== (int) auth_user_id()) {
+        json_error('Pratinjau massal ini milik pengguna lain.', 403);
+    }
+    if (time() - (int) $pratinjau['waktu'] > 1800) {
+        unset($_SESSION['penanda_batch']);
+        json_error('Pratinjau massal kedaluwarsa. Ulangi pratinjau bidang.', 410);
+    }
+    return $pratinjau;
+}
+
+/** Catatan bidang hasil gabungan beberapa penanda massal. */
+function catatanGabung(array $anggota, array $titik, ?array $blok): string
+{
+    $daftar = [];
+    foreach ($anggota as $i) {
+        $daftar[] = sprintf('X %.2f Y %.2f', (float) $titik[$i][0], (float) $titik[$i][1]);
+    }
+    return sprintf(
+        'Dibuat dari %d penanda massal yang digabung pada layer peta induk 020100 (%s); perlu verifikasi%s.',
+        count($anggota),
+        implode(', ', $daftar),
+        $blok !== null ? '; blok ' . $blok['kode'] . ' dari titik pusat bidang' : ' dan penetapan blok'
+    );
+}
+
+/**
+ * Terapkan kelompok gabungan pada hasil susunBatch.
+ *
+ * Setiap kelompok berisi nomor penanda (i) yang barisnya berstatus "baru";
+ * barisnya diganti satu baris union, anggota lain dibuang. Kelompok yang
+ * anggotanya tidak lagi baru atau yang unionnya tidak menyatu dilewati,
+ * sehingga pratinjau tidak pernah menampilkan gabungan yang tidak sah.
+ *
+ * @return array{hasil:array<int,array>,bahan:array<int,array>,kelompok:array<int,array<int,int>>}
+ */
+function terapkanGabungBatch(array $susun, array $kelompok, array $titik): array
+{
+    $posHasil = [];
+    foreach ($susun['hasil'] as $pos => $baris) {
+        $posHasil[(int) $baris['i']] = $pos;
+    }
+    $posBahan = [];
+    foreach ($susun['bahan'] as $pos => $bahan) {
+        $posBahan[(int) $bahan['i']] = $pos;
+    }
+
+    $terpakai = [];
+    $ganti = [];
+    $bahanBaru = [];
+    $kelompokSah = [];
+
+    foreach ($kelompok as $mentah) {
+        if (!is_array($mentah)) {
+            continue;
+        }
+        $anggota = array_values(array_unique(array_map('intval', $mentah)));
+        sort($anggota);
+        if (count($anggota) < 2 || !isset($posHasil[$anggota[0]])) {
+            continue;
+        }
+
+        $geometri = [];
+        $sah = true;
+        foreach ($anggota as $i) {
+            $pos = $posHasil[$i] ?? null;
+            if ($pos === null || !isset($posBahan[$i])
+                || ($susun['hasil'][$pos]['status'] ?? '') !== 'baru') {
+                $sah = false;
+                break;
+            }
+            $geometri[] = $susun['hasil'][$pos]['geometri'];
+        }
+        if (!$sah) {
+            continue;
+        }
+
+        try {
+            $union = gabungPoligonDxf($geometri);
+            if ($union === null) {
+                continue;
+            }
+            $siap = siapkanGeometri($union);
+        } catch (Throwable $error) {
+            continue;
+        }
+
+        $kode = kodeBidangGarisBaru($union);
+        $rep = $anggota[0];
+        $batas = [INF, INF, -INF, -INF];
+        foreach ($union['coordinates'][0] as $pojok) {
+            $batas[0] = min($batas[0], (float) $pojok[0]);
+            $batas[1] = min($batas[1], (float) $pojok[1]);
+            $batas[2] = max($batas[2], (float) $pojok[0]);
+            $batas[3] = max($batas[3], (float) $pojok[1]);
+        }
+
+        $baris = [
+            'i' => $rep,
+            'x' => (float) $susun['hasil'][$posHasil[$rep]]['x'],
+            'y' => (float) $susun['hasil'][$posHasil[$rep]]['y'],
+            'kode' => $kode,
+            'jenis' => 'gabungan',
+            'handle' => '',
+            'luas_m2' => round((float) $siap['luas'], 2),
+            'batas' => $batas,
+            'gabung' => $anggota,
+        ];
+
+        $duplikat = duplikatBidang($kode, $siap['wkt']);
+        if ($duplikat !== null) {
+            $baris['status'] = 'kembar';
+            $baris['duplikat'] = $duplikat;
+            $ganti[$posHasil[$rep]] = $baris;
+        } else {
+            $baris['status'] = 'baru';
+            $baris['geometri'] = $union;
+            $ganti[$posHasil[$rep]] = $baris;
+            $blok = blokPusatBidang($siap['pusat']);
+            $bahanBaru[$posHasil[$rep]] = [
+                'i' => $rep,
+                'x' => $baris['x'],
+                'y' => $baris['y'],
+                'kode' => $kode,
+                'jenis' => 'gabungan',
+                'handle' => '',
+                'luas_m2' => $baris['luas_m2'],
+                'siap' => $siap,
+                'blok' => $blok,
+                'catatan' => catatanGabung($anggota, $titik, $blok),
+                'gabung' => $anggota,
+            ];
+        }
+
+        foreach ($anggota as $i) {
+            $terpakai[$i] = true;
+        }
+        $kelompokSah[] = $anggota;
+    }
+
+    $hasil = [];
+    foreach ($susun['hasil'] as $pos => $baris) {
+        if (isset($ganti[$pos])) {
+            $hasil[] = $ganti[$pos];
+        } elseif (($baris['status'] ?? '') === 'baru' && isset($terpakai[(int) $baris['i']])) {
+            continue;
+        } else {
+            $hasil[] = $baris;
+        }
+    }
+    $bahan = [];
+    foreach ($susun['bahan'] as $pos => $asal) {
+        if (isset($bahanBaru[$pos])) {
+            $bahan[] = $bahanBaru[$pos];
+        } elseif (isset($terpakai[(int) $asal['i']])) {
+            continue;
+        } else {
+            $bahan[] = $asal;
+        }
+    }
+
+    return ['hasil' => $hasil, 'bahan' => $bahan, 'kelompok' => $kelompokSah];
+}
+
+/** Jawab pratinjau massal dari sesi yang sudah tersimpan. */
+function jawabBatch(array $susun, array $titik, array $kelompok, array $pengguna, int $terpangkas, string $awalan = ''): void
+{
+    $rapi = terapkanGabungBatch($susun, $kelompok, $titik);
+    $_SESSION['penanda_batch']['gabung'] = $rapi['kelompok'];
+    $_SESSION['penanda_batch']['terpangkas'] = $terpangkas;
+
+    $hitung = ['baru' => 0, 'kembar' => 0, 'gagal' => 0];
+    foreach ($rapi['hasil'] as $baris) {
+        $hitung[$baris['status']]++;
+    }
+
+    $pesan = sprintf(
+        '%sPratinjau %d penanda: %d bidang baru, %d kembar, %d gagal.',
+        $awalan,
+        count($rapi['hasil']),
+        $hitung['baru'],
+        $hitung['kembar'],
+        $hitung['gagal']
+    );
+    if ($terpangkas > 0) {
+        $pesan .= ' ' . $terpangkas . ' penanda ganda diabaikan.';
+    }
+
+    json_ok([
+        'token' => (string) $_SESSION['penanda_batch']['token'],
+        'jumlah' => count($rapi['hasil']),
+        'terpangkas' => $terpangkas,
+        'baru' => $hitung['baru'],
+        'kembar' => $hitung['kembar'],
+        'gagal' => $hitung['gagal'],
+        'batas' => PENANDA_BATCH_BATAS,
+        'boleh_simpan' => $pengguna['peran'] === PERAN_SUPER && $hitung['baru'] > 0,
+        'hasil' => $rapi['hasil'],
+    ], $pesan);
+}
+
 /** Simpan pratinjau ke sesi lalu kirim jawaban JSON. */
 function kirimPratinjau(array $calon, string $jenis, string $kode, float $x, float $y, array $pengguna): void
 {
@@ -404,36 +622,158 @@ if ($aksi === 'batch-pratinjau') {
     $titik = titikBatch($masukan);
     $susun = susunBatch($titik);
 
-    $hitung = ['baru' => 0, 'kembar' => 0, 'gagal' => 0];
-    foreach ($susun['hasil'] as $baris) {
-        $hitung[$baris['status']]++;
-    }
-
-    $token = bin2hex(random_bytes(16));
     $_SESSION['penanda_batch'] = [
-        'token' => $token,
+        'token' => bin2hex(random_bytes(16)),
         'pengguna_id' => auth_user_id(),
         'waktu' => time(),
         'titik' => $titik,
+        'gabung' => [],
+        'terpangkas' => $jumlahMasuk - count($titik),
     ];
 
-    json_ok([
-        'token' => $token,
-        'jumlah' => count($susun['hasil']),
-        'terpangkas' => $jumlahMasuk - count($titik),
-        'baru' => $hitung['baru'],
-        'kembar' => $hitung['kembar'],
-        'gagal' => $hitung['gagal'],
-        'batas' => PENANDA_BATCH_BATAS,
-        'boleh_simpan' => $pengguna['peran'] === PERAN_SUPER && $hitung['baru'] > 0,
-        'hasil' => $susun['hasil'],
-    ], sprintf(
-        'Pratinjau %d penanda: %d bidang baru, %d kembar, %d gagal.',
-        count($susun['hasil']),
-        $hitung['baru'],
-        $hitung['kembar'],
-        $hitung['gagal']
-    ));
+    jawabBatch($susun, $titik, [], $pengguna, $jumlahMasuk - count($titik));
+}
+
+/**
+ * Nomor baris yang dikirim klien, dipangkas ke rentang titik sesi.
+ *
+ * @return array<int,int>
+ */
+function pilihBatch(array $masukan, int $jumlahTitik): array
+{
+    $pilih = is_array($masukan['pilih'] ?? null) ? $masukan['pilih'] : [];
+    $pilih = array_map('intval', $pilih);
+    $pilih = array_unique(array_filter($pilih, static fn (int $i): bool => $i >= 0 && $i < $jumlahTitik));
+    $pilih = array_values($pilih);
+    sort($pilih);
+    return $pilih;
+}
+
+/** Titik sesi batch yang sah, atau hentikan permintaan. */
+function titikSesiBatch(array $pratinjau): array
+{
+    $titik = is_array($pratinjau['titik'] ?? null) ? $pratinjau['titik'] : [];
+    if ($titik === [] || count($titik) > PENANDA_BATCH_BATAS) {
+        unset($_SESSION['penanda_batch']);
+        json_error('Daftar titik pratinjau massal tidak sah. Ulangi pratinjau bidang.', 410);
+    }
+    return $titik;
+}
+
+if ($aksi === 'batch-gabung') {
+    set_time_limit(300);
+    $pratinjau = sesiBatch((string) ($masukan['token'] ?? ''));
+    $titik = titikSesiBatch($pratinjau);
+    $pilih = pilihBatch($masukan, count($titik));
+    if ($pilih === []) {
+        json_error('Centang minimal dua baris bidang baru untuk digabung.', 422);
+    }
+
+    $susun = susunBatch($titik);
+    $status = [];
+    $geometri = [];
+    foreach ($susun['hasil'] as $baris) {
+        $status[(int) $baris['i']] = (string) $baris['status'];
+        if ($baris['status'] === 'baru') {
+            $geometri[(int) $baris['i']] = $baris['geometri'];
+        }
+    }
+
+    // Pilihan ikut menyeret seluruh anggota kelompok yang sudah ada, supaya
+    // gabungan bisa ditambah lagi tanpa kehilangan anggota lama.
+    $kelompokLama = is_array($pratinjau['gabung'] ?? null) ? $pratinjau['gabung'] : [];
+    $terpilih = array_fill_keys($pilih, true);
+    foreach ($kelompokLama as $g) {
+        foreach ($g as $i) {
+            if (isset($terpilih[(int) $i])) {
+                foreach ($g as $j) {
+                    $terpilih[(int) $j] = true;
+                }
+                break;
+            }
+        }
+    }
+    $anggota = array_keys($terpilih);
+    sort($anggota);
+    if (count($anggota) < 2) {
+        json_error('Pilih minimal dua bidang baru; baris yang sudah digabung dihitung satu.', 422);
+    }
+    foreach ($anggota as $i) {
+        if (($status[$i] ?? '') !== 'baru') {
+            json_error('Baris penanda ke-' . ($i + 1) . ' bukan bidang baru, jadi tidak bisa digabung.', 422);
+        }
+    }
+
+    $union = gabungPoligonDxf(array_map(static fn (int $i): array => $geometri[$i], $anggota));
+    if ($union === null) {
+        json_error('Bidang terpilih tidak bersambung; gabung hanya untuk muka yang berbagi batas.', 422);
+    }
+    try {
+        $luasGabung = (float) siapkanGeometri($union)['luas'];
+    } catch (Throwable $error) {
+        json_error('Geometri gabungan tidak dapat dipakai: ' . $error->getMessage(), 422);
+    }
+
+    $sisa = [];
+    foreach ($kelompokLama as $g) {
+        $kena = false;
+        foreach ($g as $i) {
+            if (isset($terpilih[(int) $i])) {
+                $kena = true;
+                break;
+            }
+        }
+        if (!$kena) {
+            $sisa[] = $g;
+        }
+    }
+    $kelompok = array_merge($sisa, [$anggota]);
+    $_SESSION['penanda_batch']['gabung'] = $kelompok;
+
+    jawabBatch(
+        $susun,
+        $titik,
+        $kelompok,
+        $pengguna,
+        (int) ($pratinjau['terpangkas'] ?? 0),
+        count($anggota) . ' muka digabung (' . angka($luasGabung, 2) . ' m²). '
+    );
+}
+
+if ($aksi === 'batch-lepas-gabung') {
+    $pratinjau = sesiBatch((string) ($masukan['token'] ?? ''));
+    $titik = titikSesiBatch($pratinjau);
+    $pilih = pilihBatch($masukan, count($titik));
+    if ($pilih === []) {
+        json_error('Centang baris gabungan yang mau dilepas.', 422);
+    }
+
+    $kelompokLama = is_array($pratinjau['gabung'] ?? null) ? $pratinjau['gabung'] : [];
+    $sisa = [];
+    foreach ($kelompokLama as $g) {
+        $kena = false;
+        foreach ($g as $i) {
+            if (in_array((int) $i, $pilih, true)) {
+                $kena = true;
+                break;
+            }
+        }
+        if (!$kena) {
+            $sisa[] = $g;
+        }
+    }
+    if (count($sisa) === count($kelompokLama)) {
+        json_error('Baris terpilih tidak sedang digabung.', 422);
+    }
+
+    jawabBatch(
+        susunBatch($titik),
+        $titik,
+        $sisa,
+        $pengguna,
+        (int) ($pratinjau['terpangkas'] ?? 0),
+        'Gabungan dilepas. '
+    );
 }
 
 if ($aksi === 'batch-simpan') {
@@ -442,24 +782,8 @@ if ($aksi === 'batch-simpan') {
     }
     set_time_limit(600);
 
-    $token = (string) ($masukan['token'] ?? '');
-    $pratinjau = $_SESSION['penanda_batch'] ?? null;
-    if (!is_array($pratinjau) || !isset($pratinjau['token']) || $token === ''
-        || !hash_equals((string) $pratinjau['token'], $token)) {
-        json_error('Pratinjau massal tidak ditemukan. Ulangi pratinjau bidang.', 410);
-    }
-    if ((int) $pratinjau['pengguna_id'] !== (int) auth_user_id()) {
-        json_error('Pratinjau massal ini milik pengguna lain.', 403);
-    }
-    if (time() - (int) $pratinjau['waktu'] > 1800) {
-        unset($_SESSION['penanda_batch']);
-        json_error('Pratinjau massal kedaluwarsa. Ulangi pratinjau bidang.', 410);
-    }
-    $titik = is_array($pratinjau['titik'] ?? null) ? $pratinjau['titik'] : [];
-    if ($titik === [] || count($titik) > PENANDA_BATCH_BATAS) {
-        unset($_SESSION['penanda_batch']);
-        json_error('Daftar titik pratinjau massal tidak sah. Ulangi pratinjau bidang.', 410);
-    }
+    $pratinjau = sesiBatch((string) ($masukan['token'] ?? ''));
+    $titik = titikSesiBatch($pratinjau);
 
     $idJenisHak = db_value('SELECT id FROM jenis_hak WHERE kode = ?', [JENIS_HAK_DEFAULT]);
     if ($idJenisHak === null) {
@@ -469,11 +793,18 @@ if ($aksi === 'batch-simpan') {
     // Geometri dihitung ulang dari layer, bukan dari pratinjau klien, lalu
     // kembar diperiksa lagi di dalam transaksi: bidang yang baru saja
     // disisipkan pada batch yang sama ikut terlihat oleh koneksi yang sama.
+    // Kelompok gabungan ikut dihitung ulang di sini, jadi union yang masuk
+    // basis data selalu berasal dari server.
     $susun = susunBatch($titik);
-    $jalan = db_transaksi(static function (PDO $pdo) use ($susun, $idJenisHak): array {
+    $rapi = terapkanGabungBatch(
+        $susun,
+        is_array($pratinjau['gabung'] ?? null) ? $pratinjau['gabung'] : [],
+        $titik
+    );
+    $jalan = db_transaksi(static function (PDO $pdo) use ($rapi, $idJenisHak): array {
         $dibuat = [];
         $dilewati = [];
-        foreach ($susun['bahan'] as $bahan) {
+        foreach ($rapi['bahan'] as $bahan) {
             $duplikat = duplikatBidang($bahan['kode'], $bahan['siap']['wkt']);
             if ($duplikat !== null) {
                 $dilewati[] = ['i' => $bahan['i'], 'kode' => $bahan['kode'], 'duplikat' => $duplikat];
@@ -495,13 +826,14 @@ if ($aksi === 'batch-simpan') {
                 'handle' => $bahan['handle'],
                 'luas_m2' => $bahan['luas_m2'],
                 'blok' => $bahan['blok']['kode'] ?? null,
+                'gabung' => $bahan['gabung'] ?? null,
             ];
         }
         return ['dibuat' => $dibuat, 'dilewati' => $dilewati];
     });
 
     $gagal = 0;
-    foreach ($susun['hasil'] as $baris) {
+    foreach ($rapi['hasil'] as $baris) {
         if ($baris['status'] === 'gagal') {
             $gagal++;
         }
@@ -509,29 +841,46 @@ if ($aksi === 'batch-simpan') {
 
     unset($_SESSION['penanda_batch']);
     foreach ($jalan['dibuat'] as $bidang) {
+        $data = [
+            'kode' => $bidang['kode'],
+            'lapisan' => '020100',
+            'jenis' => $bidang['jenis'],
+            'handle' => $bidang['handle'],
+            'penanda' => ['x' => $titik[$bidang['i']][0], 'y' => $titik[$bidang['i']][1]],
+            'luas_m2' => $bidang['luas_m2'],
+            'blok' => $bidang['blok'],
+            'massal' => true,
+        ];
+        if (!empty($bidang['gabung'])) {
+            $data['gabung'] = $bidang['gabung'];
+            foreach ($bidang['gabung'] as $i) {
+                $data['penanda_gabung'][] = ['x' => $titik[$i][0], 'y' => $titik[$i][1]];
+            }
+        }
         audit('buat', 'bidang', (string) $bidang['id'],
-            'Buat bidang dari penanda massal peta induk 020100: ' . $bidang['kode'], null, [
-                'kode' => $bidang['kode'],
-                'lapisan' => '020100',
-                'jenis' => $bidang['jenis'],
-                'handle' => $bidang['handle'],
-                'penanda' => ['x' => $titik[$bidang['i']][0], 'y' => $titik[$bidang['i']][1]],
-                'luas_m2' => $bidang['luas_m2'],
-                'blok' => $bidang['blok'],
-                'massal' => true,
-            ]);
+            'Buat bidang dari penanda massal peta induk 020100: ' . $bidang['kode'], null, $data);
+    }
+
+    $digabung = 0;
+    foreach ($jalan['dibuat'] as $bidang) {
+        if (!empty($bidang['gabung'])) {
+            $digabung++;
+        }
     }
 
     json_ok([
         'dibuat' => $jalan['dibuat'],
         'dilewati' => $jalan['dilewati'],
         'gagal' => $gagal,
+        'digabung' => $digabung,
     ], sprintf(
-        '%d bidang baru disimpan sebagai perlu verifikasi, %d dilewati.',
+        '%d bidang baru disimpan sebagai perlu verifikasi%s, %d dilewati.',
         count($jalan['dibuat']),
+        $digabung > 0 ? ' (' . $digabung . ' dari gabungan penanda)' : '',
         count($jalan['dilewati'])
     ));
 }
 
 json_error('Aksi tidak dikenal. Gunakan "pratinjau", "garis-baru", "bersihkan", "simpan", '
-    . '"batch-pratinjau", "batch-simpan", atau "batch-bersihkan".', 400);
+    . '"batch-pratinjau", "batch-gabung", "batch-lepas-gabung", "batch-simpan", '
+    . 'atau "batch-bersihkan".', 400);

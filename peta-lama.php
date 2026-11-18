@@ -201,9 +201,13 @@ sip_judul(
                     <button class="tombol tombol-kecil tombol-utama" type="button" id="batchSimpan" style="display:none">Simpan semua</button>
                     <button class="tombol tombol-kecil" type="button" id="batchHapus" disabled>Kosongkan</button>
                 </div>
+                <div class="baris-tombol jarak-atas">
+                    <button class="tombol tombol-kecil" type="button" id="batchGabung" disabled>Gabung terpilih</button>
+                    <button class="tombol tombol-kecil" type="button" id="batchLepasGabung" disabled>Lepas gabung</button>
+                </div>
                 <ul class="daftar-kecil jarak-atas" id="batchDaftar"></ul>
                 <p class="petunjuk" id="infoBatch">Nyalakan mode banyak penanda lalu klik titik-titik yang diinginkan. Satu klik pada penanda merah muda menghapusnya.</p>
-                <p class="petunjuk">Setiap penanda diturunkan dengan rumus yang sama seperti penanda tunggal, termasuk muka garis untuk kantong terbuka. Yang sudah punya bidang kembar (≥95% dua arah) ditandai dilewati. Seluruh batch dihitung dan disimpan dalam satu permintaan; penyimpanan hanya untuk Super Admin dan hanya bila ada bidang baru.</p>
+                <p class="petunjuk">Setiap penanda diturunkan dengan rumus yang sama seperti penanda tunggal, termasuk muka garis untuk kantong terbuka. Yang sudah punya bidang kembar (≥95% dua arah) ditandai dilewati. Seluruh batch dihitung dan disimpan dalam satu permintaan; penyimpanan hanya untuk Super Admin dan hanya bila ada bidang baru. Baris “bidang baru” bisa dicentang: dua baris atau lebih yang bersambung digabung menjadi satu bidang sebelum disimpan, dan “Lepas gabung” mengembalikannya.</p>
             </div>
         </section>
 
@@ -458,6 +462,7 @@ sip_judul(
 }
 #batchDaftar li { cursor: pointer; }
 #batchDaftar li:hover { background: #f2f7f4; }
+#batchDaftar .cek-baris { align-self: center; margin: 0 2px 0 0; }
 @media (max-width: 720px) {
     .kepala-peta { flex-wrap: wrap; }
     .baris-peta { width: 100%; }
@@ -495,6 +500,7 @@ $naskah = <<<'JS'
     let pratinjauMassal = null;
     let sorotMassal = {};
     let modeMassal = false;
+    const barisMassalTerpilih = new Set();
     const sorotanBlok = L.featureGroup().addTo(peta);
     const memuat = new Set();
 
@@ -553,7 +559,8 @@ $naskah = <<<'JS'
         'garis-tertutup': 'garis bidang tertutup',
         'garis': 'rangkaian garis',
         'garis-baru': 'garis dari tepi sekitar',
-        'kadastrum': 'Bidang kadastrum'
+        'kadastrum': 'Bidang kadastrum',
+        'gabungan': 'gabungan muka'
     };
 
     function gayaLapisan(nama) {
@@ -870,15 +877,32 @@ $naskah = <<<'JS'
         document.getElementById('batchHapus').disabled = titikMassal.length === 0;
     }
 
+    function aturTombolGabung() {
+        const gabung = document.getElementById('batchGabung');
+        const lepas = document.getElementById('batchLepasGabung');
+        gabung.disabled = barisMassalTerpilih.size < 2;
+        let adaGabungan = false;
+        if (pratinjauMassal) {
+            (pratinjauMassal.hasil || []).forEach((h) => {
+                if (h.gabung && barisMassalTerpilih.has(h.i)) {
+                    adaGabungan = true;
+                }
+            });
+        }
+        lepas.disabled = !adaGabungan;
+    }
+
     function kosongkanPratinjauMassal(keServer) {
         grupBatchPratinjau.clearLayers();
         sorotMassal = {};
         pratinjauMassal = null;
+        barisMassalTerpilih.clear();
         document.getElementById('batchSimpan').style.display = 'none';
         document.getElementById('batchDaftar').textContent = '';
         ['batchBaru', 'batchKembar', 'batchGagal'].forEach((id) => {
             document.getElementById(id).textContent = '–';
         });
+        aturTombolGabung();
         if (keServer) {
             Sip.api('api/penanda-bidang.php', {
                 method: 'POST',
@@ -942,14 +966,33 @@ $naskah = <<<'JS'
 
     function barisMassal(h) {
         const li = document.createElement('li');
+        if (h.status === 'baru') {
+            const centang = document.createElement('input');
+            centang.type = 'checkbox';
+            centang.className = 'cek-baris';
+            centang.checked = barisMassalTerpilih.has(h.i);
+            centang.title = 'Centang untuk menggabungkan baris ini dengan baris lain';
+            centang.addEventListener('click', (e) => e.stopPropagation());
+            centang.addEventListener('change', () => {
+                if (centang.checked) {
+                    barisMassalTerpilih.add(h.i);
+                } else {
+                    barisMassalTerpilih.delete(h.i);
+                }
+                aturTombolGabung();
+            });
+            li.appendChild(centang);
+        }
         const kiri = document.createElement('span');
         kiri.className = 'redup';
         kiri.textContent = (h.i + 1) + '. ' + (h.kode
-            || 'X ' + Sip.angka(h.x, 1) + ' · Y ' + Sip.angka(h.y, 1));
+            || 'X ' + Sip.angka(h.x, 1) + ' · Y ' + Sip.angka(h.y, 1))
+            + (h.gabung ? ' · ' + Sip.angka(h.gabung.length) + ' muka' : '');
         const kanan = document.createElement('span');
         kanan.className = 'rapek-kanan';
         kanan.textContent = h.status === 'baru'
-            ? Sip.angka(h.luas_m2, 1) + ' m² · ' + (LABEL_JENIS_PENANDA[h.jenis] || h.jenis)
+            ? Sip.angka(h.luas_m2, 1) + ' m² · '
+                + (h.gabung ? 'digabung' : (LABEL_JENIS_PENANDA[h.jenis] || h.jenis))
             : h.status === 'kembar'
                 ? 'dilewati · ' + ((h.duplikat && h.duplikat.kode) || 'titik lain di muka yang sama')
                 : 'gagal';
@@ -1005,6 +1048,7 @@ $naskah = <<<'JS'
         }
         document.getElementById('infoBatch').textContent = pesan;
         info.textContent = 'Pratinjau massal: ' + pesan;
+        aturTombolGabung();
     }
 
     async function pratinjauSemuaMassal() {
@@ -1028,10 +1072,58 @@ $naskah = <<<'JS'
         }
     }
 
+    async function gabungMassal() {
+        if (!pratinjauMassal || barisMassalTerpilih.size < 2) return;
+        const daftar = Array.from(barisMassalTerpilih);
+        const tombol = document.getElementById('batchGabung');
+        tombol.disabled = true;
+        document.getElementById('infoBatch').textContent
+            = 'Menggabung ' + Sip.angka(daftar.length) + ' baris…';
+        try {
+            const isi = await Sip.api('api/penanda-bidang.php', {
+                method: 'POST',
+                json: { aksi: 'batch-gabung', token: pratinjauMassal.token, pilih: daftar }
+            });
+            tampilkanPratinjauMassal(isi);
+            document.getElementById('infoBatch').textContent = isi.pesan;
+            info.textContent = 'Penggabungan: ' + isi.pesan;
+        } catch (err) {
+            document.getElementById('infoBatch').textContent = err.message;
+            Sip.pesan(err.message, 'gagal');
+        } finally {
+            aturTombolGabung();
+            tombol.disabled = barisMassalTerpilih.size < 2;
+        }
+    }
+
+    async function lepasGabungMassal() {
+        if (!pratinjauMassal || barisMassalTerpilih.size === 0) return;
+        const daftar = Array.from(barisMassalTerpilih);
+        const tombol = document.getElementById('batchLepasGabung');
+        tombol.disabled = true;
+        try {
+            const isi = await Sip.api('api/penanda-bidang.php', {
+                method: 'POST',
+                json: { aksi: 'batch-lepas-gabung', token: pratinjauMassal.token, pilih: daftar }
+            });
+            tampilkanPratinjauMassal(isi);
+            document.getElementById('infoBatch').textContent = isi.pesan;
+            info.textContent = 'Gabungan dilepas: ' + isi.pesan;
+        } catch (err) {
+            document.getElementById('infoBatch').textContent = err.message;
+            Sip.pesan(err.message, 'gagal');
+        } finally {
+            aturTombolGabung();
+        }
+    }
+
     async function simpanSemuaMassal() {
         if (!pratinjauMassal) return;
+        const digabung = (pratinjauMassal.hasil || []).filter((h) => h.gabung).length;
         const yakin = window.confirm('Simpan ' + pratinjauMassal.baru
-            + ' bidang baru sebagai perlu verifikasi, tanpa blok? Yang kembar dilewati dan seluruh batch ditulis dalam satu transaksi.');
+            + ' bidang baru sebagai perlu verifikasi, tanpa blok?'
+            + (digabung > 0 ? ' ' + digabung + ' di antaranya bidang gabungan.' : '')
+            + ' Yang kembar dilewati dan seluruh batch ditulis dalam satu transaksi.');
         if (!yakin) return;
         const tombol = document.getElementById('batchSimpan');
         tombol.disabled = true;
@@ -1559,6 +1651,12 @@ $naskah = <<<'JS'
         kosongkanPratinjauMassal(true);
         aturJumlahMassal();
         document.getElementById('infoBatch').textContent = 'Penanda massal dikosongkan.';
+    });
+    document.getElementById('batchGabung').addEventListener('click', () => {
+        gabungMassal().catch((err) => Sip.pesan(err.message, 'gagal'));
+    });
+    document.getElementById('batchLepasGabung').addEventListener('click', () => {
+        lepasGabungMassal().catch((err) => Sip.pesan(err.message, 'gagal'));
     });
 
     document.getElementById('pratinjauPenanda').addEventListener('click', () => {

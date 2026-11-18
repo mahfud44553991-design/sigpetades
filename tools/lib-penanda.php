@@ -611,6 +611,62 @@ function kodeBidangGarisBaru(array $geometri): string
     return 'DXF-020100-B' . str_pad((string) (crc32($kunci) % 100000), 5, '0', STR_PAD_LEFT);
 }
 
+/** Poligon meter DXF menjadi WKT SRID 0; dipakai ST_Union di gabungPoligonDxf. */
+function wktPoligonDxf(array $geometri): string
+{
+    $cincin = [];
+    foreach ($geometri['coordinates'] ?? [] as $ring) {
+        $pasangan = [];
+        foreach ($ring as $titik) {
+            $pasangan[] = sprintf('%.6F %.6F', (float) $titik[0], (float) $titik[1]);
+        }
+        $cincin[] = '(' . implode(',', $pasangan) . ')';
+    }
+    return 'POLYGON(' . implode(',', $cincin) . ')';
+}
+
+/**
+ * Gabungkan dua poligon meter DXF atau lebih menjadi satu geometri.
+ *
+ * Union dijalankan di MariaDB pada SRID 0, jadi hasilnya tetap meter DXF.
+ * Hanya poligon yang berbagi batas yang menghasilkan satu Polygon; bidang
+ * yang terpisah menjadi MultiPolygon dan sengaja dikembalikan null supaya
+ * penggabungan yang tidak menyatu tidak lolos sebagai satu bidang.
+ *
+ * @param array<int, array<string, mixed>> $daftar
+ * @return array{type:string,coordinates:array}|null
+ */
+function gabungPoligonDxf(array $daftar): ?array
+{
+    $sah = [];
+    foreach ($daftar as $g) {
+        if (is_array($g) && ($g['type'] ?? '') === 'Polygon' && is_array($g['coordinates'] ?? null)) {
+            $sah[] = $g;
+        }
+    }
+    if (count($sah) < 2) {
+        return null;
+    }
+
+    $ekspresi = 'ST_GeomFromText(?, 0)';
+    $parameter = [wktPoligonDxf($sah[0])];
+    for ($i = 1; $i < count($sah); $i++) {
+        $ekspresi = 'ST_Union(' . $ekspresi . ', ST_GeomFromText(?, 0))';
+        $parameter[] = wktPoligonDxf($sah[$i]);
+    }
+
+    $naskah = db_value('SELECT ST_AsGeoJSON(' . $ekspresi . ')', $parameter);
+    if (!is_string($naskah)) {
+        return null;
+    }
+    $geometri = json_decode($naskah, true);
+    if (!is_array($geometri) || ($geometri['type'] ?? '') !== 'Polygon'
+        || !is_array($geometri['coordinates'] ?? null)) {
+        return null;
+    }
+    return ['type' => 'Polygon', 'coordinates' => $geometri['coordinates']];
+}
+
 /**
  * Persil Bidang kadastrum yang memuat titik, dikembalikan dalam koordinat DXF.
  *
