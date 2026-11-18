@@ -880,6 +880,12 @@ $naskah = <<<'JS'
     function aturTombolGabung() {
         const gabung = document.getElementById('batchGabung');
         const lepas = document.getElementById('batchLepasGabung');
+        const adaBaru = pratinjauMassal
+            ? (pratinjauMassal.hasil || []).filter((h) => h.status === 'baru').length
+            : 0;
+        gabung.title = adaBaru < 2
+            ? 'Butuh minimal dua baris "bidang baru"; baris kembar atau gagal tidak bisa digabung.'
+            : 'Centang minimal dua baris "bidang baru" yang bersambung, lalu klik tombol ini.';
         gabung.disabled = barisMassalTerpilih.size < 2;
         let adaGabungan = false;
         if (pratinjauMassal) {
@@ -1038,6 +1044,9 @@ $naskah = <<<'JS'
             pesan += '; ' + Sip.angka(isi.terpangkas) + ' penanda ganda diabaikan';
         }
         pesan += '.';
+        if (isi.baru < 2) {
+            pesan += ' Gabung terpilih butuh minimal dua baris bidang baru; baris kembar tidak bisa digabung.';
+        }
         if (isi.boleh_simpan) {
             pesan += ' Periksa gambar hijau, lalu klik Simpan semua.';
             document.getElementById('batchSimpan').style.display = '';
