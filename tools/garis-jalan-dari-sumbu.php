@@ -11,7 +11,7 @@ declare(strict_types=1);
  *   --lebar-yatim=M    lebar koridor ronde kedua untuk titik sampel yang belum
  *                      berpasangan, bawaan 10,0 m; 0 = mati
  *   --langkah=M        jarak titik sampel, bawaan 2,0 m
- *   --sambung=M        ambang jahit ujung rantai, bawaan 8,0 m
+ *   --sambung=M        ambang jahit ujung rantai, bawaan 292,0 m
  *   --rinci            cetak 25 sumbu dengan cakupan sisi terlemah
  *   --tanya=KODE       cetak rincian klaim dan terbitan satu sumbu
  *
@@ -35,7 +35,7 @@ declare(strict_types=1);
  * dibuang. Klaim dicatat per sumbu dan sisi, jadi sumbu yang bersebelahan atau
  * berimpit tetap punya untaian sendiri walau memakai segmen sisi yang sama.
  * Baris per sumbu+sisi kemudian disambung menurut posisinya di sepanjang sumbu:
- * ujung yang berjarak <= --sambung (bawaan 8 m) disatukan menjadi satu rantai
+ * ujung yang berjarak <= --sambung (bawaan 292 m) disatukan menjadi satu rantai
  * dengan garis penghubung lurus, sedangkan celah lebih besar dibiarkan putus
  * karena berarti sisi jalan memang tidak ditemukan di situ (mulut persimpangan,
  * saluran air).
@@ -61,7 +61,7 @@ const LEBAR_YATIM_BAWAAN = 10.0;
 const LEBAR_MIN = 0.25;
 const SUDUT_PASANG = 25.0;
 const MIN_TEPI = 1.0;
-const AMBANG_SAMBUNG = 8.0;
+const AMBANG_SAMBUNG = 292.0;
 const SEL = 10.0;
 const SEL_KISI = 5.0;
 const RAGU_AIR = 3.5;
