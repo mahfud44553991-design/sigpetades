@@ -220,7 +220,7 @@ sip_judul(
                         <button class="tombol tombol-kecil" type="button" id="sumbuBatal" disabled>Batal</button>
                         <button class="tombol tombol-kecil tombol-utama" type="button" id="sumbuSimpan" disabled>Simpan sumbu</button>
                     </div>
-                    <p class="petunjuk jarak-atas">Klik garis “Sumbu manual” di peta untuk memilihnya, lalu potong di satu titik atau hapus seluruh garis.</p>
+                    <p class="petunjuk jarak-atas">Klik garis “Sumbu manual” di peta, atau di dekatnya, untuk memilihnya; lalu potong di satu titik atau hapus seluruh garis.</p>
                     <dl class="daftar-kecil">
                         <li><span class="redup">Garis terpilih</span><span class="rapek-kanan" id="sumbuGarisTerpilih">–</span></li>
                     </dl>
@@ -1223,6 +1223,40 @@ $naskah = <<<'JS'
             + ' terpilih. Klik “Potong di titik”, atau hapus seluruh garis.';
     }
 
+    function jarakTitikKeRuas(p, a, b) {
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const kuadrat = dx * dx + dy * dy;
+        let t = kuadrat > 0 ? ((p.x - a.x) * dx + (p.y - a.y) * dy) / kuadrat : 0;
+        t = Math.max(0, Math.min(1, t));
+        return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy));
+    }
+
+    // Cari garis manual terdekat dalam piksel layar supaya klik yang meleset beberapa
+    // piksel dari garis tipis tetap memilih garis itu, bukan jatuh ke peta kosong.
+    function sumbuManualTerdekat(latlng, toleransiPx) {
+        const lapisan = grup['garis-jalan-sumbu-manual'];
+        if (!lapisan || !peta.hasLayer(lapisan)) return null;
+        const klik = peta.latLngToContainerPoint(latlng);
+        let terbaik = null;
+        lapisan.eachLayer((l) => {
+            if (!l.feature || typeof l.getLatLngs !== 'function') return;
+            const ruas = l.getLatLngs();
+            const daftar = ruas.length && Array.isArray(ruas[0]) ? ruas : [ruas];
+            daftar.forEach((baris) => {
+                for (let i = 1; i < baris.length; i++) {
+                    const a = peta.latLngToContainerPoint(baris[i - 1]);
+                    const b = peta.latLngToContainerPoint(baris[i]);
+                    const jarak = jarakTitikKeRuas(klik, a, b);
+                    if (jarak <= toleransiPx && (!terbaik || jarak < terbaik.jarak)) {
+                        terbaik = { jarak, fitur: l.feature };
+                    }
+                }
+            });
+        });
+        return terbaik ? terbaik.fitur : null;
+    }
+
     function lekatkanPilihSumbu(lapisan) {
         lapisan.eachLayer((l) => {
             if (!l.feature) return;
@@ -1445,7 +1479,11 @@ $naskah = <<<'JS'
             potongSumbu(e.latlng).catch((err) => Sip.pesan(err.message, 'gagal'));
             return;
         }
-        if (!modePenunjuk) return;
+        if (!modePenunjuk) {
+            const fitur = sumbuManualTerdekat(e.latlng, 12);
+            if (fitur) pilihSumbuManual(fitur);
+            return;
+        }
         if (modeMassal) {
             tambahPenandaMassal(e.latlng);
             return;
