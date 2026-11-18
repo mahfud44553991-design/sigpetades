@@ -12,6 +12,7 @@ declare(strict_types=1);
  *                      berpasangan, bawaan 10,0 m; 0 = mati
  *   --langkah=M        jarak titik sampel, bawaan 2,0 m
  *   --rinci            cetak 25 sumbu dengan cakupan sisi terlemah
+ *   --tanya=KODE       cetak rincian klaim dan terbitan satu sumbu
  *
  * Masukan: `garis-jalan-sumbu.geojson` (1.560 sumbu turunan label, termasuk 67
  * sumbu yatim) dan `garis-sumbu-manual.geojson` (130 sumbu alat "Penanda
@@ -27,8 +28,15 @@ declare(strict_types=1);
  * dan TIDAK berada di antara dua tepi air sejajar (selokan/sungai). Segmen
  * terpilih dipotong menurut untaian bersambung pada fitur 020100 asalnya, jadi
  * tepi keluaran menempel persis pada garis sisi bidang yang dilewati sumbu,
- * bukan garis sejajar karangan. Satu segmen hanya terbit sekali; bila dua sumbu
- * mengklaimnya, sumbu dengan jarak sampel terdekat yang menang.
+ * bukan garis sejajar karangan. Ujung untaian dipangkas ke proyeksi sampel lalu
+ * diperpanjang setengah LANGKAH, sebab wilayah antara sampel terujung dan titik
+ * tengah ke sampel tetangga tetap diwakili sisi itu; potongan di bawah 1 m
+ * dibuang. Klaim dicatat per sumbu dan sisi, jadi sumbu yang bersebelahan atau
+ * berimpit tetap punya untaian sendiri walau memakai segmen sisi yang sama.
+ * Baris per sumbu+sisi kemudian disambung menurut posisinya di sepanjang sumbu:
+ * ujung yang berjarak <= LANGKAH disatukan menjadi satu rantai dengan garis
+ * penghubung lurus, sedangkan celah lebih besar dibiarkan putus karena berarti
+ * sisi jalan memang tidak ditemukan di situ (mulut persimpangan, saluran air).
  *
  * Persil untuk uji koridor dibaca dari tabel `bidang` (status <> 'dihapus'),
  * hanya baca. Lapis air dibaca dari `garis-selokan.geojson` dan
@@ -50,7 +58,7 @@ const LEBAR_BAWAAN = 8.0;
 const LEBAR_YATIM_BAWAAN = 10.0;
 const LEBAR_MIN = 0.25;
 const SUDUT_PASANG = 25.0;
-const MIN_TEPI = 2.0;
+const MIN_TEPI = 1.0;
 const SEL = 10.0;
 const SEL_KISI = 5.0;
 const RAGU_AIR = 3.5;
@@ -137,6 +145,27 @@ function titikPada(array $titik, int $i, float $t): array
     $x2 = (float) $titik[$i + 1][0];
     $y2 = (float) $titik[$i + 1][1];
     return [$x1 + $t * ($x2 - $x1), $y1 + $t * ($y2 - $y1)];
+}
+
+/** Posisi titik di sepanjang sumbu (jarak lengkung dari awal, meter). */
+function posisiSumbu(array $titik, array $kum, float $x, float $y): float
+{
+    $terbaik = INF;
+    $pos = 0.0;
+    for ($i = 0; $i + 1 < count($titik); $i++) {
+        $x1 = (float) $titik[$i][0];
+        $y1 = (float) $titik[$i][1];
+        $dx = (float) $titik[$i + 1][0] - $x1;
+        $dy = (float) $titik[$i + 1][1] - $y1;
+        $pan = $dx * $dx + $dy * $dy;
+        $t = $pan > 0.0 ? max(0.0, min(1.0, (($x - $x1) * $dx + ($y - $y1) * $dy) / $pan)) : 0.0;
+        $d = hypot($x - ($x1 + $t * $dx), $y - ($y1 + $t * $dy));
+        if ($d < $terbaik) {
+            $terbaik = $d;
+            $pos = (float) $kum[$i] + $t * hypot($dx, $dy);
+        }
+    }
+    return $pos;
 }
 
 /** Buang titik yang berturut-turut berjarak < 1 cm. */
@@ -391,11 +420,14 @@ $lebar = LEBAR_BAWAAN;
 $lebarYatim = LEBAR_YATIM_BAWAAN;
 $langkah = LANGKAH_BAWAAN;
 $rinci = false;
+$tanya = null;
 foreach (array_slice($argv, 1) as $arg) {
     if ($arg === '--terapkan') {
         $terapkan = true;
     } elseif ($arg === '--rinci') {
         $rinci = true;
+    } elseif (str_starts_with($arg, '--tanya=')) {
+        $tanya = substr($arg, 8);
     } elseif (str_starts_with($arg, '--lebar=')) {
         $lebar = (float) str_replace(',', '.', substr($arg, 8));
     } elseif (str_starts_with($arg, '--lebar-yatim=')) {
@@ -519,7 +551,10 @@ printf("tepi air: %d garis\n", $jumlahAir);
 // Klaim segmen oleh sumbu
 // ---------------------------------------------------------------------------
 
-/** @var array<string, array<int, array{sumbu:string, sisi:string, jarak:float}>> $pakai */
+/**
+ * @var array<string, array<string, array<string, array<int, array{jarak:float, tmin:float, tmax:float}>>>> $pakai
+ *      kode sumbu -> sisi -> kunci fitur 020100 -> indeks segmen -> rentang proyeksi
+ */
 $pakai = [];
 $cakupan = [];
 $tolakPoligon = 0;
@@ -558,13 +593,17 @@ foreach ($sumbu as $f) {
             $s = $segmen[$hasil['id']];
             $kunci = (string) $s[5];
             $indeks = (int) $s[6];
-            $lama = $pakai[$kunci][$indeks] ?? null;
-            if ($lama === null || $hasil['jarak'] < $lama['jarak']) {
-                $pakai[$kunci][$indeks] = ['sumbu' => $f['kode'], 'sisi' => $sisi,
-                    'jarak' => $hasil['jarak'], 'tmin' => $hasil['t'], 'tmax' => $hasil['t']];
-            } elseif ($lama['sumbu'] === $f['kode'] && $lama['sisi'] === $sisi) {
-                $pakai[$kunci][$indeks]['tmin'] = min($lama['tmin'], $hasil['t']);
-                $pakai[$kunci][$indeks]['tmax'] = max($lama['tmax'], $hasil['t']);
+            $lama = $pakai[$f['kode']][$sisi][$kunci][$indeks] ?? null;
+            if ($lama === null) {
+                $pakai[$f['kode']][$sisi][$kunci][$indeks] = ['jarak' => $hasil['jarak'],
+                    'tmin' => $hasil['t'], 'tmax' => $hasil['t'], 'n' => 1];
+            } else {
+                $pakai[$f['kode']][$sisi][$kunci][$indeks] = [
+                    'jarak' => min($lama['jarak'], $hasil['jarak']),
+                    'tmin' => min($lama['tmin'], $hasil['t']),
+                    'tmax' => max($lama['tmax'], $hasil['t']),
+                    'n' => $lama['n'] + 1,
+                ];
             }
         }
     }
@@ -576,19 +615,44 @@ foreach ($sumbu as $f) {
         'kanan' => $n > 0 ? $kanan / $n : 0.0,
     ];
 }
+
+$fiturKlaim = [];
+foreach ($pakai as $perSisi) {
+    foreach ($perSisi as $perFitur) {
+        foreach (array_keys($perFitur) as $kunci) {
+            $fiturKlaim[$kunci] = true;
+        }
+    }
+}
 printf("klaim: %d titik sampel · %d fitur 020100 terpakai · ronde yatim menambah %d pasangan"
-    . " · tolak persil %d · tolak air %d\n", $jumlahSampel, count($pakai), $rondeYatim,
+    . " · tolak persil %d · tolak air %d\n", $jumlahSampel, count($fiturKlaim), $rondeYatim,
     $tolakPoligon, $tolakAir);
+
+$jumlahKlaim = 0;
+$panjangKlaim = 0.0;
+foreach ($pakai as $perSisi) {
+    foreach ($perSisi as $perFitur) {
+        foreach ($perFitur as $kunci => $klaim) {
+            $titik = $bahan[$kunci]['titik'];
+            foreach ($klaim as $i => $c) {
+                $jumlahKlaim++;
+                $panjangKlaim += hypot((float) $titik[$i + 1][0] - $titik[$i][0],
+                    (float) $titik[$i + 1][1] - $titik[$i][1]);
+            }
+        }
+    }
+}
+printf("klaim tersimpan: %d segmen · %s m\n", $jumlahKlaim, angkaNum($panjangKlaim, 1));
 
 // ---------------------------------------------------------------------------
 // Potong klaim menjadi untaian bersambung per fitur 020100
 // ---------------------------------------------------------------------------
 
 /**
- * Untaian segmen bersambung; diputus juga saat sumbu atau sisi berganti supaya
- * tiap baris hanya mewakili satu sumbu di satu sisi.
+ * Untaian segmen bersambung pada satu fitur 020100; cincin yang terpotong di
+ * awal dan akhir digabung kembali menjadi satu untaian melingkar.
  *
- * @return list<array{0:int,1:int,2:string,3:string}> [awal, akhir, sumbu, sisi]
+ * @return list<array{0:int,1:int,2?:bool}> [awal, akhir, lewat]
  */
 function untaian(array $klaim, bool $ring, int $jumlahSegmen): array
 {
@@ -596,89 +660,246 @@ function untaian(array $klaim, bool $ring, int $jumlahSegmen): array
     $keluar = [];
     $awal = null;
     $akhir = null;
-    $sumbu = '';
-    $sisi = '';
     foreach ($klaim as $i => $c) {
         if ($awal === null) {
             $awal = $akhir = $i;
-            $sumbu = $c['sumbu'];
-            $sisi = $c['sisi'];
             continue;
         }
-        if ($i === $akhir + 1 && $c['sumbu'] === $sumbu && $c['sisi'] === $sisi) {
+        if ($i === $akhir + 1) {
             $akhir = $i;
             continue;
         }
-        $keluar[] = [$awal, $akhir, $sumbu, $sisi];
+        $keluar[] = [$awal, $akhir];
         $awal = $akhir = $i;
-        $sumbu = $c['sumbu'];
-        $sisi = $c['sisi'];
     }
     if ($awal !== null) {
-        $keluar[] = [$awal, $akhir, $sumbu, $sisi];
+        $keluar[] = [$awal, $akhir];
     }
     if ($ring && count($keluar) > 1) {
         $pertama = $keluar[0];
         $terakhir = $keluar[count($keluar) - 1];
-        if ($pertama[0] === 0 && $terakhir[1] === $jumlahSegmen - 1
-            && $pertama[2] === $terakhir[2] && $pertama[3] === $terakhir[3]) {
+        if ($pertama[0] === 0 && $terakhir[1] === $jumlahSegmen - 1) {
             array_pop($keluar);
             array_shift($keluar);
-            array_unshift($keluar, [$terakhir[0], $pertama[1], $pertama[2], $pertama[3], true]);
+            array_unshift($keluar, [$terakhir[0], $pertama[1], true]);
         }
     }
     return $keluar;
+}
+
+/**
+ * Potong satu untaian klaim menjadi polyline, dipangkas ke proyeksi sampel di ujung.
+ * Ujung diperpanjang setengah langkah sampel: wilayah antara sampel terujung dan
+ * titik tengah ke sampel tetangga tetap diwakili sisi itu.
+ */
+function potongUntaian(array $titik, array $klaim, array $run, int $jumlahSegmen,
+    float $langkah): array
+{
+    [$a, $b] = $run;
+    $lewat = $run[2] ?? false;
+    $panjangA = hypot((float) $titik[$a + 1][0] - $titik[$a][0],
+        (float) $titik[$a + 1][1] - $titik[$a][1]);
+    $panjangB = hypot((float) $titik[$b + 1][0] - $titik[$b][0],
+        (float) $titik[$b + 1][1] - $titik[$b][1]);
+    $tAwal = $panjangA > 0.0
+        ? max(0.0, $klaim[$a]['tmin'] - 0.5 * $langkah / $panjangA)
+        : $klaim[$a]['tmin'];
+    $tAkhir = $panjangB > 0.0
+        ? min(1.0, $klaim[$b]['tmax'] + 0.5 * $langkah / $panjangB)
+        : $klaim[$b]['tmax'];
+    $potong = [titikPada($titik, $a, $tAwal)];
+    if ($lewat) {
+        for ($v = $a + 1; $v <= $jumlahSegmen; $v++) {
+            $potong[] = $titik[$v];
+        }
+        for ($v = 1; $v <= $b; $v++) {
+            $potong[] = $titik[$v];
+        }
+    } else {
+        for ($v = $a + 1; $v <= $b; $v++) {
+            $potong[] = $titik[$v];
+        }
+    }
+    $potong[] = titikPada($titik, $b, $tAkhir);
+    return rapatkan($potong);
 }
 
 $fiturKeluar = [];
 $pendekBuang = 0;
 $pendekPanjang = 0.0;
 $kodeUrut = 0;
-foreach ($pakai as $kunci => $klaim) {
-    $data = $bahan[$kunci];
-    $titik = $data['titik'];
-    $jumlahSegmen = count($titik) - 1;
-    foreach (untaian($klaim, (bool) $data['ring'], $jumlahSegmen) as $run) {
-        [$a, $b] = $run;
-        $lewat = $run[4] ?? false;
-        $potong = [titikPada($titik, $a, $klaim[$a]['tmin'])];
-        if ($lewat) {
-            for ($v = $a + 1; $v <= $jumlahSegmen; $v++) {
-                $potong[] = $titik[$v];
-            }
-            for ($v = 1; $v <= $b; $v++) {
-                $potong[] = $titik[$v];
-            }
-        } else {
-            for ($v = $a + 1; $v <= $b; $v++) {
-                $potong[] = $titik[$v];
+$statSumbu = [];
+foreach ($pakai as $kodeSumbu => $perSisi) {
+    foreach ($perSisi as $sisi => $perFitur) {
+        foreach ($perFitur as $kunci => $klaim) {
+            $data = $bahan[$kunci];
+            $titik = $data['titik'];
+            $jumlahSegmen = count($titik) - 1;
+            foreach (untaian($klaim, (bool) $data['ring'], $jumlahSegmen) as $run) {
+                $potong = potongUntaian($titik, $klaim, $run, $jumlahSegmen, $langkah);
+                $p = panjang($potong);
+                $statSumbu[$kodeSumbu]['run'] = ($statSumbu[$kodeSumbu]['run'] ?? 0) + 1;
+                if ($p < MIN_TEPI) {
+                    $pendekBuang++;
+                    $pendekPanjang += $p;
+                    $statSumbu[$kodeSumbu]['buang'] = ($statSumbu[$kodeSumbu]['buang'] ?? 0) + 1;
+                    continue;
+                }
+                $statSumbu[$kodeSumbu]['baris'] = ($statSumbu[$kodeSumbu]['baris'] ?? 0) + 1;
+                $kodeUrut++;
+                $fiturKeluar[] = [
+                    'type' => 'Feature',
+                    'properties' => [
+                        'kode' => sprintf('TEPI-S%04d', $kodeUrut),
+                        'sumbu' => $kodeSumbu,
+                        'sisi' => $sisi,
+                        'sumber' => BERKAS_SUMBER,
+                        'asal' => $data['asal'],
+                        'cara' => 'dari-sumbu',
+                        'panjang_m' => round($p, 2),
+                        'jumlah_titik' => count($potong),
+                        'label' => 'JALAN',
+                    ],
+                    'geometry' => ['type' => 'LineString', 'coordinates' => $potong],
+                ];
             }
         }
-        $potong[] = titikPada($titik, $b, $klaim[$b]['tmax']);
-        $potong = rapatkan($potong);
-        $p = panjang($potong);
-        if ($p < MIN_TEPI) {
-            $pendekBuang++;
-            $pendekPanjang += $p;
+    }
+}
+$barisTerbit = count($fiturKeluar);
+$meterTerbit = array_sum(array_map(static fn(array $f): float => $f['properties']['panjang_m'],
+    $fiturKeluar));
+printf("untaian: %d baris terbit · %s m · %d potong < %s m dibuang (%s m)\n",
+    $barisTerbit, angkaNum($meterTerbit, 1),
+    $pendekBuang, angkaNum(MIN_TEPI, 1), angkaNum($pendekPanjang, 1));
+
+// ---------------------------------------------------------------------------
+// Sambung baris per sumbu+sisi menjadi rantai menerus
+// ---------------------------------------------------------------------------
+
+$dasarSumbu = [];
+foreach ($sumbu as $f) {
+    $kum = [0.0];
+    for ($i = 1; $i < count($f['titik']); $i++) {
+        $kum[$i] = $kum[$i - 1] + hypot((float) $f['titik'][$i][0] - (float) $f['titik'][$i - 1][0],
+            (float) $f['titik'][$i][1] - (float) $f['titik'][$i - 1][1]);
+    }
+    $dasarSumbu[$f['kode']] = ['titik' => $f['titik'], 'kum' => $kum];
+}
+
+$perGrup = [];
+foreach ($fiturKeluar as $i => $f) {
+    $kode = (string) $f['properties']['sumbu'];
+    $dasar = $dasarSumbu[$kode];
+    $c = $f['geometry']['coordinates'];
+    $s0 = posisiSumbu($dasar['titik'], $dasar['kum'], (float) $c[0][0], (float) $c[0][1]);
+    $s1 = posisiSumbu($dasar['titik'], $dasar['kum'],
+        (float) $c[count($c) - 1][0], (float) $c[count($c) - 1][1]);
+    $perGrup[$kode . '|' . $f['properties']['sisi']][] = ['i' => $i, 's' => ($s0 + $s1) / 2];
+}
+
+$sambungPasang = 0;
+$sambungPanjang = 0.0;
+$putusPasang = 0;
+$putusPanjang = 0.0;
+$rantai = [];
+$rantaiGrup = [];
+foreach ($perGrup as $kunciGrup => $anggota) {
+    usort($anggota, static fn(array $x, array $y): int => $x['s'] <=> $y['s']);
+    $jalur = null;
+    $asal = null;
+    $potongan = 0;
+    $sambungM = 0.0;
+    foreach ($anggota as $a) {
+        $f = $fiturKeluar[$a['i']];
+        $c = $f['geometry']['coordinates'];
+        if ($jalur === null) {
+            $jalur = $c;
+            $asal = $f;
+            $potongan = 1;
             continue;
         }
-        $kodeUrut++;
-        $fiturKeluar[] = [
-            'type' => 'Feature',
-            'properties' => [
-                'kode' => sprintf('TEPI-S%04d', $kodeUrut),
-                'sumbu' => $run[2],
-                'sisi' => $run[3],
-                'sumber' => BERKAS_SUMBER,
-                'asal' => $data['asal'],
-                'cara' => 'dari-sumbu',
-                'panjang_m' => round($p, 2),
-                'jumlah_titik' => count($potong),
-                'label' => 'JALAN',
-            ],
-            'geometry' => ['type' => 'LineString', 'coordinates' => $potong],
-        ];
+        $ujung = $jalur[count($jalur) - 1];
+        $awalRuas = $c[0];
+        $akhirRuas = $c[count($c) - 1];
+        $keUjungAwal = hypot((float) $ujung[0] - (float) $awalRuas[0],
+            (float) $ujung[1] - (float) $awalRuas[1]);
+        $keUjungAkhir = hypot((float) $ujung[0] - (float) $akhirRuas[0],
+            (float) $ujung[1] - (float) $akhirRuas[1]);
+        $gap = min($keUjungAwal, $keUjungAkhir);
+        if ($gap <= $langkah) {
+            $sambungPasang++;
+            $sambungPanjang += $gap;
+            $sambungM += $gap;
+            $potongan++;
+            if ($keUjungAkhir < $keUjungAwal) {
+                $c = array_reverse($c);
+            }
+            if ($gap <= 0.01) {
+                array_shift($c);
+            }
+            foreach ($c as $p) {
+                $jalur[] = $p;
+            }
+            continue;
+        }
+        $pangkal = $jalur[0];
+        $kePangkalAwal = hypot((float) $pangkal[0] - (float) $awalRuas[0],
+            (float) $pangkal[1] - (float) $awalRuas[1]);
+        $kePangkalAkhir = hypot((float) $pangkal[0] - (float) $akhirRuas[0],
+            (float) $pangkal[1] - (float) $akhirRuas[1]);
+        $gapPangkal = min($kePangkalAwal, $kePangkalAkhir);
+        if ($gapPangkal <= $langkah) {
+            $sambungPasang++;
+            $sambungPanjang += $gapPangkal;
+            $sambungM += $gapPangkal;
+            $potongan++;
+            if ($kePangkalAwal <= $kePangkalAkhir) {
+                $c = array_reverse($c);
+            }
+            if ($gapPangkal <= 0.01) {
+                array_pop($c);
+            }
+            $jalur = array_merge($c, $jalur);
+            continue;
+        }
+        $putusPasang++;
+        $putusPanjang += min($gap, $gapPangkal);
+        $rantai[] = [$jalur, $asal, $potongan, $sambungM];
+        $rantaiGrup[$kunciGrup] = ($rantaiGrup[$kunciGrup] ?? 0) + 1;
+        $jalur = $c;
+        $asal = $f;
+        $potongan = 1;
+        $sambungM = 0.0;
     }
+    if ($jalur !== null) {
+        $rantai[] = [$jalur, $asal, $potongan, $sambungM];
+        $rantaiGrup[$kunciGrup] = ($rantaiGrup[$kunciGrup] ?? 0) + 1;
+    }
+}
+
+$fiturKeluar = [];
+$kodeUrut = 0;
+foreach ($rantai as [$jalur, $asal, $potongan, $sambungM]) {
+    $jalur = rapatkan($jalur);
+    $kodeUrut++;
+    $fiturKeluar[] = [
+        'type' => 'Feature',
+        'properties' => [
+            'kode' => sprintf('TEPI-S%04d', $kodeUrut),
+            'sumbu' => $asal['properties']['sumbu'],
+            'sisi' => $asal['properties']['sisi'],
+            'sumber' => $asal['properties']['sumber'],
+            'asal' => $asal['properties']['asal'],
+            'cara' => 'dari-sumbu',
+            'panjang_m' => round(panjang($jalur), 2),
+            'jumlah_titik' => count($jalur),
+            'potongan' => $potongan,
+            'sambung_m' => round($sambungM, 2),
+            'label' => 'JALAN',
+        ],
+        'geometry' => ['type' => 'LineString', 'coordinates' => $jalur],
+    ];
 }
 usort($fiturKeluar, static fn(array $x, array $y): int => [$x['properties']['sumbu'],
     $x['properties']['sisi']] <=> [$y['properties']['sumbu'], $y['properties']['sisi']]);
@@ -688,10 +909,80 @@ foreach ($fiturKeluar as &$f) {
     $f['properties']['kode'] = sprintf('TEPI-S%04d', $kodeUrut);
 }
 unset($f);
-printf("untaian: %d baris terbit · %s m · %d potong < %s m dibuang (%s m)\n",
-    count($fiturKeluar),
-    angkaNum(array_sum(array_map(static fn(array $f): float => $f['properties']['panjang_m'], $fiturKeluar)), 1),
-    $pendekBuang, angkaNum(MIN_TEPI, 1), angkaNum($pendekPanjang, 1));
+printf("sambung: %d rantai dari %d baris · %d sambungan lurus %s m (ambang %s m)"
+    . " · %d pasangan putus > ambang (%s m)\n",
+    count($fiturKeluar), $barisTerbit, $sambungPasang, angkaNum($sambungPanjang, 1),
+    angkaNum($langkah, 1), $putusPasang, angkaNum($putusPanjang, 1));
+printf("grup sumbu+sisi: %d · utuh satu rantai: %d · masih terputus: %d\n",
+    count($rantaiGrup), count(array_filter($rantaiGrup, static fn(int $n): bool => $n === 1)),
+    count(array_filter($rantaiGrup, static fn(int $n): bool => $n > 1)));
+
+$sumbuBerbaris = [];
+foreach ($fiturKeluar as $f) {
+    $sumbuBerbaris[$f['properties']['sumbu']] = true;
+}
+printf("sumbu berbaris: %d dari %d\n", count($sumbuBerbaris), count($sumbu));
+$tanpaBaris = [];
+foreach ($cakupan as $kode => $c) {
+    if (!isset($sumbuBerbaris[$kode]) && ($c['kiri'] + $c['kanan']) > 0.0) {
+        $tanpaBaris[] = sprintf('%s %s m cakupan %.0f%%/%.0f%%', $kode,
+            angkaNum($c['panjang'], 1), $c['kiri'] * 100, $c['kanan'] * 100);
+    }
+}
+printf("sumbu tanpa baris padahal ada sisi ditemukan: %d\n", count($tanpaBaris));
+foreach (array_slice($tanpaBaris, 0, 10) as $baris) {
+    echo '  ' . $baris . PHP_EOL;
+}
+
+if ($tanya !== null) {
+    if (!isset($cakupan[$tanya])) {
+        galat('sumbu tidak ada: ' . $tanya);
+    }
+    $c = $cakupan[$tanya];
+    printf("\n== %s (%s) %s m · cakupan kiri %.0f%% kanan %.0f%% · untaian %d baris %d dibuang\n",
+        $tanya, $c['kelas'], angkaNum($c['panjang'], 1), $c['kiri'] * 100, $c['kanan'] * 100,
+        $statSumbu[$tanya]['baris'] ?? 0, $statSumbu[$tanya]['buang'] ?? 0);
+    foreach (($pakai[$tanya] ?? []) as $sisi => $perFitur) {
+        $jumlahSegmenSisi = 0;
+        $jumlahSampelSisi = 0;
+        $panjangSisi = 0.0;
+        foreach ($perFitur as $kunci => $klaim) {
+            $titik = $bahan[$kunci]['titik'];
+            foreach ($klaim as $i => $x) {
+                $jumlahSegmenSisi++;
+                $jumlahSampelSisi += $x['n'];
+                $panjangSisi += hypot((float) $titik[$i + 1][0] - $titik[$i][0],
+                    (float) $titik[$i + 1][1] - $titik[$i][1]);
+            }
+        }
+        printf("  %s: %d fitur · %d segmen · %s m klaim · %d sampel\n",
+            $sisi, count($perFitur), $jumlahSegmenSisi, angkaNum($panjangSisi, 1), $jumlahSampelSisi);
+        if ($rinci) {
+            foreach ($perFitur as $kunci => $klaim) {
+                $data = $bahan[$kunci];
+                $titik = $data['titik'];
+                $jumlahSegmen = count($titik) - 1;
+                ksort($klaim);
+                $potongan = [];
+                foreach ($klaim as $i => $x) {
+                    $potongan[] = sprintf('%d[%.2f-%.2f n%d %sm]', $i, $x['tmin'], $x['tmax'],
+                        $x['n'], angkaNum(hypot((float) $titik[$i + 1][0] - $titik[$i][0],
+                            (float) $titik[$i + 1][1] - $titik[$i][1]), 1));
+                }
+                $hasil = [];
+                foreach (untaian($klaim, (bool) $data['ring'], $jumlahSegmen) as $run) {
+                    $p = panjang(potongUntaian($titik, $klaim, $run, $jumlahSegmen, $langkah));
+                    $hasil[] = sprintf('%d..%d%s %sm%s', $run[0], $run[1],
+                        ($run[2] ?? false) ? ' lewat' : '', angkaNum($p, 1),
+                        $p < MIN_TEPI ? ' BUANG' : '');
+                }
+                printf("    %s %s %d segmen: %s\n", $kunci, $data['asal'], $jumlahSegmen,
+                    implode(' ', $potongan));
+                printf("      -> %s\n", implode(' · ', $hasil));
+            }
+        }
+    }
+}
 
 // ---------------------------------------------------------------------------
 // Laporan cakupan per kelas
@@ -714,9 +1005,13 @@ foreach ($lapor as $kelas => $c) {
 }
 
 $semuaJarak = [];
-foreach ($pakai as $klaim) {
-    foreach ($klaim as $c) {
-        $semuaJarak[] = $c['jarak'];
+foreach ($pakai as $perSisi) {
+    foreach ($perSisi as $perFitur) {
+        foreach ($perFitur as $klaim) {
+            foreach ($klaim as $c) {
+                $semuaJarak[] = $c['jarak'];
+            }
+        }
     }
 }
 sort($semuaJarak);
