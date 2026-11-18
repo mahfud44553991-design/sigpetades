@@ -2,28 +2,47 @@
 declare(strict_types=1);
 
 /**
- * Sumbu jalan manual dari alat "Sumbu jalan" di Peta Induk.
+ * Garis manual dari alat "Garis manual" di Peta Induk.
  *
- *   POST {aksi: "simpan", titik: [[x, y], ...], label: "..."}
- *   POST {aksi: "potong", kode: "SUMBU-M0002", titik: [x, y]}
- *   POST {aksi: "hapus", kode: "SUMBU-M0002"}
- *   POST {aksi: "hapus-terakhir"}
+ *   POST {lapis: "garis-jalan-sumbu", aksi: "simpan", titik: [[x, y], ...], label: "..."}
+ *   POST {lapis: "garis-jalan-sumbu", aksi: "potong", kode: "SUMBU-M0002", titik: [x, y]}
+ *   POST {lapis: "garis-jalan-sumbu", aksi: "hapus", kode: "SUMBU-M0002"}
+ *   POST {lapis: "garis-jalan-sumbu", aksi: "hapus-terakhir"}
  *
- * Titik datang sebagai meter DXF lokal (X = easting, Y = northing) persis
- * seperti koordinat yang ditampilkan peta. Baris disimpan di berkas terpisah
- * garis-sumbu-manual.geojson, bukan di garis-jalan-sumbu.geojson, supaya
- * menjalankan ulang tools/garis-jalan-label.php tidak menghapus sumbu yang
- * digambar tangan. Berkas itu disajikan lewat api/peta-lama.php dengan nama
- * lapisan garis-jalan-sumbu, digabung dengan sumbu hasil turunan.
+ * lapis juga boleh "010500" (Garis luar desa). Titik datang sebagai meter DXF
+ * lokal (X = easting, Y = northing) persis seperti koordinat yang ditampilkan
+ * peta. Tiap lapis punya berkas manual sendiri:
+ *
+ *   garis-jalan-sumbu -> garis-sumbu-manual.geojson
+ *   010500            -> garis-luar-desa-manual.geojson
+ *
+ * Berkas manual terpisah dari berkas turunan supaya menjalankan ulang
+ * tools/garis-jalan-label.php tidak menghapus garis yang digambar tangan.
+ * Keduanya disajikan lewat api/peta-lama.php dengan nama lapisannya masing-masing.
  */
 
 require __DIR__ . '/../app/bootstrap.php';
 
 set_time_limit(30);
 
-const BERKAS_SUMBU_MANUAL = SIP_ROOT . '/files/sig-pertanahan-gedong-lokal/data/dxf-layers/garis-sumbu-manual.geojson';
-const SUMBU_MANUAL_TITIK_MAKS = 2000;
-const SUMBU_MANUAL_LABEL_MAKS = 60;
+const FOLDER_LAPISAN_DXF = SIP_ROOT . '/files/sig-pertanahan-gedong-lokal/data/dxf-layers';
+const GARIS_MANUAL_TITIK_MAKS = 2000;
+const GARIS_MANUAL_LABEL_MAKS = 60;
+
+const LAPIS_GARIS_MANUAL = [
+    'garis-jalan-sumbu' => [
+        'berkas' => 'garis-sumbu-manual.geojson',
+        'awalan' => 'SUMBU-M',
+        'label' => 'JALAN',
+        'nama' => 'Sumbu jalan',
+    ],
+    '010500' => [
+        'berkas' => 'garis-luar-desa-manual.geojson',
+        'awalan' => 'BATAS-M',
+        'label' => 'BATAS DESA',
+        'nama' => 'Garis luar desa',
+    ],
+];
 
 $pengguna = wajib_masuk(PERAN_PENGELOLA);
 
@@ -36,61 +55,68 @@ $masukan = json_decode((string) file_get_contents('php://input'), true);
 if (!is_array($masukan)) {
     $masukan = $_POST;
 }
+$lapis = trim((string) ($masukan['lapis'] ?? ''));
+if (!isset(LAPIS_GARIS_MANUAL[$lapis])) {
+    json_error('Lapis garis manual tidak dikenal.', 422);
+}
+$konfigurasi = LAPIS_GARIS_MANUAL[$lapis];
+$namaLapis = $konfigurasi['nama'];
+$berkasManual = FOLDER_LAPISAN_DXF . '/' . $konfigurasi['berkas'];
 $aksi = (string) ($masukan['aksi'] ?? '');
 
 /**
- * Baca seluruh fitur dari berkas sumbu manual.
+ * Baca seluruh fitur dari berkas manual satu lapis.
  * Berkas yang belum ada dianggap koleksi kosong; berkas rusak ditolak supaya
  * baris lama tidak tertimpa diam-diam.
  * @return array<int, array<string, mixed>>
  */
-function bacaSumbuManual(): array
+function bacaGarisManual(string $berkas): array
 {
-    if (!is_file(BERKAS_SUMBU_MANUAL)) {
+    if (!is_file($berkas)) {
         return [];
     }
-    $isi = json_decode((string) file_get_contents(BERKAS_SUMBU_MANUAL), true);
+    $isi = json_decode((string) file_get_contents($berkas), true);
     if (!is_array($isi) || ($isi['type'] ?? '') !== 'FeatureCollection' || !is_array($isi['features'] ?? null)) {
-        throw new RuntimeException('Berkas sumbu manual rusak; perbaiki atau pindahkan dulu berkasnya.');
+        throw new RuntimeException('Berkas garis manual rusak; perbaiki atau pindahkan dulu berkasnya.');
     }
     return array_values(array_filter($isi['features'], 'is_array'));
 }
 
 /** Tulis ulang berkas lewat berkas sementara lalu rename, supaya tidak pernah setengah jadi. */
-function tulisSumbuManual(array $fitur): void
+function tulisGarisManual(string $berkas, array $fitur): void
 {
     $naskah = json_encode(
         ['type' => 'FeatureCollection', 'features' => array_values($fitur)],
         JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
     );
     if ($naskah === false) {
-        throw new RuntimeException('Sumbu manual gagal disusun sebagai JSON.');
+        throw new RuntimeException('Garis manual gagal disusun sebagai JSON.');
     }
-    $folder = dirname(BERKAS_SUMBU_MANUAL);
-    $sementara = tempnam($folder, 'sumbu-manual-');
+    $folder = dirname($berkas);
+    $sementara = tempnam($folder, 'garis-manual-');
     if ($sementara === false || file_put_contents($sementara, $naskah) !== strlen($naskah)) {
         if ($sementara !== false && is_file($sementara)) {
             unlink($sementara);
         }
-        throw new RuntimeException('Berkas sumbu manual tidak dapat ditulis. Periksa izin folder data.');
+        throw new RuntimeException('Berkas garis manual tidak dapat ditulis. Periksa izin folder data.');
     }
-    if (!rename($sementara, BERKAS_SUMBU_MANUAL)) {
+    if (!rename($sementara, $berkas)) {
         unlink($sementara);
-        throw new RuntimeException('Berkas sumbu manual tidak dapat diganti.');
+        throw new RuntimeException('Berkas garis manual tidak dapat diganti.');
     }
 }
 
-/** Kode berikutnya dari pola SUMBU-M0001, SUMBU-M0002, ... */
-function kodeSumbuManualBaru(array $fitur): string
+/** Kode berikutnya dari pola SUMBU-M0001, BATAS-M0001, ... */
+function kodeGarisManualBaru(array $fitur, string $awalan): string
 {
     $tertinggi = 0;
     foreach ($fitur as $f) {
         $kode = (string) ($f['properties']['kode'] ?? '');
-        if (preg_match('/^SUMBU-M(\d+)$/', $kode, $cocok)) {
+        if (preg_match('/^' . preg_quote($awalan, '/') . '(\d+)$/', $kode, $cocok)) {
             $tertinggi = max($tertinggi, (int) $cocok[1]);
         }
     }
-    return 'SUMBU-M' . str_pad((string) ($tertinggi + 1), 4, '0', STR_PAD_LEFT);
+    return $awalan . str_pad((string) ($tertinggi + 1), 4, '0', STR_PAD_LEFT);
 }
 
 /** @param array<int, array{0: float, 1: float}> $titik */
@@ -103,7 +129,7 @@ function panjangGarisManual(array $titik): float
     return $panjang;
 }
 
-function indeksSumbuManual(array $fitur, string $kode): int
+function indeksGarisManual(array $fitur, string $kode): int
 {
     foreach ($fitur as $i => $f) {
         if ((string) ($f['properties']['kode'] ?? '') === $kode) {
@@ -114,21 +140,21 @@ function indeksSumbuManual(array $fitur, string $kode): int
 }
 
 try {
-    $kunci = fopen(BERKAS_SUMBU_MANUAL . '.lock', 'c');
+    $kunci = fopen($berkasManual . '.lock', 'c');
     if ($kunci === false || !flock($kunci, LOCK_EX)) {
-        json_error('Berkas sumbu manual sedang dipakai proses lain. Coba lagi sebentar.', 503);
+        json_error('Berkas garis manual sedang dipakai proses lain. Coba lagi sebentar.', 503);
     }
 
     try {
-        $fitur = bacaSumbuManual();
+        $fitur = bacaGarisManual($berkasManual);
 
         if ($aksi === 'simpan') {
             $titikMasuk = $masukan['titik'] ?? null;
             if (!is_array($titikMasuk) || count($titikMasuk) < 2) {
-                json_error('Sumbu jalan butuh minimal dua titik.', 422);
+                json_error($namaLapis . ' butuh minimal dua titik.', 422);
             }
-            if (count($titikMasuk) > SUMBU_MANUAL_TITIK_MAKS) {
-                json_error('Terlalu banyak titik: maksimal ' . SUMBU_MANUAL_TITIK_MAKS . ' untuk satu sumbu.', 422);
+            if (count($titikMasuk) > GARIS_MANUAL_TITIK_MAKS) {
+                json_error('Terlalu banyak titik: maksimal ' . GARIS_MANUAL_TITIK_MAKS . ' untuk satu garis.', 422);
             }
 
             $titik = [];
@@ -145,18 +171,15 @@ try {
                 $titik[] = [round($x, 3), round($y, 3)];
             }
 
-            $panjang = 0.0;
-            for ($i = 1; $i < count($titik); $i++) {
-                $panjang += hypot($titik[$i][0] - $titik[$i - 1][0], $titik[$i][1] - $titik[$i - 1][1]);
-            }
+            $panjang = panjangGarisManual($titik);
             if ($panjang < 1.0) {
-                json_error('Sumbu terlalu pendek (kurang dari 1 m).', 422);
+                json_error('Garis terlalu pendek (kurang dari 1 m).', 422);
             }
 
             $label = trim((string) ($masukan['label'] ?? ''));
-            $label = $label === '' ? 'JALAN' : mb_substr($label, 0, SUMBU_MANUAL_LABEL_MAKS);
+            $label = $label === '' ? $konfigurasi['label'] : mb_substr($label, 0, GARIS_MANUAL_LABEL_MAKS);
 
-            $kode = kodeSumbuManualBaru($fitur);
+            $kode = kodeGarisManualBaru($fitur, $konfigurasi['awalan']);
             $fitur[] = [
                 'type' => 'Feature',
                 'geometry' => ['type' => 'LineString', 'coordinates' => $titik],
@@ -164,6 +187,7 @@ try {
                     'kode' => $kode,
                     'sumber' => 'manual',
                     'cara' => 'manual',
+                    'lapis' => $lapis,
                     'label' => $label,
                     'panjang_m' => round($panjang, 2),
                     'jumlah_titik' => count($titik),
@@ -171,18 +195,19 @@ try {
                     'dibuat_pada' => date('Y-m-d H:i:s'),
                 ],
             ];
-            tulisSumbuManual($fitur);
+            tulisGarisManual($berkasManual, $fitur);
 
-            audit('buat', 'sumbu-jalan', $kode,
-                'Sumbu jalan manual ' . $kode . ' disimpan: ' . angka(count($titik)) . ' titik, '
+            audit('buat', 'garis-manual', $kode,
+                $namaLapis . ' manual ' . $kode . ' disimpan: ' . angka(count($titik)) . ' titik, '
                     . angka($panjang, 2) . ' m, label ' . $label);
 
             json_ok([
                 'kode' => $kode,
+                'lapis' => $lapis,
                 'panjang_m' => round($panjang, 2),
                 'jumlah_titik' => count($titik),
                 'jumlah' => count($fitur),
-            ], 'Sumbu ' . $kode . ' tersimpan (' . angka($panjang, 2) . ' m).');
+            ], $namaLapis . ' ' . $kode . ' tersimpan (' . angka($panjang, 2) . ' m).');
         }
 
         if ($aksi === 'potong') {
@@ -191,7 +216,7 @@ try {
             if ($kode === '' || !is_array($pasangan)
                 || !array_key_exists(0, $pasangan) || !array_key_exists(1, $pasangan)
                 || !is_numeric($pasangan[0]) || !is_numeric($pasangan[1])) {
-                json_error('Potong butuh kode sumbu dan titik potong X/Y.', 422);
+                json_error('Potong butuh kode garis dan titik potong X/Y.', 422);
             }
             $px = (float) $pasangan[0];
             $py = (float) $pasangan[1];
@@ -199,15 +224,15 @@ try {
                 json_error('Titik potong di luar rentang koordinat DXF.', 422);
             }
 
-            $indeks = indeksSumbuManual($fitur, $kode);
+            $indeks = indeksGarisManual($fitur, $kode);
             if ($indeks < 0) {
-                json_error('Sumbu ' . $kode . ' tidak ditemukan.', 404);
+                json_error($namaLapis . ' ' . $kode . ' tidak ditemukan.', 404);
             }
             $geometri = $fitur[$indeks]['geometry'] ?? null;
             if (!is_array($geometri) || ($geometri['type'] ?? '') !== 'LineString'
                 || !is_array($geometri['coordinates'] ?? null)
                 || count($geometri['coordinates']) < 2) {
-                json_error('Sumbu ' . $kode . ' bukan garis yang bisa dipotong.', 422);
+                json_error($namaLapis . ' ' . $kode . ' bukan garis yang bisa dipotong.', 422);
             }
             $titikAsal = [];
             foreach ($geometri['coordinates'] as $p) {
@@ -272,9 +297,9 @@ try {
 
             $properti = is_array($fitur[$indeks]['properties'] ?? null) ? $fitur[$indeks]['properties'] : [];
             $label = trim((string) ($properti['label'] ?? ''));
-            $label = $label === '' ? 'JALAN' : $label;
+            $label = $label === '' ? $konfigurasi['label'] : $label;
             $buatBagian = static function (string $kodeBagian, array $titikBagian, float $panjangBagian)
-                    use ($pengguna, $label, $kode): array {
+                    use ($pengguna, $label, $kode, $lapis): array {
                 return [
                     'type' => 'Feature',
                     'geometry' => ['type' => 'LineString', 'coordinates' => $titikBagian],
@@ -282,6 +307,7 @@ try {
                         'kode' => $kodeBagian,
                         'sumber' => 'manual',
                         'cara' => 'manual',
+                        'lapis' => $lapis,
                         'label' => $label,
                         'panjang_m' => round($panjangBagian, 2),
                         'jumlah_titik' => count($titikBagian),
@@ -293,57 +319,60 @@ try {
             };
 
             array_splice($fitur, $indeks, 1);
-            $kodeA = kodeSumbuManualBaru($fitur);
+            $kodeA = kodeGarisManualBaru($fitur, $konfigurasi['awalan']);
             $fitur[] = $buatBagian($kodeA, $bagianA, $panjangA);
-            $kodeB = kodeSumbuManualBaru($fitur);
+            $kodeB = kodeGarisManualBaru($fitur, $konfigurasi['awalan']);
             $fitur[] = $buatBagian($kodeB, $bagianB, $panjangB);
-            tulisSumbuManual($fitur);
+            tulisGarisManual($berkasManual, $fitur);
 
-            audit('ubah', 'sumbu-jalan', $kode,
-                'Sumbu jalan manual ' . $kode . ' dipotong menjadi ' . $kodeA . ' ('
+            audit('ubah', 'garis-manual', $kode,
+                $namaLapis . ' manual ' . $kode . ' dipotong menjadi ' . $kodeA . ' ('
                     . angka($panjangA, 2) . ' m) dan ' . $kodeB . ' (' . angka($panjangB, 2) . ' m)');
 
             json_ok([
                 'kode' => [$kodeA, $kodeB],
+                'lapis' => $lapis,
                 'panjang_m' => [round($panjangA, 2), round($panjangB, 2)],
                 'potong' => $potong,
                 'jumlah' => count($fitur),
-            ], 'Sumbu ' . $kode . ' dipotong menjadi ' . $kodeA . ' dan ' . $kodeB . '.');
+            ], $namaLapis . ' ' . $kode . ' dipotong menjadi ' . $kodeA . ' dan ' . $kodeB . '.');
         }
 
         if ($aksi === 'hapus') {
             $kode = trim((string) ($masukan['kode'] ?? ''));
             if ($kode === '') {
-                json_error('Hapus butuh kode sumbu.', 422);
+                json_error('Hapus butuh kode garis.', 422);
             }
-            $indeks = indeksSumbuManual($fitur, $kode);
+            $indeks = indeksGarisManual($fitur, $kode);
             if ($indeks < 0) {
-                json_error('Sumbu ' . $kode . ' tidak ditemukan.', 404);
+                json_error($namaLapis . ' ' . $kode . ' tidak ditemukan.', 404);
             }
             array_splice($fitur, $indeks, 1);
-            tulisSumbuManual($fitur);
-            audit('hapus', 'sumbu-jalan', $kode, 'Sumbu jalan manual ' . $kode . ' dihapus');
+            tulisGarisManual($berkasManual, $fitur);
+            audit('hapus', 'garis-manual', $kode, $namaLapis . ' manual ' . $kode . ' dihapus');
 
             json_ok([
                 'kode' => $kode,
+                'lapis' => $lapis,
                 'jumlah' => count($fitur),
-            ], 'Sumbu ' . $kode . ' dihapus.');
+            ], $namaLapis . ' ' . $kode . ' dihapus.');
         }
 
         if ($aksi === 'hapus-terakhir') {
             $terakhir = array_pop($fitur);
             if ($terakhir === null) {
-                json_error('Belum ada sumbu manual yang tersimpan.', 404);
+                json_error('Belum ada garis manual yang tersimpan pada lapis ini.', 404);
             }
             $kode = (string) ($terakhir['properties']['kode'] ?? '');
-            tulisSumbuManual($fitur);
-            audit('hapus', 'sumbu-jalan', $kode,
-                'Sumbu jalan manual ' . ($kode === '' ? '(tanpa kode)' : $kode) . ' dihapus dari berkas manual');
+            tulisGarisManual($berkasManual, $fitur);
+            audit('hapus', 'garis-manual', $kode,
+                $namaLapis . ' manual ' . ($kode === '' ? '(tanpa kode)' : $kode) . ' dihapus dari berkas manual');
 
             json_ok([
                 'kode' => $kode,
+                'lapis' => $lapis,
                 'jumlah' => count($fitur),
-            ], 'Sumbu ' . ($kode === '' ? 'terakhir' : $kode) . ' dihapus.');
+            ], $namaLapis . ' ' . ($kode === '' ? 'terakhir' : $kode) . ' dihapus.');
         }
 
         json_error('Aksi tidak dikenal.', 400);

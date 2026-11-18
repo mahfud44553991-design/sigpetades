@@ -16,11 +16,14 @@ declare(strict_types=1);
  *       jalan hasil tools/garis-jalan-label.php (sejak 15 Nov 2026).
  *   GET api/peta-lama.php?lapisan=garis-jalan-sumbu
  *       Satu lapis berisi sumbu turunan garis-jalan-sumbu.geojson dan sumbu
- *       hasil alat "Sumbu jalan" di Peta Induk (garis-sumbu-manual.geojson);
+ *       hasil alat "Garis manual" di Peta Induk (garis-sumbu-manual.geojson);
  *       berkas manual tetap terpisah supaya tidak terhapus saat alat
  *       penurunan dijalankan ulang.
  *   GET api/peta-lama.php?lapisan=bidang-hm   (juga hm, optimalisasi-hm, lb-lai,
- *       010500, 020400, nib-hm, batas-desa, blok, batas-jalan)
+ *       020400, nib-hm, batas-desa, blok, batas-jalan)
+ *   GET api/peta-lama.php?lapisan=010500
+ *       Poligon garis luar desa digabung dengan garis manual hasil alat
+ *       "Garis manual" (garis-luar-desa-manual.geojson).
  *
  * Nama berkas dibatasi daftar putih di bawah, jadi parameter tidak pernah
  * dipakai menyusun path secara bebas. Folder files/ sendiri ditolak Apache;
@@ -53,6 +56,11 @@ const LAPISAN_PETA_LAMA = [
     'garis-selokan'  => 'garis-selokan.geojson',
     'garis-perairan' => 'garis-perairan.geojson',
     'garis-lain'     => 'garis-lain.geojson',
+];
+
+const GARIS_MANUAL_PER_LAPISAN = [
+    'garis-jalan-sumbu' => 'garis-sumbu-manual.geojson',
+    '010500'            => 'garis-luar-desa-manual.geojson',
 ];
 
 $lapisan = get_str('lapisan');
@@ -123,17 +131,18 @@ if ($lapisan === 'batas-blok') {
 
 $berkas = __DIR__ . '/../files/sig-pertanahan-gedong-lokal/data/dxf-layers/' . LAPISAN_PETA_LAMA[$lapisan];
 
-if ($lapisan === 'garis-jalan-sumbu') {
-    // Satu lapis berisi sumbu turunan tools/garis-jalan-label.php dan sumbu yang
-    // digambar dengan alat Sumbu jalan. Berkas manual tetap terpisah supaya tidak
-    // terhapus saat alat penurunan dijalankan ulang.
+if (isset(GARIS_MANUAL_PER_LAPISAN[$lapisan])) {
+    // Satu lapis berisi geometri turunan dan garis yang digambar dengan alat
+    // Garis manual. Berkas manual tetap terpisah supaya tidak terhapus saat
+    // alat penurunan dijalankan ulang.
     $turunan = is_file($berkas) ? json_decode((string) file_get_contents($berkas), true) : null;
     if (!is_array($turunan) || ($turunan['type'] ?? '') !== 'FeatureCollection'
         || !is_array($turunan['features'] ?? null)) {
-        json_error('Berkas sumbu jalan tidak dapat dibaca.', 500);
+        json_error('Berkas lapisan ' . $lapisan . ' tidak dapat dibaca.', 500);
     }
     $fitur = array_values(array_filter($turunan['features'], 'is_array'));
-    $berkasManual = __DIR__ . '/../files/sig-pertanahan-gedong-lokal/data/dxf-layers/garis-sumbu-manual.geojson';
+    $berkasManual = __DIR__ . '/../files/sig-pertanahan-gedong-lokal/data/dxf-layers/'
+        . GARIS_MANUAL_PER_LAPISAN[$lapisan];
     if (is_file($berkasManual)) {
         $manual = json_decode((string) file_get_contents($berkasManual), true);
         if (is_array($manual) && ($manual['type'] ?? '') === 'FeatureCollection'

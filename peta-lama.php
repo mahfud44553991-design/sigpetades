@@ -82,6 +82,13 @@ if (is_file($berkasSumbuManual)) {
     $jumlahSumbuManual = is_array($isiSumbuManual['features'] ?? null) ? count($isiSumbuManual['features']) : 0;
 }
 
+$berkasBatasManual = __DIR__ . '/files/sig-pertanahan-gedong-lokal/data/dxf-layers/garis-luar-desa-manual.geojson';
+$jumlahBatasManual = 0;
+if (is_file($berkasBatasManual)) {
+    $isiBatasManual = json_decode((string) file_get_contents($berkasBatasManual), true);
+    $jumlahBatasManual = is_array($isiBatasManual['features'] ?? null) ? count($isiBatasManual['features']) : 0;
+}
+
 sip_header('Peta Induk', 'peta-lama', ['leaflet' => true]);
 sip_judul(
     'Peta Induk',
@@ -112,7 +119,7 @@ sip_judul(
                     <button class="tombol tombol-kecil" type="button" id="pusatkanLama">Pusatkan</button>
                     <button class="tombol tombol-kecil" type="button" id="alatPenunjuk" aria-pressed="false">Penunjuk titik</button>
                     <?php if ($kelola): ?>
-                        <button class="tombol tombol-kecil" type="button" id="alatSumbu" aria-pressed="false">Sumbu jalan</button>
+                        <button class="tombol tombol-kecil" type="button" id="alatSumbu" aria-pressed="false">Garis manual</button>
                     <?php endif; ?>
                     <a class="tombol tombol-kecil" href="<?= e(sip_url('peta.php')) ?>">Peta bidang</a>
                 </div>
@@ -203,23 +210,30 @@ sip_judul(
         <?php if ($kelola): ?>
             <section class="kartu">
                 <header class="kepala-kartu">
-                    <div><h2>Sumbu jalan manual</h2><p>Klik “Sumbu jalan” di atas peta, lalu klik titik-titik tengah jalan</p></div>
+                    <div><h2>Garis manual</h2><p>Gambar, potong, atau hapus garis pada lapis Sumbu jalan dan Garis luar desa</p></div>
                 </header>
                 <div class="isi-kartu">
-                    <dl class="daftar-kecil">
+                    <div class="lapangan">
+                        <label for="garisLapisan">Lapis</label>
+                        <select class="pilih-kecil" id="garisLapisan">
+                            <option value="garis-jalan-sumbu">Sumbu jalan</option>
+                            <option value="010500">Garis luar desa</option>
+                        </select>
+                    </div>
+                    <dl class="daftar-kecil jarak-atas">
                         <li><span class="redup">Titik</span><span class="rapek-kanan" id="sumbuJumlah">0</span></li>
                         <li><span class="redup">Panjang</span><span class="rapek-kanan" id="sumbuPanjang">–</span></li>
                     </dl>
                     <div class="lapangan jarak-atas">
-                        <label for="sumbuLabel">Label jalan</label>
+                        <label for="sumbuLabel">Label garis</label>
                         <input id="sumbuLabel" maxlength="60" placeholder="JALAN" autocomplete="off">
                     </div>
                     <div class="baris-tombol jarak-atas">
                         <button class="tombol tombol-kecil" type="button" id="sumbuUndo" disabled>Hapus titik terakhir</button>
                         <button class="tombol tombol-kecil" type="button" id="sumbuBatal" disabled>Batal</button>
-                        <button class="tombol tombol-kecil tombol-utama" type="button" id="sumbuSimpan" disabled>Simpan sumbu</button>
+                        <button class="tombol tombol-kecil tombol-utama" type="button" id="sumbuSimpan" disabled>Simpan garis</button>
                     </div>
-                    <p class="petunjuk jarak-atas">Klik garis sumbu yang dibuat dengan alat ini di peta, atau di dekatnya, untuk memilihnya; lalu potong di satu titik atau hapus seluruh garis.</p>
+                    <p class="petunjuk jarak-atas">Klik garis manual pada lapis terpilih di peta, atau di dekatnya, untuk memilihnya; lalu potong di satu titik atau hapus seluruh garis.</p>
                     <dl class="daftar-kecil">
                         <li><span class="redup">Garis terpilih</span><span class="rapek-kanan" id="sumbuGarisTerpilih">–</span></li>
                     </dl>
@@ -230,15 +244,17 @@ sip_judul(
                     </div>
                     <div class="baris-tombol jarak-atas">
                         <button class="tombol tombol-kecil" type="button" id="sumbuHapusTersimpan"
-                                <?= $jumlahSumbuManual === 0 ? 'disabled' : '' ?>>Hapus sumbu tersimpan terakhir</button>
+                                <?= $jumlahSumbuManual === 0 ? 'disabled' : '' ?>>Hapus garis tersimpan terakhir</button>
                     </div>
-                    <p class="petunjuk" id="infoSumbu" data-tersimpan="<?= (int) $jumlahSumbuManual ?>">Alat mati. Sumbu tersimpan: <?= e(angka($jumlahSumbuManual)) ?>.</p>
-                    <p class="petunjuk">Sumbu disimpan di berkas garis-sumbu-manual.geojson, terpisah dari sumbu
-                        turunan tools/garis-jalan-label.php supaya tidak terhapus saat alat itu dijalankan ulang,
-                        lalu ikut tampil di lapis “Sumbu jalan”. Panjang
-                        dihitung dari jarak lurus antar titik dalam meter DXF, jadi titik yang jarang membuat
-                        panjang tercatat lebih pendek daripada lengkung jalan. Titik minimal dua; penyimpanan
-                        hanya untuk Super Admin dan Admin.</p>
+                    <p class="petunjuk" id="infoSumbu" data-tersimpan="<?= (int) $jumlahSumbuManual ?>"
+                        data-tersimpan-batas="<?= (int) $jumlahBatasManual ?>">Alat mati. Sumbu jalan tersimpan: <?= e(angka($jumlahSumbuManual)) ?>.</p>
+                    <p class="petunjuk">Tiap lapis punya berkas manual sendiri (garis-sumbu-manual.geojson dan
+                        garis-luar-desa-manual.geojson), terpisah dari berkas turunan supaya tidak terhapus saat
+                        alat penurunan dijalankan ulang, lalu digabung saat lapisnya ditampilkan. Garis yang
+                        digambar berupa garis terbuka; klik lagi titik awalnya di ujung untuk menutup keliling
+                        desa. Panjang dihitung dari jarak lurus antar titik dalam meter DXF, jadi titik yang
+                        jarang membuat panjang tercatat lebih pendek daripada lengkung aslinya. Titik minimal
+                        dua; penyimpanan hanya untuk Super Admin dan Admin.</p>
                 </div>
             </section>
         <?php endif; ?>
@@ -355,7 +371,8 @@ sip_judul(
                 <p class="petunjuk">Lainnya</p>
                 <label class="cek" title="Layer DXF 010500">
                     <input type="checkbox" data-lapisan="010500">
-                    Garis luar desa (<?= e(angka($jumlah('010500'))) ?>)</label>
+                    Garis luar desa (<b id="jumlahGarisLuarDesa"
+                        data-turunan="<?= (int) $jumlah('010500') ?>"><?= e(angka($jumlah('010500') + $jumlahBatasManual)) ?></b>)</label>
                 <label class="cek" title="Layer DXF 020400, artinya belum diketahui">
                     <input type="checkbox" data-lapisan="020400">
                     Sisa 020400 (<?= e(angka($jumlah('020400'))) ?>)</label>
@@ -483,13 +500,28 @@ $naskah = <<<'JS'
 
     const grupSumbu = L.featureGroup().addTo(peta);
     const elemenInfoSumbu = document.getElementById('infoSumbu');
+    const LAPIS_MANUAL = {
+        'garis-jalan-sumbu': { nama: 'Sumbu jalan', labelJumlah: 'jumlahSumbuJalan', labelBawaan: 'JALAN' },
+        '010500': { nama: 'Garis luar desa', labelJumlah: 'jumlahGarisLuarDesa', labelBawaan: 'BATAS DESA' }
+    };
+    let lapisManual = 'garis-jalan-sumbu';
+    const jumlahManual = {
+        'garis-jalan-sumbu': elemenInfoSumbu ? (Number(elemenInfoSumbu.dataset.tersimpan) || 0) : 0,
+        '010500': elemenInfoSumbu ? (Number(elemenInfoSumbu.dataset.tersimpanBatas) || 0) : 0
+    };
     let titikSumbu = [];
     let modeSumbu = false;
-    let jumlahSumbuTersimpan = elemenInfoSumbu
-        ? (Number(elemenInfoSumbu.dataset.tersimpan) || 0) : 0;
     const sorotanSumbu = L.featureGroup().addTo(peta);
     let sumbuTerpilih = null;
     let modePotongSumbu = false;
+
+    function namaLapisManual() {
+        return LAPIS_MANUAL[lapisManual].nama;
+    }
+
+    function infoDiam() {
+        return 'Alat mati. ' + namaLapisManual() + ' tersimpan: ' + Sip.angka(jumlahManual[lapisManual]) + '.';
+    }
 
     function ikonLabel(teks, kelas) {
         const isi = Sip.esc(teks || '');
@@ -1073,14 +1105,14 @@ $naskah = <<<'JS'
         document.getElementById('sumbuUndo').disabled = titikSumbu.length === 0;
         document.getElementById('sumbuBatal').disabled = titikSumbu.length === 0;
         document.getElementById('sumbuSimpan').disabled = titikSumbu.length < 2;
-        document.getElementById('sumbuHapusTersimpan').disabled = jumlahSumbuTersimpan === 0;
+        document.getElementById('sumbuHapusTersimpan').disabled = jumlahManual[lapisManual] === 0;
     }
 
     function tambahTitikSumbu(latlng) {
         titikSumbu.push([latlng.lng, latlng.lat]);
         gambarSumbu();
         perbaruiSumbu();
-        info.textContent = 'Sumbu jalan: ' + Sip.angka(titikSumbu.length) + ' titik, '
+        info.textContent = namaLapisManual() + ': ' + Sip.angka(titikSumbu.length) + ' titik, '
             + (titikSumbu.length >= 2 ? Sip.angka(panjangSumbu(), 2) + ' m' : 'garis belum terbentuk')
             + ' — X ' + koordDxf(latlng.lng) + ' · Y ' + koordDxf(latlng.lat);
     }
@@ -1090,8 +1122,8 @@ $naskah = <<<'JS'
         gambarSumbu();
         perbaruiSumbu();
         if (elemenInfoSumbu) {
-            elemenInfoSumbu.textContent = pesan || ('Gambar dikosongkan. Sumbu tersimpan: '
-                + Sip.angka(jumlahSumbuTersimpan) + '.');
+            elemenInfoSumbu.textContent = pesan || ('Gambar dikosongkan. ' + namaLapisManual()
+                + ' tersimpan: ' + Sip.angka(jumlahManual[lapisManual]) + '.');
         }
     }
 
@@ -1105,33 +1137,37 @@ $naskah = <<<'JS'
         }
         const tombol = document.getElementById('alatSumbu');
         tombol.setAttribute('aria-pressed', hidup ? 'true' : 'false');
-        tombol.textContent = hidup ? 'Matikan sumbu' : 'Sumbu jalan';
+        tombol.textContent = hidup ? 'Matikan garis' : 'Garis manual';
         tombol.classList.toggle('tombol-utama', hidup);
         document.getElementById('petaLama').classList.toggle('mode-sumbu', hidup);
         elemenInfoSumbu.textContent = hidup
-            ? 'Klik peta untuk menambah titik sumbu. Minimal dua titik, lalu Simpan sumbu.'
-            : 'Alat mati. Sumbu tersimpan: ' + Sip.angka(jumlahSumbuTersimpan) + '.';
-        if (hidup) info.textContent = 'Sumbu jalan: klik titik-titik tengah jalan.';
+            ? 'Klik peta untuk menambah titik pada lapis ' + namaLapisManual()
+                + '. Minimal dua titik, lalu Simpan garis.'
+            : infoDiam();
+        if (hidup) info.textContent = namaLapisManual() + ': klik titik-titik garis pada peta.';
     }
 
-    function perbaruiJumlahSumbu(jumlah) {
-        jumlahSumbuTersimpan = jumlah;
-        const label = document.getElementById('jumlahSumbuJalan');
+    function perbaruiJumlahGarisManual(jumlah) {
+        jumlahManual[lapisManual] = jumlah;
+        const label = document.getElementById(LAPIS_MANUAL[lapisManual].labelJumlah);
         if (label) {
             const turunan = Number(label.dataset.turunan) || 0;
             label.textContent = Sip.angka(turunan + jumlah);
         }
-        if (elemenInfoSumbu) elemenInfoSumbu.dataset.tersimpan = String(jumlah);
+        if (elemenInfoSumbu) {
+            elemenInfoSumbu.dataset.tersimpan = String(jumlahManual['garis-jalan-sumbu']);
+            elemenInfoSumbu.dataset.tersimpanBatas = String(jumlahManual['010500']);
+        }
     }
 
-    async function muatUlangSumbuManual() {
-        const nama = 'garis-jalan-sumbu';
+    async function muatUlangGarisManual() {
+        const nama = lapisManual;
         const kotak = document.querySelector('[data-lapisan="' + nama + '"]');
         if (grup[nama]) {
             peta.removeLayer(grup[nama]);
             delete grup[nama];
         }
-        if (kotak && !kotak.checked) return;
+        if (kotak && !kotak.checked) kotak.checked = true;
         await pasang(nama, true);
     }
 
@@ -1139,24 +1175,29 @@ $naskah = <<<'JS'
         if (titikSumbu.length < 2) return;
         const tombol = document.getElementById('sumbuSimpan');
         const isianLabel = document.getElementById('sumbuLabel');
-        if (!window.confirm('Simpan sumbu ' + Sip.angka(titikSumbu.length) + ' titik ('
-            + Sip.angka(panjangSumbu(), 2) + ' m) sebagai sumbu jalan manual?')) {
+        if (!window.confirm('Simpan garis ' + Sip.angka(titikSumbu.length) + ' titik ('
+            + Sip.angka(panjangSumbu(), 2) + ' m) pada lapis ' + namaLapisManual() + '?')) {
             return;
         }
         tombol.disabled = true;
         try {
-            const hasil = await Sip.api('api/sumbu-jalan.php', {
+            const hasil = await Sip.api('api/garis-manual.php', {
                 method: 'POST',
-                json: { aksi: 'simpan', titik: titikSumbu, label: isianLabel ? isianLabel.value : '' }
+                json: {
+                    lapis: lapisManual,
+                    aksi: 'simpan',
+                    titik: titikSumbu,
+                    label: isianLabel ? isianLabel.value : ''
+                }
             });
-            perbaruiJumlahSumbu(Number(hasil.jumlah) || 0);
-            batalSumbu('Sumbu ' + hasil.kode + ' tersimpan ('
-                + Sip.angka(hasil.panjang_m, 2) + ' m). Total tersimpan: '
-                + Sip.angka(jumlahSumbuTersimpan) + '.');
-            info.textContent = 'Sumbu ' + hasil.kode + ' tersimpan — '
+            perbaruiJumlahGarisManual(Number(hasil.jumlah) || 0);
+            batalSumbu('Garis ' + hasil.kode + ' tersimpan ('
+                + Sip.angka(hasil.panjang_m, 2) + ' m). Total ' + namaLapisManual() + ': '
+                + Sip.angka(jumlahManual[lapisManual]) + '.');
+            info.textContent = 'Garis ' + hasil.kode + ' tersimpan — '
                 + Sip.angka(hasil.panjang_m, 2) + ' m.';
             Sip.pesan(hasil.pesan, 'berhasil');
-            await muatUlangSumbuManual();
+            await muatUlangGarisManual();
         } catch (err) {
             if (elemenInfoSumbu) elemenInfoSumbu.textContent = err.message;
             Sip.pesan(err.message, 'gagal');
@@ -1166,22 +1207,26 @@ $naskah = <<<'JS'
     }
 
     async function hapusSumbuTersimpan() {
-        if (jumlahSumbuTersimpan === 0) return;
-        if (!window.confirm('Hapus sumbu manual terakhir yang tersimpan (paling baru)?')) return;
+        if (jumlahManual[lapisManual] === 0) return;
+        if (!window.confirm('Hapus garis manual terakhir yang tersimpan pada lapis '
+            + namaLapisManual() + ' (paling baru)?')) {
+            return;
+        }
         try {
-            const hasil = await Sip.api('api/sumbu-jalan.php', {
+            const hasil = await Sip.api('api/garis-manual.php', {
                 method: 'POST',
-                json: { aksi: 'hapus-terakhir' }
+                json: { lapis: lapisManual, aksi: 'hapus-terakhir' }
             });
-            perbaruiJumlahSumbu(Number(hasil.jumlah) || 0);
+            perbaruiJumlahGarisManual(Number(hasil.jumlah) || 0);
             if (sumbuTerpilih && sumbuTerpilih.kode === hasil.kode) lepasPilihanSumbu('');
             if (elemenInfoSumbu) {
-                elemenInfoSumbu.textContent = 'Sumbu ' + (hasil.kode || 'terakhir')
-                    + ' dihapus. Sumbu tersimpan: ' + Sip.angka(jumlahSumbuTersimpan) + '.';
+                elemenInfoSumbu.textContent = 'Garis ' + (hasil.kode || 'terakhir')
+                    + ' dihapus. ' + namaLapisManual() + ' tersimpan: '
+                    + Sip.angka(jumlahManual[lapisManual]) + '.';
             }
             info.textContent = hasil.pesan;
             Sip.pesan(hasil.pesan, 'berhasil');
-            await muatUlangSumbuManual();
+            await muatUlangGarisManual();
         } catch (err) {
             if (elemenInfoSumbu) elemenInfoSumbu.textContent = err.message;
             Sip.pesan(err.message, 'gagal');
@@ -1210,7 +1255,8 @@ $naskah = <<<'JS'
         if (modeSumbu || modePotongSumbu || modePenunjuk) return;
         const kode = String(fitur.properties.kode || '');
         if (kode === '') return;
-        sumbuTerpilih = { kode, panjang: Number(fitur.properties.panjang_m) || 0 };
+        if (fitur.properties.lapis && fitur.properties.lapis !== lapisManual) return;
+        sumbuTerpilih = { kode, panjang: Number(fitur.properties.panjang_m) || 0, lapis: lapisManual };
         sorotanSumbu.clearLayers();
         L.geoJSON(fitur, {
             style: { color: '#f59e0b', weight: 5, opacity: .95 }
@@ -1233,10 +1279,11 @@ $naskah = <<<'JS'
         return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy));
     }
 
-    // Cari garis manual terdekat dalam piksel layar supaya klik yang meleset beberapa
-    // piksel dari garis tipis tetap memilih garis itu, bukan jatuh ke peta kosong.
-    function sumbuManualTerdekat(latlng, toleransiPx) {
-        const lapisan = grup['garis-jalan-sumbu'];
+    // Cari garis manual terdekat pada lapis terpilih dalam piksel layar supaya
+    // klik yang meleset beberapa piksel dari garis tipis tetap memilih garis itu,
+    // bukan jatuh ke peta kosong.
+    function garisManualTerdekat(latlng, toleransiPx) {
+        const lapisan = grup[lapisManual];
         if (!lapisan || !peta.hasLayer(lapisan)) return null;
         const klik = peta.latLngToContainerPoint(latlng);
         let terbaik = null;
@@ -1259,18 +1306,6 @@ $naskah = <<<'JS'
         return terbaik ? terbaik.fitur : null;
     }
 
-    function lekatkanPilihSumbu(lapisan) {
-        lapisan.eachLayer((l) => {
-            if (!l.feature || !l.feature.properties) return;
-            if (l.feature.properties.sumber !== 'manual') return;
-            l.on('click', (ev) => {
-                if (modeSumbu || modePotongSumbu || modePenunjuk) return;
-                L.DomEvent.stopPropagation(ev);
-                pilihSumbuManual(l.feature);
-            });
-        });
-    }
-
     function aturPotongSumbu(hidup) {
         const tombol = document.getElementById('sumbuPotong');
         modePotongSumbu = Boolean(hidup && sumbuTerpilih);
@@ -1288,7 +1323,7 @@ $naskah = <<<'JS'
                 ? 'Potong ' + sumbuTerpilih.kode + ': klik satu titik di garis itu.'
                 : (sumbuTerpilih
                     ? 'Garis ' + sumbuTerpilih.kode + ' terpilih.'
-                    : 'Alat mati. Sumbu tersimpan: ' + Sip.angka(jumlahSumbuTersimpan) + '.');
+                    : infoDiam());
         }
     }
 
@@ -1300,13 +1335,13 @@ $naskah = <<<'JS'
             return;
         }
         try {
-            const hasil = await Sip.api('api/sumbu-jalan.php', {
+            const hasil = await Sip.api('api/garis-manual.php', {
                 method: 'POST',
-                json: { aksi: 'potong', kode, titik: [latlng.lng, latlng.lat] }
+                json: { lapis: sumbuTerpilih.lapis, aksi: 'potong', kode, titik: [latlng.lng, latlng.lat] }
             });
-            perbaruiJumlahSumbu(Number(hasil.jumlah) || 0);
+            perbaruiJumlahGarisManual(Number(hasil.jumlah) || 0);
             lepasPilihanSumbu('');
-            await muatUlangSumbuManual();
+            await muatUlangGarisManual();
             const kodeBaru = Array.isArray(hasil.kode) ? hasil.kode : [];
             const panjangBaru = Array.isArray(hasil.panjang_m) ? hasil.panjang_m : [];
             const rincian = kodeBaru.map((k, i) => k + ' ' + Sip.angka(panjangBaru[i], 2) + ' m').join(', ');
@@ -1323,17 +1358,17 @@ $naskah = <<<'JS'
         if (!sumbuTerpilih) return;
         const kode = sumbuTerpilih.kode;
         if (!window.confirm('Hapus garis ' + kode + ' (' + Sip.angka(sumbuTerpilih.panjang, 2)
-            + ' m) dari berkas sumbu manual?')) {
+            + ' m) dari berkas ' + namaLapisManual() + ' manual?')) {
             return;
         }
         try {
-            const hasil = await Sip.api('api/sumbu-jalan.php', {
+            const hasil = await Sip.api('api/garis-manual.php', {
                 method: 'POST',
-                json: { aksi: 'hapus', kode }
+                json: { lapis: sumbuTerpilih.lapis, aksi: 'hapus', kode }
             });
-            perbaruiJumlahSumbu(Number(hasil.jumlah) || 0);
+            perbaruiJumlahGarisManual(Number(hasil.jumlah) || 0);
             lepasPilihanSumbu('');
-            await muatUlangSumbuManual();
+            await muatUlangGarisManual();
             if (elemenInfoSumbu) elemenInfoSumbu.textContent = hasil.pesan;
             info.textContent = hasil.pesan;
             Sip.pesan(hasil.pesan, 'berhasil');
@@ -1366,7 +1401,7 @@ $naskah = <<<'JS'
         if (!hidup) {
             if (grup[nama]) peta.removeLayer(grup[nama]);
             if (nama === '020100') peta.removeLayer(grupTitik);
-            if (nama === 'garis-jalan-sumbu') lepasPilihanSumbu('');
+            if (nama === lapisManual && sumbuTerpilih) lepasPilihanSumbu('');
             return;
         }
         if (grup[nama]) {
@@ -1380,7 +1415,6 @@ $naskah = <<<'JS'
         try {
             const data = await Sip.api('api/peta-lama.php', { query: { lapisan: nama } });
             grup[nama] = bangun(nama, data);
-            if (nama === 'garis-jalan-sumbu') lekatkanPilihSumbu(grup[nama]);
             const kotak = document.querySelector('[data-lapisan="' + nama + '"]');
             if (!kotak || kotak.checked) grup[nama].addTo(peta);
             if (nama === '020100') {
@@ -1458,7 +1492,7 @@ $naskah = <<<'JS'
 
     peta.on('mousemove', (e) => {
         if (modeSumbu) {
-            info.textContent = 'Sumbu: X ' + koordDxf(e.latlng.lng) + ' · Y ' + koordDxf(e.latlng.lat)
+            info.textContent = namaLapisManual() + ': X ' + koordDxf(e.latlng.lng) + ' · Y ' + koordDxf(e.latlng.lat)
                 + ' — klik untuk menambah titik.';
             return;
         }
@@ -1483,7 +1517,7 @@ $naskah = <<<'JS'
             return;
         }
         if (!modePenunjuk) {
-            const fitur = sumbuManualTerdekat(e.latlng, 12);
+            const fitur = garisManualTerdekat(e.latlng, 12);
             if (fitur) pilihSumbuManual(fitur);
             return;
         }
@@ -1552,8 +1586,30 @@ $naskah = <<<'JS'
             : 'Penunjuk nonaktif.';
     });
 
+    async function aturLapisManual(nama) {
+        if (!LAPIS_MANUAL[nama] || nama === lapisManual) return;
+        lapisManual = nama;
+        if (modeSumbu) aturSumbu(false);
+        batalSumbu('');
+        lepasPilihanSumbu('');
+        const isian = document.getElementById('sumbuLabel');
+        if (isian) isian.placeholder = LAPIS_MANUAL[nama].labelBawaan;
+        const pemilih = document.getElementById('garisLapisan');
+        if (pemilih) pemilih.value = nama;
+        perbaruiSumbu();
+        if (elemenInfoSumbu) elemenInfoSumbu.textContent = infoDiam();
+        const kotak = document.querySelector('[data-lapisan="' + nama + '"]');
+        if (kotak && !kotak.checked) {
+            kotak.checked = true;
+            await pasang(nama, true);
+        }
+    }
+
     if (elemenInfoSumbu) {
         document.getElementById('alatSumbu').addEventListener('click', () => aturSumbu(!modeSumbu));
+        document.getElementById('garisLapisan').addEventListener('change', (ev) => {
+            aturLapisManual(ev.target.value).catch((err) => Sip.pesan(err.message, 'gagal'));
+        });
         document.getElementById('sumbuUndo').addEventListener('click', () => {
             titikSumbu.pop();
             gambarSumbu();
