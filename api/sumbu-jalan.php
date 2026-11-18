@@ -5,6 +5,8 @@ declare(strict_types=1);
  * Sumbu jalan manual dari alat "Sumbu jalan" di Peta Induk.
  *
  *   POST {aksi: "simpan", titik: [[x, y], ...], label: "..."}
+ *   POST {aksi: "potong", kode: "SUMBU-M0002", titik: [x, y]}
+ *   POST {aksi: "hapus", kode: "SUMBU-M0002"}
  *   POST {aksi: "hapus-terakhir"}
  *
  * Titik datang sebagai meter DXF lokal (X = easting, Y = northing) persis
@@ -91,6 +93,26 @@ function kodeSumbuManualBaru(array $fitur): string
     return 'SUMBU-M' . str_pad((string) ($tertinggi + 1), 4, '0', STR_PAD_LEFT);
 }
 
+/** @param array<int, array{0: float, 1: float}> $titik */
+function panjangGarisManual(array $titik): float
+{
+    $panjang = 0.0;
+    for ($i = 1; $i < count($titik); $i++) {
+        $panjang += hypot($titik[$i][0] - $titik[$i - 1][0], $titik[$i][1] - $titik[$i - 1][1]);
+    }
+    return $panjang;
+}
+
+function indeksSumbuManual(array $fitur, string $kode): int
+{
+    foreach ($fitur as $i => $f) {
+        if ((string) ($f['properties']['kode'] ?? '') === $kode) {
+            return (int) $i;
+        }
+    }
+    return -1;
+}
+
 try {
     $kunci = fopen(BERKAS_SUMBU_MANUAL . '.lock', 'c');
     if ($kunci === false || !flock($kunci, LOCK_EX)) {
@@ -161,6 +183,151 @@ try {
                 'jumlah_titik' => count($titik),
                 'jumlah' => count($fitur),
             ], 'Sumbu ' . $kode . ' tersimpan (' . angka($panjang, 2) . ' m).');
+        }
+
+        if ($aksi === 'potong') {
+            $kode = trim((string) ($masukan['kode'] ?? ''));
+            $pasangan = $masukan['titik'] ?? null;
+            if ($kode === '' || !is_array($pasangan)
+                || !array_key_exists(0, $pasangan) || !array_key_exists(1, $pasangan)
+                || !is_numeric($pasangan[0]) || !is_numeric($pasangan[1])) {
+                json_error('Potong butuh kode sumbu dan titik potong X/Y.', 422);
+            }
+            $px = (float) $pasangan[0];
+            $py = (float) $pasangan[1];
+            if (!is_finite($px) || !is_finite($py) || abs($px) > 1e7 || abs($py) > 1e7) {
+                json_error('Titik potong di luar rentang koordinat DXF.', 422);
+            }
+
+            $indeks = indeksSumbuManual($fitur, $kode);
+            if ($indeks < 0) {
+                json_error('Sumbu ' . $kode . ' tidak ditemukan.', 404);
+            }
+            $geometri = $fitur[$indeks]['geometry'] ?? null;
+            if (!is_array($geometri) || ($geometri['type'] ?? '') !== 'LineString'
+                || !is_array($geometri['coordinates'] ?? null)
+                || count($geometri['coordinates']) < 2) {
+                json_error('Sumbu ' . $kode . ' bukan garis yang bisa dipotong.', 422);
+            }
+            $titikAsal = [];
+            foreach ($geometri['coordinates'] as $p) {
+                if (!is_array($p) || !is_numeric($p[0] ?? null) || !is_numeric($p[1] ?? null)) {
+                    json_error('Geometri ' . $kode . ' berisi titik yang tidak sah.', 500);
+                }
+                $titikAsal[] = [(float) $p[0], (float) $p[1]];
+            }
+
+            // Titik potong = proyeksi klik ke segmen garis terdekat.
+            $terbaik = null;
+            for ($i = 0; $i + 1 < count($titikAsal); $i++) {
+                $ax = $titikAsal[$i][0];
+                $ay = $titikAsal[$i][1];
+                $dx = $titikAsal[$i + 1][0] - $ax;
+                $dy = $titikAsal[$i + 1][1] - $ay;
+                $kuadrat = $dx * $dx + $dy * $dy;
+                if ($kuadrat <= 0.0) {
+                    continue;
+                }
+                $t = (($px - $ax) * $dx + ($py - $ay) * $dy) / $kuadrat;
+                $t = max(0.0, min(1.0, $t));
+                $qx = $ax + $t * $dx;
+                $qy = $ay + $t * $dy;
+                $jarak = hypot($px - $qx, $py - $qy);
+                if ($terbaik === null || $jarak < $terbaik['jarak']) {
+                    $terbaik = ['i' => $i, 't' => $t, 'x' => $qx, 'y' => $qy, 'jarak' => $jarak];
+                }
+            }
+            if ($terbaik === null) {
+                json_error('Garis ' . $kode . ' tidak punya segmen yang bisa dipotong.', 422);
+            }
+            $segmenTerakhir = count($titikAsal) - 2;
+            if (($terbaik['i'] === 0 && $terbaik['t'] <= 1e-6)
+                || ($terbaik['i'] === $segmenTerakhir && $terbaik['t'] >= 1.0 - 1e-6)) {
+                json_error('Titik potong jatuh di ujung garis; klik di tengah garis.', 422);
+            }
+
+            $i = $terbaik['i'];
+            if ($terbaik['t'] <= 1e-6) {
+                $potong = $titikAsal[$i];
+                $bagianA = array_slice($titikAsal, 0, $i + 1);
+                $bagianB = array_slice($titikAsal, $i);
+            } elseif ($terbaik['t'] >= 1.0 - 1e-6) {
+                $potong = $titikAsal[$i + 1];
+                $bagianA = array_slice($titikAsal, 0, $i + 2);
+                $bagianB = array_slice($titikAsal, $i + 1);
+            } else {
+                $potong = [round($terbaik['x'], 3), round($terbaik['y'], 3)];
+                $bagianA = array_slice($titikAsal, 0, $i + 1);
+                $bagianA[] = $potong;
+                $bagianB = [$potong];
+                foreach (array_slice($titikAsal, $i + 1) as $p) {
+                    $bagianB[] = $p;
+                }
+            }
+            $panjangA = panjangGarisManual($bagianA);
+            $panjangB = panjangGarisManual($bagianB);
+            if ($panjangA < 1.0 || $panjangB < 1.0) {
+                json_error('Potongan terlalu pendek: satu bagian kurang dari 1 m.', 422);
+            }
+
+            $properti = is_array($fitur[$indeks]['properties'] ?? null) ? $fitur[$indeks]['properties'] : [];
+            $label = trim((string) ($properti['label'] ?? ''));
+            $label = $label === '' ? 'JALAN' : $label;
+            $buatBagian = static function (string $kodeBagian, array $titikBagian, float $panjangBagian)
+                    use ($pengguna, $label, $kode): array {
+                return [
+                    'type' => 'Feature',
+                    'geometry' => ['type' => 'LineString', 'coordinates' => $titikBagian],
+                    'properties' => [
+                        'kode' => $kodeBagian,
+                        'sumber' => 'manual',
+                        'cara' => 'manual',
+                        'label' => $label,
+                        'panjang_m' => round($panjangBagian, 2),
+                        'jumlah_titik' => count($titikBagian),
+                        'dibuat_oleh' => (string) $pengguna['username'],
+                        'dibuat_pada' => date('Y-m-d H:i:s'),
+                        'dipotong_dari' => $kode,
+                    ],
+                ];
+            };
+
+            array_splice($fitur, $indeks, 1);
+            $kodeA = kodeSumbuManualBaru($fitur);
+            $fitur[] = $buatBagian($kodeA, $bagianA, $panjangA);
+            $kodeB = kodeSumbuManualBaru($fitur);
+            $fitur[] = $buatBagian($kodeB, $bagianB, $panjangB);
+            tulisSumbuManual($fitur);
+
+            audit('ubah', 'sumbu-jalan', $kode,
+                'Sumbu jalan manual ' . $kode . ' dipotong menjadi ' . $kodeA . ' ('
+                    . angka($panjangA, 2) . ' m) dan ' . $kodeB . ' (' . angka($panjangB, 2) . ' m)');
+
+            json_ok([
+                'kode' => [$kodeA, $kodeB],
+                'panjang_m' => [round($panjangA, 2), round($panjangB, 2)],
+                'potong' => $potong,
+                'jumlah' => count($fitur),
+            ], 'Sumbu ' . $kode . ' dipotong menjadi ' . $kodeA . ' dan ' . $kodeB . '.');
+        }
+
+        if ($aksi === 'hapus') {
+            $kode = trim((string) ($masukan['kode'] ?? ''));
+            if ($kode === '') {
+                json_error('Hapus butuh kode sumbu.', 422);
+            }
+            $indeks = indeksSumbuManual($fitur, $kode);
+            if ($indeks < 0) {
+                json_error('Sumbu ' . $kode . ' tidak ditemukan.', 404);
+            }
+            array_splice($fitur, $indeks, 1);
+            tulisSumbuManual($fitur);
+            audit('hapus', 'sumbu-jalan', $kode, 'Sumbu jalan manual ' . $kode . ' dihapus');
+
+            json_ok([
+                'kode' => $kode,
+                'jumlah' => count($fitur),
+            ], 'Sumbu ' . $kode . ' dihapus.');
         }
 
         if ($aksi === 'hapus-terakhir') {

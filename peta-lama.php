@@ -220,6 +220,15 @@ sip_judul(
                         <button class="tombol tombol-kecil" type="button" id="sumbuBatal" disabled>Batal</button>
                         <button class="tombol tombol-kecil tombol-utama" type="button" id="sumbuSimpan" disabled>Simpan sumbu</button>
                     </div>
+                    <p class="petunjuk jarak-atas">Klik garis “Sumbu manual” di peta untuk memilihnya, lalu potong di satu titik atau hapus seluruh garis.</p>
+                    <dl class="daftar-kecil">
+                        <li><span class="redup">Garis terpilih</span><span class="rapek-kanan" id="sumbuGarisTerpilih">–</span></li>
+                    </dl>
+                    <div class="baris-tombol jarak-atas">
+                        <button class="tombol tombol-kecil" type="button" id="sumbuPotong" disabled>Potong di titik</button>
+                        <button class="tombol tombol-kecil" type="button" id="sumbuHapusGaris" disabled>Hapus garis</button>
+                        <button class="tombol tombol-kecil" type="button" id="sumbuLepas" disabled>Lepas pilihan</button>
+                    </div>
                     <div class="baris-tombol jarak-atas">
                         <button class="tombol tombol-kecil" type="button" id="sumbuHapusTersimpan"
                                 <?= $jumlahSumbuManual === 0 ? 'disabled' : '' ?>>Hapus sumbu tersimpan terakhir</button>
@@ -406,6 +415,8 @@ sip_judul(
 #petaLama.mode-penunjuk .leaflet-interactive { cursor: crosshair !important; }
 #petaLama.mode-sumbu,
 #petaLama.mode-sumbu .leaflet-interactive { cursor: crosshair !important; }
+#petaLama.mode-potong,
+#petaLama.mode-potong .leaflet-interactive { cursor: crosshair !important; }
 .penanda-pin { background: none; border: none; }
 .penanda-pin span {
     display: block;
@@ -478,6 +489,9 @@ $naskah = <<<'JS'
     let modeSumbu = false;
     let jumlahSumbuTersimpan = elemenInfoSumbu
         ? (Number(elemenInfoSumbu.dataset.tersimpan) || 0) : 0;
+    const sorotanSumbu = L.featureGroup().addTo(peta);
+    let sumbuTerpilih = null;
+    let modePotongSumbu = false;
 
     function ikonLabel(teks, kelas) {
         const isi = Sip.esc(teks || '');
@@ -1088,6 +1102,7 @@ $naskah = <<<'JS'
         if (!elemenInfoSumbu) return;
         modeSumbu = hidup;
         if (hidup) {
+            aturPotongSumbu(false);
             if (modePenunjuk) aturPenunjuk(false);
             if (modeMassal) aturMassal(false);
         }
@@ -1158,6 +1173,7 @@ $naskah = <<<'JS'
                 json: { aksi: 'hapus-terakhir' }
             });
             perbaruiJumlahSumbu(Number(hasil.jumlah) || 0);
+            if (sumbuTerpilih && sumbuTerpilih.kode === hasil.kode) lepasPilihanSumbu('');
             if (elemenInfoSumbu) {
                 elemenInfoSumbu.textContent = 'Sumbu ' + (hasil.kode || 'terakhir')
                     + ' dihapus. Sumbu tersimpan: ' + Sip.angka(jumlahSumbuTersimpan) + '.';
@@ -1174,6 +1190,121 @@ $naskah = <<<'JS'
     }
 
     const tombolPenunjuk = document.getElementById('alatPenunjuk');
+
+    function lepasPilihanSumbu(pesan) {
+        sumbuTerpilih = null;
+        sorotanSumbu.clearLayers();
+        aturPotongSumbu(false);
+        const label = document.getElementById('sumbuGarisTerpilih');
+        if (label) label.textContent = '–';
+        ['sumbuPotong', 'sumbuHapusGaris', 'sumbuLepas'].forEach((id) => {
+            const tombol = document.getElementById(id);
+            if (tombol) tombol.disabled = true;
+        });
+        if (pesan && elemenInfoSumbu) elemenInfoSumbu.textContent = pesan;
+    }
+
+    function pilihSumbuManual(fitur) {
+        if (!elemenInfoSumbu || !fitur || !fitur.properties) return;
+        if (modeSumbu || modePotongSumbu || modePenunjuk) return;
+        const kode = String(fitur.properties.kode || '');
+        if (kode === '') return;
+        sumbuTerpilih = { kode, panjang: Number(fitur.properties.panjang_m) || 0 };
+        sorotanSumbu.clearLayers();
+        L.geoJSON(fitur, {
+            style: { color: '#f59e0b', weight: 5, opacity: .95 }
+        }).addTo(sorotanSumbu);
+        document.getElementById('sumbuGarisTerpilih').textContent = kode + ' · '
+            + Sip.angka(sumbuTerpilih.panjang, 2) + ' m';
+        document.getElementById('sumbuPotong').disabled = false;
+        document.getElementById('sumbuHapusGaris').disabled = false;
+        document.getElementById('sumbuLepas').disabled = false;
+        elemenInfoSumbu.textContent = 'Garis ' + kode
+            + ' terpilih. Klik “Potong di titik”, atau hapus seluruh garis.';
+    }
+
+    function lekatkanPilihSumbu(lapisan) {
+        lapisan.eachLayer((l) => {
+            if (!l.feature) return;
+            l.on('click', (ev) => {
+                if (modeSumbu || modePotongSumbu || modePenunjuk) return;
+                L.DomEvent.stopPropagation(ev);
+                pilihSumbuManual(l.feature);
+            });
+        });
+    }
+
+    function aturPotongSumbu(hidup) {
+        const tombol = document.getElementById('sumbuPotong');
+        modePotongSumbu = Boolean(hidup && sumbuTerpilih);
+        if (!tombol) return;
+        if (modePotongSumbu) {
+            if (modeSumbu) aturSumbu(false);
+            if (modePenunjuk) aturPenunjuk(false);
+            if (modeMassal) aturMassal(false);
+        }
+        tombol.classList.toggle('tombol-utama', modePotongSumbu);
+        tombol.textContent = modePotongSumbu ? 'Batalkan potong' : 'Potong di titik';
+        document.getElementById('petaLama').classList.toggle('mode-potong', modePotongSumbu);
+        if (elemenInfoSumbu) {
+            elemenInfoSumbu.textContent = modePotongSumbu
+                ? 'Potong ' + sumbuTerpilih.kode + ': klik satu titik di garis itu.'
+                : (sumbuTerpilih
+                    ? 'Garis ' + sumbuTerpilih.kode + ' terpilih.'
+                    : 'Alat mati. Sumbu tersimpan: ' + Sip.angka(jumlahSumbuTersimpan) + '.');
+        }
+    }
+
+    async function potongSumbu(latlng) {
+        if (!sumbuTerpilih) return;
+        const kode = sumbuTerpilih.kode;
+        if (!window.confirm('Potong ' + kode + ' (' + Sip.angka(sumbuTerpilih.panjang, 2)
+            + ' m) di titik X ' + koordDxf(latlng.lng) + ' · Y ' + koordDxf(latlng.lat) + '?')) {
+            return;
+        }
+        try {
+            const hasil = await Sip.api('api/sumbu-jalan.php', {
+                method: 'POST',
+                json: { aksi: 'potong', kode, titik: [latlng.lng, latlng.lat] }
+            });
+            perbaruiJumlahSumbu(Number(hasil.jumlah) || 0);
+            lepasPilihanSumbu('');
+            await muatUlangSumbuManual();
+            const kodeBaru = Array.isArray(hasil.kode) ? hasil.kode : [];
+            const panjangBaru = Array.isArray(hasil.panjang_m) ? hasil.panjang_m : [];
+            const rincian = kodeBaru.map((k, i) => k + ' ' + Sip.angka(panjangBaru[i], 2) + ' m').join(', ');
+            if (elemenInfoSumbu) elemenInfoSumbu.textContent = hasil.pesan + ' Bagian: ' + rincian + '.';
+            info.textContent = hasil.pesan;
+            Sip.pesan(hasil.pesan, 'berhasil');
+        } catch (err) {
+            if (elemenInfoSumbu) elemenInfoSumbu.textContent = err.message;
+            Sip.pesan(err.message, 'gagal');
+        }
+    }
+
+    async function hapusGarisSumbu() {
+        if (!sumbuTerpilih) return;
+        const kode = sumbuTerpilih.kode;
+        if (!window.confirm('Hapus garis ' + kode + ' (' + Sip.angka(sumbuTerpilih.panjang, 2)
+            + ' m) dari berkas sumbu manual?')) {
+            return;
+        }
+        try {
+            const hasil = await Sip.api('api/sumbu-jalan.php', {
+                method: 'POST',
+                json: { aksi: 'hapus', kode }
+            });
+            perbaruiJumlahSumbu(Number(hasil.jumlah) || 0);
+            lepasPilihanSumbu('');
+            await muatUlangSumbuManual();
+            if (elemenInfoSumbu) elemenInfoSumbu.textContent = hasil.pesan;
+            info.textContent = hasil.pesan;
+            Sip.pesan(hasil.pesan, 'berhasil');
+        } catch (err) {
+            if (elemenInfoSumbu) elemenInfoSumbu.textContent = err.message;
+            Sip.pesan(err.message, 'gagal');
+        }
+    }
 
     function aturPenunjuk(hidup) {
         if (hidup && modeSumbu) aturSumbu(false);
@@ -1198,6 +1329,7 @@ $naskah = <<<'JS'
         if (!hidup) {
             if (grup[nama]) peta.removeLayer(grup[nama]);
             if (nama === '020100') peta.removeLayer(grupTitik);
+            if (nama === 'garis-jalan-sumbu-manual') lepasPilihanSumbu('');
             return;
         }
         if (grup[nama]) {
@@ -1211,6 +1343,7 @@ $naskah = <<<'JS'
         try {
             const data = await Sip.api('api/peta-lama.php', { query: { lapisan: nama } });
             grup[nama] = bangun(nama, data);
+            if (nama === 'garis-jalan-sumbu-manual') lekatkanPilihSumbu(grup[nama]);
             const kotak = document.querySelector('[data-lapisan="' + nama + '"]');
             if (!kotak || kotak.checked) grup[nama].addTo(peta);
             if (nama === '020100') {
@@ -1292,6 +1425,12 @@ $naskah = <<<'JS'
                 + ' — klik untuk menambah titik.';
             return;
         }
+        if (modePotongSumbu) {
+            info.textContent = 'Potong ' + (sumbuTerpilih ? sumbuTerpilih.kode : '') + ': X '
+                + koordDxf(e.latlng.lng) + ' · Y ' + koordDxf(e.latlng.lat)
+                + ' — klik di garis untuk memotong.';
+            return;
+        }
         if (!modePenunjuk) return;
         info.textContent = 'Penunjuk: X ' + koordDxf(e.latlng.lng) + ' · Y ' + koordDxf(e.latlng.lat)
             + ' — klik untuk menaruh penanda.';
@@ -1300,6 +1439,10 @@ $naskah = <<<'JS'
     peta.on('click', (e) => {
         if (modeSumbu) {
             tambahTitikSumbu(e.latlng);
+            return;
+        }
+        if (modePotongSumbu) {
+            potongSumbu(e.latlng).catch((err) => Sip.pesan(err.message, 'gagal'));
             return;
         }
         if (!modePenunjuk) return;
@@ -1383,6 +1526,15 @@ $naskah = <<<'JS'
         });
         document.getElementById('sumbuHapusTersimpan').addEventListener('click', () => {
             hapusSumbuTersimpan().catch((err) => Sip.pesan(err.message, 'gagal'));
+        });
+        document.getElementById('sumbuPotong').addEventListener('click', () => {
+            aturPotongSumbu(!modePotongSumbu);
+        });
+        document.getElementById('sumbuHapusGaris').addEventListener('click', () => {
+            hapusGarisSumbu().catch((err) => Sip.pesan(err.message, 'gagal'));
+        });
+        document.getElementById('sumbuLepas').addEventListener('click', () => {
+            lepasPilihanSumbu('Pilihan dilepas.');
         });
         perbaruiSumbu();
     }
