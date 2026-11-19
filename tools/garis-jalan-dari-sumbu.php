@@ -51,11 +51,12 @@ declare(strict_types=1);
  * ujung yang berjarak <= --sambung (bawaan 292 m) disatukan menjadi satu rantai
  * dengan garis penghubung lurus, sedangkan celah lebih besar dibiarkan putus
  * karena berarti sisi jalan memang tidak ditemukan di situ (mulut persimpangan,
- * saluran air). Tidak ada garis penghubung yang memotong sumbunya sendiri: kalau
- * keempat calon sambungan (dua ujung baris, dua arah) semuanya menyeberang sumbu,
- * rantai diputus saja. Baris yang menyeberang sumbunya sendiri (sisi bidang yang
- * berbelok melewati sumbu di tikungan tajam) dipotong di titik persilangan dan
- * potongan yang jatuh di sisi seberang dibuang.
+ * saluran air). Tidak ada garis penghubung yang memotong sumbu jalan mana pun:
+ * kalau keempat calon sambungan (dua ujung baris, dua arah) semuanya menyeberang
+ * sumbu, rantai diputus saja. Baris yang menyeberang sumbu (sisi bidang yang
+ * berbelok melewati sumbu di tikungan tajam, atau sisi persil yang melintasi
+ * mulut jalan lain) dipotong di titik persilangan dan dimundurkan 5 cm dari
+ * sumbu, lalu potongan yang jatuh di sisi seberang sumbu sendiri dibuang.
  *
  * Persil untuk uji koridor dibaca dari tabel `bidang` (status <> 'dihapus'),
  * hanya baca. Lapis air dibaca dari `garis-selokan.geojson` dan
@@ -202,23 +203,40 @@ function rapatkan(array $titik): array
     return $keluar;
 }
 
-/** Ruas a-b memotong salah satu ruas garis (silang sejati, bukan gesekan ujung). */
-function potongGaris(array $a, array $b, array $garis): bool
+/** Titik persilangan ruas a-b dengan segmen-segmen kisi berarah (tanpa duplikat). */
+function potongKisi(array $kisi, array $segmen, array $a, array $b): array
 {
-    $o = static fn(array $p, array $q, array $r): float =>
-        ($q[0] - $p[0]) * ($r[1] - $p[1]) - ($q[1] - $p[1]) * ($r[0] - $p[0]);
-    for ($i = 0; $i < count($garis) - 1; $i++) {
-        $c = $garis[$i];
-        $d = $garis[$i + 1];
-        $o1 = $o($a, $b, $c);
-        $o2 = $o($a, $b, $d);
-        $o3 = $o($c, $d, $a);
-        $o4 = $o($c, $d, $b);
-        if ($o1 * $o2 < -1e-12 && $o3 * $o4 < -1e-12) {
-            return true;
+    $dx = $b[0] - $a[0];
+    $dy = $b[1] - $a[1];
+    if ($dx === 0.0 && $dy === 0.0) {
+        return [];
+    }
+    $xMin = (int) floor(min($a[0], $b[0]) / SEL);
+    $xMax = (int) floor(max($a[0], $b[0]) / SEL);
+    $yMin = (int) floor(min($a[1], $b[1]) / SEL);
+    $yMax = (int) floor(max($a[1], $b[1]) / SEL);
+    $hasil = [];
+    $sudah = [];
+    for ($gx = $xMin; $gx <= $xMax; $gx++) {
+        for ($gy = $yMin; $gy <= $yMax; $gy++) {
+            foreach (array_keys($kisi[$gx . ':' . $gy] ?? []) as $id) {
+                if (isset($sudah[$id])) {
+                    continue;
+                }
+                $sudah[$id] = true;
+                $s = $segmen[$id];
+                $o1 = $dx * ($s[1] - $a[1]) - $dy * ($s[0] - $a[0]);
+                $o2 = $dx * ($s[3] - $a[1]) - $dy * ($s[2] - $a[0]);
+                $o3 = ($s[2] - $s[0]) * ($a[1] - $s[1]) - ($s[3] - $s[1]) * ($a[0] - $s[0]);
+                $o4 = ($s[2] - $s[0]) * ($b[1] - $s[1]) - ($s[3] - $s[1]) * ($b[0] - $s[0]);
+                if ($o1 * $o2 < -1e-12 && $o3 * $o4 < -1e-12) {
+                    $t = $o1 / ($o1 - $o2);
+                    $hasil[] = [$a[0] + $t * $dx, $a[1] + $t * $dy];
+                }
+            }
         }
     }
-    return false;
+    return $hasil;
 }
 
 /** Jarak titik ke sumbu dan tandanya: [jarak, z > 0 berarti kiri]. */
@@ -243,35 +261,30 @@ function sisiTerhadapSumbu(array $p, array $sumbu): array
 }
 
 /**
- * Potong baris di titik persilangan dengan sumbunya, buang potongan yang jatuh di
- * sisi seberang. Potongan yang menempel sumbu (<= LEBAR_MIN) tetap dipertahankan.
+ * Potong baris di titik persilangan dengan sumbu mana pun (sendiri atau lain),
+ * lalu buang potongan yang jatuh di sisi seberang sumbunya sendiri. Ujung potongan
+ * dimundurkan 5 cm dari titik silang supaya tahap jahit tidak menyambung balik di
+ * atas sumbu (jahitan selebar itu pasti ditolak karena menyeberang sumbu).
+ * Potongan yang menempel sumbu (<= LEBAR_MIN) tetap dipertahankan.
  */
-function belahBaris(array $baris, array $sumbu, string $sisi, int &$silangBaris,
-    int &$buangKeping): array
+function belahBaris(array $baris, array $sumbu, string $sisi, array $kisi, array $segmen,
+    int &$silangBaris, int &$buangKeping): array
 {
+    $mundur = static function (array $dari, array $ke, float $jarak): array {
+        $pan = hypot($ke[0] - $dari[0], $ke[1] - $dari[1]);
+        if ($pan <= $jarak) {
+            return $dari;
+        }
+        $t = $jarak / $pan;
+        return [$ke[0] + ($dari[0] - $ke[0]) * $t, $ke[1] + ($dari[1] - $ke[1]) * $t];
+    };
     $kini = [$baris[0]];
     $potong = [];
     $adaSilang = false;
     for ($i = 0; $i < count($baris) - 1; $i++) {
         $a = $baris[$i];
         $b = $baris[$i + 1];
-        $dx = $b[0] - $a[0];
-        $dy = $b[1] - $a[1];
-        $silang = [];
-        if ($dx !== 0.0 || $dy !== 0.0) {
-            for ($j = 0; $j < count($sumbu) - 1; $j++) {
-                $c = $sumbu[$j];
-                $d = $sumbu[$j + 1];
-                $o1 = $dx * ($c[1] - $a[1]) - $dy * ($c[0] - $a[0]);
-                $o2 = $dx * ($d[1] - $a[1]) - $dy * ($d[0] - $a[0]);
-                $o3 = ($d[0] - $c[0]) * ($a[1] - $c[1]) - ($d[1] - $c[1]) * ($a[0] - $c[0]);
-                $o4 = ($d[0] - $c[0]) * ($b[1] - $c[1]) - ($d[1] - $c[1]) * ($b[0] - $c[0]);
-                if ($o1 * $o2 < -1e-12 && $o3 * $o4 < -1e-12) {
-                    $t = $o1 / ($o1 - $o2);
-                    $silang[] = [$a[0] + $t * $dx, $a[1] + $t * $dy];
-                }
-            }
-        }
+        $silang = potongKisi($kisi, $segmen, $a, $b);
         if ($silang === []) {
             $kini[] = $b;
             continue;
@@ -280,9 +293,9 @@ function belahBaris(array $baris, array $sumbu, string $sisi, int &$silangBaris,
         usort($silang, static fn(array $x, array $y): int =>
             hypot($x[0] - $a[0], $x[1] - $a[1]) <=> hypot($y[0] - $a[0], $y[1] - $a[1]));
         foreach ($silang as $x) {
-            $kini[] = $x;
+            $kini[] = $mundur($kini[count($kini) - 1], $x, 0.05);
             $potong[] = $kini;
-            $kini = [$x];
+            $kini = [$mundur($b, $x, 0.05)];
         }
         $kini[] = $b;
     }
@@ -923,8 +936,11 @@ function potongUntaian(array $titik, array $klaim, array $run, int $jumlahSegmen
 }
 
 $garisSumbu = [];
+$kisiSumbu = [];
+$segmenSumbu = [];
 foreach ($sumbu as $f) {
     $garisSumbu[$f['kode']] = $f['titik'];
+    tambahSegmen($kisiSumbu, $segmenSumbu, $f['titik'], $f['kode'], SEL);
 }
 $fiturKeluar = [];
 $pendekBuang = 0;
@@ -941,8 +957,8 @@ foreach ($pakai as $kodeSumbu => $perSisi) {
             $jumlahSegmen = count($titik) - 1;
             foreach (untaian($klaim, (bool) $data['ring'], $jumlahSegmen) as $run) {
                 $baris = potongUntaian($titik, $klaim, $run, $jumlahSegmen, $langkah);
-                foreach (belahBaris($baris, $garisSumbu[$kodeSumbu], $sisi, $silangBaris,
-                    $buangKeping) as $potong) {
+                foreach (belahBaris($baris, $garisSumbu[$kodeSumbu], $sisi, $kisiSumbu,
+                    $segmenSumbu, $silangBaris, $buangKeping) as $potong) {
                     $p = panjang($potong);
                     $statSumbu[$kodeSumbu]['run'] = ($statSumbu[$kodeSumbu]['run'] ?? 0) + 1;
                     if ($p < MIN_TEPI) {
@@ -1017,7 +1033,6 @@ $rantaiGrup = [];
 $celahSisa = [];
 foreach ($perGrup as $kunciGrup => $anggota) {
     usort($anggota, static fn(array $x, array $y): int => $x['s'] <=> $y['s']);
-    $sumbuGaris = $dasarSumbu[explode('|', $kunciGrup)[0]]['titik'];
     $jalur = null;
     $asal = null;
     $potongan = 0;
@@ -1057,7 +1072,7 @@ foreach ($perGrup as $kunciGrup => $anggota) {
             if ($k[1] > $sambung) {
                 break;
             }
-            if (potongGaris($k[3], $k[4], $sumbuGaris)) {
+            if (potongKisi($kisiSumbu, $segmenSumbu, $k[3], $k[4]) !== []) {
                 continue;
             }
             $dipakai = $k;
@@ -1287,7 +1302,7 @@ printf("sambung: %d rantai dari %d baris · %d sambungan lurus %s m (ambang %s m
     . " · %d pasangan putus > ambang (%s m)\n",
     $rantaiSebelumTutup, $barisTerbit, $sambungPasang, angkaNum($sambungPanjang, 1),
     angkaNum($sambung, 1), $putusPasang, angkaNum($putusPanjang, 1));
-printf("sambungan ditolak karena memotong sumbu sendiri: %d (diputus, bukan dijembatani)\n",
+printf("sambungan ditolak karena memotong sumbu jalan: %d (diputus, bukan dijembatani)\n",
     $tolakSilang);
 printf("grup sumbu+sisi: %d · utuh satu rantai: %d · masih terputus: %d\n",
     count($rantaiGrup), count(array_filter($rantaiGrup, static fn(int $n): bool => $n === 1)),
