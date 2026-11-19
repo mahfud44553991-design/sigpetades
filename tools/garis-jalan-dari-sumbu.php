@@ -12,14 +12,27 @@ declare(strict_types=1);
  *                      berpasangan, bawaan 10,0 m; 0 = mati
  *   --langkah=M        jarak titik sampel, bawaan 2,0 m
  *   --sambung=M        ambang jahit ujung rantai, bawaan 292,0 m
+ *   --sumbu=rapi       bahan sumbu diambil dari hasil jahitan app/sumbu-rapi.php
+ *                      (709 polilin rapi), bukan dari berkas mentah; bawaan
+ *                      "mentah" = berkas garis-jalan-sumbu + garis-sumbu-manual
+ *   --maks=N           hanya N sumbu terpanjang yang dipakai, dihitung sesudah
+ *                      --sumbu; bawaan semua sumbu
+ *   --tutup=M          jahit ujung rantai yang jaraknya <= M meter: ujung kiri
+ *                      dan kanan sumbu yang sama ditutup jadi cincin keliling,
+ *                      dan ujung bersisi sama dari sumbu berbeda dijahit jadi
+ *                      satu rantai di pertemuan antarsumbu; bawaan 0 = ujung
+ *                      dibiarkan terbuka
+ *   --keluaran=NAMA    nama berkas keluaran tanpa .geojson, bawaan
+ *                      garis-jalan-dari-sumbu
  *   --rinci            cetak 25 sumbu dengan cakupan sisi terlemah
  *   --tanya=KODE       cetak rincian klaim dan terbitan satu sumbu
  *
- * Masukan: `garis-jalan-sumbu.geojson` (1.560 sumbu turunan label, termasuk 67
- * sumbu yatim) dan `garis-sumbu-manual.geojson` (130 sumbu alat "Penanda
- * sumbu"), jadi 1.690 sumbu. Keluaran: `garis-jalan-dari-sumbu.geojson`, satu
- * berkas BARU; `garis-jalan-tepi.geojson` tidak disentuh supaya alat label bisa
- * dijalankan ulang tanpa menghapus hasil alat ini, dan sebaliknya.
+ * Masukan bawaan: `garis-jalan-sumbu.geojson` (1.560 sumbu turunan label,
+ * termasuk 67 sumbu yatim) dan `garis-sumbu-manual.geojson` (130 sumbu alat
+ * "Penanda sumbu"), jadi 1.690 sumbu. Keluaran: `garis-jalan-dari-sumbu.geojson`
+ * (atau nama --keluaran), satu berkas BARU; `garis-jalan-tepi.geojson` tidak
+ * disentuh supaya alat label bisa dijalankan ulang tanpa menghapus hasil alat
+ * ini, dan sebaliknya.
  *
  * Aturan sisi, sama dengan tahap 2 `tools/garis-jalan-label.php`: tiap titik
  * sampel sumbu (tiap LANGKAH meter) dicari segmen 020100 terdekat di kiri dan
@@ -425,13 +438,37 @@ $langkah = LANGKAH_BAWAAN;
 $sambung = AMBANG_SAMBUNG;
 $rinci = false;
 $tanya = null;
+$bahanRapi = false;
+$maksSumbu = null;
+$tutupUjung = 0.0;
+$berkasKeluar = BERKAS_KELUAR;
 foreach (array_slice($argv, 1) as $arg) {
     if ($arg === '--terapkan') {
         $terapkan = true;
     } elseif ($arg === '--rinci') {
         $rinci = true;
+    } elseif ($arg === '--sumbu=rapi') {
+        $bahanRapi = true;
     } elseif (str_starts_with($arg, '--tanya=')) {
         $tanya = substr($arg, 8);
+    } elseif (str_starts_with($arg, '--maks=')) {
+        $isi = trim(substr($arg, 7));
+        if (!preg_match('/^\d{1,4}$/', $isi) || (int) $isi < 1) {
+            galat('--maks harus jumlah sumbu, contoh --maks=5');
+        }
+        $maksSumbu = (int) $isi;
+    } elseif (str_starts_with($arg, '--tutup=')) {
+        $isi = trim(substr($arg, 8));
+        if (!preg_match('/^\d{1,3}([.,]\d{1,2})?$/', $isi)) {
+            galat('--tutup harus angka meter, contoh --tutup=20');
+        }
+        $tutupUjung = (float) str_replace(',', '.', $isi);
+    } elseif (str_starts_with($arg, '--keluaran=')) {
+        $isi = trim(substr($arg, 11));
+        if ($isi === '' || !preg_match('/^[a-z0-9-]+$/', $isi)) {
+            galat('--keluaran harus huruf kecil, angka, dan tanda hubung');
+        }
+        $berkasKeluar = $isi;
     } elseif (str_starts_with($arg, '--lebar=')) {
         $lebar = (float) str_replace(',', '.', substr($arg, 8));
     } elseif (str_starts_with($arg, '--lebar-yatim=')) {
@@ -457,36 +494,61 @@ if ($sambung < 0.0 || $sambung > 500.0) {
     galat('--sambung harus antara 0 dan 500 meter');
 }
 
-printf("mode: %s · koridor %s m%s · langkah sampel %s m · keluaran %s.geojson\n",
-    $terapkan ? 'TERAPKAN' : 'uji kering', angkaNum($lebar, 1),
+printf("mode: %s · bahan sumbu %s%s · koridor %s m%s · langkah sampel %s m · keluaran %s.geojson\n",
+    $terapkan ? 'TERAPKAN' : 'uji kering',
+    $bahanRapi ? 'jahitan app/sumbu-rapi.php' : 'berkas mentah',
+    $maksSumbu === null ? '' : ' (maks ' . $maksSumbu . ' terpanjang)',
+    angkaNum($lebar, 1),
     $lebarYatim === 0.0 ? '' : ' + yatim ' . angkaNum($lebarYatim, 1),
-    angkaNum($langkah, 1), BERKAS_KELUAR);
+    angkaNum($langkah, 1), $berkasKeluar);
 
 // ---------------------------------------------------------------------------
 // Sumbu
 // ---------------------------------------------------------------------------
 
 $sumbu = [];
-foreach (BERKAS_SUMBU as $berkas) {
-    $path = DIR_LAPISAN . '/' . $berkas . '.geojson';
-    if (!is_file($path)) {
-        galat('berkas sumbu tidak ada: ' . $berkas . '.geojson');
+if ($bahanRapi) {
+    require_once __DIR__ . '/../app/sumbu-rapi.php';
+    $rapi = sumbu_rapi_lapis(DIR_LAPISAN . '/garis-jalan-sumbu.geojson',
+        DIR_LAPISAN . '/garis-sumbu-manual.geojson');
+    if (!is_array($rapi) || !is_array($rapi['features'] ?? null)) {
+        galat('hasil jahitan sumbu tidak dapat dibaca');
     }
-    foreach (geojsonBaca($path) as $f) {
+    foreach ($rapi['features'] as $f) {
         $g = $f['geometry'] ?? null;
         if (($g['type'] ?? '') !== 'LineString') {
             continue;
         }
         $p = $f['properties'] ?? [];
-        $kelas = $berkas === 'garis-sumbu-manual'
-            ? 'manual'
-            : ((($p['cara'] ?? '') === 'sumbu') ? 'turunan' : 'yatim');
         $sumbu[] = [
-            'kode' => (string) ($p['kode'] ?? ('SUMBU-' . count($sumbu))),
-            'kelas' => $kelas,
+            'kode' => (string) ($p['kode'] ?? ('JAHIT-' . count($sumbu))),
+            'kelas' => 'jahit',
             'titik' => array_map(static fn(array $q): array => [(float) $q[0], (float) $q[1]],
                 (array) $g['coordinates']),
         ];
+    }
+} else {
+    foreach (BERKAS_SUMBU as $berkas) {
+        $path = DIR_LAPISAN . '/' . $berkas . '.geojson';
+        if (!is_file($path)) {
+            galat('berkas sumbu tidak ada: ' . $berkas . '.geojson');
+        }
+        foreach (geojsonBaca($path) as $f) {
+            $g = $f['geometry'] ?? null;
+            if (($g['type'] ?? '') !== 'LineString') {
+                continue;
+            }
+            $p = $f['properties'] ?? [];
+            $kelas = $berkas === 'garis-sumbu-manual'
+                ? 'manual'
+                : ((($p['cara'] ?? '') === 'sumbu') ? 'turunan' : 'yatim');
+            $sumbu[] = [
+                'kode' => (string) ($p['kode'] ?? ('SUMBU-' . count($sumbu))),
+                'kelas' => $kelas,
+                'titik' => array_map(static fn(array $q): array => [(float) $q[0], (float) $q[1]],
+                    (array) $g['coordinates']),
+            ];
+        }
     }
 }
 $jumlahKelas = [];
@@ -496,6 +558,16 @@ foreach ($sumbu as $f) {
 printf("sumbu: %d (%s)\n", count($sumbu), implode(', ', array_map(
     static fn(string $k, int $n): string => $k . ' ' . $n,
     array_keys($jumlahKelas), array_values($jumlahKelas))));
+
+if ($maksSumbu !== null && count($sumbu) > $maksSumbu) {
+    $semula = count($sumbu);
+    usort($sumbu, static fn(array $a, array $b): int => panjang($b['titik']) <=> panjang($a['titik']));
+    $sumbu = array_slice($sumbu, 0, $maksSumbu);
+    $total = array_sum(array_map(static fn(array $f): float => panjang($f['titik']), $sumbu));
+    printf("dipakai %d sumbu terpanjang dari %d · %s m · batas terendah %s m\n",
+        count($sumbu), $semula, angkaNum($total, 1),
+        angkaNum(panjang($sumbu[count($sumbu) - 1]['titik']), 1));
+}
 
 // ---------------------------------------------------------------------------
 // Bahan 020100: garis terbuka + cincin poligon, disimpan berurut per fitur
@@ -912,6 +984,153 @@ foreach ($rantai as [$jalur, $asal, $potongan, $sambungM]) {
         'geometry' => ['type' => 'LineString', 'coordinates' => $jalur],
     ];
 }
+$rantaiSebelumTutup = count($fiturKeluar);
+$jarakTitik = static fn(array $p, array $q): float => hypot((float) $p[0] - (float) $q[0],
+    (float) $p[1] - (float) $q[1]);
+$sambungAntar = 0;
+$sambungAntarJumlah = 0.0;
+$sambungAntarMaks = 0.0;
+if ($tutupUjung > 0.0 && count($fiturKeluar) > 1) {
+    $kandidatX = [];
+    $jumlahFitur = count($fiturKeluar);
+    for ($i = 0; $i < $jumlahFitur; $i++) {
+        for ($j = $i + 1; $j < $jumlahFitur; $j++) {
+            $fI = $fiturKeluar[$i];
+            $fJ = $fiturKeluar[$j];
+            if ($fI['properties']['sumbu'] === $fJ['properties']['sumbu']
+                || $fI['properties']['sisi'] !== $fJ['properties']['sisi']) {
+                continue;
+            }
+            $kI = $fI['geometry']['coordinates'];
+            $kJ = $fJ['geometry']['coordinates'];
+            $aI = $kI[0];
+            $zI = $kI[count($kI) - 1];
+            $aJ = $kJ[0];
+            $zJ = $kJ[count($kJ) - 1];
+            $opsiX = [
+                ['ui' => 1, 'uj' => 0, 'm' => $jarakTitik($zI, $aJ)],
+                ['ui' => 1, 'uj' => 1, 'm' => $jarakTitik($zI, $zJ)],
+                ['ui' => 0, 'uj' => 0, 'm' => $jarakTitik($aI, $aJ)],
+                ['ui' => 0, 'uj' => 1, 'm' => $jarakTitik($aI, $zJ)],
+            ];
+            usort($opsiX, static fn(array $x, array $y): int => $x['m'] <=> $y['m']);
+            if ($opsiX[0]['m'] <= $tutupUjung) {
+                $kandidatX[] = ['fi' => $i, 'fj' => $j] + $opsiX[0];
+            }
+        }
+    }
+    usort($kandidatX, static fn(array $x, array $y): int => $x['m'] <=> $y['m']);
+    $dipakaiX = [];
+    $hapusX = [];
+    foreach ($kandidatX as $x) {
+        if (isset($dipakaiX[$x['fi']]) || isset($dipakaiX[$x['fj']])) {
+            continue;
+        }
+        $dipakaiX[$x['fi']] = true;
+        $dipakaiX[$x['fj']] = true;
+        $fI = $fiturKeluar[$x['fi']];
+        $fJ = $fiturKeluar[$x['fj']];
+        $jalurX = $fI['geometry']['coordinates'];
+        if ($x['ui'] === 0) {
+            $jalurX = array_reverse($jalurX);
+        }
+        $jalurJ = $fJ['geometry']['coordinates'];
+        if ($x['uj'] === 1) {
+            $jalurJ = array_reverse($jalurJ);
+        }
+        $jalurX = rapatkan(array_merge($jalurX, $jalurJ));
+        $anggotaX = [$fI['properties']['sumbu'], $fJ['properties']['sumbu']];
+        sort($anggotaX);
+        $fiturKeluar[$x['fi']] = [
+            'type' => 'Feature',
+            'properties' => array_merge($fI['properties'], [
+                'sumbu' => implode('+', $anggotaX),
+                'panjang_m' => round(panjang($jalurX), 2),
+                'jumlah_titik' => count($jalurX),
+                'potongan' => (int) $fI['properties']['potongan']
+                    + (int) $fJ['properties']['potongan'],
+                'sambung_m' => round((float) $fI['properties']['sambung_m']
+                    + (float) $fJ['properties']['sambung_m'] + $x['m'], 2),
+                'sambung_antarsumbu_m' => round($x['m'], 2),
+            ]),
+            'geometry' => ['type' => 'LineString', 'coordinates' => $jalurX],
+        ];
+        $hapusX[$x['fj']] = true;
+        $sambungAntar++;
+        $sambungAntarJumlah += $x['m'];
+        $sambungAntarMaks = max($sambungAntarMaks, $x['m']);
+    }
+    if ($hapusX !== []) {
+        $fiturKeluar = array_values(array_diff_key($fiturKeluar, $hapusX));
+    }
+}
+$tutupCincin = 0;
+$tutupJembatan = 0.0;
+$tutupMaks = 0.0;
+$tutupBuka = [];
+if ($tutupUjung > 0.0) {
+    $perSumbu = [];
+    foreach ($fiturKeluar as $i => $f) {
+        $perSumbu[(string) $f['properties']['sumbu']][] = $i;
+    }
+    foreach ($perSumbu as $kodeSumbu => $anggota) {
+        if (count($anggota) !== 2) {
+            $tutupBuka[] = $kodeSumbu . ': ' . count($anggota) . ' rantai';
+            continue;
+        }
+        $fA = $fiturKeluar[$anggota[0]];
+        $fB = $fiturKeluar[$anggota[1]];
+        if ($fA['properties']['sisi'] === $fB['properties']['sisi']) {
+            $tutupBuka[] = $kodeSumbu . ': kedua rantai bersisi ' . $fA['properties']['sisi'];
+            continue;
+        }
+        $koordA = $fA['geometry']['coordinates'];
+        $koordB = $fB['geometry']['coordinates'];
+        $aAwal = $koordA[0];
+        $aAkhir = $koordA[count($koordA) - 1];
+        $bAwal = $koordB[0];
+        $bAkhir = $koordB[count($koordB) - 1];
+        $lurus = [$jarakTitik($aAkhir, $bAwal), $jarakTitik($aAwal, $bAkhir)];
+        $balik = [$jarakTitik($aAkhir, $bAkhir), $jarakTitik($aAwal, $bAwal)];
+        if (max($lurus) <= $tutupUjung) {
+            $jembatan = $lurus;
+            $kbPakai = $koordB;
+        } elseif (max($balik) <= $tutupUjung) {
+            $jembatan = $balik;
+            $kbPakai = array_reverse($koordB);
+        } else {
+            $tutupBuka[] = $kodeSumbu . ': celah '
+                . angkaNum(min($lurus[0], $lurus[1], $balik[0], $balik[1]), 1) . ' m';
+            continue;
+        }
+        $jalurTutup = $koordA;
+        foreach ($kbPakai as $titikB) {
+            $jalurTutup[] = $titikB;
+        }
+        $jalurTutup = rapatkan($jalurTutup);
+        $jalurTutup[] = $jalurTutup[0];
+        $jalurTutup = rapatkan($jalurTutup);
+        $fiturKeluar[$anggota[0]] = [
+            'type' => 'Feature',
+            'properties' => array_merge($fA['properties'], [
+                'sisi' => 'kiri+kanan',
+                'keliling' => true,
+                'panjang_m' => round(panjang($jalurTutup), 2),
+                'jumlah_titik' => count($jalurTutup),
+                'potongan' => (int) $fA['properties']['potongan']
+                    + (int) $fB['properties']['potongan'],
+                'sambung_m' => round((float) $fA['properties']['sambung_m']
+                    + (float) $fB['properties']['sambung_m'] + $jembatan[0] + $jembatan[1], 2),
+            ]),
+            'geometry' => ['type' => 'LineString', 'coordinates' => $jalurTutup],
+        ];
+        unset($fiturKeluar[$anggota[1]]);
+        $tutupCincin++;
+        $tutupJembatan += $jembatan[0] + $jembatan[1];
+        $tutupMaks = max($tutupMaks, $jembatan[0], $jembatan[1]);
+    }
+    $fiturKeluar = array_values($fiturKeluar);
+}
 usort($fiturKeluar, static fn(array $x, array $y): int => [$x['properties']['sumbu'],
     $x['properties']['sisi']] <=> [$y['properties']['sumbu'], $y['properties']['sisi']]);
 $kodeUrut = 0;
@@ -922,11 +1141,24 @@ foreach ($fiturKeluar as &$f) {
 unset($f);
 printf("sambung: %d rantai dari %d baris · %d sambungan lurus %s m (ambang %s m)"
     . " · %d pasangan putus > ambang (%s m)\n",
-    count($fiturKeluar), $barisTerbit, $sambungPasang, angkaNum($sambungPanjang, 1),
+    $rantaiSebelumTutup, $barisTerbit, $sambungPasang, angkaNum($sambungPanjang, 1),
     angkaNum($sambung, 1), $putusPasang, angkaNum($putusPanjang, 1));
 printf("grup sumbu+sisi: %d · utuh satu rantai: %d · masih terputus: %d\n",
     count($rantaiGrup), count(array_filter($rantaiGrup, static fn(int $n): bool => $n === 1)),
     count(array_filter($rantaiGrup, static fn(int $n): bool => $n > 1)));
+if ($tutupUjung > 0.0) {
+    printf("tutup ujung (<= %s m): %d cincin keliling · %d jembatan ujung %s m"
+        . " (terbesar %s m) · sisa %d rantai · %d sumbu tetap terbuka\n",
+        angkaNum($tutupUjung, 1), $tutupCincin, $tutupCincin * 2,
+        angkaNum($tutupJembatan, 1), angkaNum($tutupMaks, 1),
+        count($fiturKeluar), count($tutupBuka));
+    printf("jahit antarsumbu (<= %s m): %d sambungan %s m (terbesar %s m)\n",
+        angkaNum($tutupUjung, 1), $sambungAntar, angkaNum($sambungAntarJumlah, 1),
+        angkaNum($sambungAntarMaks, 1));
+    foreach (array_slice($tutupBuka, 0, 10) as $buka) {
+        echo '  ' . $buka . PHP_EOL;
+    }
+}
 if ($celahSisa !== []) {
     usort($celahSisa, static fn(array $x, array $y): int => $y['m'] <=> $x['m']);
     printf("celah terbesar: %s m (%s) · semua grup utuh bila ambang >= %s m\n",
@@ -957,7 +1189,9 @@ if ($celahSisa !== []) {
 
 $sumbuBerbaris = [];
 foreach ($fiturKeluar as $f) {
-    $sumbuBerbaris[$f['properties']['sumbu']] = true;
+    foreach (explode('+', (string) $f['properties']['sumbu']) as $satuSumbu) {
+        $sumbuBerbaris[$satuSumbu] = true;
+    }
 }
 printf("sumbu berbaris: %d dari %d\n", count($sumbuBerbaris), count($sumbu));
 $tanpaBaris = [];
@@ -1129,7 +1363,7 @@ if (is_file($pathLama)) {
 // ---------------------------------------------------------------------------
 
 if ($terapkan) {
-    tulisBerkas(BERKAS_KELUAR, $fiturKeluar);
+    tulisBerkas($berkasKeluar, $fiturKeluar);
 } else {
     echo 'uji kering: berkas tidak ditulis; tambahkan --terapkan.' . PHP_EOL;
 }

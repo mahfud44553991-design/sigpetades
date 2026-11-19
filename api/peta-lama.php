@@ -25,6 +25,11 @@ declare(strict_types=1);
  *       Garis manual Sumbu jalan apa adanya, dipakai halaman Peta Induk sebagai
  *       lapis kendali tersembunyi supaya klik garis manual tetap bisa memilih,
  *       memotong, dan menghapus walau lapis tampilnya sudah dijahit.
+ *   GET api/peta-lama.php?lapisan=garis-jalan-panjang
+ *       Garis tepi tertutup dari 5 sumbu terpanjang, hasil draf alat yang sama
+ *       dengan --sumbu=rapi --maks=5 --tutup=40: tiap sumbu satu cincin
+ *       keliling dan pertemuan antarsumbu ikut dijahit. Disajikan apa adanya
+ *       dari berkas garis-jalan-dari-sumbu-panjang.geojson.
  *   GET api/peta-lama.php?lapisan=bidang-hm   (juga hm, optimalisasi-hm, lb-lai,
  *       020400, nib-hm, batas-desa, blok, batas-jalan)
  *   GET api/peta-lama.php?lapisan=titik-obyek
@@ -65,6 +70,7 @@ const LAPISAN_PETA_LAMA = [
     'calon-bidang'   => 'calon-bidang.geojson',
     'batas-jalan'    => 'batas-jalan.geojson',
     'garis-jalan'    => 'garis-jalan-dari-sumbu.geojson',
+    'garis-jalan-panjang' => 'garis-jalan-dari-sumbu-panjang.geojson',
     'garis-jalan-sumbu' => 'garis-jalan-sumbu.geojson',
     'garis-sumbu-manual' => 'garis-sumbu-manual.geojson',
     'garis-selokan'  => 'garis-selokan.geojson',
