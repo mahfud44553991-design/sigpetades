@@ -9,16 +9,19 @@ declare(strict_types=1);
  *   POST {lapis: "garis-jalan-sumbu", aksi: "hapus", kode: "SUMBU-M0002"}
  *   POST {lapis: "garis-jalan-sumbu", aksi: "hapus-terakhir"}
  *
- * lapis juga boleh "010500" (Garis luar desa). Titik datang sebagai meter DXF
- * lokal (X = easting, Y = northing) persis seperti koordinat yang ditampilkan
- * peta. Tiap lapis punya berkas manual sendiri:
+ * lapis juga boleh "010500" (Garis luar desa) dan "bidang" (cincin yang
+ * langsung menjadi bidang baru). Titik datang sebagai meter DXF lokal
+ * (X = easting, Y = northing) persis seperti koordinat yang ditampilkan
+ * peta. Tiap lapis garis punya berkas manual sendiri:
  *
  *   garis-jalan-sumbu -> garis-sumbu-manual.geojson
  *   010500            -> garis-luar-desa-manual.geojson
+ *   bidang            -> tabel bidang (kode MANUAL-B0001, hak BLM)
  *
  * Berkas manual terpisah dari berkas turunan supaya menjalankan ulang
  * tools/garis-jalan-label.php tidak menghapus garis yang digambar tangan.
- * Keduanya disajikan lewat api/peta-lama.php dengan nama lapisannya masing-masing.
+ * Keduanya disajikan lewat api/peta-lama.php dengan nama lapisannya
+ * masing-masing; bidang manual disajikan sebagai lapisan "bidang-manual".
  */
 
 require __DIR__ . '/../app/bootstrap.php';
@@ -27,6 +30,7 @@ set_time_limit(30);
 
 const FOLDER_LAPISAN_DXF = SIP_ROOT . '/files/sig-pertanahan-gedong-lokal/data/dxf-layers';
 const GARIS_MANUAL_TITIK_MAKS = 2000;
+const GARIS_BIDANG_TITIK_MAKS = 600;
 const GARIS_MANUAL_LABEL_MAKS = 60;
 
 const LAPIS_GARIS_MANUAL = [
@@ -41,6 +45,12 @@ const LAPIS_GARIS_MANUAL = [
         'awalan' => 'BATAS-M',
         'label' => 'BATAS DESA',
         'nama' => 'Garis luar desa',
+    ],
+    'bidang' => [
+        'berkas' => null,
+        'awalan' => 'MANUAL-B',
+        'label' => 'BIDANG',
+        'nama' => 'Bidang',
     ],
 ];
 
@@ -61,7 +71,9 @@ if (!isset(LAPIS_GARIS_MANUAL[$lapis])) {
 }
 $konfigurasi = LAPIS_GARIS_MANUAL[$lapis];
 $namaLapis = $konfigurasi['nama'];
-$berkasManual = FOLDER_LAPISAN_DXF . '/' . $konfigurasi['berkas'];
+// Lapis bidang tidak memakai berkas; nama ini hanya dipakai untuk kunci lock.
+$berkasManual = FOLDER_LAPISAN_DXF . '/' . ($konfigurasi['berkas'] ?? 'garis-bidang-manual.geojson');
+$lapisBidang = $lapis === 'bidang';
 $aksi = (string) ($masukan['aksi'] ?? '');
 
 /**
@@ -139,6 +151,14 @@ function indeksGarisManual(array $fitur, string $kode): int
     return -1;
 }
 
+/** Jumlah bidang hidup hasil alat Garis manual. */
+function jumlahBidangManualAktif(): int
+{
+    return (int) db_value(
+        "SELECT COUNT(*) FROM bidang WHERE sumber = 'garis-manual' AND status <> 'dihapus'"
+    );
+}
+
 try {
     $kunci = fopen($berkasManual . '.lock', 'c');
     if ($kunci === false || !flock($kunci, LOCK_EX)) {
@@ -147,6 +167,120 @@ try {
 
     try {
         $fitur = bacaGarisManual($berkasManual);
+
+        if ($aksi === 'simpan' && $lapisBidang) {
+            $titikMasuk = $masukan['titik'] ?? null;
+            if (!is_array($titikMasuk) || count($titikMasuk) < 3) {
+                json_error('Bidang butuh minimal tiga titik sudut.', 422);
+            }
+            if (count($titikMasuk) > GARIS_BIDANG_TITIK_MAKS) {
+                json_error('Terlalu banyak titik: maksimal ' . GARIS_BIDANG_TITIK_MAKS
+                    . ' untuk satu bidang.', 422);
+            }
+
+            $titik = [];
+            foreach ($titikMasuk as $i => $pasangan) {
+                if (!is_array($pasangan) || count($pasangan) < 2
+                    || !is_numeric($pasangan[0]) || !is_numeric($pasangan[1])) {
+                    json_error('Titik ke-' . ($i + 1) . ' tidak berisi pasangan angka X dan Y.', 422);
+                }
+                $x = (float) $pasangan[0];
+                $y = (float) $pasangan[1];
+                if (!is_finite($x) || !is_finite($y) || abs($x) > 1e7 || abs($y) > 1e7) {
+                    json_error('Titik ke-' . ($i + 1) . ' di luar rentang koordinat DXF.', 422);
+                }
+                $titik[] = [round($x, 3), round($y, 3)];
+            }
+
+            // Buang titik berulang berurutan dan titik penutup ganda.
+            $cincin = [];
+            foreach ($titik as $p) {
+                if ($cincin === [] || $cincin[count($cincin) - 1] !== $p) {
+                    $cincin[] = $p;
+                }
+            }
+            if (count($cincin) > 1 && $cincin[0] === $cincin[count($cincin) - 1]) {
+                array_pop($cincin);
+            }
+            if (count($cincin) < 3) {
+                json_error('Bidang butuh minimal tiga titik sudut yang berbeda.', 422);
+            }
+
+            $tertutup = $cincin;
+            $tertutup[] = $cincin[0];
+            if (ring_memotong_sendiri($tertutup)) {
+                json_error('Garis bidang memotong dirinya sendiri; periksa urutan titiknya.', 422);
+            }
+
+            $luasDxf = 0.0;
+            for ($i = 0, $n = count($cincin); $i < $n; $i++) {
+                $j = ($i + 1) % $n;
+                $luasDxf += $cincin[$i][0] * $cincin[$j][1] - $cincin[$j][0] * $cincin[$i][1];
+            }
+            if (abs($luasDxf) / 2 < 1.0) {
+                json_error('Bidang terlalu kecil (kurang dari 1 m²).', 422);
+            }
+
+            $label = trim((string) ($masukan['label'] ?? ''));
+            $label = $label === '' ? '' : mb_substr($label, 0, GARIS_MANUAL_LABEL_MAKS);
+
+            require_once SIP_ROOT . '/tools/lib-impor.php';
+            $ringWgs = [];
+            foreach ($cincin as $p) {
+                $ringWgs[] = dxfKeWgs84($p[0], $p[1]);
+            }
+            $geometri = ['type' => 'Polygon', 'coordinates' => [$ringWgs]];
+            $wkt = geometri_ke_wkt($geometri);
+            if ($wkt === '') {
+                json_error('Bidang gagal disusun sebagai geometri.', 500);
+            }
+            $luas = luas_geometri_m2($geometri);
+            $pusat = pusat_geometri($geometri);
+
+            $tertinggi = (int) db_value(
+                "SELECT COALESCE(MAX(CAST(SUBSTRING(kode, 9) AS UNSIGNED)), 0)
+                   FROM bidang WHERE kode LIKE 'MANUAL-B%'"
+            );
+            $kode = $konfigurasi['awalan'] . str_pad((string) ($tertinggi + 1), 4, '0', STR_PAD_LEFT);
+
+            $catatan = 'Digambar manual di Peta Induk (alat Garis manual)';
+            if ($label !== '') {
+                $catatan .= '; label ' . $label;
+            }
+
+            $db = db();
+            $db->beginTransaction();
+            try {
+                $stmt = $db->prepare(
+                    "INSERT INTO bidang (kode, tipe, luas_m2, status, sumber, catatan, geom, pusat_lon, pusat_lat)
+                     VALUES (?, 'tanah', ?, 'perlu_verifikasi', 'garis-manual', ?, ST_GeomFromText(?, 4326), ?, ?)"
+                );
+                $stmt->execute([$kode, $luas, $catatan, $wkt, $pusat['lon'], $pusat['lat']]);
+                $id = (int) $db->lastInsertId();
+
+                $jenisHakId = (int) db_value("SELECT id FROM jenis_hak WHERE kode = 'BLM'");
+                $db->prepare('INSERT INTO hak (bidang_id, jenis_hak_id, catatan) VALUES (?, ?, ?)')
+                    ->execute([$id, $jenisHakId, 'Dibuat dari alat Garis manual']);
+
+                audit('buat', 'bidang', (string) $id,
+                    'Bidang manual ' . $kode . ' dibuat: ' . angka($luas, 2) . ' m², '
+                        . angka(count($cincin)) . ' titik' . ($label !== '' ? ', label ' . $label : ''));
+
+                $db->commit();
+            } catch (Throwable $error) {
+                $db->rollBack();
+                throw $error;
+            }
+
+            json_ok([
+                'kode' => $kode,
+                'id' => $id,
+                'luas_m2' => $luas,
+                'jumlah_titik' => count($cincin),
+                'lapis' => $lapis,
+                'jumlah' => jumlahBidangManualAktif(),
+            ], $namaLapis . ' ' . $kode . ' tersimpan (' . angka($luas, 2) . ' m²).');
+        }
 
         if ($aksi === 'simpan') {
             $titikMasuk = $masukan['titik'] ?? null;
@@ -208,6 +342,10 @@ try {
                 'jumlah_titik' => count($titik),
                 'jumlah' => count($fitur),
             ], $namaLapis . ' ' . $kode . ' tersimpan (' . angka($panjang, 2) . ' m).');
+        }
+
+        if ($aksi === 'potong' && $lapisBidang) {
+            json_error('Bidang tidak bisa dipotong; hapus lalu gambar ulang.', 422);
         }
 
         if ($aksi === 'potong') {
@@ -338,6 +476,28 @@ try {
             ], $namaLapis . ' ' . $kode . ' dipotong menjadi ' . $kodeA . ' dan ' . $kodeB . '.');
         }
 
+        if ($aksi === 'hapus' && $lapisBidang) {
+            $kode = trim((string) ($masukan['kode'] ?? ''));
+            if ($kode === '') {
+                json_error('Hapus butuh kode bidang.', 422);
+            }
+            $baris = db_one(
+                "SELECT id FROM bidang WHERE kode = ? AND sumber = 'garis-manual' AND status <> 'dihapus'",
+                [$kode]
+            );
+            if ($baris === null) {
+                json_error($namaLapis . ' ' . $kode . ' tidak ditemukan.', 404);
+            }
+            db_exec("UPDATE bidang SET status = 'dihapus' WHERE id = ?", [(int) $baris['id']]);
+            audit('hapus', 'bidang', (string) $baris['id'], 'Bidang manual ' . $kode . ' ditandai dihapus');
+
+            json_ok([
+                'kode' => $kode,
+                'lapis' => $lapis,
+                'jumlah' => jumlahBidangManualAktif(),
+            ], $namaLapis . ' ' . $kode . ' dihapus.');
+        }
+
         if ($aksi === 'hapus') {
             $kode = trim((string) ($masukan['kode'] ?? ''));
             if ($kode === '') {
@@ -356,6 +516,25 @@ try {
                 'lapis' => $lapis,
                 'jumlah' => count($fitur),
             ], $namaLapis . ' ' . $kode . ' dihapus.');
+        }
+
+        if ($aksi === 'hapus-terakhir' && $lapisBidang) {
+            $baris = db_one(
+                "SELECT id, kode FROM bidang WHERE sumber = 'garis-manual' AND status <> 'dihapus'
+                  ORDER BY id DESC LIMIT 1"
+            );
+            if ($baris === null) {
+                json_error('Belum ada bidang manual yang tersimpan.', 404);
+            }
+            db_exec("UPDATE bidang SET status = 'dihapus' WHERE id = ?", [(int) $baris['id']]);
+            audit('hapus', 'bidang', (string) $baris['id'],
+                'Bidang manual ' . $baris['kode'] . ' ditandai dihapus (terakhir)');
+
+            json_ok([
+                'kode' => (string) $baris['kode'],
+                'lapis' => $lapis,
+                'jumlah' => jumlahBidangManualAktif(),
+            ], $namaLapis . ' ' . $baris['kode'] . ' dihapus.');
         }
 
         if ($aksi === 'hapus-terakhir') {

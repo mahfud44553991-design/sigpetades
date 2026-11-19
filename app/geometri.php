@@ -219,6 +219,74 @@ function geometri_ke_wkt(array $geometry): string
     return '';
 }
 
+/**
+ * Apakah cincin [x, y] memotong dirinya sendiri? Dipakai alat Garis manual
+ * untuk menolak bidang bersilang. Titik terakhir boleh sama dengan titik
+ * pertama; duplikat berurutan dibuang dulu supaya segmen nol tidak dilaporkan
+ * sebagai irisan.
+ */
+function ring_memotong_sendiri(array $titik): bool
+{
+    $bersih = [];
+    foreach ($titik as $p) {
+        if (!is_array($p) || count($p) < 2) {
+            continue;
+        }
+        $x = (float) $p[0];
+        $y = (float) $p[1];
+        $akhir = $bersih === [] ? null : $bersih[count($bersih) - 1];
+        if ($akhir !== null && $akhir[0] === $x && $akhir[1] === $y) {
+            continue;
+        }
+        $bersih[] = [$x, $y];
+    }
+
+    $n = count($bersih);
+    if ($n > 1 && $bersih[0] === $bersih[$n - 1]) {
+        array_pop($bersih);
+        $n--;
+    }
+    if ($n < 4) {
+        return false;
+    }
+
+    $arah = static function (array $a, array $b, array $c): float {
+        return ($b[0] - $a[0]) * ($c[1] - $a[1]) - ($b[1] - $a[1]) * ($c[0] - $a[0]);
+    };
+    $padaSegmen = static function (array $a, array $b, array $p): bool {
+        return min($a[0], $b[0]) - 1e-9 <= $p[0] && $p[0] <= max($a[0], $b[0]) + 1e-9
+            && min($a[1], $b[1]) - 1e-9 <= $p[1] && $p[1] <= max($a[1], $b[1]) + 1e-9;
+    };
+
+    for ($i = 0; $i < $n; $i++) {
+        $a = $bersih[$i];
+        $b = $bersih[($i + 1) % $n];
+        for ($j = $i + 1; $j < $n; $j++) {
+            if ($j === $i + 1 || ($i === 0 && $j === $n - 1)) {
+                continue;
+            }
+            $c = $bersih[$j];
+            $d = $bersih[($j + 1) % $n];
+            $d1 = $arah($a, $b, $c);
+            $d2 = $arah($a, $b, $d);
+            $d3 = $arah($c, $d, $a);
+            $d4 = $arah($c, $d, $b);
+            if ((($d1 > 0 && $d2 < 0) || ($d1 < 0 && $d2 > 0))
+                && (($d3 > 0 && $d4 < 0) || ($d3 < 0 && $d4 > 0))) {
+                return true;
+            }
+            if (($d1 === 0.0 && $padaSegmen($a, $b, $c))
+                || ($d2 === 0.0 && $padaSegmen($a, $b, $d))
+                || ($d3 === 0.0 && $padaSegmen($c, $d, $a))
+                || ($d4 === 0.0 && $padaSegmen($c, $d, $b))) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
 /** @param array<int, array> $rings @return array<int, string> */
 function ring_wkt(array $rings): array
 {

@@ -17,10 +17,14 @@ declare(strict_types=1);
  *       sumbu manual) oleh tools/garis-jalan-dari-sumbu.php (sejak 18 Nov 2026).
  *       Berkas lama garis-jalan-tepi.geojson tetap di disk, tidak lagi disajikan.
  *   GET api/peta-lama.php?lapisan=garis-jalan-sumbu
- *       Satu lapis berisi sumbu turunan garis-jalan-sumbu.geojson dan sumbu
- *       hasil alat "Garis manual" di Peta Induk (garis-sumbu-manual.geojson);
- *       berkas manual tetap terpisah supaya tidak terhapus saat alat
- *       penurunan dijalankan ulang.
+ *       Sumbu jalan yang sudah rapi: garis kembar dibuang lalu sisanya dijahit
+ *       menjadi polilin utuh oleh app/sumbu-rapi.php (sejak 19 Nov 2026).
+ *       Bahannya garis-jalan-sumbu.geojson (turunan) dan garis-sumbu-manual.geojson
+ *       (alat "Garis manual"); hasilnya dicache di storage/cache/sumbu-rapi.json.
+ *   GET api/peta-lama.php?lapisan=garis-sumbu-manual
+ *       Garis manual Sumbu jalan apa adanya, dipakai halaman Peta Induk sebagai
+ *       lapis kendali tersembunyi supaya klik garis manual tetap bisa memilih,
+ *       memotong, dan menghapus walau lapis tampilnya sudah dijahit.
  *   GET api/peta-lama.php?lapisan=bidang-hm   (juga hm, optimalisasi-hm, lb-lai,
  *       020400, nib-hm, batas-desa, blok, batas-jalan)
  *   GET api/peta-lama.php?lapisan=titik-obyek
@@ -29,6 +33,10 @@ declare(strict_types=1);
  *   GET api/peta-lama.php?lapisan=010500
  *       Poligon garis luar desa digabung dengan garis manual hasil alat
  *       "Garis manual" (garis-luar-desa-manual.geojson).
+ *   GET api/peta-lama.php?lapisan=bidang-manual
+ *       Bidang yang digambar lewat alat "Garis manual" (lapis Bidang). Datanya
+ *       baris tabel bidang bersumber 'garis-manual' yang belum dihapus, bukan
+ *       berkas GeoJSON, lalu dikonversi balik ke meter DXF untuk kanvas ini.
  *
  * Nama berkas dibatasi daftar putih di bawah, jadi parameter tidak pernah
  * dipakai menyusun path secara bebas. Folder files/ sendiri ditolak Apache;
@@ -58,20 +66,21 @@ const LAPISAN_PETA_LAMA = [
     'batas-jalan'    => 'batas-jalan.geojson',
     'garis-jalan'    => 'garis-jalan-dari-sumbu.geojson',
     'garis-jalan-sumbu' => 'garis-jalan-sumbu.geojson',
+    'garis-sumbu-manual' => 'garis-sumbu-manual.geojson',
     'garis-selokan'  => 'garis-selokan.geojson',
     'garis-perairan' => 'garis-perairan.geojson',
     'garis-lain'     => 'garis-lain.geojson',
     'titik-obyek'    => 'titik-obyek-manual.geojson',
+    'bidang-manual'  => 'bidang-manual.geojson',
 ];
 
 // Lapis yang berkasnya belum tentu ada karena baru terisi dari alat di Peta
-// Induk; selama belum ada titik, jawab koleksi kosong supaya lapis tetap bisa
-// dicentang tanpa galat 404.
-const LAPISAN_BOLEH_KOSONG = ['titik-obyek'];
+// Induk; selama berkasnya belum ada, jawab koleksi kosong supaya lapis tetap
+// bisa dicentang tanpa galat 404.
+const LAPISAN_BOLEH_KOSONG = ['titik-obyek', 'garis-sumbu-manual'];
 
 const GARIS_MANUAL_PER_LAPISAN = [
-    'garis-jalan-sumbu' => 'garis-sumbu-manual.geojson',
-    '010500'            => 'garis-luar-desa-manual.geojson',
+    '010500' => 'garis-luar-desa-manual.geojson',
 ];
 
 $lapisan = get_str('lapisan');
@@ -138,6 +147,63 @@ if ($lapisan === 'batas-blok') {
     }
 
     json_response(['type' => 'FeatureCollection', 'features' => $fitur]);
+}
+
+if ($lapisan === 'bidang-manual') {
+    require_once __DIR__ . '/../tools/lib-impor.php';
+    $barisBidang = db_all(
+        "SELECT id, kode, status, luas_m2, ST_AsGeoJSON(geom) AS geojson
+         FROM bidang
+         WHERE sumber = 'garis-manual' AND status <> 'dihapus' AND geom IS NOT NULL
+         ORDER BY id"
+    );
+    $ubahKoordinat = static function (array $koordinat) use (&$ubahKoordinat): array {
+        if (count($koordinat) >= 2 && is_numeric($koordinat[0]) && is_numeric($koordinat[1])) {
+            [$x, $y] = wgs84KeDxf((float) $koordinat[0], (float) $koordinat[1]);
+            return [round($x, 3), round($y, 3)];
+        }
+        return array_map($ubahKoordinat, $koordinat);
+    };
+    $fitur = [];
+    foreach ($barisBidang as $bidang) {
+        $geometri = json_decode((string) $bidang['geojson'], true);
+        if (!is_array($geometri) || !isset($geometri['type'], $geometri['coordinates'])
+            || !in_array($geometri['type'], ['Polygon', 'MultiPolygon'], true)) {
+            continue;
+        }
+        $fitur[] = [
+            'type' => 'Feature',
+            'geometry' => [
+                'type' => $geometri['type'],
+                'coordinates' => $ubahKoordinat((array) $geometri['coordinates']),
+            ],
+            'properties' => [
+                'id' => (int) $bidang['id'],
+                'kode' => (string) $bidang['kode'],
+                'status' => (string) $bidang['status'],
+                'luas_m2' => $bidang['luas_m2'] === null ? null : (float) $bidang['luas_m2'],
+                'closed' => true,
+                'sumber' => 'garis-manual',
+                'lapis' => 'bidang',
+            ],
+        ];
+    }
+
+    json_response(['type' => 'FeatureCollection', 'features' => $fitur]);
+}
+
+if ($lapisan === 'garis-jalan-sumbu') {
+    require_once __DIR__ . '/../app/sumbu-rapi.php';
+    $dir = __DIR__ . '/../files/sig-pertanahan-gedong-lokal/data/dxf-layers/';
+    $hasil = sumbu_rapi_lapis($dir . 'garis-jalan-sumbu.geojson', $dir . 'garis-sumbu-manual.geojson');
+    if ($hasil === null) {
+        json_error('Berkas lapisan garis-jalan-sumbu tidak dapat dibaca.', 500);
+    }
+    json_response([
+        'type' => 'FeatureCollection',
+        'features' => $hasil['features'],
+        'ringkasan' => $hasil['ringkasan'],
+    ]);
 }
 
 $berkas = __DIR__ . '/../files/sig-pertanahan-gedong-lokal/data/dxf-layers/' . LAPISAN_PETA_LAMA[$lapisan];
