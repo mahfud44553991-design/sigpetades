@@ -13,7 +13,7 @@ declare(strict_types=1);
  *   --langkah=M        jarak titik sampel, bawaan 2,0 m
  *   --sambung=M        ambang jahit ujung rantai, bawaan 292,0 m
  *   --sumbu=rapi       bahan sumbu diambil dari hasil jahitan app/sumbu-rapi.php
- *                      (709 polilin rapi), bukan dari berkas mentah; bawaan
+ *                      (465 polilin rapi), bukan dari berkas mentah; bawaan
  *                      "mentah" = berkas garis-jalan-sumbu + garis-sumbu-manual
  *   --maks=N           hanya N sumbu terpanjang yang dipakai, dihitung sesudah
  *                      --sumbu; bawaan semua sumbu

@@ -18,7 +18,14 @@ declare(strict_types=1);
  *     disambung; di simpul bercabang pasangan paling lurus (<= 40 derajat)
  *     didahulukan dan tiap ruas hanya dipakai sekali per simpul; ruas kembar
  *     (simpul sama, titik tengah <= 0,5 m) disimpan sekali; cincin tertutup
- *     dipertahankan. Celah antar ujung tidak dijembatani.
+ *     dipertahankan.
+ *  3. CELAH. Ujung polilin derajat 1 yang berhadapan sampai 8 m disambung
+ *     bila arah sambungannya menerus di kedua ujung (<= 40 derajat). Ujung
+ *     yang berimpit (jarak <= 1 m, arah keluar kedua ujung berlawanan
+ *     >= 150 derajat) juga disambung: garis yang digambar melewati titik
+ *     pertemuan sedikit, jadi sambungannya berupa tumpang tindih <= 1 m,
+ *     bukan celah. Jembatan memakai dua ujung itu sebagai titik, jadi tidak
+ *     ada koordinat baru.
  *
  * Hasil dicache di storage/cache/sumbu-rapi.json dengan kunci md5 kedua berkas
  * bahan, jadi dihitung ulang hanya saat berkas berubah.
@@ -26,9 +33,12 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/peta-rapi.php';
 
-const SUMBU_RAPI_VERSI = 'v2';
+const SUMBU_RAPI_VERSI = 'v3';
 const SUMBU_RAPI_SIMPUL_M = 0.35;
 const SUMBU_RAPI_BELOK_MAKS = 40.0;
+const SUMBU_RAPI_CELAH_M = 8.0;
+const SUMBU_RAPI_BERIMPIT_M = 1.0;
+const SUMBU_RAPI_BERIMPIT_BELOK = 150.0;
 const SUMBU_RAPI_KEMBAR_JARAK = 0.5;
 const SUMBU_RAPI_SEL_SIMPUL = 1.0;
 const SUMBU_RAPI_SAMPEL_M = 1.0;
@@ -330,6 +340,66 @@ function sumbu_rapi_rapikan(array $turunan, array $manual): array
         }
     }
 
+    // ---------------------------------------------------------------- celah
+    $celahJembatan = 0;
+    $celahPanjang = 0.0;
+    if (SUMBU_RAPI_CELAH_M > 0.0) {
+        $bebas = [];
+        foreach ($ruas as $id => $r) {
+            foreach ([[$r['a'], $r['pa'], $r['pb']], [$r['b'], $r['pb'], $r['pa']]] as [$s, $p, $lain]) {
+                if (isset($pasangan[$s][$id])) {
+                    continue;
+                }
+                $bebas[] = ['simpul' => $s, 'ruas' => $id, 'p' => $p,
+                    'keluar' => sumbu_rapi_arah($p, $lain)];
+            }
+        }
+        $kandidatCelah = [];
+        for ($i = 0, $m = count($bebas); $i < $m; $i++) {
+            for ($j = $i + 1; $j < $m; $j++) {
+                if ($bebas[$i]['ruas'] === $bebas[$j]['ruas']
+                    || $bebas[$i]['simpul'] === $bebas[$j]['simpul']) {
+                    continue;
+                }
+                $d = sumbu_rapi_jarak($bebas[$i]['p'][0], $bebas[$i]['p'][1],
+                    $bebas[$j]['p'][0], $bebas[$j]['p'][1]);
+                if ($d <= SUMBU_RAPI_SIMPUL_M || $d > SUMBU_RAPI_CELAH_M) {
+                    continue;
+                }
+                $u = sumbu_rapi_arah($bebas[$i]['p'], $bebas[$j]['p']);
+                $masuk = [-$bebas[$i]['keluar'][0], -$bebas[$i]['keluar'][1]];
+                $lurus = sumbu_rapi_belokan($masuk, $u) <= SUMBU_RAPI_BELOK_MAKS
+                    && sumbu_rapi_belokan($u, $bebas[$j]['keluar']) <= SUMBU_RAPI_BELOK_MAKS;
+                $berimpit = $d <= SUMBU_RAPI_BERIMPIT_M
+                    && sumbu_rapi_belokan($bebas[$i]['keluar'], $bebas[$j]['keluar'])
+                        >= SUMBU_RAPI_BERIMPIT_BELOK;
+                if (!$lurus && !$berimpit) {
+                    continue;
+                }
+                $kandidatCelah[] = [$d, $i, $j];
+            }
+        }
+        usort($kandidatCelah, static fn(array $x, array $y): int => $x[0] <=> $y[0]);
+        $dipakaiUjung = [];
+        foreach ($kandidatCelah as [$d, $i, $j]) {
+            if (isset($dipakaiUjung[$i]) || isset($dipakaiUjung[$j])) {
+                continue;
+            }
+            $dipakaiUjung[$i] = true;
+            $dipakaiUjung[$j] = true;
+            $idJembatan = count($ruas);
+            $ruas[] = ['a' => $bebas[$i]['simpul'], 'b' => $bebas[$j]['simpul'],
+                'pa' => $bebas[$i]['p'], 'pb' => $bebas[$j]['p'], 'kode' => 'CELAH', 'label' => ''];
+            $pasangan[$bebas[$i]['simpul']][$bebas[$i]['ruas']] = $idJembatan;
+            $pasangan[$bebas[$i]['simpul']][$idJembatan] = $bebas[$i]['ruas'];
+            $pasangan[$bebas[$j]['simpul']][$bebas[$j]['ruas']] = $idJembatan;
+            $pasangan[$bebas[$j]['simpul']][$idJembatan] = $bebas[$j]['ruas'];
+            $celahJembatan++;
+            $celahPanjang += $d;
+            $panjangRuas += $d;
+        }
+    }
+
     $terpakai = [];
     $polilin = [];
     foreach ($ruas as $idAwal => $rAwal) {
@@ -381,7 +451,7 @@ function sumbu_rapi_rapikan(array $turunan, array $manual): array
         $polilin[] = [
             'titik' => $titik,
             'sumbu' => array_values(array_filter(array_keys($kodeSumbu),
-                static fn(string $s): bool => $s !== '')),
+                static fn(string $s): bool => $s !== '' && $s !== 'CELAH')),
             'label' => array_values(array_filter(array_keys($label),
                 static fn(string $s): bool => $s !== '')),
             'ruas' => $jumlahRuas,
@@ -432,6 +502,8 @@ function sumbu_rapi_rapikan(array $turunan, array $manual): array
             'panjang_ruas_m' => round($panjangRuas, 1),
             'pasangan' => $jumlahPasangan,
             'simpul_bercabang' => $simpulBercabang,
+            'celah_dijembatani' => $celahJembatan,
+            'celah_panjang_m' => round($celahPanjang, 1),
             'polilin' => count($fitur),
             'cincin' => count(array_filter($polilin, static fn(array $p): bool => $p['tertutup'])),
             'panjang_m' => round(array_sum(array_column($polilin, 'panjang')), 1),
