@@ -2,10 +2,15 @@
 declare(strict_types=1);
 
 /**
- * Rapikan lapis Jalan hasil penurunan 020100 (garis-jalan.geojson).
+ * Rapikan lapis turunan 020100 (Jalan, Selokan, atau Perairan).
  *
  *   php -d memory_limit=1024M tools/rapikan-garis-jalan.php            # uji kering
  *   php -d memory_limit=1024M tools/rapikan-garis-jalan.php --terapkan
+ *   php -d memory_limit=1024M tools/rapikan-garis-jalan.php --lapis=selokan --celah=15 --rapat=1
+ *
+ * `--lapis` memilih berkas: jalan (bawaan, garis-jalan), selokan
+ * (garis-selokan), atau perairan (garis-perairan). Nama berkas tidak diubah
+ * supaya rujukan lama tetap berlaku; kelas yang dirapikan dicatat di metadata.
  *
  * Latar. `tools/garis-batas-020100.php` mengklaim SATU entitas 020100 per baris,
  * jadi lapis Jalan berisi 3.144 potong yang sebenarnya sudah saling bersentuhan:
@@ -32,12 +37,24 @@ declare(strict_types=1);
  *      harus pernah menjadi titik salah satu baris asal, dan panjang total hanya
  *      boleh berkurang sebesar duplikat yang dibuang.
  *
- * Sisa pekerjaan dilaporkan, tidak dipaksakan: celah antar potongan TIDAK
- * dijembatani — dua ujung yang tidak berbagi simpul tetap dua garis, dan
- * jumlahnya diukur per pita jarak terhadap ujung terdekat (≤2 m, 2–10 m, 10–50 m,
- * >50 m) supaya sisanya terlihat tanpa diubah diam-diam. `garis-selokan`,
- * `garis-perairan`, dan `garis-lain` tidak disentuh, jadi kelas tetap eksklusif
- * seperti hasil penurunan aslinya.
+ * Untuk lapis air ada tahap tambahan, mati bila --celah tidak diisi:
+ *   a. dua ujung bebas yang arah sambungannya menerus di kedua ujung
+ *      (<= --belok derajat) sampai --celah meter dijembatani garis lurus;
+ *   b. dua ujung bebas yang jaraknya <= --rapat meter ikut disambung tanpa
+ *      syarat arah — tikungan saluran yang ujungnya hampir berimpit tetapi
+ *      bertemu tegak lurus; pada lapis jalan aturan ini tidak dipakai karena
+ *      dua sisi jalan yang berdekatan ujungnya bukan satu koridor;
+ *   c. jembatan yang memotong polilin yang hendak disambung ditolak, karena
+ *      pasangan seperti itu sebenarnya bertemu lewat lintasan lain dan jembatan
+ *      lurusnya hanya membuat sliver.
+ * Jembatan memakai dua ujung itu sebagai titik, jadi tetap tidak ada koordinat
+ * baru; jumlahnya dicatat di `jembatan_celah` tiap baris dan di metadata.
+ *
+ * Sisa pekerjaan dilaporkan, tidak dipaksakan: celah yang tidak lolos aturan di
+ * atas tetap dua garis, dan jumlahnya diukur per pita jarak terhadap ujung
+ * terdekat (≤2 m, 2–10 m, 10–50 m, >50 m) supaya sisanya terlihat tanpa diubah
+ * diam-diam. Kelas lain tidak disentuh, jadi kelas tetap eksklusif seperti hasil
+ * penurunan aslinya.
  *
  * Hasil: `kode` dinomori ulang menurut `indeks` sumber terkecil, `jumlah_bagian`
  * dan `indeks_all` menyimpan asal-usul sambungan, `rasio_tepi_bidang` dan
@@ -53,7 +70,10 @@ declare(strict_types=1);
  *
  * Uji kering adalah bawaan; tanpa --terapkan tidak ada berkas yang ditulis.
  *
- *   --rinci            tampilkan tiap sambungan dan tiap duplikat yang dibuang
+ *   --lapis=NAMA       jalan (bawaan), selokan, atau perairan
+ *   --celah=METER      jembatani ujung berhadapan sampai jarak ini (bawaan 0 = mati)
+ *   --rapat=METER      ikut sambung ujung yang jaraknya <= ini tanpa syarat arah
+ *   --rinci            tampilkan tiap sambungan, duplikat, dan jembatan celah
  *   --keluaran=BERKAS  tulis calon hasil ke berkas ini (relatif root) tanpa
  *                      menyentuh lapis asli
  */
@@ -66,8 +86,12 @@ if (PHP_SAPI !== 'cli') {
 require_once __DIR__ . '/lib-impor.php';
 
 const DIR_LAPISAN = __DIR__ . '/../files/sig-pertanahan-gedong-lokal/data/dxf-layers';
-const BERKAS_LAPIS = 'garis-jalan';
-const JUDUL_META = 'GARIS BATAS JALAN 020100';
+const LAPIS = [
+    'jalan' => ['berkas' => 'garis-jalan', 'meta' => 'GARIS BATAS JALAN 020100', 'awalan' => 'JALAN'],
+    'selokan' => ['berkas' => 'garis-selokan', 'meta' => 'GARIS SELOKAN 020100', 'awalan' => 'SELOKAN'],
+    'perairan' => ['berkas' => 'garis-perairan', 'meta' => 'GARIS BATAS PERAIRAN 020100',
+        'awalan' => 'PERAIRAN'],
+];
 
 function galat(string $pesan): never
 {
@@ -93,6 +117,42 @@ function panjang(array $t): float
 function kunciTitik(array $p): string
 {
     return sprintf('%.6f:%.6f', (float) $p[0], (float) $p[1]);
+}
+
+/** Vektor satuan a -> b; [0,0] bila kedua titik berimpit. */
+function arahTitik(array $a, array $b): array
+{
+    $dx = $b[0] - $a[0];
+    $dy = $b[1] - $a[1];
+    $n = hypot($dx, $dy);
+    return $n <= 0.0 ? [0.0, 0.0] : [$dx / $n, $dy / $n];
+}
+
+/** Sudut antara dua vektor satuan, 0..180 derajat. */
+function sudutArah(array $u, array $v): float
+{
+    return rad2deg(acos(max(-1.0, min(1.0, $u[0] * $v[0] + $u[1] * $v[1]))));
+}
+
+/** Apakah ruas a-b memotong salah satu segmen patah $t, selain di titik ujung ruas itu. */
+function memotong(array $a, array $b, array $t): bool
+{
+    for ($i = 1, $n = count($t); $i < $n; $i++) {
+        $c = $t[$i - 1];
+        $d = $t[$i];
+        if (($c === $a) || ($d === $a) || ($c === $b) || ($d === $b)) {
+            continue;
+        }
+        $d1 = ($b[0] - $a[0]) * ($c[1] - $a[1]) - ($b[1] - $a[1]) * ($c[0] - $a[0]);
+        $d2 = ($b[0] - $a[0]) * ($d[1] - $a[1]) - ($b[1] - $a[1]) * ($d[0] - $a[0]);
+        $d3 = ($d[0] - $c[0]) * ($a[1] - $c[1]) - ($d[1] - $c[1]) * ($a[0] - $c[0]);
+        $d4 = ($d[0] - $c[0]) * ($b[1] - $c[1]) - ($d[1] - $c[1]) * ($b[0] - $c[0]);
+        if ((($d1 > 0 && $d2 < 0) || ($d1 < 0 && $d2 > 0))
+            && (($d3 > 0 && $d4 < 0) || ($d3 < 0 && $d4 > 0))) {
+            return true;
+        }
+    }
+    return false;
 }
 
 /** Rata-rata jarak titik tengah segmen $a ke garis patah $b (deviasi bentuk satu arah). */
@@ -171,6 +231,14 @@ $ambil = static function (string $nama, float $bawaan) use ($argv): float {
 $toleransi = $ambil('toleransi', 0.35);
 $belok = $ambil('belok', 40.0);
 $duplikatMaks = $ambil('duplikat-maks', 0.5);
+$celah = $ambil('celah', 0.0);
+$rapat = $ambil('rapat', 0.0);
+$lapisNama = 'jalan';
+foreach ($argv as $a) {
+    if (str_starts_with($a, '--lapis=')) {
+        $lapisNama = (string) substr($a, 8);
+    }
+}
 $keluaran = null;
 foreach ($argv as $a) {
     if (str_starts_with($a, '--keluaran=')) {
@@ -180,11 +248,21 @@ foreach ($argv as $a) {
 if ($toleransi <= 0 || $belok <= 0 || $belok > 180 || $duplikatMaks <= 0) {
     galat('ambang --toleransi, --duplikat-maks harus positif dan --belok antara 1..180.');
 }
+if (!isset(LAPIS[$lapisNama])) {
+    galat('--lapis harus salah satu dari: ' . implode(', ', array_keys(LAPIS)) . '.');
+}
+if ($celah < 0 || $rapat < 0 || ($rapat > 0 && $celah <= 0)) {
+    galat('--celah harus positif bila --rapat dipakai; keduanya tidak boleh negatif.');
+}
+$berkasLapis = LAPIS[$lapisNama]['berkas'];
+$judulMeta = LAPIS[$lapisNama]['meta'];
+$awalanKode = LAPIS[$lapisNama]['awalan'];
 
-$fitur = geojsonBaca(DIR_LAPISAN . '/' . BERKAS_LAPIS . '.geojson');
+$pathLapis = DIR_LAPISAN . '/' . $berkasLapis . '.geojson';
+$fitur = geojsonBaca($pathLapis);
 $sumber = geojsonBaca(DIR_LAPISAN . '/020100.geojson');
-printf("sumber 020100 (bidang & garis): %s entitas · lapis Jalan: %s baris\n",
-    angkaNum((float) count($sumber)), angkaNum((float) count($fitur)));
+printf("sumber 020100 (bidang & garis): %s entitas · lapis %s: %s baris\n",
+    angkaNum((float) count($sumber)), $lapisNama, angkaNum((float) count($fitur)));
 
 // ── 1. baca baris + simpul, dan verifikasi tiap baris ke entitas sumbernya ───
 $sel = max(0.05, $toleransi);
@@ -287,11 +365,12 @@ foreach ($fitur as $i => $f) {
         'asal' => (string) ($p['asal'] ?? 'garis'),
         'rasioTepi' => (float) ($p['rasio_tepi_bidang'] ?? 0),
         'jarak' => $jarak === null ? null : (float) $jarak,
-        'label' => (string) ($p['label'] ?? 'JALAN'),
+        'label' => (string) ($p['label'] ?? strtoupper($lapisNama)),
         'jumlah' => max(1, (int) ($p['jumlah_bagian'] ?? 1)),
         'indeksAll' => array_values(array_unique(array_map('intval',
             (array) ($p['indeks_all'] ?? [$idx])))),
         'bagian' => [$i + 1],
+        'jembatan' => 0,
     ];
     $sebelumPanjang += $bag[$i]['panjang'];
     $titikSebelum += count($titik);
@@ -461,6 +540,7 @@ while ($putaran < 60) {
             'jumlah' => $bag[$p]['jumlah'] + $bag[$q]['jumlah'],
             'indeksAll' => array_merge($bag[$p]['indeksAll'], $bag[$q]['indeksAll']),
             'bagian' => array_merge($bag[$p]['bagian'], $bag[$q]['bagian']),
+            'jembatan' => $bag[$p]['jembatan'] + $bag[$q]['jembatan'],
         ];
         foreach (array_unique([$bag[$p]['a'], $bag[$p]['b'], $bag[$q]['a'], $bag[$q]['b']]) as $nd2) {
             unset($deret[$nd2][$p], $deret[$nd2][$q]);
@@ -482,6 +562,147 @@ foreach ($deret as $nd => $ds) {
         unset($deret[$nd]);
     }
 }
+
+// ── 3b. jembatani ujung bebas yang berhadapan ───────────────────────────────
+// Dipakai lapis air: potongan saluran/sungai terputus di tempat label ditulis
+// atau di perpotongan. Dua ujung yang tidak berbagi simpul disambung bila
+// arah sambungannya menerus di kedua ujung (<= --belok derajat) sampai
+// --celah meter, atau bila jaraknya <= --rapat meter (ujung yang hampir
+// berimpit tetapi bertemu tegak lurus, mis. tikungan saluran). Jembatan
+// memakai dua ujung itu apa adanya, jadi tidak ada koordinat baru.
+$daftarCelah = [];
+$panjangCelah = 0.0;
+if ($celah > 0.0) {
+    $bebas = [];
+    foreach ($deret as $nd => $ds) {
+        if (count($ds) !== 1) {
+            continue;
+        }
+        $idRuas = array_key_first($ds);
+        $isi = $bag[$idRuas];
+        $t = $isi['titik'];
+        if ($isi['b'] === $nd) {
+            $p0 = $t[count($t) - 1];
+            $keluar = arahTitik($t[count($t) - 2], $p0);
+        } elseif ($isi['a'] === $nd) {
+            $p0 = $t[0];
+            $keluar = arahTitik($t[1], $p0);
+        } else {
+            continue;
+        }
+        $bebas[] = ['simpul' => $nd, 'ruas' => $idRuas, 'p' => $p0, 'keluar' => $keluar];
+    }
+    $selC = max(5.0, $celah);
+    $kisiC = [];
+    foreach ($bebas as $i => $b) {
+        $kisiC[(int) floor($b['p'][0] / $selC) . ':' . (int) floor($b['p'][1] / $selC)][] = $i;
+    }
+    $kandidatC = [];
+    foreach ($bebas as $i => $bi) {
+        $gx = (int) floor($bi['p'][0] / $selC);
+        $gy = (int) floor($bi['p'][1] / $selC);
+        for ($cx = $gx - 1; $cx <= $gx + 1; $cx++) {
+            for ($cy = $gy - 1; $cy <= $gy + 1; $cy++) {
+                foreach ($kisiC[$cx . ':' . $cy] ?? [] as $j) {
+                    if ($j <= $i || $bebas[$j]['ruas'] === $bi['ruas']
+                        || $bebas[$j]['simpul'] === $bi['simpul']) {
+                        continue;
+                    }
+                    $d = hypot($bebas[$j]['p'][0] - $bi['p'][0], $bebas[$j]['p'][1] - $bi['p'][1]);
+                    if ($d <= 0.005 || $d > $celah) {
+                        continue;
+                    }
+                    $u = arahTitik($bi['p'], $bebas[$j]['p']);
+                    $masuk = [-$bi['keluar'][0], -$bi['keluar'][1]];
+                    $lurus = sudutArah($masuk, $u) <= $belok
+                        && sudutArah($u, $bebas[$j]['keluar']) <= $belok;
+                    if (!$lurus && $d > $rapat) {
+                        continue;
+                    }
+                    $kandidatC[] = [$d, $i, $j, $lurus,
+                        round(sudutArah($masuk, $u), 1),
+                        round(sudutArah($u, $bebas[$j]['keluar']), 1)];
+                }
+            }
+        }
+    }
+    usort($kandidatC, static fn(array $x, array $y): int => $x[0] <=> $y[0]);
+    $dipakaiUjung = [];
+    foreach ($kandidatC as [$d, $i, $j, $lurus, $b1, $b2]) {
+        if (isset($dipakaiUjung[$i]) || isset($dipakaiUjung[$j])) {
+            continue;
+        }
+        $dipakaiUjung[$i] = true;
+        $dipakaiUjung[$j] = true;
+        $p = $bebas[$i]['ruas'];
+        $q = $bebas[$j]['ruas'];
+        // Jembatan lurus yang memotong polilin yang hendak disambung membuat
+        // sliver (dua ujung sebenarnya berdekatan lewat lintasan lain), jadi
+        // pasangan itu dilewati dan ujungnya tetap bebas.
+        if (memotong($bebas[$i]['p'], $bebas[$j]['p'], $bag[$p]['titik'])
+            || memotong($bebas[$i]['p'], $bebas[$j]['p'], $bag[$q]['titik'])) {
+            continue;
+        }
+        $tp = $bag[$p]['titik'];
+        if ($bag[$p]['b'] !== $bebas[$i]['simpul']) {
+            $tp = array_reverse($tp);
+        }
+        $tq = $bag[$q]['titik'];
+        if ($bag[$q]['a'] !== $bebas[$j]['simpul']) {
+            $tq = array_reverse($tq);
+        }
+        $titik = array_merge($tp, $tq);
+        $ua = $bag[$p]['a'] === $bebas[$i]['simpul'] ? $bag[$p]['b'] : $bag[$p]['a'];
+        $ub = $bag[$q]['b'] === $bebas[$j]['simpul'] ? $bag[$q]['a'] : $bag[$q]['b'];
+        $tertutup = $ua === $ub || hypot($titik[0][0] - $titik[count($titik) - 1][0],
+                $titik[0][1] - $titik[count($titik) - 1][1]) <= 0.02;
+        if ($tertutup) {
+            $ub = $ua;
+        }
+        $bobot = max(0.01, $bag[$p]['panjang'] + $bag[$q]['panjang']);
+        $besar = $bag[$p]['panjang'] >= $bag[$q]['panjang'] ? $bag[$p] : $bag[$q];
+        $jarakB = $bag[$p]['jarak'];
+        $jarakC = $bag[$q]['jarak'];
+        $isi = [
+            'ordinal' => min($bag[$p]['ordinal'], $bag[$q]['ordinal']),
+            'kode' => $besar['kode'],
+            'indeks' => min($bag[$p]['indeks'], $bag[$q]['indeks']),
+            'titik' => $titik,
+            'panjang' => panjang($titik),
+            'a' => $ua,
+            'b' => $ub,
+            'tertutup' => $tertutup,
+            'cara' => $besar['cara'],
+            'asal' => $bag[$p]['asal'] === $bag[$q]['asal'] ? $bag[$p]['asal'] : 'campur',
+            'rasioTepi' => ($bag[$p]['rasioTepi'] * $bag[$p]['panjang']
+                + $bag[$q]['rasioTepi'] * $bag[$q]['panjang']) / $bobot,
+            'jarak' => $jarakB === null ? $jarakC : ($jarakC === null ? $jarakB
+                : round(($jarakB * $bag[$p]['panjang'] + $jarakC * $bag[$q]['panjang']) / $bobot, 3)),
+            'label' => $besar['label'],
+            'jumlah' => $bag[$p]['jumlah'] + $bag[$q]['jumlah'],
+            'indeksAll' => array_merge($bag[$p]['indeksAll'], $bag[$q]['indeksAll']),
+            'bagian' => array_merge($bag[$p]['bagian'], $bag[$q]['bagian']),
+            'jembatan' => $bag[$p]['jembatan'] + $bag[$q]['jembatan'] + 1,
+        ];
+        foreach (array_unique([$bag[$p]['a'], $bag[$p]['b'], $bag[$q]['a'], $bag[$q]['b']]) as $nd2) {
+            unset($deret[$nd2][$p], $deret[$nd2][$q]);
+        }
+        $bag[$q] = $isi;
+        unset($bag[$p]);
+        $deret[$ua][$q] = true;
+        $deret[$ub][$q] = true;
+        $daftarCelah[] = ['jadi' => $isi['ordinal'], 'bagian' => $isi['bagian'],
+            'jarak_m' => round($d, 2), 'menerus' => $lurus, 'belok' => [$b1, $b2],
+            'dari' => array_map(static fn(float $v): float => round($v, 2), $bebas[$i]['p']),
+            'ke' => array_map(static fn(float $v): float => round($v, 2), $bebas[$j]['p'])];
+        $panjangCelah += $d;
+    }
+    foreach ($deret as $nd => $ds) {
+        if ($ds === []) {
+            unset($deret[$nd]);
+        }
+    }
+}
 ksort($belokanCatat);
 $sudut = [];
 foreach ($belokanCatat as $b => $n) {
@@ -490,6 +711,18 @@ foreach ($belokanCatat as $b => $n) {
 printf("penyambungan: %d putaran · %d sambungan dibuat · %d simpul derajat 2 dibiarkan "
     . "karena belok > %.0f° · jembatan simpul %.2f m\n",
     $putaran, count($daftarSambung), count($tolak), $belok, $jembatan);
+if ($celah > 0.0) {
+    printf("jembatan celah: %d sambungan · %.1f m (celah %.1f m, rapat %.1f m)\n",
+        count($daftarCelah), $panjangCelah, $celah, $rapat);
+    if ($rinci) {
+        foreach ($daftarCelah as $c) {
+            printf("  celah %.2f m%s: #%d dari bagian %s · belok %.1f°/%.1f° · (%.2f,%.2f)-(%.2f,%.2f)\n",
+                $c['jarak_m'], $c['menerus'] ? '' : ' rapat', $c['jadi'],
+                implode(',', $c['bagian']), $c['belok'][0], $c['belok'][1],
+                $c['dari'][0], $c['dari'][1], $c['ke'][0], $c['ke'][1]);
+        }
+    }
+}
 echo 'belokan di tiap simpul derajat 2 yang sempat dinilai: ' . implode('  ', $sudut) . "\n";
 if ($rinci) {
     foreach (array_slice($daftarSambung, 0, 40) as $s) {
@@ -547,10 +780,10 @@ printf("sesudah: %s baris (%s cincin) · %s titik · %s m · rata-rata %s m/bari
     angkaNum($setelahPanjang), angkaNum($setelahPanjang / max(1, $setelahJumlah), 1),
     angkaNum((float) array_sum(array_column($bag, 'jumlah')) / max(1, $setelahJumlah), 2));
 printf("kekalan panjang: %s m (sebelum) - %s m (duplikat) = %s m · hasil %s m · selisih %.3f m "
-    . "(jembatan simpul %.3f m)\n",
+    . "(jembatan simpul %.3f m + jembatan celah %.3f m)\n",
     angkaNum($sebelumPanjang, 2), angkaNum($panjangBuang, 2),
     angkaNum($sebelumPanjang - $panjangBuang, 2), angkaNum($setelahPanjang, 2),
-    $setelahPanjang - ($sebelumPanjang - $panjangBuang), $jembatan);
+    $setelahPanjang - ($sebelumPanjang - $panjangBuang), $jembatan, $panjangCelah);
 printf("titik yang tidak ada di baris asal (harus 0): %d\n", $titikBaru);
 
 // ujung bergantung → pita jarak ke ujung bergantung terdekat
@@ -610,7 +843,7 @@ $caraCount = [];
 $asalCount = [];
 foreach ($urut as $isi) {
     $nomor++;
-    $kode = sprintf('JALAN-020100-%04d', $nomor);
+    $kode = sprintf('%s-020100-%04d', $awalanKode, $nomor);
     $caraCount[$isi['cara']] = ($caraCount[$isi['cara']] ?? 0) + 1;
     $asalCount[$isi['asal']] = ($asalCount[$isi['asal']] ?? 0) + 1;
     $indeksAll = $isi['indeksAll'];
@@ -630,6 +863,7 @@ foreach ($urut as $isi) {
             'jarak_label_m' => $isi['jarak'] === null ? null : round($isi['jarak'], 2),
             'label' => $isi['label'],
             'dirapikan' => $isi['jumlah'] > 1 ? 1 : 0,
+            'jembatan_celah' => $isi['jembatan'],
         ],
         'geometry' => ['type' => 'LineString', 'coordinates' => $isi['titik']],
     ];
@@ -643,9 +877,10 @@ if ($naskah === false) {
 }
 $jejak = [
     'waktu' => date('c'),
-    'berkas' => BERKAS_LAPIS . '.geojson',
+    'berkas' => $berkasLapis . '.geojson',
+    'lapis' => $lapisNama,
     'ambang' => ['toleransi_m' => $toleransi, 'belok_derajat' => $belok,
-        'duplikat_maks_m' => $duplikatMaks],
+        'duplikat_maks_m' => $duplikatMaks, 'celah_m' => $celah, 'rapat_m' => $rapat],
     'sebelum' => ['baris' => count($fitur), 'panjang_m' => round($sebelumPanjang, 2),
         'titik' => $titikSebelum, 'simpul' => count($node), 'derajat' => $derajat,
         'komponen' => $kompSebelum],
@@ -654,7 +889,8 @@ $jejak = [
         'derajat' => $derajat2, 'ujung_bergantun' => $dangling, 'pita_jarak' => $pita,
         'komponen' => $kompSesudah, 'sambungan' => count($daftarSambung),
         'simpul_ditolak_belok' => count($tolak), 'belokan_dinilai' => $belokanCatat,
-        'jembatan_m' => round($jembatan, 3)],
+        'jembatan_m' => round($jembatan, 3), 'jembatan_celah' => count($daftarCelah),
+        'celah_panjang_m' => round($panjangCelah, 3)],
     'verifikasi' => ['baris_cocok_sumber' => $barisTerverifikasi,
         'baris_sebagian_sumber' => $barisTakTerverifikasi,
         'baris_tanpa_indeks_sumber' => $barisTanpaSumber,
@@ -663,6 +899,8 @@ $jejak = [
     'duplikat_dibuang' => $daftarBuang,
     'sambungan_jumlah' => count($daftarSambung),
     'sambungan' => $daftarSambung,
+    'celah_jumlah' => count($daftarCelah),
+    'celah' => $daftarCelah,
 ];
 
 if ($keluaran !== null) {
@@ -682,20 +920,19 @@ if (!$terapkan) {
     exit(0);
 }
 
-$berkasLapis = DIR_LAPISAN . '/' . BERKAS_LAPIS . '.geojson';
 $st = date('Ymd-His');
-$cadangan = SIP_ROOT . '/storage/cadangan/garis-jalan-sebelum-rapikan-' . $st . '.geojson';
+$cadangan = SIP_ROOT . '/storage/cadangan/' . $berkasLapis . '-sebelum-rapikan-' . $st . '.geojson';
 if (!is_dir(dirname($cadangan))) {
     galat('folder storage/cadangan tidak ada.');
 }
-if (!copy($berkasLapis, $cadangan)) {
-    galat('gagal mencadangkan ' . $berkasLapis . ' ke ' . $cadangan);
+if (!copy($pathLapis, $cadangan)) {
+    galat('gagal mencadangkan ' . $pathLapis . ' ke ' . $cadangan);
 }
-if (file_put_contents($berkasLapis, $naskah) === false) {
-    galat('gagal menulis ' . $berkasLapis);
+if (file_put_contents($pathLapis, $naskah) === false) {
+    galat('gagal menulis ' . $pathLapis);
 }
 $jejak['cadangan'] = str_replace(SIP_ROOT . '/', '', $cadangan);
-$berkasJejak = SIP_ROOT . '/storage/rapikan-jalan-' . $st . '.json';
+$berkasJejak = SIP_ROOT . '/storage/rapikan-' . $lapisNama . '-' . $st . '.json';
 if (file_put_contents($berkasJejak, json_encode($jejak, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE
     | JSON_UNESCAPED_SLASHES) . PHP_EOL) === false) {
     galat('gagal menulis jejak ' . $berkasJejak);
@@ -706,7 +943,7 @@ $meta = (array) json_decode((string) file_get_contents($berkasMeta), true);
 if ($meta === []) {
     galat('metadata.json tidak dapat dibaca: ' . $berkasMeta);
 }
-$l = (array) ($meta['layers'][JUDUL_META] ?? []);
+$l = (array) ($meta['layers'][$judulMeta] ?? []);
 // Satu lapis bisa dirapikan beberapa putaran sampai tidak ada lagi yang bisa
 // dikerjakan. Blok lama dipakai sebagai dasar supaya jumlah tetap menghitung
 // sejak baris pertama, bukan hanya putaran terakhir.
@@ -720,6 +957,7 @@ $l['panjang_m'] = (int) round($setelahPanjang);
 $l['asal'] = $asalCount;
 $l['cara'] = $caraCount;
 $l['dirapikan'] = ['alat' => 'tools/rapikan-garis-jalan.php', 'pada' => date('c'),
+    'lapis' => $lapisNama,
     'ambang' => $jejak['ambang'], 'putaran' => $terus ? (int) ($lama['putaran'] ?? 1) + 1 : 1,
     'pertama_pada' => $terus ? ($lama['pertama_pada'] ?? $lama['pada'] ?? null) : date('c'),
     'sebelum_baris' => $terus ? (int) ($lama['sebelum_baris'] ?? count($fitur)) : count($fitur),
@@ -730,6 +968,8 @@ $l['dirapikan'] = ['alat' => 'tools/rapikan-garis-jalan.php', 'pada' => date('c'
     'duplikat_panjang_m' => round($angka('duplikat_panjang_m') + $panjangBuang, 2),
     'sambungan' => (int) ($angka('sambungan') + count($daftarSambung)),
     'jembatan_m' => round($angka('jembatan_m') + $jembatan, 3),
+    'celah_dijembatani' => (int) ($angka('celah_dijembatani') + count($daftarCelah)),
+    'celah_panjang_m' => round($angka('celah_panjang_m') + $panjangCelah, 3),
     'cincin' => $cincin, 'ujung_bergantun' => $dangling, 'pita_jarak' => $pita,
     'simpul_ditolak_belok' => count($tolak), 'belokan_dinilai' => $belokanCatat,
     'titik_tidak_asli' => $titikBaru,
@@ -737,11 +977,11 @@ $l['dirapikan'] = ['alat' => 'tools/rapikan-garis-jalan.php', 'pada' => date('c'
         . 'akumulatif sejak sebelum_baris; sebelum_* adalah keadaan lapis sebelum putaran '
         . 'pertama. simpul_ditolak_belok, belokan_dinilai, cincin, ujung_bergantun, pita_jarak '
         . 'dan titik_tidak_asli menggambarkan keadaan sesudah putaran terakhir.'];
-$meta['layers'][JUDUL_META] = $l;
+$meta['layers'][$judulMeta] = $l;
 if (file_put_contents($berkasMeta, json_encode($meta, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE
     | JSON_UNESCAPED_SLASHES) . PHP_EOL) === false) {
     galat('gagal menulis metadata.json');
 }
 printf("DITERAPKAN: %s · %s baris · %s m\njejak: %s\ncadangan: %s\n",
-    BERKAS_LAPIS . '.geojson', angkaNum((float) $setelahJumlah), angkaNum($setelahPanjang),
+    $berkasLapis . '.geojson', angkaNum((float) $setelahJumlah), angkaNum($setelahPanjang),
     str_replace(SIP_ROOT . '/', '', $berkasJejak), $jejak['cadangan']);
