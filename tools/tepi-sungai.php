@@ -86,6 +86,21 @@ function arahDi(array $c, int $end, float $jarak = 5.0): array
     return [($c[$i][0] - $awal[0]) / $L, ($c[$i][1] - $awal[1]) / $L];
 }
 
+/** Buang verteks yang lebih rapat dari 1 mm dari verteks sebelumnya. Sisa
+ *  proyeksi ganda dari tahap sisipan simpul (0,2 µm–0,13 mm) hanya membuat
+ *  ruas panjang nol di berkas hasil. */
+function tanpaGanda(array $c): array
+{
+    $out = [$c[0]];
+    for ($i = 1; $i < count($c); $i++) {
+        $akhir = $out[count($out) - 1];
+        if (hypot($c[$i][0] - $akhir[0], $c[$i][1] - $akhir[1]) > 0.001) {
+            $out[] = $c[$i];
+        }
+    }
+    return $out;
+}
+
 /** Sambung dua potongan; titik simpul yang berimpit tidak diduplikasi. */
 function gabung(array $a, array $b): array
 {
@@ -280,7 +295,7 @@ foreach ($fitur as $j => $f) {
     $terpakai[$j] = true;
     if ($tertutup[$j]) {
         if (panjangGaris($f['coords']) < MIN_RANTAI) { $mikro++; continue; }
-        $rantai[] = ['coords' => $f['coords'], 'sumber' => [$j]];
+        $rantai[] = ['coords' => tanpaGanda($f['coords']), 'sumber' => [$j]];
         continue;
     }
     $coords = $f['coords'];
@@ -314,6 +329,7 @@ foreach ($fitur as $j => $f) {
     foreach ($belakang as $potong) {
         $coords = gabung($potong, $coords);
     }
+    $coords = tanpaGanda($coords);
     $L = panjangGaris($coords);
     if ($L < MIN_RANTAI) { $mikro++; continue; }
     $rantai[] = ['coords' => $coords, 'sumber' => $sumber];

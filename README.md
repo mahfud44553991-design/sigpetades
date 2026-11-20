@@ -7662,6 +7662,81 @@ gambar banding `banding-blok8-calon.png`. Alat baca saja:
 `cek-blok8-terpasang.php`, `banding-blok8.php`; penulis
 `terapkan-blok8.php`.
 
+### 3.101 Tepi sungai: lapis Sungai disambung menjadi 126 rantai (20 Nov 2026)
+
+Lapis Sungai (`garis-perairan.geojson`, lihat §3.77) sudah memuat tepi alur
+hasil penurunan layer 020100, tetapi setelah pembersihan cincin bidang dan
+ujung menggantung bentuknya masih 275 baris · 12.352,30 m dalam 49 komponen:
+bekas jahitan memutus tepian menjadi potongan pendek (median baris 22,32 m;
+127 baris di bawah 20 m), dan tiap potongan berdiri sendiri di peta. Untuk
+dipakai sebagai "tepi sungai" potongan itu perlu disatukan lagi per tepian,
+tanpa menggambar ulang apa pun.
+
+Pil baru **Tepi sungai** di kelompok Garis turunan (tidak tercentang) menyajikan
+hasilnya, dan lapis Sungai tetap menjadi bahan mentahnya. Alat
+`tools/tepi-sungai.php` menyambung baris dengan aturan berikut.
+
+- Simpul: ujung garis yang berjarak ≤ 0,35 m satu sama lain dianggap satu titik.
+  Ujung yang menempel di **tengah** ruas garis lain juga dijadikan simpul: titik
+  proyeksinya disisipkan ke garis itu secara kolinear, sehingga bentuk tidak
+  berubah. Ada 108 ujung seperti itu.
+- Dari satu simpul rantai melanjutkan ke garis yang arahnya paling lurus dengan
+  arah datang, asal belokannya ≤ 90°. Ini cukup untuk menyusuri belokan sungai,
+  tetapi menolak putar balik; di simpang tiga, putar balik bisa memindahkan
+  rantai ke tepi cabang lain.
+- Garis yang sudah tertutup menjadi rantai sendiri. Rantai di bawah 1 m dibuang
+  karena tak tampak: 14 buah (semua bernomor `PERAIRAN-SAMBUNG`, sisa lingkaran
+  jahitan), seluruhnya 2,78 m.
+
+Hasilnya **126 rantai · 12.349,52 m**. Panjangnya persis panjang bahan dikurangi
+lingkaran mikro yang dibuang (12.352,30 − 2,78), jadi penyambungan tidak
+menambah atau menghilangkan garis. Cakupannya juga tepat: 261 baris bahan
+dipakai sekali, tidak ada yang terpakai dua kali atau tidak terpakai selain 14
+lingkaran mikro itu. Verteks sisipan yang ternyata berimpit (jarak di bawah
+1 mm) dibuang saat menulis supaya tidak ada ruas panjang nol; sepuluh rantai
+tetap tertutup penuh dan itu memang garis tertutup dari bahannya. Rantai
+terpanjang 895,15 m (14 baris bahan), rata-rata 98,0 m, median 38,23 m, p90
+278,78 m; 75 rantai berasal dari satu baris saja, sedangkan 11 rantai di bawah
+5 m dan 39 di bawah 20 m.
+
+Nilai `--sudut` mengubah jumlah rantai tetapi tidak mengubah geometri, hanya
+pemenggalan:
+
+| `--sudut` | rantai | median |
+| --- | --- | --- |
+| 60° | 152 | 34,25 m |
+| **90° (bawaan)** | **126** | **38,23 m** |
+| 120° | 103 | 46,28 m |
+| 150° | 99 | 45,84 m |
+
+90° dipilih karena belokan yang lebih tajam dari itu di jaringan ini justru
+banyak yang berupa hairpin sah — tepi kiri, ujung alur, lalu tepi kanan — dan
+menerimanya membuka peluang rantai berpindah tepi di persimpangan. Belokan di
+atas 90° yang tersisa di hasil akhir tinggal 13% (130 dari 985), semuanya
+hairpin di ujung alur.
+
+Lapis disajikan `api/peta-lama.php?lapisan=garis-tepi-sungai` dan digambar teal
+`#0e7490` tebal 2,1 (Sungai biru `#1d4ed8` tebal 1,7), supaya keduanya bisa
+dibandingkan dengan menyalakan pil bergantian. Metadata lapis tercatat di
+`layers.GARIS TEPI SUNGAI 020100` dengan blok `tepi_sungai` (toleransi simpul,
+sudut lanjut, jumlah sisipan, rantai mikro dibuang, sebelum/sesudah).
+
+```
+php tools/tepi-sungai.php                      # uji kering, cetak angka
+php tools/tepi-sungai.php --keluar=pratinjau.geojson
+php tools/tepi-sungai.php --sudut=120 --terapkan
+```
+
+`--terapkan` menulis `garis-tepi-sungai.geojson` dan memperbarui metadata,
+setelah mencadangkan keduanya ke `_lama/cadangan-tepi-sungai-YYYYMMDD/`.
+Berkas hasil tidak di-force-add ke git karena bisa dibuat ulang dari
+`garis-perairan.geojson` yang sudah terlacak.
+
+Lapis ini tetap berupa garis, bukan poligon sungai: kedua tepi masih bertemu di
+ujung alur (hairpin) dan mulut hilirnya terbuka. Bila kelak dibutuhkan poligon
+badan air, itu pekerjaan tersendiri — lapis ini hanya menyatukan garis yang
+sudah ada.
+
 ---
 
 ## 4. Berkas SPPT dari Excel
