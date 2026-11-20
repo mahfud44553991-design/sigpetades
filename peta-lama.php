@@ -74,6 +74,9 @@ $jumlahPoligonLayer = [
     'lb-lai' => (int) ($meta['layers']['lb_lai']['types']['polygon'] ?? 0),
 ];
 $jumlahPoligonLayer['020100'] = (int) ($meta['layers']['020100']['features'] ?? 0);
+$jumlahBidang020100 = (int) ($meta['layers']['020100']['types']['polygon'] ?? 0);
+$jumlahGaris020100 = (int) ($meta['layers']['020100']['types']['line'] ?? 0);
+$jumlahGarisHm = (int) ($meta['layers']['HM']['types']['line'] ?? 0);
 
 $berkasGarisJalan = __DIR__ . '/files/sig-pertanahan-gedong-lokal/data/dxf-layers/garis-jalan-dari-sumbu.geojson';
 $jumlahGarisJalan = 0;
@@ -390,9 +393,12 @@ sip_judul(
             </header>
             <div class="lapisan-kontrol">
                 <p class="petunjuk">Bidang kadastrum</p>
-                <label class="cek" title="Layer DXF 020100">
-                    <input type="checkbox" data-lapisan="020100" checked>
-                    Bidang &amp; garis (<?= e(angka($jumlah('020100'))) ?>)</label>
+                <label class="cek" title="Poligon Layer DXF 020100; ikut 15 teks dan titik penanda 020100">
+                    <input type="checkbox" data-lapisan="020100-bidang" checked>
+                    Bidang (<?= e(angka($jumlahBidang020100)) ?>)</label>
+                <label class="cek" title="LineString Layer DXF 020100, termasuk garis bidang yang tertutup">
+                    <input type="checkbox" data-lapisan="020100-garis" checked>
+                    Garis bidang (<?= e(angka($jumlahGaris020100)) ?>)</label>
                 <label class="cek">
                     <input type="checkbox" id="tampilTitikLama" checked>
                     Titik tengah <b id="jumlahTitikLama" class="redup"></b></label>
@@ -417,9 +423,9 @@ sip_judul(
                 <label class="cek" title="Layer DXF BIDANG HM">
                     <input type="checkbox" data-lapisan="bidang-hm">
                     Bidang (<?= e(angka($jumlah('BIDANG HM'))) ?>)</label>
-                <label class="cek" title="Layer DXF HM">
+                <label class="cek" title="Layer DXF HM — hanya garis terbuka; 77 cincin poligon HM tidak digambar karena sudah terwakili pil Bidang">
                     <input type="checkbox" data-lapisan="hm">
-                    Garis (<?= e(angka($jumlah('HM'))) ?>)</label>
+                    Garis (<?= e(angka($jumlahGarisHm)) ?>)</label>
                 <label class="cek" title="Layer DXF OPTIMALISASI HM">
                     <input type="checkbox" data-lapisan="optimalisasi-hm">
                     Optimalisasi (<?= e(angka($jumlah('OPTIMALISASI HM'))) ?>)</label>
@@ -732,6 +738,14 @@ $naskah = <<<'JS'
     }
 
     function bangun(nama, data) {
+        // Cincin HM (poligon tertutup) sudah terwakili pil Bidang berhak; pil Garis
+        // hanya menggambar garis terbuka supaya cincinnya tidak bertumpuk.
+        if (nama === 'hm') {
+            data = {
+                type: 'FeatureCollection',
+                features: (data.features || []).filter((f) => !((f.properties || {}).closed))
+            };
+        }
         if (nama === 'batas-perairan' || nama === 'tn-nama' || KELAS_LABEL[nama]) {
             const kelas = nama === 'batas-perairan' ? 'water-label' : (KELAS_LABEL[nama] || '');
             return L.geoJSON(data, {
@@ -1979,35 +1993,73 @@ $naskah = <<<'JS'
         return !kotakTitik || kotakTitik.checked;
     }
 
+    let janjiBidangGaris = null;
+
+    // 020100 dipecah hanya untuk tampilan: grup['020100'] tetap menyimpan seluruh
+    // fitur (dipakai pencarian bidang di penanda), sedangkan dua grup lain berisi
+    // poligon/teks dan garis yang bisa dicentang terpisah.
+    function pecahBidangGaris(data) {
+        grup['020100'] = bangun('020100', data);
+        const bidang = L.featureGroup();
+        const garis = L.featureGroup();
+        grup['020100'].eachLayer((l) => {
+            const t = l.feature && l.feature.geometry && l.feature.geometry.type;
+            (t === 'LineString' || t === 'MultiLineString' ? garis : bidang).addLayer(l);
+        });
+        grup['020100-bidang'] = bidang;
+        grup['020100-garis'] = garis;
+        bangunTitikBidang(grup['020100']);
+    }
+
+    function muatBidangGaris() {
+        if (!janjiBidangGaris) {
+            janjiBidangGaris = Sip.api('api/peta-lama.php', { query: { lapisan: '020100' } })
+                .then(pecahBidangGaris);
+            janjiBidangGaris.catch(() => { janjiBidangGaris = null; });
+        }
+        return janjiBidangGaris;
+    }
+
+    function adaBidangTampil() {
+        return !!(grup['020100-bidang'] && peta.hasLayer(grup['020100-bidang']));
+    }
+
+    function aturTitikBidang() {
+        if (adaBidangTampil() && titikDiinginkan()) {
+            if (!peta.hasLayer(grupTitik)) grupTitik.addTo(peta);
+        } else if (peta.hasLayer(grupTitik)) {
+            peta.removeLayer(grupTitik);
+        }
+    }
+
     async function pasang(nama, hidup) {
+        const pecahan = nama === '020100-bidang' || nama === '020100-garis';
         if (!hidup) {
             if (grup[nama]) peta.removeLayer(grup[nama]);
-            if (nama === '020100') peta.removeLayer(grupTitik);
+            if (pecahan) aturTitikBidang();
             if (nama === lapisManual && sumbuTerpilih) lepasPilihanSumbu('');
             return;
         }
-        if (grup[nama]) {
-            grup[nama].addTo(peta);
-            if (nama === '020100' && titikDiinginkan()) grupTitik.addTo(peta);
-            return;
+        if (!grup[nama] && pecahan) {
+            info.textContent = 'Memuat layer 020100…';
+            await muatBidangGaris();
         }
-        if (memuat.has(nama)) return;
-        memuat.add(nama);
-        info.textContent = 'Memuat layer ' + nama + '…';
-        try {
-            const data = await Sip.api('api/peta-lama.php', { query: { lapisan: nama } });
-            grup[nama] = bangun(nama, data);
-            if (nama === 'garis-jalan-sumbu') muatKendaliSumbu();
-            const kotak = document.querySelector('[data-lapisan="' + nama + '"]');
-            if (!kotak || kotak.checked) grup[nama].addTo(peta);
-            if (nama === '020100') {
-                bangunTitikBidang(grup[nama]);
-                if (titikDiinginkan()) grupTitik.addTo(peta);
+        if (!grup[nama]) {
+            if (memuat.has(nama)) return;
+            memuat.add(nama);
+            info.textContent = 'Memuat layer ' + nama + '…';
+            try {
+                const data = await Sip.api('api/peta-lama.php', { query: { lapisan: nama } });
+                grup[nama] = bangun(nama, data);
+                if (nama === 'garis-jalan-sumbu') muatKendaliSumbu();
+            } finally {
+                memuat.delete(nama);
             }
-            info.textContent = 'Layer ' + nama + ' dimuat.';
-        } finally {
-            memuat.delete(nama);
         }
+        const kotak = document.querySelector('[data-lapisan="' + nama + '"]');
+        if (!kotak || kotak.checked) grup[nama].addTo(peta);
+        if (pecahan) aturTitikBidang();
+        info.textContent = 'Layer ' + nama + ' dimuat.';
     }
 
     function pusatkan() {
@@ -2290,7 +2342,7 @@ $naskah = <<<'JS'
 
     document.getElementById('tampilTitikLama').addEventListener('change', (ev) => {
         if (ev.target.checked) {
-            if (peta.hasLayer(grup['020100'])) grupTitik.addTo(peta);
+            if (adaBidangTampil()) grupTitik.addTo(peta);
             else ev.target.checked = false;
         } else {
             peta.removeLayer(grupTitik);
@@ -2310,10 +2362,10 @@ $naskah = <<<'JS'
 
     (async () => {
         try {
-            await pasang('020100', true);
+            await pasang('020100-bidang', true);
             pusatkan();
             for (const k of kotak) {
-                if (k.dataset.lapisan !== '020100' && k.checked) {
+                if (k.dataset.lapisan !== '020100-bidang' && k.checked) {
                     await pasang(k.dataset.lapisan, true);
                 }
             }
