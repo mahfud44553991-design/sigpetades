@@ -1,0 +1,3080 @@
+{
+    "source_file": "MASTER-dari-dwg.dxf",
+    "coordinate_system": "Koordinat lokal hasil pengukuran; CRS geografis belum diketahui",
+    "extent": {
+        "min_x": 261327.4550423108,
+        "min_y": 714930.042654507,
+        "max_x": 264664.7357943016,
+        "max_y": 718807.7623348575
+    },
+    "layers": {
+        "020100": {
+            "features": 16322,
+            "types": {
+                "line": 13681,
+                "polygon": 2626,
+                "text": 5,
+                "point": 10
+            },
+            "invalid_skipped": 0
+        },
+        "BATAS BLOK": {
+            "features": 72,
+            "types": {
+                "line": 71,
+                "polygon": 1
+            }
+        },
+        "BATAS PERAIRAN": {
+            "features": 279,
+            "types": {
+                "TEXT": 279
+            }
+        },
+        "tn_nama": {
+            "features": 4409,
+            "types": {
+                "TEXT": 4408,
+                "MTEXT": 1
+            }
+        },
+        "010500": {
+            "features": 1,
+            "types": {
+                "polygon": 1
+            },
+            "file": "010500.geojson"
+        },
+        "020400": {
+            "features": 2,
+            "types": {
+                "polygon": 1,
+                "line": 1
+            },
+            "file": "020400.geojson"
+        },
+        "BIDANG HM": {
+            "features": 1496,
+            "types": {
+                "polygon": 1494,
+                "line": 2
+            },
+            "file": "bidang-hm.geojson"
+        },
+        "HM": {
+            "features": 95,
+            "types": {
+                "polygon": 77,
+                "line": 18
+            },
+            "invalid_skipped": 4,
+            "file": "hm.geojson"
+        },
+        "OPTIMALISASI HM": {
+            "features": 15,
+            "types": {
+                "line": 15
+            },
+            "invalid_skipped": 1,
+            "file": "optimalisasi-hm.geojson"
+        },
+        "lb_lai": {
+            "features": 19,
+            "types": {
+                "polygon": 2,
+                "line": 17
+            },
+            "file": "lb-lai.geojson"
+        },
+        "NIB HM": {
+            "features": 1657,
+            "types": {
+                "text": 1657
+            },
+            "file": "nib-hm.geojson"
+        },
+        "BATAS DESA": {
+            "features": 36,
+            "types": {
+                "text": 36
+            },
+            "file": "batas-desa.geojson"
+        },
+        "BLOK": {
+            "features": 24,
+            "types": {
+                "text": 24
+            },
+            "file": "blok.geojson"
+        },
+        "BATAS JALAN": {
+            "features": 626,
+            "types": {
+                "text": 620,
+                "point": 6
+            },
+            "file": "batas-jalan.geojson"
+        },
+        "CALON BIDANG": {
+            "features": 737,
+            "types": {
+                "polygon": 737
+            },
+            "file": "calon-bidang.geojson",
+            "derived_from": "garis terbuka 020100 dengan celah ujung <= 1 unit dan luas >= 20 unit²",
+            "duplicates_skipped": 635,
+            "already_mapped_skipped": 266,
+            "already_mapped_detail": {
+                "bidang_hm": 255,
+                "tertutup_020100": 11
+            }
+        },
+        "GARIS BATAS JALAN 020100": {
+            "features": 1981,
+            "types": {
+                "line": 1981
+            },
+            "file": "garis-jalan.geojson",
+            "panjang_m": 129175,
+            "derived_from": "garis terbuka dan cincin poligon 020100 yang membawa label berkelas jalan (teks, bukan berkas asal) serta pita sejajarnya",
+            "ambang": {
+                "benih_m": 2,
+                "pita_m": 15,
+                "sudut_derajat": 25,
+                "putaran": 2,
+                "bagi_sejajar": 0.5,
+                "bagi_koridor_kosong": 0.6,
+                "rasio_tepi": 0.3,
+                "min_panjang_m": 2,
+                "langkah_sampel_m": 2,
+                "bagi_ulang_cincin": 0.5
+            },
+            "kandidat": {
+                "garis_terbuka": 13681,
+                "cincin_dipakai": 38,
+                "cincin_mengulang": 2588
+            },
+            "permukaan_bidang": {
+                "sumber": "tabel bidang (status <> dihapus)",
+                "poligon": 4176,
+                "segmen_tepi": 56315
+            },
+            "label": 622,
+            "asal": {
+                "garis": 1976,
+                "bidang": 5
+            },
+            "cara": {
+                "pita1": 1036,
+                "benih": 568,
+                "pita2": 377
+            },
+            "dirapikan": {
+                "alat": "tools/rapikan-garis-jalan.php",
+                "pada": "2026-11-12T10:33:06+07:00",
+                "ambang": {
+                    "toleransi_m": 0.35,
+                    "belok_derajat": 40,
+                    "duplikat_maks_m": 0.5
+                },
+                "putaran": 3,
+                "pertama_pada": "2026-11-12T10:10:53+07:00",
+                "sebelum_baris": 3144,
+                "sebelum_panjang_m": 129268.93,
+                "sesudah_baris": 1981,
+                "sesudah_panjang_m": 129175.09,
+                "duplikat_dibuang": 7,
+                "duplikat_panjang_m": 95.08,
+                "sambungan": 1156,
+                "jembatan_m": 1.254,
+                "cincin": 389,
+                "ujung_bergantun": 941,
+                "pita_jarak": {
+                    "<=2 m": 85,
+                    "2-10 m": 327,
+                    "10-50 m": 482,
+                    ">50 m": 47
+                },
+                "simpul_ditolak_belok": 345,
+                "belokan_dinilai": {
+                    "40": 14,
+                    "50": 15,
+                    "60": 17,
+                    "70": 31,
+                    "80": 108,
+                    "90": 101,
+                    "100": 27,
+                    "110": 3,
+                    "120": 11,
+                    "130": 4,
+                    "140": 2,
+                    "150": 3,
+                    "160": 4,
+                    "170": 5
+                },
+                "titik_tidak_asli": 0,
+                "catatan": "duplikat_dibuang, duplikat_panjang_m, sambungan dan jembatan_m dihitung akumulatif sejak sebelum_baris; sebelum_* adalah keadaan lapis sebelum putaran pertama. simpul_ditolak_belok, belokan_dinilai, cincin, ujung_bergantun, pita_jarak dan titik_tidak_asli menggambarkan keadaan sesudah putaran terakhir."
+            }
+        },
+        "GARIS BATAS PERAIRAN 020100": {
+            "features": 275,
+            "types": {
+                "line": 275
+            },
+            "file": "garis-perairan.geojson",
+            "panjang_m": 15014,
+            "derived_from": "garis terbuka dan cincin poligon 020100 yang membawa label berkelas perairan (teks, bukan berkas asal) serta pita sejajarnya",
+            "ambang": {
+                "benih_m": 8,
+                "pita_m": 15,
+                "sudut_derajat": 25,
+                "putaran": 2,
+                "bagi_sejajar": 0.5,
+                "bagi_koridor_kosong": 0.6,
+                "rasio_tepi": 0.3,
+                "min_panjang_m": 2,
+                "langkah_sampel_m": 2,
+                "bagi_ulang_cincin": 0.5
+            },
+            "kandidat": {
+                "garis_terbuka": 13681,
+                "cincin_dipakai": 38,
+                "cincin_mengulang": 2588
+            },
+            "permukaan_bidang": {
+                "sumber": "tabel bidang (status <> dihapus)",
+                "poligon": 4176,
+                "segmen_tepi": 56315
+            },
+            "label": 112,
+            "asal": {
+                "campur": 24,
+                "bidang": 19,
+                "tepi": 90,
+                "garis": 142
+            },
+            "cara": {
+                "benih": 66,
+                "pita1": 35,
+                "jahit-bidang": 22,
+                "susur-tepi": 70,
+                "pita2": 13,
+                "tarik-lurus": 21,
+                "lengkapi-benih": 16,
+                "lengkapi-pita1": 19,
+                "lengkapi-yatim": 13
+            },
+            "dirapikan": {
+                "alat": "tools/rapikan-garis-jalan.php",
+                "pada": "2026-11-20T16:38:19+07:00",
+                "lapis": "perairan",
+                "ambang": {
+                    "toleransi_m": 0.35,
+                    "belok_derajat": 40,
+                    "duplikat_maks_m": 0.5,
+                    "celah_m": 15,
+                    "rapat_m": 1
+                },
+                "putaran": 3,
+                "pertama_pada": "2026-11-20T14:12:33+07:00",
+                "sebelum_baris": 542,
+                "sebelum_panjang_m": 39234.9,
+                "sesudah_baris": 275,
+                "sesudah_panjang_m": 15013.57,
+                "duplikat_dibuang": 29,
+                "duplikat_panjang_m": 635.57,
+                "sambungan": 148,
+                "jembatan_m": 0,
+                "celah_dijembatani": 5,
+                "celah_panjang_m": 29.291,
+                "cincin": 21,
+                "ujung_bergantun": 138,
+                "pita_jarak": {
+                    "<=2 m": 4,
+                    "2-10 m": 9,
+                    "10-50 m": 89,
+                    ">50 m": 36
+                },
+                "simpul_ditolak_belok": 134,
+                "belokan_dinilai": {
+                    "0": 19,
+                    "10": 7,
+                    "20": 5,
+                    "30": 4,
+                    "40": 4,
+                    "50": 9,
+                    "60": 7,
+                    "70": 5,
+                    "80": 37,
+                    "90": 32,
+                    "100": 9,
+                    "110": 2,
+                    "120": 6,
+                    "130": 2,
+                    "140": 3,
+                    "150": 2,
+                    "160": 2,
+                    "170": 12,
+                    "180": 2
+                },
+                "titik_tidak_asli": 0,
+                "catatan": "duplikat_dibuang, duplikat_panjang_m, sambungan dan jembatan_m dihitung akumulatif sejak sebelum_baris; sebelum_* adalah keadaan lapis sebelum putaran pertama. simpul_ditolak_belok, belokan_dinilai, cincin, ujung_bergantun, pita_jarak dan titik_tidak_asli menggambarkan keadaan sesudah putaran terakhir."
+            },
+            "tumpang_tindih": {
+                "pada": "2026-11-20T14:29:37+07:00",
+                "aturan": "baris yang >=97% panjangnya (sampel tiap 1 m) berada <=0,5 m dari baris lain dengan arah sejajar (<=25 derajat); bila saling menutup, yang terpanjang dipertahankan",
+                "dibuang": 209,
+                "panjang_m": 11856.04,
+                "komponen": {
+                    "sebelum": 112,
+                    "sesudah": 162
+                }
+            },
+            "sambung_bidang": {
+                "alat": "tools/sambung-garis-bidang.php",
+                "pada": "2026-11-20T14:42:14+07:00",
+                "aturan": "ujung bebas perairan ditarik ke tepi bidang terdekat (<=3 m, sudut <=40 derajat), lalu ditelusuri mengikuti verteks tepi bidang (belok <=45 derajat) sampai mendekati ujung bebas lain (<=3 m) yang arahnya saling membelakangi (deviasi >=0,3 kosinus)",
+                "ujung_bebas_sebelum": 195,
+                "ujung_bebas_sesudah": 131,
+                "sambungan": 32,
+                "panjang_m": 1339.03,
+                "simpul_bidang": 84,
+                "titik_tidak_asli": 0,
+                "simpangan_maks_m": 5.8e-11,
+                "komponen": {
+                    "sebelum": 162,
+                    "sesudah": 131
+                },
+                "pasangan": [
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0001",
+                        "dari": [
+                            "PERAIRAN-020100-0061",
+                            "PERAIRAN-020100-0331"
+                        ],
+                        "panjang_m": 1,
+                        "simpul_bidang": 1,
+                        "titik": 4
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0002",
+                        "dari": [
+                            "PERAIRAN-020100-0032",
+                            "PERAIRAN-020100-0063"
+                        ],
+                        "panjang_m": 4.12,
+                        "simpul_bidang": 1,
+                        "titik": 4
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0003",
+                        "dari": [
+                            "PERAIRAN-020100-0307",
+                            "PERAIRAN-020100-0308"
+                        ],
+                        "panjang_m": 5.61,
+                        "simpul_bidang": 1,
+                        "titik": 5
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0004",
+                        "dari": [
+                            "PERAIRAN-020100-0306",
+                            "PERAIRAN-020100-0307"
+                        ],
+                        "panjang_m": 5.61,
+                        "simpul_bidang": 1,
+                        "titik": 5
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0005",
+                        "dari": [
+                            "PERAIRAN-020100-0308",
+                            "PERAIRAN-020100-0305"
+                        ],
+                        "panjang_m": 5.61,
+                        "simpul_bidang": 1,
+                        "titik": 5
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0006",
+                        "dari": [
+                            "PERAIRAN-020100-0312",
+                            "PERAIRAN-020100-0313"
+                        ],
+                        "panjang_m": 6.1,
+                        "simpul_bidang": 1,
+                        "titik": 4
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0007",
+                        "dari": [
+                            "PERAIRAN-020100-0059",
+                            "PERAIRAN-020100-0097"
+                        ],
+                        "panjang_m": 6.4,
+                        "simpul_bidang": 1,
+                        "titik": 5
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0008",
+                        "dari": [
+                            "PERAIRAN-020100-0032",
+                            "PERAIRAN-020100-0116"
+                        ],
+                        "panjang_m": 9.25,
+                        "simpul_bidang": 2,
+                        "titik": 6
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0009",
+                        "dari": [
+                            "PERAIRAN-020100-0092",
+                            "PERAIRAN-020100-0046"
+                        ],
+                        "panjang_m": 11.24,
+                        "simpul_bidang": 1,
+                        "titik": 5
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0010",
+                        "dari": [
+                            "PERAIRAN-020100-0168",
+                            "PERAIRAN-020100-0255"
+                        ],
+                        "panjang_m": 13.57,
+                        "simpul_bidang": 1,
+                        "titik": 5
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0011",
+                        "dari": [
+                            "PERAIRAN-020100-0322",
+                            "PERAIRAN-020100-0168"
+                        ],
+                        "panjang_m": 16.59,
+                        "simpul_bidang": 1,
+                        "titik": 4
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0012",
+                        "dari": [
+                            "PERAIRAN-020100-0110",
+                            "PERAIRAN-020100-0073"
+                        ],
+                        "panjang_m": 16.88,
+                        "simpul_bidang": 1,
+                        "titik": 5
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0013",
+                        "dari": [
+                            "PERAIRAN-020100-0205",
+                            "PERAIRAN-020100-0204"
+                        ],
+                        "panjang_m": 17.09,
+                        "simpul_bidang": 1,
+                        "titik": 4
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0014",
+                        "dari": [
+                            "PERAIRAN-020100-0257",
+                            "PERAIRAN-020100-0255"
+                        ],
+                        "panjang_m": 19.9,
+                        "simpul_bidang": 2,
+                        "titik": 6
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0015",
+                        "dari": [
+                            "PERAIRAN-020100-0030",
+                            "PERAIRAN-020100-0029"
+                        ],
+                        "panjang_m": 22.06,
+                        "simpul_bidang": 1,
+                        "titik": 4
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0016",
+                        "dari": [
+                            "PERAIRAN-020100-0123",
+                            "PERAIRAN-020100-0295"
+                        ],
+                        "panjang_m": 23.15,
+                        "simpul_bidang": 1,
+                        "titik": 4
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0017",
+                        "dari": [
+                            "PERAIRAN-020100-0152",
+                            "PERAIRAN-020100-0324"
+                        ],
+                        "panjang_m": 24.85,
+                        "simpul_bidang": 1,
+                        "titik": 5
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0018",
+                        "dari": [
+                            "PERAIRAN-020100-0209",
+                            "PERAIRAN-020100-0205"
+                        ],
+                        "panjang_m": 28.7,
+                        "simpul_bidang": 1,
+                        "titik": 5
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0019",
+                        "dari": [
+                            "PERAIRAN-020100-0125",
+                            "PERAIRAN-020100-0124"
+                        ],
+                        "panjang_m": 29.32,
+                        "simpul_bidang": 2,
+                        "titik": 6
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0020",
+                        "dari": [
+                            "PERAIRAN-020100-0024",
+                            "PERAIRAN-020100-0025"
+                        ],
+                        "panjang_m": 30.67,
+                        "simpul_bidang": 3,
+                        "titik": 7
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0021",
+                        "dari": [
+                            "PERAIRAN-020100-0023",
+                            "PERAIRAN-020100-0024"
+                        ],
+                        "panjang_m": 41.74,
+                        "simpul_bidang": 1,
+                        "titik": 4
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0022",
+                        "dari": [
+                            "PERAIRAN-020100-0127",
+                            "PERAIRAN-020100-0123"
+                        ],
+                        "panjang_m": 42.43,
+                        "simpul_bidang": 2,
+                        "titik": 6
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0023",
+                        "dari": [
+                            "PERAIRAN-020100-0154",
+                            "PERAIRAN-020100-0176"
+                        ],
+                        "panjang_m": 50.46,
+                        "simpul_bidang": 2,
+                        "titik": 6
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0024",
+                        "dari": [
+                            "PERAIRAN-020100-0324",
+                            "PERAIRAN-020100-0289"
+                        ],
+                        "panjang_m": 55.11,
+                        "simpul_bidang": 2,
+                        "titik": 6
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0025",
+                        "dari": [
+                            "PERAIRAN-020100-0065",
+                            "PERAIRAN-020100-0354"
+                        ],
+                        "panjang_m": 61.19,
+                        "simpul_bidang": 1,
+                        "titik": 5
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0026",
+                        "dari": [
+                            "PERAIRAN-020100-0042",
+                            "PERAIRAN-020100-0043"
+                        ],
+                        "panjang_m": 66.53,
+                        "simpul_bidang": 1,
+                        "titik": 4
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0027",
+                        "dari": [
+                            "PERAIRAN-020100-0036",
+                            "PERAIRAN-020100-0041"
+                        ],
+                        "panjang_m": 86.46,
+                        "simpul_bidang": 8,
+                        "titik": 12
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0028",
+                        "dari": [
+                            "PERAIRAN-020100-0176",
+                            "PERAIRAN-020100-0190"
+                        ],
+                        "panjang_m": 121.44,
+                        "simpul_bidang": 9,
+                        "titik": 13
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0029",
+                        "dari": [
+                            "PERAIRAN-020100-0297",
+                            "PERAIRAN-020100-0322"
+                        ],
+                        "panjang_m": 149.04,
+                        "simpul_bidang": 10,
+                        "titik": 14
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0030",
+                        "dari": [
+                            "PERAIRAN-020100-0257",
+                            "PERAIRAN-020100-0273"
+                        ],
+                        "panjang_m": 165.19,
+                        "simpul_bidang": 12,
+                        "titik": 16
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0031",
+                        "dari": [
+                            "PERAIRAN-020100-0183",
+                            "PERAIRAN-020100-0273"
+                        ],
+                        "panjang_m": 179.37,
+                        "simpul_bidang": 10,
+                        "titik": 14
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0032",
+                        "dari": [
+                            "PERAIRAN-020100-0097",
+                            "PERAIRAN-020100-0338"
+                        ],
+                        "panjang_m": 22.34,
+                        "simpul_bidang": 1,
+                        "titik": 5
+                    }
+                ]
+            },
+            "sambung_tepi": {
+                "alat": "tools/sambung-sungai-tepi.php",
+                "pada": "2026-11-20T15:14:37+07:00",
+                "aturan": "ujung bebas ditarik ke tepi bidang terdekat (<= 3 m), ditelusuri lewat graf tepi bidang sampai menyentuh garis perairan lain (<= 3 m); jalur tepi hanya dipakai bila <= 3 kali jarak lurus, selebihnya ditarik lurus ke garis perairan komponen lain",
+                "rasio_maks": 3,
+                "ujung_bebas_sebelum": 131,
+                "ujung_bebas_sesudah": 0,
+                "jalur_tepi": 89,
+                "panjang_jalur_m": 1437.35,
+                "jalur_terpanjang_m": 110.4,
+                "tarik_lurus": 42,
+                "panjang_lurus_m": 531.68,
+                "lurus_dipaksa_menjauh": 2,
+                "komponen": {
+                    "sebelum": 131,
+                    "sesudah": 64
+                },
+                "pasangan": [
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0033",
+                        "dari": [
+                            "PERAIRAN-020100-0001",
+                            "PERAIRAN-020100-0003"
+                        ],
+                        "ujung": "b",
+                        "jenis": "tepi",
+                        "panjang_m": 15.29,
+                        "lurus_m": 186.63,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0034",
+                        "dari": [
+                            "PERAIRAN-020100-0002",
+                            "PERAIRAN-020100-0003"
+                        ],
+                        "ujung": "b",
+                        "jenis": "tepi",
+                        "panjang_m": 25.52,
+                        "lurus_m": 182.76,
+                        "simpul_bidang": 2
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0035",
+                        "dari": [
+                            "PERAIRAN-020100-0003",
+                            "PERAIRAN-020100-0001"
+                        ],
+                        "ujung": "a",
+                        "jenis": "tepi",
+                        "panjang_m": 12.65,
+                        "lurus_m": 165.65,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0036",
+                        "dari": [
+                            "PERAIRAN-020100-0006",
+                            "PERAIRAN-020100-0420"
+                        ],
+                        "ujung": "a",
+                        "jenis": "tepi",
+                        "panjang_m": 39.88,
+                        "lurus_m": 26.03,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0037",
+                        "dari": [
+                            "PERAIRAN-020100-0007",
+                            "PERAIRAN-020100-0420"
+                        ],
+                        "ujung": "a",
+                        "jenis": "tepi",
+                        "panjang_m": 87.77,
+                        "lurus_m": 59.88,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0038",
+                        "dari": [
+                            "PERAIRAN-020100-0007",
+                            "PERAIRAN-020100-0385"
+                        ],
+                        "ujung": "b",
+                        "jenis": "tepi",
+                        "panjang_m": 110.4,
+                        "lurus_m": 84.02,
+                        "simpul_bidang": 7
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0039",
+                        "dari": [
+                            "PERAIRAN-020100-0012",
+                            "PERAIRAN-020100-0420"
+                        ],
+                        "ujung": "a",
+                        "jenis": "tepi",
+                        "panjang_m": 0,
+                        "lurus_m": 103.16,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0040",
+                        "dari": [
+                            "PERAIRAN-020100-0012",
+                            "PERAIRAN-020100-0385"
+                        ],
+                        "ujung": "b",
+                        "jenis": "lurus",
+                        "panjang_m": 0,
+                        "lurus_m": 0,
+                        "simpul_bidang": 0
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0041",
+                        "dari": [
+                            "PERAIRAN-020100-0021",
+                            "PERAIRAN-020100-0420"
+                        ],
+                        "ujung": "b",
+                        "jenis": "tepi",
+                        "panjang_m": 32.8,
+                        "lurus_m": 27.54,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0042",
+                        "dari": [
+                            "PERAIRAN-020100-0022",
+                            "PERAIRAN-020100-0420"
+                        ],
+                        "ujung": "a",
+                        "jenis": "tepi",
+                        "panjang_m": 17.71,
+                        "lurus_m": 11.92,
+                        "simpul_bidang": 2
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0043",
+                        "dari": [
+                            "PERAIRAN-020100-0023",
+                            "PERAIRAN-020100-0376"
+                        ],
+                        "ujung": "b",
+                        "jenis": "lurus",
+                        "panjang_m": 16.27,
+                        "lurus_m": 16.27,
+                        "simpul_bidang": 0
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0044",
+                        "dari": [
+                            "PERAIRAN-020100-0026",
+                            "PERAIRAN-020100-0031"
+                        ],
+                        "ujung": "a",
+                        "jenis": "tepi",
+                        "panjang_m": 22.76,
+                        "lurus_m": 43.55,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0045",
+                        "dari": [
+                            "PERAIRAN-020100-0027",
+                            "PERAIRAN-020100-0361"
+                        ],
+                        "ujung": "a",
+                        "jenis": "lurus",
+                        "panjang_m": 15.07,
+                        "lurus_m": 15.07,
+                        "simpul_bidang": 0
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0046",
+                        "dari": [
+                            "PERAIRAN-020100-0027",
+                            "PERAIRAN-020100-0361"
+                        ],
+                        "ujung": "b",
+                        "jenis": "lurus",
+                        "panjang_m": 75.51,
+                        "lurus_m": 75.51,
+                        "simpul_bidang": 0
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0047",
+                        "dari": [
+                            "PERAIRAN-020100-0028",
+                            "PERAIRAN-020100-0372"
+                        ],
+                        "ujung": "a",
+                        "jenis": "lurus",
+                        "panjang_m": 17.74,
+                        "lurus_m": 17.74,
+                        "simpul_bidang": 0
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0048",
+                        "dari": [
+                            "PERAIRAN-020100-0028",
+                            "PERAIRAN-020100-0341"
+                        ],
+                        "ujung": "b",
+                        "jenis": "lurus",
+                        "panjang_m": 30.78,
+                        "lurus_m": 30.78,
+                        "simpul_bidang": 0
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0049",
+                        "dari": [
+                            "PERAIRAN-020100-0029",
+                            "PERAIRAN-SAMBUNG-0015"
+                        ],
+                        "ujung": "b",
+                        "jenis": "tepi",
+                        "panjang_m": 59.45,
+                        "lurus_m": 25.46,
+                        "simpul_bidang": 3
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0050",
+                        "dari": [
+                            "PERAIRAN-020100-0030",
+                            "PERAIRAN-020100-0376"
+                        ],
+                        "ujung": "b",
+                        "jenis": "lurus",
+                        "panjang_m": 15,
+                        "lurus_m": 15,
+                        "simpul_bidang": 0
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0051",
+                        "dari": [
+                            "PERAIRAN-020100-0031",
+                            "PERAIRAN-020100-0026"
+                        ],
+                        "ujung": "a",
+                        "jenis": "tepi",
+                        "panjang_m": 22.72,
+                        "lurus_m": 43.7,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0052",
+                        "dari": [
+                            "PERAIRAN-020100-0033",
+                            "PERAIRAN-020100-0360"
+                        ],
+                        "ujung": "a",
+                        "jenis": "lurus",
+                        "panjang_m": 19.9,
+                        "lurus_m": 19.9,
+                        "simpul_bidang": 0
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0053",
+                        "dari": [
+                            "PERAIRAN-020100-0033",
+                            "PERAIRAN-020100-0342"
+                        ],
+                        "ujung": "b",
+                        "jenis": "tepi",
+                        "panjang_m": 50.74,
+                        "lurus_m": 50.79,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0054",
+                        "dari": [
+                            "PERAIRAN-020100-0034",
+                            "PERAIRAN-020100-0058"
+                        ],
+                        "ujung": "b",
+                        "jenis": "lurus",
+                        "panjang_m": 5.65,
+                        "lurus_m": 5.65,
+                        "simpul_bidang": 0
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0055",
+                        "dari": [
+                            "PERAIRAN-020100-0036",
+                            "PERAIRAN-020100-0038"
+                        ],
+                        "ujung": "b",
+                        "jenis": "lurus",
+                        "panjang_m": 3.01,
+                        "lurus_m": 3.01,
+                        "simpul_bidang": 0
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0056",
+                        "dari": [
+                            "PERAIRAN-020100-0037",
+                            "PERAIRAN-020100-0041"
+                        ],
+                        "ujung": "a",
+                        "jenis": "lurus",
+                        "panjang_m": 3,
+                        "lurus_m": 3,
+                        "simpul_bidang": 0
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0057",
+                        "dari": [
+                            "PERAIRAN-020100-0037",
+                            "PERAIRAN-020100-0041"
+                        ],
+                        "ujung": "b",
+                        "jenis": "tepi",
+                        "panjang_m": 3,
+                        "lurus_m": 3,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0058",
+                        "dari": [
+                            "PERAIRAN-020100-0038",
+                            "PERAIRAN-020100-0343"
+                        ],
+                        "ujung": "a",
+                        "jenis": "lurus",
+                        "panjang_m": 19.36,
+                        "lurus_m": 19.36,
+                        "simpul_bidang": 0
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0059",
+                        "dari": [
+                            "PERAIRAN-020100-0038",
+                            "PERAIRAN-020100-0347"
+                        ],
+                        "ujung": "b",
+                        "jenis": "tepi",
+                        "panjang_m": 0,
+                        "lurus_m": 3,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0060",
+                        "dari": [
+                            "PERAIRAN-020100-0041",
+                            "PERAIRAN-020100-0381"
+                        ],
+                        "ujung": "b",
+                        "jenis": "tepi",
+                        "panjang_m": 0,
+                        "lurus_m": 11.27,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0061",
+                        "dari": [
+                            "PERAIRAN-020100-0042",
+                            "PERAIRAN-020100-0347"
+                        ],
+                        "ujung": "a",
+                        "jenis": "tepi",
+                        "panjang_m": 31.21,
+                        "lurus_m": 30.81,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0062",
+                        "dari": [
+                            "PERAIRAN-020100-0043",
+                            "PERAIRAN-020100-0090"
+                        ],
+                        "ujung": "b",
+                        "jenis": "tepi",
+                        "panjang_m": 30.42,
+                        "lurus_m": 15.84,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0063",
+                        "dari": [
+                            "PERAIRAN-020100-0044",
+                            "PERAIRAN-020100-0056"
+                        ],
+                        "ujung": "a",
+                        "jenis": "lurus",
+                        "panjang_m": 5.26,
+                        "lurus_m": 5.26,
+                        "simpul_bidang": 0
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0064",
+                        "dari": [
+                            "PERAIRAN-020100-0044",
+                            "PERAIRAN-020100-0343"
+                        ],
+                        "ujung": "b",
+                        "jenis": "tepi",
+                        "panjang_m": 0,
+                        "lurus_m": 5.11,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0065",
+                        "dari": [
+                            "PERAIRAN-020100-0045",
+                            "PERAIRAN-020100-0389"
+                        ],
+                        "ujung": "a",
+                        "jenis": "tepi",
+                        "panjang_m": 2.62,
+                        "lurus_m": 2.62,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0066",
+                        "dari": [
+                            "PERAIRAN-020100-0045",
+                            "PERAIRAN-020100-0389"
+                        ],
+                        "ujung": "b",
+                        "jenis": "tepi",
+                        "panjang_m": 16.36,
+                        "lurus_m": 13.77,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0067",
+                        "dari": [
+                            "PERAIRAN-020100-0046",
+                            "PERAIRAN-SAMBUNG-0009"
+                        ],
+                        "ujung": "b",
+                        "jenis": "tepi",
+                        "panjang_m": 14.22,
+                        "lurus_m": 22.09,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0068",
+                        "dari": [
+                            "PERAIRAN-020100-0047",
+                            "PERAIRAN-020100-0348"
+                        ],
+                        "ujung": "a",
+                        "jenis": "tepi",
+                        "panjang_m": 0,
+                        "lurus_m": 11.92,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0069",
+                        "dari": [
+                            "PERAIRAN-020100-0047",
+                            "PERAIRAN-020100-0397"
+                        ],
+                        "ujung": "b",
+                        "jenis": "lurus",
+                        "panjang_m": 19.87,
+                        "lurus_m": 19.87,
+                        "simpul_bidang": 0
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0070",
+                        "dari": [
+                            "PERAIRAN-020100-0050",
+                            "PERAIRAN-020100-0118"
+                        ],
+                        "ujung": "a",
+                        "jenis": "tepi",
+                        "panjang_m": 0,
+                        "lurus_m": 10,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0071",
+                        "dari": [
+                            "PERAIRAN-020100-0050",
+                            "PERAIRAN-020100-0118"
+                        ],
+                        "ujung": "b",
+                        "jenis": "tepi",
+                        "panjang_m": 0,
+                        "lurus_m": 6.77,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0072",
+                        "dari": [
+                            "PERAIRAN-020100-0056",
+                            "PERAIRAN-020100-0343"
+                        ],
+                        "ujung": "a",
+                        "jenis": "lurus",
+                        "panjang_m": 6.35,
+                        "lurus_m": 6.35,
+                        "simpul_bidang": 0
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0073",
+                        "dari": [
+                            "PERAIRAN-020100-0056",
+                            "PERAIRAN-020100-0388"
+                        ],
+                        "ujung": "b",
+                        "jenis": "tepi",
+                        "panjang_m": 0,
+                        "lurus_m": 6.09,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0074",
+                        "dari": [
+                            "PERAIRAN-020100-0058",
+                            "PERAIRAN-020100-0387"
+                        ],
+                        "ujung": "a",
+                        "jenis": "tepi",
+                        "panjang_m": 18.35,
+                        "lurus_m": 18.32,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0075",
+                        "dari": [
+                            "PERAIRAN-020100-0058",
+                            "PERAIRAN-020100-0034"
+                        ],
+                        "ujung": "b",
+                        "jenis": "lurus",
+                        "panjang_m": 5.65,
+                        "lurus_m": 5.65,
+                        "simpul_bidang": 0
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0076",
+                        "dari": [
+                            "PERAIRAN-020100-0059",
+                            "PERAIRAN-020100-0374"
+                        ],
+                        "ujung": "b",
+                        "jenis": "tepi",
+                        "panjang_m": 20.9,
+                        "lurus_m": 33.12,
+                        "simpul_bidang": 2
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0077",
+                        "dari": [
+                            "PERAIRAN-020100-0061",
+                            "PERAIRAN-020100-0338"
+                        ],
+                        "ujung": "b",
+                        "jenis": "tepi",
+                        "panjang_m": 27.08,
+                        "lurus_m": 26.43,
+                        "simpul_bidang": 2
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0078",
+                        "dari": [
+                            "PERAIRAN-020100-0063",
+                            "PERAIRAN-020100-0116"
+                        ],
+                        "ujung": "a",
+                        "jenis": "tepi",
+                        "panjang_m": 0.5,
+                        "lurus_m": 18.64,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0079",
+                        "dari": [
+                            "PERAIRAN-020100-0064",
+                            "PERAIRAN-020100-0067"
+                        ],
+                        "ujung": "a",
+                        "jenis": "tepi",
+                        "panjang_m": 29.71,
+                        "lurus_m": 26.48,
+                        "simpul_bidang": 2
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0080",
+                        "dari": [
+                            "PERAIRAN-020100-0064",
+                            "PERAIRAN-020100-0065"
+                        ],
+                        "ujung": "b",
+                        "jenis": "tepi",
+                        "panjang_m": 1.52,
+                        "lurus_m": 1.61,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0081",
+                        "dari": [
+                            "PERAIRAN-020100-0065",
+                            "PERAIRAN-SAMBUNG-0025"
+                        ],
+                        "ujung": "a",
+                        "jenis": "tepi",
+                        "panjang_m": 18.14,
+                        "lurus_m": 7.34,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0082",
+                        "dari": [
+                            "PERAIRAN-020100-0066",
+                            "PERAIRAN-020100-0109"
+                        ],
+                        "ujung": "a",
+                        "jenis": "tepi",
+                        "panjang_m": 9.27,
+                        "lurus_m": 6.76,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0083",
+                        "dari": [
+                            "PERAIRAN-020100-0067",
+                            "PERAIRAN-020100-0064"
+                        ],
+                        "ujung": "a",
+                        "jenis": "tepi",
+                        "panjang_m": 1,
+                        "lurus_m": 1,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0084",
+                        "dari": [
+                            "PERAIRAN-020100-0067",
+                            "PERAIRAN-020100-0064"
+                        ],
+                        "ujung": "b",
+                        "jenis": "tepi",
+                        "panjang_m": 1,
+                        "lurus_m": 3.51,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0085",
+                        "dari": [
+                            "PERAIRAN-020100-0068",
+                            "PERAIRAN-020100-0033"
+                        ],
+                        "ujung": "a",
+                        "jenis": "lurus",
+                        "panjang_m": 17.58,
+                        "lurus_m": 17.58,
+                        "simpul_bidang": 0
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0086",
+                        "dari": [
+                            "PERAIRAN-020100-0068",
+                            "PERAIRAN-020100-0033"
+                        ],
+                        "ujung": "b",
+                        "jenis": "lurus",
+                        "panjang_m": 15.69,
+                        "lurus_m": 15.69,
+                        "simpul_bidang": 0
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0087",
+                        "dari": [
+                            "PERAIRAN-020100-0073",
+                            "PERAIRAN-020100-0419"
+                        ],
+                        "ujung": "b",
+                        "jenis": "tepi",
+                        "panjang_m": 0,
+                        "lurus_m": 3.11,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0088",
+                        "dari": [
+                            "PERAIRAN-020100-0090",
+                            "PERAIRAN-020100-0347"
+                        ],
+                        "ujung": "a",
+                        "jenis": "tepi",
+                        "panjang_m": 21.83,
+                        "lurus_m": 21.16,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0089",
+                        "dari": [
+                            "PERAIRAN-020100-0090",
+                            "PERAIRAN-020100-0038"
+                        ],
+                        "ujung": "b",
+                        "jenis": "tepi",
+                        "panjang_m": 22.72,
+                        "lurus_m": 20.24,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0090",
+                        "dari": [
+                            "PERAIRAN-020100-0093",
+                            "PERAIRAN-020100-0334"
+                        ],
+                        "ujung": "a",
+                        "jenis": "tepi",
+                        "panjang_m": 24.28,
+                        "lurus_m": 23.16,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0091",
+                        "dari": [
+                            "PERAIRAN-020100-0096",
+                            "PERAIRAN-020100-0043"
+                        ],
+                        "ujung": "b",
+                        "jenis": "lurus",
+                        "panjang_m": 5,
+                        "lurus_m": 5,
+                        "simpul_bidang": 0
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0092",
+                        "dari": [
+                            "PERAIRAN-020100-0109",
+                            "PERAIRAN-020100-0064"
+                        ],
+                        "ujung": "b",
+                        "jenis": "tepi",
+                        "panjang_m": 1,
+                        "lurus_m": 1,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0093",
+                        "dari": [
+                            "PERAIRAN-020100-0110",
+                            "PERAIRAN-020100-0064"
+                        ],
+                        "ujung": "a",
+                        "jenis": "lurus",
+                        "panjang_m": 4.01,
+                        "lurus_m": 4.01,
+                        "simpul_bidang": 0
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0094",
+                        "dari": [
+                            "PERAIRAN-020100-0122",
+                            "PERAIRAN-020100-0126"
+                        ],
+                        "ujung": "a",
+                        "jenis": "tepi",
+                        "panjang_m": 2,
+                        "lurus_m": 0.99,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0095",
+                        "dari": [
+                            "PERAIRAN-020100-0124",
+                            "PERAIRAN-020100-0203"
+                        ],
+                        "ujung": "a",
+                        "jenis": "lurus",
+                        "panjang_m": 13.3,
+                        "lurus_m": 13.3,
+                        "simpul_bidang": 0
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0096",
+                        "dari": [
+                            "PERAIRAN-020100-0126",
+                            "PERAIRAN-020100-0122"
+                        ],
+                        "ujung": "a",
+                        "jenis": "tepi",
+                        "panjang_m": 1.87,
+                        "lurus_m": 1.32,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0097",
+                        "dari": [
+                            "PERAIRAN-020100-0126",
+                            "PERAIRAN-020100-0202"
+                        ],
+                        "ujung": "b",
+                        "jenis": "lurus",
+                        "panjang_m": 8,
+                        "lurus_m": 8,
+                        "simpul_bidang": 0
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0098",
+                        "dari": [
+                            "PERAIRAN-020100-0127",
+                            "PERAIRAN-020100-0199"
+                        ],
+                        "ujung": "a",
+                        "jenis": "tepi",
+                        "panjang_m": 24.31,
+                        "lurus_m": 23.82,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0099",
+                        "dari": [
+                            "PERAIRAN-020100-0128",
+                            "PERAIRAN-020100-0324"
+                        ],
+                        "ujung": "a",
+                        "jenis": "tepi",
+                        "panjang_m": 19.53,
+                        "lurus_m": 19.49,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0100",
+                        "dari": [
+                            "PERAIRAN-020100-0129",
+                            "PERAIRAN-020100-0302"
+                        ],
+                        "ujung": "b",
+                        "jenis": "tepi",
+                        "panjang_m": 32.95,
+                        "lurus_m": 25.5,
+                        "simpul_bidang": 2
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0101",
+                        "dari": [
+                            "PERAIRAN-020100-0132",
+                            "PERAIRAN-020100-0050"
+                        ],
+                        "ujung": "a",
+                        "jenis": "lurus",
+                        "panjang_m": 13.32,
+                        "lurus_m": 13.32,
+                        "simpul_bidang": 0
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0102",
+                        "dari": [
+                            "PERAIRAN-020100-0132",
+                            "PERAIRAN-020100-0118"
+                        ],
+                        "ujung": "b",
+                        "jenis": "lurus",
+                        "panjang_m": 13.04,
+                        "lurus_m": 13.04,
+                        "simpul_bidang": 0
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0103",
+                        "dari": [
+                            "PERAIRAN-020100-0146",
+                            "PERAIRAN-020100-0241"
+                        ],
+                        "ujung": "a",
+                        "jenis": "lurus",
+                        "panjang_m": 4.93,
+                        "lurus_m": 4.93,
+                        "simpul_bidang": 0
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0104",
+                        "dari": [
+                            "PERAIRAN-020100-0148",
+                            "PERAIRAN-020100-0241"
+                        ],
+                        "ujung": "b",
+                        "jenis": "tepi",
+                        "panjang_m": 15.45,
+                        "lurus_m": 21.53,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0105",
+                        "dari": [
+                            "PERAIRAN-020100-0149",
+                            "PERAIRAN-020100-0184"
+                        ],
+                        "ujung": "a",
+                        "jenis": "lurus",
+                        "panjang_m": 7.13,
+                        "lurus_m": 7.13,
+                        "simpul_bidang": 0
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0106",
+                        "dari": [
+                            "PERAIRAN-020100-0149",
+                            "PERAIRAN-020100-0184"
+                        ],
+                        "ujung": "b",
+                        "jenis": "lurus",
+                        "panjang_m": 6.75,
+                        "lurus_m": 6.75,
+                        "simpul_bidang": 0
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0107",
+                        "dari": [
+                            "PERAIRAN-020100-0151",
+                            "PERAIRAN-020100-0352"
+                        ],
+                        "ujung": "a",
+                        "jenis": "tepi",
+                        "panjang_m": 7.92,
+                        "lurus_m": 4.1,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0108",
+                        "dari": [
+                            "PERAIRAN-020100-0153",
+                            "PERAIRAN-020100-0393"
+                        ],
+                        "ujung": "a",
+                        "jenis": "tepi",
+                        "panjang_m": 0,
+                        "lurus_m": 4.69,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0109",
+                        "dari": [
+                            "PERAIRAN-020100-0153",
+                            "PERAIRAN-020100-0394"
+                        ],
+                        "ujung": "b",
+                        "jenis": "tepi",
+                        "panjang_m": 0,
+                        "lurus_m": 4.01,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0110",
+                        "dari": [
+                            "PERAIRAN-020100-0155",
+                            "PERAIRAN-SAMBUNG-0030"
+                        ],
+                        "ujung": "a",
+                        "jenis": "lurus",
+                        "panjang_m": 4.51,
+                        "lurus_m": 4.51,
+                        "simpul_bidang": 0
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0111",
+                        "dari": [
+                            "PERAIRAN-020100-0183",
+                            "PERAIRAN-020100-0408"
+                        ],
+                        "ujung": "a",
+                        "jenis": "tepi",
+                        "panjang_m": 36.14,
+                        "lurus_m": 36.07,
+                        "simpul_bidang": 2
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0112",
+                        "dari": [
+                            "PERAIRAN-020100-0190",
+                            "PERAIRAN-020100-0398"
+                        ],
+                        "ujung": "b",
+                        "jenis": "tepi",
+                        "panjang_m": 0,
+                        "lurus_m": 4.93,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0113",
+                        "dari": [
+                            "PERAIRAN-020100-0199",
+                            "PERAIRAN-020100-0127"
+                        ],
+                        "ujung": "a",
+                        "jenis": "tepi",
+                        "panjang_m": 0.44,
+                        "lurus_m": 0.5,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0114",
+                        "dari": [
+                            "PERAIRAN-020100-0199",
+                            "PERAIRAN-020100-0127"
+                        ],
+                        "ujung": "b",
+                        "jenis": "tepi",
+                        "panjang_m": 0.76,
+                        "lurus_m": 0.73,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0115",
+                        "dari": [
+                            "PERAIRAN-020100-0201",
+                            "PERAIRAN-020100-0386"
+                        ],
+                        "ujung": "a",
+                        "jenis": "lurus",
+                        "panjang_m": 45.56,
+                        "lurus_m": 45.56,
+                        "simpul_bidang": 0
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0116",
+                        "dari": [
+                            "PERAIRAN-020100-0201",
+                            "PERAIRAN-020100-0386"
+                        ],
+                        "ujung": "b",
+                        "jenis": "lurus",
+                        "panjang_m": 17.95,
+                        "lurus_m": 17.95,
+                        "simpul_bidang": 0
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0117",
+                        "dari": [
+                            "PERAIRAN-020100-0202",
+                            "PERAIRAN-020100-0126"
+                        ],
+                        "ujung": "a",
+                        "jenis": "lurus",
+                        "panjang_m": 8,
+                        "lurus_m": 8,
+                        "simpul_bidang": 0
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0118",
+                        "dari": [
+                            "PERAIRAN-020100-0202",
+                            "PERAIRAN-020100-0203"
+                        ],
+                        "ujung": "b",
+                        "jenis": "lurus",
+                        "panjang_m": 7.1,
+                        "lurus_m": 7.1,
+                        "simpul_bidang": 0
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0119",
+                        "dari": [
+                            "PERAIRAN-020100-0203",
+                            "PERAIRAN-020100-0292"
+                        ],
+                        "ujung": "b",
+                        "jenis": "tepi",
+                        "panjang_m": 12.96,
+                        "lurus_m": 17.75,
+                        "simpul_bidang": 3
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0120",
+                        "dari": [
+                            "PERAIRAN-020100-0204",
+                            "PERAIRAN-020100-0295"
+                        ],
+                        "ujung": "b",
+                        "jenis": "lurus",
+                        "panjang_m": 10.5,
+                        "lurus_m": 10.5,
+                        "simpul_bidang": 0
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0121",
+                        "dari": [
+                            "PERAIRAN-020100-0209",
+                            "PERAIRAN-020100-0127"
+                        ],
+                        "ujung": "a",
+                        "jenis": "lurus",
+                        "panjang_m": 11.7,
+                        "lurus_m": 11.7,
+                        "simpul_bidang": 0
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0122",
+                        "dari": [
+                            "PERAIRAN-020100-0238",
+                            "PERAIRAN-020100-0328"
+                        ],
+                        "ujung": "a",
+                        "jenis": "tepi",
+                        "panjang_m": 0.04,
+                        "lurus_m": 18.7,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0123",
+                        "dari": [
+                            "PERAIRAN-020100-0240",
+                            "PERAIRAN-020100-0149"
+                        ],
+                        "ujung": "a",
+                        "jenis": "tepi",
+                        "panjang_m": 110.17,
+                        "lurus_m": 44.09,
+                        "simpul_bidang": 4
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0124",
+                        "dari": [
+                            "PERAIRAN-020100-0240",
+                            "PERAIRAN-020100-0146"
+                        ],
+                        "ujung": "b",
+                        "jenis": "lurus",
+                        "panjang_m": 5.25,
+                        "lurus_m": 5.25,
+                        "simpul_bidang": 0
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0125",
+                        "dari": [
+                            "PERAIRAN-020100-0242",
+                            "PERAIRAN-020100-0241"
+                        ],
+                        "ujung": "a",
+                        "jenis": "tepi",
+                        "panjang_m": 42.21,
+                        "lurus_m": 45.45,
+                        "simpul_bidang": 3
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0126",
+                        "dari": [
+                            "PERAIRAN-020100-0282",
+                            "PERAIRAN-020100-0185"
+                        ],
+                        "ujung": "b",
+                        "jenis": "tepi",
+                        "panjang_m": 10.4,
+                        "lurus_m": 4.48,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0127",
+                        "dari": [
+                            "PERAIRAN-020100-0292",
+                            "PERAIRAN-020100-0203"
+                        ],
+                        "ujung": "b",
+                        "jenis": "tepi",
+                        "panjang_m": 11,
+                        "lurus_m": 17.7,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0128",
+                        "dari": [
+                            "PERAIRAN-020100-0293",
+                            "PERAIRAN-020100-0355"
+                        ],
+                        "ujung": "a",
+                        "jenis": "tepi",
+                        "panjang_m": 9.48,
+                        "lurus_m": 27.73,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0129",
+                        "dari": [
+                            "PERAIRAN-020100-0293",
+                            "PERAIRAN-020100-0355"
+                        ],
+                        "ujung": "b",
+                        "jenis": "tepi",
+                        "panjang_m": 0,
+                        "lurus_m": 18.26,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0130",
+                        "dari": [
+                            "PERAIRAN-020100-0294",
+                            "PERAIRAN-020100-0358"
+                        ],
+                        "ujung": "a",
+                        "jenis": "lurus",
+                        "panjang_m": 5.77,
+                        "lurus_m": 5.77,
+                        "simpul_bidang": 0
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0131",
+                        "dari": [
+                            "PERAIRAN-020100-0294",
+                            "PERAIRAN-020100-0358"
+                        ],
+                        "ujung": "b",
+                        "jenis": "lurus",
+                        "panjang_m": 7.59,
+                        "lurus_m": 7.59,
+                        "simpul_bidang": 0
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0132",
+                        "dari": [
+                            "PERAIRAN-020100-0295",
+                            "PERAIRAN-020100-0204"
+                        ],
+                        "ujung": "a",
+                        "jenis": "lurus",
+                        "panjang_m": 17.54,
+                        "lurus_m": 17.54,
+                        "simpul_bidang": 0
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0133",
+                        "dari": [
+                            "PERAIRAN-020100-0297",
+                            "PERAIRAN-020100-0357"
+                        ],
+                        "ujung": "b",
+                        "jenis": "tepi",
+                        "panjang_m": 0,
+                        "lurus_m": 4.99,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0134",
+                        "dari": [
+                            "PERAIRAN-020100-0299",
+                            "PERAIRAN-020100-0305"
+                        ],
+                        "ujung": "a",
+                        "jenis": "tepi",
+                        "panjang_m": 22.06,
+                        "lurus_m": 9.52,
+                        "simpul_bidang": 7
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0135",
+                        "dari": [
+                            "PERAIRAN-020100-0299",
+                            "PERAIRAN-020100-0305"
+                        ],
+                        "ujung": "b",
+                        "jenis": "tepi",
+                        "panjang_m": 34.06,
+                        "lurus_m": 14.24,
+                        "simpul_bidang": 8
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0136",
+                        "dari": [
+                            "PERAIRAN-020100-0300",
+                            "PERAIRAN-020100-0306"
+                        ],
+                        "ujung": "a",
+                        "jenis": "lurus",
+                        "panjang_m": 7.24,
+                        "lurus_m": 7.24,
+                        "simpul_bidang": 0
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0137",
+                        "dari": [
+                            "PERAIRAN-020100-0300",
+                            "PERAIRAN-020100-0305"
+                        ],
+                        "ujung": "b",
+                        "jenis": "tepi",
+                        "panjang_m": 1.31,
+                        "lurus_m": 1.2,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0138",
+                        "dari": [
+                            "PERAIRAN-020100-0301",
+                            "PERAIRAN-020100-0356"
+                        ],
+                        "ujung": "b",
+                        "jenis": "tepi",
+                        "panjang_m": 0,
+                        "lurus_m": 9.74,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0139",
+                        "dari": [
+                            "PERAIRAN-020100-0304",
+                            "PERAIRAN-020100-0300"
+                        ],
+                        "ujung": "a",
+                        "jenis": "tepi",
+                        "panjang_m": 12.03,
+                        "lurus_m": 11.97,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0140",
+                        "dari": [
+                            "PERAIRAN-020100-0304",
+                            "PERAIRAN-020100-0303"
+                        ],
+                        "ujung": "b",
+                        "jenis": "tepi",
+                        "panjang_m": 7.47,
+                        "lurus_m": 6.59,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0141",
+                        "dari": [
+                            "PERAIRAN-020100-0306",
+                            "PERAIRAN-SAMBUNG-0004"
+                        ],
+                        "ujung": "b",
+                        "jenis": "tepi",
+                        "panjang_m": 5.61,
+                        "lurus_m": 7.13,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0142",
+                        "dari": [
+                            "PERAIRAN-020100-0310",
+                            "PERAIRAN-020100-0313"
+                        ],
+                        "ujung": "a",
+                        "jenis": "tepi",
+                        "panjang_m": 3.07,
+                        "lurus_m": 3.05,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0143",
+                        "dari": [
+                            "PERAIRAN-020100-0310",
+                            "PERAIRAN-020100-0352"
+                        ],
+                        "ujung": "b",
+                        "jenis": "tepi",
+                        "panjang_m": 0.14,
+                        "lurus_m": 10.03,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0144",
+                        "dari": [
+                            "PERAIRAN-020100-0311",
+                            "PERAIRAN-020100-0301"
+                        ],
+                        "ujung": "b",
+                        "jenis": "tepi",
+                        "panjang_m": 15.16,
+                        "lurus_m": 23.4,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0145",
+                        "dari": [
+                            "PERAIRAN-020100-0313",
+                            "PERAIRAN-020100-0310"
+                        ],
+                        "ujung": "a",
+                        "jenis": "lurus",
+                        "panjang_m": 3.05,
+                        "lurus_m": 3.05,
+                        "simpul_bidang": 0
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0146",
+                        "dari": [
+                            "PERAIRAN-020100-0321",
+                            "PERAIRAN-020100-0414"
+                        ],
+                        "ujung": "a",
+                        "jenis": "tepi",
+                        "panjang_m": 0.38,
+                        "lurus_m": 0.14,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0147",
+                        "dari": [
+                            "PERAIRAN-020100-0321",
+                            "PERAIRAN-020100-0414"
+                        ],
+                        "ujung": "b",
+                        "jenis": "tepi",
+                        "panjang_m": 12.19,
+                        "lurus_m": 4.74,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0148",
+                        "dari": [
+                            "PERAIRAN-020100-0323",
+                            "PERAIRAN-020100-0414"
+                        ],
+                        "ujung": "b",
+                        "jenis": "tepi",
+                        "panjang_m": 0,
+                        "lurus_m": 4.37,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0149",
+                        "dari": [
+                            "PERAIRAN-020100-0325",
+                            "PERAIRAN-020100-0356"
+                        ],
+                        "ujung": "a",
+                        "jenis": "tepi",
+                        "panjang_m": 10.12,
+                        "lurus_m": 10,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0150",
+                        "dari": [
+                            "PERAIRAN-020100-0325",
+                            "PERAIRAN-020100-0356"
+                        ],
+                        "ujung": "b",
+                        "jenis": "tepi",
+                        "panjang_m": 0,
+                        "lurus_m": 0.63,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0151",
+                        "dari": [
+                            "PERAIRAN-020100-0327",
+                            "PERAIRAN-020100-0357"
+                        ],
+                        "ujung": "a",
+                        "jenis": "lurus",
+                        "panjang_m": 7.82,
+                        "lurus_m": 7.82,
+                        "simpul_bidang": 0
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0152",
+                        "dari": [
+                            "PERAIRAN-020100-0327",
+                            "PERAIRAN-020100-0356"
+                        ],
+                        "ujung": "b",
+                        "jenis": "tepi",
+                        "panjang_m": 10.89,
+                        "lurus_m": 10.86,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0153",
+                        "dari": [
+                            "PERAIRAN-020100-0330",
+                            "PERAIRAN-020100-0118"
+                        ],
+                        "ujung": "a",
+                        "jenis": "tepi",
+                        "panjang_m": 0.14,
+                        "lurus_m": 6.37,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0154",
+                        "dari": [
+                            "PERAIRAN-020100-0330",
+                            "PERAIRAN-020100-0118"
+                        ],
+                        "ujung": "b",
+                        "jenis": "tepi",
+                        "panjang_m": 58.05,
+                        "lurus_m": 44.56,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0155",
+                        "dari": [
+                            "PERAIRAN-020100-0331",
+                            "PERAIRAN-020100-0097"
+                        ],
+                        "ujung": "a",
+                        "jenis": "tepi",
+                        "panjang_m": 1,
+                        "lurus_m": 1,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0156",
+                        "dari": [
+                            "PERAIRAN-020100-0332",
+                            "PERAIRAN-020100-0420"
+                        ],
+                        "ujung": "b",
+                        "jenis": "tepi",
+                        "panjang_m": 60.64,
+                        "lurus_m": 45.1,
+                        "simpul_bidang": 3
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0157",
+                        "dari": [
+                            "PERAIRAN-020100-0334",
+                            "PERAIRAN-020100-0093"
+                        ],
+                        "ujung": "b",
+                        "jenis": "tepi",
+                        "panjang_m": 13.93,
+                        "lurus_m": 38.04,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0158",
+                        "dari": [
+                            "PERAIRAN-020100-0338",
+                            "PERAIRAN-020100-0061"
+                        ],
+                        "ujung": "b",
+                        "jenis": "tepi",
+                        "panjang_m": 1.81,
+                        "lurus_m": 1.7,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0159",
+                        "dari": [
+                            "PERAIRAN-020100-0341",
+                            "PERAIRAN-020100-0374"
+                        ],
+                        "ujung": "a",
+                        "jenis": "tepi",
+                        "panjang_m": 0,
+                        "lurus_m": 10.5,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0160",
+                        "dari": [
+                            "PERAIRAN-020100-0341",
+                            "PERAIRAN-020100-0374"
+                        ],
+                        "ujung": "b",
+                        "jenis": "tepi",
+                        "panjang_m": 35.34,
+                        "lurus_m": 18.51,
+                        "simpul_bidang": 5
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0161",
+                        "dari": [
+                            "PERAIRAN-020100-0353",
+                            "PERAIRAN-020100-0388"
+                        ],
+                        "ujung": "a",
+                        "jenis": "tepi",
+                        "panjang_m": 1.5,
+                        "lurus_m": 1.5,
+                        "simpul_bidang": 1
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0162",
+                        "dari": [
+                            "PERAIRAN-020100-0353",
+                            "PERAIRAN-020100-0388"
+                        ],
+                        "ujung": "b",
+                        "jenis": "lurus",
+                        "panjang_m": 4.95,
+                        "lurus_m": 4.95,
+                        "simpul_bidang": 0
+                    },
+                    {
+                        "kode": "PERAIRAN-SAMBUNG-0163",
+                        "dari": [
+                            "PERAIRAN-020100-0354",
+                            "PERAIRAN-020100-0047"
+                        ],
+                        "ujung": "b",
+                        "jenis": "tepi",
+                        "panjang_m": 0,
+                        "lurus_m": 4.48,
+                        "simpul_bidang": 1
+                    }
+                ]
+            },
+            "buang_cincin": {
+                "alat": "tools/hapus-cincin-perairan.php",
+                "pada": "2026-11-20T15:28:16+07:00",
+                "aturan": "baris tertutup (ujung pangkal berimpit <= 0,35 m) dengan luas >= ambang dianggap bidang dan dibuang; lingkaran mikro hasil jahitan (luas ~0) dipertahankan sebagai simpul sambungan",
+                "ambang_luas_m2": 20,
+                "jumlah": 75,
+                "panjang_m": 17542.56,
+                "luas_m2": 193915.82,
+                "per_cara": {
+                    "benih": 52,
+                    "pita2": 6,
+                    "pita1": 17
+                },
+                "per_asal": {
+                    "garis": 73,
+                    "bidang": 2
+                },
+                "lingkaran_mikro_dipertahankan": 24,
+                "sebelum": {
+                    "baris": 374,
+                    "panjang_m": 30574.52,
+                    "komponen": 115,
+                    "ujung_bebas": 85
+                },
+                "sesudah": {
+                    "baris": 299,
+                    "panjang_m": 13031.95,
+                    "komponen": 49,
+                    "ujung_bebas": 85
+                },
+                "daftar_kode": [
+                    "PERAIRAN-020100-0118",
+                    "PERAIRAN-020100-0119",
+                    "PERAIRAN-020100-0120",
+                    "PERAIRAN-020100-0342",
+                    "PERAIRAN-020100-0343",
+                    "PERAIRAN-020100-0347",
+                    "PERAIRAN-020100-0348",
+                    "PERAIRAN-020100-0350",
+                    "PERAIRAN-020100-0352",
+                    "PERAIRAN-020100-0355",
+                    "PERAIRAN-020100-0356",
+                    "PERAIRAN-020100-0357",
+                    "PERAIRAN-020100-0358",
+                    "PERAIRAN-020100-0359",
+                    "PERAIRAN-020100-0360",
+                    "PERAIRAN-020100-0361",
+                    "PERAIRAN-020100-0362",
+                    "PERAIRAN-020100-0363",
+                    "PERAIRAN-020100-0364",
+                    "PERAIRAN-020100-0365",
+                    "PERAIRAN-020100-0366",
+                    "PERAIRAN-020100-0367",
+                    "PERAIRAN-020100-0368",
+                    "PERAIRAN-020100-0369",
+                    "PERAIRAN-020100-0370",
+                    "PERAIRAN-020100-0371",
+                    "PERAIRAN-020100-0372",
+                    "PERAIRAN-020100-0373",
+                    "PERAIRAN-020100-0374",
+                    "PERAIRAN-020100-0375",
+                    "PERAIRAN-020100-0376",
+                    "PERAIRAN-020100-0377",
+                    "PERAIRAN-020100-0378",
+                    "PERAIRAN-020100-0379",
+                    "PERAIRAN-020100-0380",
+                    "PERAIRAN-020100-0381",
+                    "PERAIRAN-020100-0382",
+                    "PERAIRAN-020100-0383",
+                    "PERAIRAN-020100-0384",
+                    "PERAIRAN-020100-0385",
+                    "PERAIRAN-020100-0386",
+                    "PERAIRAN-020100-0387",
+                    "PERAIRAN-020100-0388",
+                    "PERAIRAN-020100-0389",
+                    "PERAIRAN-020100-0390",
+                    "PERAIRAN-020100-0391",
+                    "PERAIRAN-020100-0392",
+                    "PERAIRAN-020100-0393",
+                    "PERAIRAN-020100-0394",
+                    "PERAIRAN-020100-0395",
+                    "PERAIRAN-020100-0396",
+                    "PERAIRAN-020100-0397",
+                    "PERAIRAN-020100-0398",
+                    "PERAIRAN-020100-0399",
+                    "PERAIRAN-020100-0400",
+                    "PERAIRAN-020100-0401",
+                    "PERAIRAN-020100-0402",
+                    "PERAIRAN-020100-0403",
+                    "PERAIRAN-020100-0404",
+                    "PERAIRAN-020100-0405",
+                    "PERAIRAN-020100-0406",
+                    "PERAIRAN-020100-0407",
+                    "PERAIRAN-020100-0408",
+                    "PERAIRAN-020100-0409",
+                    "PERAIRAN-020100-0410",
+                    "PERAIRAN-020100-0411",
+                    "PERAIRAN-020100-0412",
+                    "PERAIRAN-020100-0413",
+                    "PERAIRAN-020100-0414",
+                    "PERAIRAN-020100-0415",
+                    "PERAIRAN-020100-0416",
+                    "PERAIRAN-020100-0417",
+                    "PERAIRAN-020100-0418",
+                    "PERAIRAN-020100-0419",
+                    "PERAIRAN-020100-0420"
+                ]
+            },
+            "pangkas_gantung": {
+                "alat": "tools/pangkas-ujung-menggantung.php",
+                "pada": "2026-11-20T15:36:36+07:00",
+                "aturan": "ujung yang jaraknya ke ruas garis lain > toleransi ditelusuri masuk sampai titik sentuh pertama; bagian sebelum titik itu dibuang, baris tanpa sentuhan dihapus",
+                "toleransi_m": 0.35,
+                "langkah_m": 0.25,
+                "dipangkas": 3,
+                "dihapus": 24,
+                "panjang_dibuang_m": 679.65,
+                "per_cara": {
+                    "susur-tepi": 11,
+                    "tarik-lurus": 16
+                },
+                "sebelum": {
+                    "baris": 299,
+                    "panjang_m": 13031.95
+                },
+                "sesudah": {
+                    "baris": 275,
+                    "panjang_m": 12352.3,
+                    "ujung_menggantung": 23
+                },
+                "kode_dihapus": [
+                    "PERAIRAN-SAMBUNG-0037",
+                    "PERAIRAN-SAMBUNG-0038",
+                    "PERAIRAN-SAMBUNG-0043",
+                    "PERAIRAN-SAMBUNG-0045",
+                    "PERAIRAN-SAMBUNG-0046",
+                    "PERAIRAN-SAMBUNG-0047",
+                    "PERAIRAN-SAMBUNG-0050",
+                    "PERAIRAN-SAMBUNG-0052",
+                    "PERAIRAN-SAMBUNG-0053",
+                    "PERAIRAN-SAMBUNG-0058",
+                    "PERAIRAN-SAMBUNG-0061",
+                    "PERAIRAN-SAMBUNG-0065",
+                    "PERAIRAN-SAMBUNG-0072",
+                    "PERAIRAN-SAMBUNG-0074",
+                    "PERAIRAN-SAMBUNG-0102",
+                    "PERAIRAN-SAMBUNG-0107",
+                    "PERAIRAN-SAMBUNG-0111",
+                    "PERAIRAN-SAMBUNG-0116",
+                    "PERAIRAN-SAMBUNG-0130",
+                    "PERAIRAN-SAMBUNG-0131",
+                    "PERAIRAN-SAMBUNG-0151",
+                    "PERAIRAN-SAMBUNG-0156",
+                    "PERAIRAN-SAMBUNG-0161",
+                    "PERAIRAN-SAMBUNG-0162"
+                ]
+            },
+            "lengkapi_label": {
+                "tanggal": "2026-11-20T16:36:25+07:00",
+                "lapis": "garis-perairan",
+                "label_yatim": 41,
+                "label_luar_kotak": 2,
+                "ditambah": 60,
+                "panjang_ditambah_m": 3157.43,
+                "cara": {
+                    "lengkapi-benih": 18,
+                    "lengkapi-yatim": 14,
+                    "lengkapi-pita1": 28
+                },
+                "sesudah": {
+                    "baris": 335,
+                    "panjang_m": 15542.09
+                },
+                "ambang": {
+                    "tutup_m": 10,
+                    "benih_m": 8,
+                    "benih_yatim_m": 13,
+                    "pita_m": 15,
+                    "sudut_derajat": 25,
+                    "putaran": 2
+                },
+                "cadangan": "storage/cadangan/garis-perairan-sebelum-lengkapi-20261120-163625.geojson"
+            }
+        },
+        "GARIS LAIN 020100": {
+            "features": 71,
+            "types": {
+                "line": 71
+            },
+            "file": "garis-lain.geojson",
+            "panjang_m": 11822,
+            "derived_from": "garis terbuka dan cincin poligon 020100 yang berdiri sendiri tanpa label jalan/selokan/perairan",
+            "ambang": {
+                "benih_m": null,
+                "pita_m": null,
+                "sudut_derajat": 25,
+                "putaran": 2,
+                "bagi_sejajar": 0.5,
+                "bagi_koridor_kosong": 0.6,
+                "rasio_tepi": 0.3,
+                "min_panjang_m": 2,
+                "langkah_sampel_m": 2,
+                "bagi_ulang_cincin": 0.5
+            },
+            "kandidat": {
+                "garis_terbuka": 13681,
+                "cincin_dipakai": 38,
+                "cincin_mengulang": 2588
+            },
+            "permukaan_bidang": {
+                "sumber": "tabel bidang (status <> dihapus)",
+                "poligon": 4176,
+                "segmen_tepi": 56315
+            },
+            "label": null,
+            "asal": {
+                "garis": 53,
+                "bidang": 18
+            },
+            "cara": {
+                "bebas": 71
+            },
+            "dipindah_ke": {
+                "garis-perairan": [
+                    12007
+                ],
+                "garis-selokan": [
+                    12454,
+                    12212
+                ]
+            }
+        },
+        "GARIS SELOKAN 020100": {
+            "features": 689,
+            "types": {
+                "line": 689
+            },
+            "file": "garis-selokan.geojson",
+            "panjang_m": 50799,
+            "derived_from": "garis terbuka dan cincin poligon 020100 yang membawa label berkelas selokan (teks, bukan berkas asal) serta pita sejajarnya",
+            "ambang": {
+                "benih_m": 2,
+                "pita_m": 8,
+                "sudut_derajat": 25,
+                "putaran": 2,
+                "bagi_sejajar": 0.5,
+                "bagi_koridor_kosong": 0.6,
+                "rasio_tepi": 0.3,
+                "min_panjang_m": 2,
+                "langkah_sampel_m": 2,
+                "bagi_ulang_cincin": 0.5
+            },
+            "kandidat": {
+                "garis_terbuka": 13681,
+                "cincin_dipakai": 38,
+                "cincin_mengulang": 2588
+            },
+            "permukaan_bidang": {
+                "sumber": "tabel bidang (status <> dihapus)",
+                "poligon": 4176,
+                "segmen_tepi": 56315
+            },
+            "label": 165,
+            "asal": {
+                "garis": 686,
+                "bidang": 3
+            },
+            "cara": {
+                "benih": 236,
+                "pita1": 355,
+                "pita2": 83,
+                "lengkapi-yatim": 10,
+                "lengkapi-pita1": 5
+            },
+            "dirapikan": {
+                "alat": "tools/rapikan-garis-jalan.php",
+                "pada": "2026-11-20T16:38:24+07:00",
+                "lapis": "selokan",
+                "ambang": {
+                    "toleransi_m": 0.35,
+                    "belok_derajat": 40,
+                    "duplikat_maks_m": 0.5,
+                    "celah_m": 15,
+                    "rapat_m": 1
+                },
+                "putaran": 3,
+                "pertama_pada": "2026-11-20T14:12:28+07:00",
+                "sebelum_baris": 783,
+                "sebelum_panjang_m": 49948.92,
+                "sesudah_baris": 689,
+                "sesudah_panjang_m": 50798.52,
+                "duplikat_dibuang": 1,
+                "duplikat_panjang_m": 9.54,
+                "sambungan": 101,
+                "jembatan_m": 0.16,
+                "celah_dijembatani": 8,
+                "celah_panjang_m": 20.115,
+                "cincin": 164,
+                "ujung_bergantun": 306,
+                "pita_jarak": {
+                    "<=2 m": 14,
+                    "2-10 m": 62,
+                    "10-50 m": 204,
+                    ">50 m": 26
+                },
+                "simpul_ditolak_belok": 121,
+                "belokan_dinilai": {
+                    "0": 1,
+                    "40": 12,
+                    "50": 8,
+                    "60": 5,
+                    "70": 22,
+                    "80": 31,
+                    "90": 24,
+                    "100": 8,
+                    "110": 3,
+                    "130": 3,
+                    "140": 1,
+                    "170": 2,
+                    "180": 2
+                },
+                "titik_tidak_asli": 0,
+                "catatan": "duplikat_dibuang, duplikat_panjang_m, sambungan dan jembatan_m dihitung akumulatif sejak sebelum_baris; sebelum_* adalah keadaan lapis sebelum putaran pertama. simpul_ditolak_belok, belokan_dinilai, cincin, ujung_bergantun, pita_jarak dan titik_tidak_asli menggambarkan keadaan sesudah putaran terakhir."
+            },
+            "lengkapi_label": {
+                "tanggal": "2026-11-20T16:36:25+07:00",
+                "lapis": "garis-selokan",
+                "label_yatim": 15,
+                "label_luar_kotak": 2,
+                "ditambah": 16,
+                "panjang_ditambah_m": 838.86,
+                "cara": {
+                    "lengkapi-yatim": 10,
+                    "lengkapi-pita1": 6
+                },
+                "sesudah": {
+                    "baris": 690,
+                    "panjang_m": 50798.5
+                },
+                "ambang": {
+                    "tutup_m": 10,
+                    "benih_m": 2,
+                    "benih_yatim_m": 13,
+                    "pita_m": 8,
+                    "sudut_derajat": 25,
+                    "putaran": 2
+                },
+                "cadangan": "storage/cadangan/garis-selokan-sebelum-lengkapi-20261120-163625.geojson"
+            }
+        },
+        "GARIS JALAN TEPI DARI LABEL": {
+            "features": 2014,
+            "types": {
+                "line": 2014
+            },
+            "file": "garis-jalan-tepi.geojson",
+            "panjang_m": 72505,
+            "derived_from": "kandidat 020100 (garis terbuka dan cincin poligon) serta cincin tabel bidang yang membawa label berawalan JALAN (kelas dibaca dari teks, bukan dari berkas asal) serta pita sejajarnya",
+            "ambang": {
+                "benih_m": 3,
+                "benih_yatim_m": 15,
+                "pita_m": 15,
+                "sudut_derajat": 25,
+                "putaran": 2,
+                "bagi_sejajar": 0.5,
+                "bagi_koridor_kosong": 0.6,
+                "min_panjang_m": 2,
+                "langkah_sampel_m": 2,
+                "bagi_ulang_cincin": 0.5,
+                "eksklusif": false
+            },
+            "label": 622,
+            "permukaan_bidang": {
+                "sumber": "tabel bidang (status <> dihapus)",
+                "persil": 4318,
+                "segmen_tepi": 57342
+            },
+            "saring": {
+                "aturan": "terpakai",
+                "klaim_tahap1": 4371,
+                "keliling_satu_baris": {
+                    "aturan": "hapus",
+                    "tutup_m": 0.05,
+                    "toleransi_m": 0.35,
+                    "bagi_keliling_persil": 0.9,
+                    "tertutup_diuji": 579,
+                    "dibuang": 440,
+                    "dibuang_panjang_m": 56716.5,
+                    "cara": {
+                        "benih": 229,
+                        "benih-yatim": 37,
+                        "pita1": 149,
+                        "pita2": 25
+                    },
+                    "asal": {
+                        "cincin-020100": 11,
+                        "cincin-bidang": 1,
+                        "garis": 428
+                    }
+                },
+                "cincin": {
+                    "aturan": "hapus",
+                    "simpul_bulat_desimal": 2,
+                    "uji_dalam_m": 1,
+                    "bagi_dalam_persil": 0.8,
+                    "siklus_diuji": 71,
+                    "siklus_dibuang": 69,
+                    "dibuang": 260,
+                    "dibuang_panjang_m": 10241.1,
+                    "cara": {
+                        "benih": 69,
+                        "benih-yatim": 24,
+                        "pita1": 141,
+                        "pita2": 26
+                    },
+                    "asal": {
+                        "cincin-020100": 2,
+                        "garis": 258
+                    }
+                },
+                "pembatas_persil": {
+                    "aturan": "hapus",
+                    "offset_m": 0.8,
+                    "bagi_sampel": 0.8,
+                    "dibuang": 1041,
+                    "dibuang_panjang_m": 29607.7,
+                    "asal": {
+                        "garis": 1041
+                    }
+                },
+                "siklus_lepas": {
+                    "aturan": "hapus",
+                    "simpul_persimpangan_derajat": 3,
+                    "simpul_bulat_desimal": 2,
+                    "siklus": 87,
+                    "dibuang": 133,
+                    "dibuang_panjang_m": 11519.6,
+                    "rujukan_dicabut": 316,
+                    "sumbu_tersentuh": 256,
+                    "sumbu_dibuang": 3,
+                    "cara": {
+                        "benih": 70,
+                        "benih-yatim": 11,
+                        "pita1": 47,
+                        "pita2": 5
+                    },
+                    "asal": {
+                        "garis": 133
+                    }
+                },
+                "dibuang": 616,
+                "dibuang_panjang_m": 23588.9
+            },
+            "asal": {
+                "garis": 2014
+            },
+            "cara": {
+                "pita1": 948,
+                "benih": 771,
+                "pita2": 192,
+                "benih-yatim": 103
+            }
+        },
+        "GARIS JALAN SUMBU DARI LABEL": {
+            "features": 1535,
+            "types": {
+                "line": 1535
+            },
+            "file": "garis-jalan-sumbu.geojson",
+            "panjang_m": 31114,
+            "derived_from": "rata-rata dua sisi tepi garis-jalan-tepi.geojson yang saling berhadapan di dalam koridor kosong; satu garis per segmen antara dua ujung, persimpangan, atau ruas jahitan. Rantai label yatim (label jalan tanpa sumbu dalam 15,0 m) boleh memasangkan tepi dengan cincin persil atau garis/cincin 020100, dan dipangkas begitu menempel sumbu yang sudah ada",
+            "ambang": {
+                "lebar_min_m": 0.25,
+                "lebar_maks_m": 8,
+                "lebar_yatim_m": 10,
+                "sudut_pasang_derajat": 25,
+                "bagi_pasang": 0,
+                "ragu_sisi_m": 1,
+                "ragu_sumbu_m": 1.2,
+                "min_panjang_m": 2,
+                "sumber_tepi": "turun",
+                "jahit_m": 3,
+                "sudut_jahit_derajat": 25
+            },
+            "jahit": {
+                "ruas": 120,
+                "panjang_m": 262.3,
+                "ujung_buntu": 1376,
+                "untaian": "1725 -> 1605",
+                "ditolak": {
+                    "tidak searah": 99,
+                    "masuk bidang": 0,
+                    "koridor air": 0,
+                    "sudah terjahit": 0,
+                    "berbagi simpul": 0
+                }
+            },
+            "sisi": {
+                "komponen": 514,
+                "terpasang": 2139,
+                "tunggal": 491,
+                "tunggal_setengah": 0,
+                "koridor_tertutup": 84,
+                "seberang_terdekat": {
+                    "<=2 m": 40,
+                    "2-4 m": 43,
+                    "4-8 m": 20,
+                    "8-15 m": 119,
+                    "tidak ada sisi sejajar": 269
+                },
+                "tunggal_panjang_m": 12766,
+                "koridor": 559,
+                "uji_seberang_m": 15,
+                "yatim_terpasang": 23,
+                "yatim_titik": 545,
+                "yatim_untai": 133,
+                "yatim_panjang_m": 804,
+                "yatim_tolak_air": 2210
+            },
+            "label_yatim": {
+                "aturan": "aktif",
+                "radius_sumbu_m": 15,
+                "lebar_koridor_m": 8,
+                "langkah_m": 2,
+                "pangkas_sumbu_m": 1.2,
+                "kandidat": {
+                    "tepi": 2630,
+                    "persil": 4318,
+                    "garis": 13681,
+                    "cincin": 2626
+                },
+                "label_jalan": 622,
+                "rantai": 67,
+                "panjang_m": 4294.5,
+                "penanda": {
+                    "sumbu dekat": 518,
+                    "tanpa benih": 33,
+                    "rantai pendek": 4,
+                    "terpasang": 67
+                },
+                "berhenti": {
+                    "tanpa sisi": 5,
+                    "koridor air": 5,
+                    "arah buntu": 93,
+                    "tutup bidang": 21
+                },
+                "sisa_tanpa_rantai": 37
+            },
+            "lebar_m": {
+                "timbang_panjang": 3.56,
+                "pita": {
+                    "<=1 m": 15,
+                    "1-2 m": 294,
+                    "2-4 m": 611,
+                    "4-6 m": 437,
+                    ">6 m": 206
+                }
+            },
+            "verifikasi": {
+                "titik_diuji": 13623,
+                "tanpa_tepi": 0,
+                "ke_tepi_median_m": 1.58,
+                "ke_tepi_maksimum_m": 5
+            },
+            "cara": {
+                "sumbu": 1469,
+                "sumbu-yatim": 66
+            },
+            "dibuang_tumpang_air": {
+                "pada": "2026-11-20T14:29:37+07:00",
+                "aturan": "sumbu yang >=90% panjangnya berada <=2 m dari garis perairan",
+                "jumlah": 25,
+                "panjang_m": 447.67
+            }
+        },
+        "GARIS TEPI JALAN + TEPI BIDANG PER BLOK": {
+            "features": 4612,
+            "types": {
+                "line": 4612
+            },
+            "file": "garis-tepi-jalan-bidang.geojson",
+            "panjang_m": 364852,
+            "derived_from": "garis-jalan-tepi.geojson dijahit dengan cincin luar persil tabel bidang per blok",
+            "ambang": {
+                "simpul_m": 0.35,
+                "potong_m": 0.1,
+                "belok_derajat": 40,
+                "kembar_jarak_m": 0.5,
+                "kembar_bagi": 0.8,
+                "langkah_sampel_m": 2
+            },
+            "penyambungan": {
+                "ruas_masuk": 20279,
+                "ruas_tergabung": 20279,
+                "polilin": 4612,
+                "pasangan": 15744,
+                "pasangan_jalan_bidang": 866,
+                "kembar_segmen_bidang_dibuang": 5359,
+                "kembar_panjang_m": 84492.9,
+                "kembar_ruas_sesama_dibuang": 17094,
+                "potong_segmen_bidang": 30
+            },
+            "per_blok": {
+                "0": {
+                    "polilin": 75,
+                    "panjang_m": 3772.6,
+                    "campur": 0
+                },
+                "1": {
+                    "polilin": 69,
+                    "panjang_m": 8930.7,
+                    "campur": 5
+                },
+                "2": {
+                    "polilin": 128,
+                    "panjang_m": 11447.6,
+                    "campur": 8
+                },
+                "3": {
+                    "polilin": 175,
+                    "panjang_m": 14952.4,
+                    "campur": 7
+                },
+                "4": {
+                    "polilin": 138,
+                    "panjang_m": 11271.4,
+                    "campur": 13
+                },
+                "5": {
+                    "polilin": 93,
+                    "panjang_m": 8583,
+                    "campur": 2
+                },
+                "6": {
+                    "polilin": 188,
+                    "panjang_m": 15717.2,
+                    "campur": 9
+                },
+                "7": {
+                    "polilin": 295,
+                    "panjang_m": 22893.8,
+                    "campur": 24
+                },
+                "8": {
+                    "polilin": 87,
+                    "panjang_m": 8078.4,
+                    "campur": 6
+                },
+                "9": {
+                    "polilin": 162,
+                    "panjang_m": 12249.6,
+                    "campur": 20
+                },
+                "10": {
+                    "polilin": 329,
+                    "panjang_m": 22725.9,
+                    "campur": 23
+                },
+                "11": {
+                    "polilin": 176,
+                    "panjang_m": 16545.9,
+                    "campur": 11
+                },
+                "12": {
+                    "polilin": 208,
+                    "panjang_m": 17367,
+                    "campur": 24
+                },
+                "13": {
+                    "polilin": 154,
+                    "panjang_m": 13925.1,
+                    "campur": 18
+                },
+                "14": {
+                    "polilin": 258,
+                    "panjang_m": 18042.6,
+                    "campur": 11
+                },
+                "15": {
+                    "polilin": 186,
+                    "panjang_m": 16310.8,
+                    "campur": 7
+                },
+                "16": {
+                    "polilin": 187,
+                    "panjang_m": 12678.2,
+                    "campur": 14
+                },
+                "17": {
+                    "polilin": 238,
+                    "panjang_m": 20135.7,
+                    "campur": 26
+                },
+                "18": {
+                    "polilin": 301,
+                    "panjang_m": 19181,
+                    "campur": 20
+                },
+                "19": {
+                    "polilin": 177,
+                    "panjang_m": 16377.3,
+                    "campur": 10
+                },
+                "21": {
+                    "polilin": 127,
+                    "panjang_m": 12167.6,
+                    "campur": 15
+                },
+                "22": {
+                    "polilin": 118,
+                    "panjang_m": 11481.3,
+                    "campur": 7
+                },
+                "23": {
+                    "polilin": 348,
+                    "panjang_m": 21276.5,
+                    "campur": 24
+                },
+                "24": {
+                    "polilin": 100,
+                    "panjang_m": 7129.4,
+                    "campur": 15
+                },
+                "25": {
+                    "polilin": 295,
+                    "panjang_m": 21610.8,
+                    "campur": 22
+                }
+            },
+            "derived_at": "2026-11-16T10:32:07+07:00"
+        },
+        "GARIS SUMBU JAHIT BLOK 2": {
+            "features": 58,
+            "types": {
+                "line": 58
+            },
+            "file": "garis-sumbu-jahit-blok-2.geojson",
+            "panjang_m": 2281,
+            "derived_from": "garis-jalan-sumbu.geojson, baris berblok BLOK 2 (suara terbanyak verteks), dijahit jadi polilin",
+            "ambang": {
+                "simpul_m": 0.35,
+                "belok_derajat": 40,
+                "kembar_jarak_m": 0.5,
+                "celah_maks_m": 10
+            },
+            "penyambungan": {
+                "sumbu_masuk": 154,
+                "ruas_masuk": 924,
+                "pasangan": 827,
+                "polilin": 58,
+                "kembar_ruas_dibuang": 0,
+                "celah_dijembatani": 20,
+                "celah_panjang_m": 130.6
+            },
+            "derived_at": "2026-11-16T10:43:55+07:00"
+        },
+        "GARIS TEPI SUNGAI 020100": {
+            "features": 143,
+            "types": {
+                "line": 143
+            },
+            "panjang_m": 15010.91,
+            "cara": {
+                "rantai-tepi": 143
+            },
+            "asal": {
+                "garis-perairan": 143
+            },
+            "tepi_sungai": {
+                "alat": "tools/tepi-sungai.php",
+                "pada": "2026-11-20T16:39:39+07:00",
+                "aturan": "baris garis-perairan disambung menjadi rantai menurut simpul (ujung berjarak <= toleransi, termasuk ujung yang menempel di tengah ruas garis lain) dan arah paling lurus; geometri tidak digeser, verteks sisipan kolinear",
+                "toleransi_simpul_m": 0.35,
+                "sudut_lanjut_derajat": 90,
+                "sumber_berkas": "garis-perairan.geojson",
+                "sebelum": {
+                    "baris": 275,
+                    "panjang_m": 15013.57,
+                    "komponen": 77
+                },
+                "sesudah": {
+                    "baris": 143,
+                    "panjang_m": 15010.91,
+                    "komponen": 143,
+                    "terpanjang_m": 895.15,
+                    "median_m": 56.72
+                },
+                "sisipan_simpul": 91,
+                "rantai_mikro_dibuang": 21
+            }
+        }
+    },
+    "warning": "Jangan ditafsirkan sebagai EPSG:4326 atau meter persegi sebelum satuan dan titik kontrol diverifikasi.",
+    "notes": [
+        "Rentang peta utama dihitung dari geometri layer 020100.",
+        "Dua label pada layer BATAS PERAIRAN berada jauh di luar rentang layer 020100; tetap tersimpan di berkas layer, tetapi tidak ikut menentukan zoom awal.",
+        "Geometri terbuka pada layer 020100 dipertahankan sebagai garis, bukan ditutup secara otomatis.",
+        "Hanya 2.626 polyline tertutup dari layer 020100 yang diekspor sebagai geometri bidang tertutup.",
+        "BIDANG HM: 1.494 polygon (23 di antaranya garis terbuka yang ujungnya bertemu, auto_closed) dan 2 garis terbuka.",
+        "HM: 77 polygon (16 auto_closed) dan 18 garis terbuka; 4 entitas tanpa geometri sah dilewati.",
+        "OPTIMALISASI HM melewati 1 entitas tanpa geometri sah (invalid_skipped).",
+        "Label NIB HM, BATAS DESA, BLOK, dan BATAS JALAN memakai titik sisip TEXT; 6 INSERT pada BATAS JALAN diekspor sebagai titik.",
+        "lb_lai memuat garis di luar rentang 020100 (sisi barat, X sekitar 260.197); tidak ikut menentukan zoom awal.",
+        "CALON BIDANG: 737 poligon dari garis 020100 yang ujungnya hampir bertemu tetapi belum ditutup; 635 kandidat dilewati karena bentuknya sama dengan poligon tertutup, dan 266 karena sudah tertutup bidang HM (255) atau poligon tertutup 020100 (11). Hanya untuk menandai bidang yang belum terpetakan, bukan bidang resmi.",
+        "GARIS BATAS JALAN, GARIS SELOKAN dan GARIS BATAS PERAIRAN diturunkan dari 020100: kandidat = 13681 garis terbuka ditambah 38 cincin poligon yang belum >= 50% mengulang garis lain (2588 cincin dibuang karena tepi sudah ada). Benih = kandidat yang membawa label sekelas (jalan <= 2.0 m, selokan <= 2.0 m, perairan <= 8.0 m dari titik label; kelas dibaca dari TEKS label karena nama saluran tersimpan di berkas BATAS PERAIRAN dan dua nama jalan nyasar ke berkas yang sama), lalu pita sejajar <= 15.0 m untuk jalan dan perairan atau <= 8.0 m untuk selokan dengan beda arah maksimal 25 derajat mengambil tepi di sisi lain. Kandidat pita hanya diterima bila minimal 50% titik sampelnya sejajar dan tengah koridornya ke garis terklaim tidak berada di dalam bidang (minimal 60% kosong) — tanpa penyaring koridor ini pita menyerap 9.690 garis karena kisi bidang tanah hampir selalu sejajar dalam 15 m. Selokan hanya berjarak median 1,8 m antar tepi dan labelnya ditulis DI ATAS garisnya (median 0,5 m), sedangkan nama sungai ditulis di tengah alur selebar median 5,3 m (median 2,8 m ke tepi): itu sebabnya keduanya tidak lagi satu layer. GARIS LAIN berisi kandidat yang berdiri sendiri (kurang dari 30% titik sampelnya jatuh di tepi bidang) dan tidak terjaring dua aturan itu. Garis lebih pendek dari 2.0 m dibuang (396), dan 8780 garis yang hanya mengulang tepi bidang tidak masuk layer lain-lain. Keempatnya hanya lapisan referensi pada peta DXF lama; tidak ada yang ditulis ke tabel bidang.",
+        "GARIS TEPI JALAN + TEPI BIDANG PER BLOK: 4612 polilin (364.851,8 m) dari 20279 ruas; 5359 segmen tepi bidang (84.492,9 m) dibuang karena sudah tergambar sebagai tepi jalan (sampel tiap 2,0 m, >= 80% dalam 0,5 m). Simpul 0,35 m, ujung tepi yang jatuh di tengah segmen bidang dipotong memakai ujung itu sendiri (<= 0,10 m), lalu di tiap simpul dua ruas paling lurus dipasangkan bila bloknya sama dan belokan <= 40 derajat; tidak ada koordinat yang digeser.",
+        "GARIS SUMBU JAHIT BLOK 2: 78 polilin (2.150,3 m) dari 154 baris sumbu dan 904 ruas; simpul 0,35 m, di simpul derajat 2 selalu disambung, di simpul bercabang pasangan paling lurus dengan belokan <= 40 derajat; tidak ada koordinat yang digeser.",
+        "GARIS SUMBU JAHIT BLOK 2: 58 polilin (2.281,0 m) dari 154 baris sumbu dan 924 ruas; simpul 0,35 m, di simpul derajat 2 selalu disambung, di simpul bercabang pasangan paling lurus dengan belokan <= 40 derajat; 20 celah ujung dijahit (<= 10,0 m); tidak ada koordinat yang digeser.",
+        "GARIS JALAN TEPI DARI LABEL dan GARIS JALAN SUMBU DARI LABEL dibuat tools/garis-jalan-label.php pada 2026-11-16T11:51:57+07:00. Tahap 1 mengklaim tepi dari label berawalan JALAN (benih <= 3.0 m, pita <= 15.0 m dengan beda arah <= 25 derajat, koridor >= 60% kosong terhadap gabungan cincin 020100 dan 4318 persil tabel bidang yang hanya dibaca). Tahap 2 merata-ratakan dua sisi yang berhadapan <= 8.0 m menjadi satu sumbu per segmen: 2139 baris tepi menyumbang titik tengah dan lahir 1560 segmen sumbu sepanjang 31.561,7 m dari 514 komponen sisi; 491 baris (12.765,7 m) tidak punya sisi seberang sama sekali sehingga tidak bisa disumbukan. 1725 untaian dijahit dengan 120 ruas sepanjang 262,3 m (celah <= 3.0 m, beda arah majen <= 25 derajat) menjadi 1605 untaian. Koordinat sumbu baru, rata-rata dua tepi, bukan titik turunan 020100. Keduanya hanya lapisan referensi hasil turunan dan sudah dipasang sebagai pil di panel Peta Induk.",
+        "GARIS JALAN TEPI DARI LABEL: berkas garis-jalan-tepi.geojson hanya memuat baris yang menjadi bahan sebuah sumbu; dari 2630 baris sisa sesudah saringan, 483 baris (12.069,2 m) tidak muncul di `tepi_all` satu pun sumbu sehingga dibuang 15 Nov 2026 atas permintaan \"hapus garis tepi jalan yang membentuk peta bidang\". Baris itu tepian bidang tanah yang ikut terklaim lewat benih atau pita, bukan sisi koridor jalan. Jumlah sumbu tidak berubah sebab penyaringan terjadi sesudah tahap 2.",
+        "GARIS JALAN TEPI DARI LABEL: 440 dari 579 baris tepi yang titik awal dan akhirnya sama (56.716,5 m) dibuang karena >= 90% titik sampel keliling SATU persil jatuh <= 0.35 m dari baris itu: baris semacam ini keliling sebuah bidang tanah yang ditulis sebagai satu polilin, bukan tepi jalan. Uji per baris ini tidak memakai topologi, jadi tetap mengenali keliling yang bertemu keliling lain di satu simpul. Saringan berjalan sebelum saringan cincin topologis, sebelum saringan pembatas persil, dan sebelum tahap 2, jadi sumbu dibangun ulang tanpa baris itu.",
+        "GARIS JALAN TEPI DARI LABEL: 69 dari 71 siklus sederhana (260 baris, 10.241,1 m) dibuang karena titik 1,0 m ke arah dalam siklus itu berada di dalam persil pada >= 80% titik uji — siklus seperti itu keliling sebuah bidang tanah, bukan tepi jalan. Cabang yang menempel dipangkas lebih dulu, jadi keliling tetap dikenali walau ada garis lain yang bersambung padanya; siklus yang mengurung ruang kosong (dua tepi jalan yang bertemu di ujung gang) dibiarkan. Saringan berjalan sebelum saringan pembatas persil dan sebelum tahap 2, jadi sumbu dibangun ulang tanpa baris itu dan `tepi_all` tidak menunjuk baris yang hilang. Ujung baris dianggap satu simpul bila jaraknya <= 0,01 m.",
+        "GARIS JALAN TEPI DARI LABEL: 133 baris terbit (11.519,6 m) dicabut karena membentuk 87 siklus yang menempel ke jaringan jalan pada paling banyak satu simpul — keliling bidang tanah atau lingkaran buntu, bukan jalan lewat. Ujung baris dibulatkan 0,01 m, daun dipangkas, lalu simpul yang pada inti bersambung >= 3 dibuang; komponen sisa yang setiap simpulnya bersambung 2 adalah siklus lepas. Saringan berjalan SESUDAH --tepi=terpakai, jadi keliling yang baru terpisah dari jaringan sesudah baris tak terpakai dibuang ikut tertangkap. 316 rujukan dicabut dari `tepi_all` dan 3 sumbu yang kehilangan seluruh rujukannya ikut dibuang; geometri sumbu tidak dihitung ulang, sama seperti penyaringan --tepi=terpakai.",
+        "GARIS JALAN TEPI DARI LABEL: 1041 baris klaim tahap 1 (29.607,7 m) dibuang karena kedua sisinya, pada offset tegak lurus 0.8 m, jatuh di persil yang berbeda pada >= 80% titik sampel: garis itu pembatas dua bidang tanah, bukan tepi jalan. Saringan berjalan sebelum tahap 2, jadi sumbu dibangun ulang tanpa baris itu dan `tepi_all` tidak menunjuk baris yang hilang."
+    ],
+    "converted_at": "2026-10-31T11:01:27+01:00",
+    "derived_at": "2026-11-16T11:51:57+07:00"
+}
