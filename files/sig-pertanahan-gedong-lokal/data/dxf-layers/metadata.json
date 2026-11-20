@@ -3050,6 +3050,37 @@
                 "sisipan_simpul": 91,
                 "rantai_mikro_dibuang": 21
             }
+        },
+        "TITIK TENGAH BIDANG HM": {
+            "features": 1496,
+            "types": {
+                "point": 1496
+            },
+            "asal": {
+                "BIDANG HM": 1496
+            },
+            "cara": {
+                "garis-scan": 1,
+                "tengah-garis": 2,
+                "titik-berat": 1493
+            },
+            "titik_tengah_bidang": {
+                "alat": "tools/titik-tengah-bidang-hm.php",
+                "pada": "2026-11-20T16:52:58+07:00",
+                "aturan": "satu titik per fitur: poligon memakai titik berat badan (fallback garis pindai kotak batas, lalu pertengahan kotak batas); garis terbuka memakai titik tengah menurut panjang",
+                "sumber_berkas": "bidang-hm.geojson",
+                "sebelum": {
+                    "fitur": 1496,
+                    "poligon": 1494,
+                    "garis": 2,
+                    "lain": 0,
+                    "luas_poligon_m2": 1458682.18
+                },
+                "sesudah": {
+                    "titik": 1496,
+                    "di_luar_ring": 0
+                }
+            }
         }
     },
     "warning": "Jangan ditafsirkan sebagai EPSG:4326 atau meter persegi sebelum satuan dan titik kontrol diverifikasi.",

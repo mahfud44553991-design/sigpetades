@@ -423,6 +423,9 @@ sip_judul(
                 <label class="cek" title="Layer DXF BIDANG HM">
                     <input type="checkbox" data-lapisan="bidang-hm">
                     Bidang (<?= e(angka($jumlah('BIDANG HM'))) ?>)</label>
+                <label class="cek" title="Satu titik per fitur BIDANG HM: titik berat badan poligon (1.494) atau tengah garis terbuka (2); turunan tools/titik-tengah-bidang-hm.php">
+                    <input type="checkbox" data-lapisan="titik-tengah-bidang-hm">
+                    Titik tengah (<?= e(angka($jumlah('TITIK TENGAH BIDANG HM'))) ?>)</label>
                 <label class="cek" title="Layer DXF HM — hanya garis terbuka; 77 cincin poligon HM tidak digambar karena sudah terwakili pil Bidang">
                     <input type="checkbox" data-lapisan="hm">
                     Garis (<?= e(angka($jumlahGarisHm)) ?>)</label>
@@ -826,6 +829,12 @@ $naskah = <<<'JS'
                 const p = f.properties || {};
                 if (p.label) {
                     return L.marker(ll, { icon: ikonLabel(p.label, ''), interactive: false, keyboard: false });
+                }
+                if (p.pusat) {
+                    return L.circleMarker(ll, {
+                        radius: 2.6, weight: 1, color: '#ffffff', opacity: .9,
+                        fillColor: '#1f7a5c', fillOpacity: 1, interactive: false
+                    });
                 }
                 return L.circleMarker(ll, {
                     radius: 2, color: '#8b6b2d', weight: 1, fillOpacity: .7

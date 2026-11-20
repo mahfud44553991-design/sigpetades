@@ -7739,6 +7739,51 @@ sudah ada.
 
 ---
 
+### 3.102 Titik tengah Bidang HM: satu titik per bidang berhak (20 Nov 2026)
+
+Lapis BIDANG HM (`bidang-hm.geojson`) berisi **1.496 fitur** — 1.494 poligon
+bidang tertutup dan 2 garis terbuka (indeks 459 dan 460, potongan rangkaian
+yang ujungnya tidak bertemu). Pil **Titik tengah** yang sudah ada di
+kelompok Bidang kadastrum hanya menandai poligon tertutup 020100 dan dihitung
+di peramban; bidang HM tidak punya titik serupa. Alat
+`tools/titik-tengah-bidang-hm.php` menurunkan lapis titik baru
+`titik-tengah-bidang-hm.geojson` dengan aturan berikut.
+
+- Poligon memakai **titik berat badan** (centroid luas shoelace pada meter DXF
+  lokal), bukan rata-rata titik sudut, supaya bidang berbentuk L tetap dapat
+  titik di badannya. Satu bidang cekung (indeks 1.190, 3.187,58 m²) titik
+  beratnya jatuh di luar ring, jadi dipakai **garis pindai** mendatar pada
+  beberapa ketinggian kotak batas dan diambil pertengahan rentang dalam yang
+  terlebar; pertengahan kotak batas tidak terpakai sama sekali.
+- Garis terbuka memakai **titik tengah menurut panjang** garis dan diberi
+  sifat `terbuka: true`, `pusat: "tengah-garis"`.
+
+Hasilnya **1.496 titik**, tepat satu per fitur (tidak ada indeks hilang atau
+tergandakan), semuanya berupa `Point`. Pemeriksaan ulang terpisah: **0** titik
+poligon jatuh di luar ring bidangnya sendiri; luas seluruh poligon
+1.458.682,18 m². Rincian cara titik: 1.493 `titik-berat`, 1 `garis-scan`,
+2 `tengah-garis`.
+
+Pil **Titik tengah (1.496)** di kelompok Bidang berhak (tidak tercentang)
+menyajikan lapis ini lewat `api/peta-lama.php?lapisan=titik-tengah-bidang-hm`.
+Titiknya hijau `#1f7a5c` radius 2,6 tanpa interaksi, senada dengan garis bidang
+HM, dan hanya muncul bila pilnya dinyalakan. Metadata lapis tercatat di
+`layers.TITIK TENGAH BIDANG HM` dengan blok `titik_tengah_bidang` (aturan,
+sebelum/sesudah, jumlah di luar ring).
+
+```
+php tools/titik-tengah-bidang-hm.php                      # uji kering, cetak angka
+php tools/titik-tengah-bidang-hm.php --keluar=pratinjau.geojson
+php tools/titik-tengah-bidang-hm.php --terapkan
+```
+
+`--terapkan` menulis `titik-tengah-bidang-hm.geojson` dan memperbarui
+metadata, setelah mencadangkan keduanya ke
+`_lama/cadangan-titik-tengah-bidang-YYYYMMDD/`. Berkas hasil tidak di-force-add
+ke git karena bisa dibuat ulang dari `bidang-hm.geojson` yang sudah terlacak.
+
+---
+
 ## 4. Berkas SPPT dari Excel
 
 Importer CSV menerima kolom berikut (nama kolom dibersihkan dari spasi dan tanda

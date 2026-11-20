@@ -37,6 +37,10 @@ declare(strict_types=1);
  *       dari berkas garis-jalan-dari-sumbu-panjang.geojson.
  *   GET api/peta-lama.php?lapisan=bidang-hm   (juga hm, optimalisasi-hm, lb-lai,
  *       020400, nib-hm, batas-desa, blok, batas-jalan)
+ *   GET api/peta-lama.php?lapisan=titik-tengah-bidang-hm
+ *       Satu titik per fitur BIDANG HM: titik berat poligon (garis pindai bila
+ *       titik berat jatuh di luar badan) dan tengah garis untuk garis terbuka,
+ *       oleh tools/titik-tengah-bidang-hm.php.
  *   GET api/peta-lama.php?lapisan=titik-obyek
  *       Titik obyek dari alat "Penanda titik obyek" (titik-obyek-manual.geojson).
  *       Sebelum ada titik tersimpan, lapis ini menjawab koleksi kosong.
@@ -64,6 +68,7 @@ const LAPISAN_PETA_LAMA = [
     'batas-perairan' => 'batas-perairan.geojson',
     'tn-nama'        => 'tn-nama.geojson',
     'bidang-hm'      => 'bidang-hm.geojson',
+    'titik-tengah-bidang-hm' => 'titik-tengah-bidang-hm.geojson',
     'hm'             => 'hm.geojson',
     'optimalisasi-hm' => 'optimalisasi-hm.geojson',
     'lb-lai'         => 'lb-lai.geojson',
