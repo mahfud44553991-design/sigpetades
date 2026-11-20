@@ -370,7 +370,8 @@ foreach ($fitur as $i => $f) {
         'indeksAll' => array_values(array_unique(array_map('intval',
             (array) ($p['indeks_all'] ?? [$idx])))),
         'bagian' => [$i + 1],
-        'jembatan' => 0,
+        // Jembatan putaran lalu tetap tercatat walau putaran ini tidak menjahit apa pun.
+        'jembatan' => (int) ($p['jembatan_celah'] ?? 0),
     ];
     $sebelumPanjang += $bag[$i]['panjang'];
     $titikSebelum += count($titik);
