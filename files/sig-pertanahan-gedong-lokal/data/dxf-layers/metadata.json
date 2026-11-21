@@ -3070,6 +3070,52 @@
                     "di_luar_ring": 0
                 }
             }
+        },
+        "GARIS SUNGAI DARI LABEL": {
+            "features": 72,
+            "types": {
+                "line": 72
+            },
+            "file": "garis-sungai-label.geojson",
+            "panjang_m": 5693,
+            "derived_from": "titik tengah dua tepi berhadapan pada celah persil (tabel bidang) dan garis/cincin 020100, ditelusuri dari tiap label SUNGAI/KALI/BENGKONG di batas-perairan.geojson; tidak ada titik karangan dan tidak ada tulisan ke basis data",
+            "ambang": {
+                "lebar_min_m": 3,
+                "lebar_maks_m": 60,
+                "benih_m": 30,
+                "seed_tengah_m": 15,
+                "seed_dari_m": 5,
+                "sudut_derajat": 25,
+                "langkah_m": 2,
+                "langkah_maks": 300,
+                "maju_m": 3.5,
+                "pangkas_m": 1.2,
+                "min_panjang_m": 5,
+                "dekat_label_m": 10,
+                "kembar_sampel_m": 3,
+                "kembar_bagi": 0.6
+            },
+            "label": 112,
+            "label_terjangkau_m": 15,
+            "label_terjangkau": 112,
+            "kembar_dibuang": 0,
+            "kembar_dibuang_panjang_m": 0,
+            "tembus": {
+                "aturan": "aktif",
+                "rantai_lama_dimuat": 62,
+                "rantai": 10,
+                "panjang_m": 534.6,
+                "lewat_bidang_m": 436.5
+            },
+            "permukaan_bidang": {
+                "sumber": "tabel bidang (status <> dihapus)",
+                "cincin": 4329
+            },
+            "asal_tepi": {
+                "020100_garis": 13681,
+                "020100_cincin": 2626,
+                "persil": 4329
+            }
         }
     },
     "warning": "Jangan ditafsirkan sebagai EPSG:4326 atau meter persegi sebelum satuan dan titik kontrol diverifikasi.",
@@ -3096,5 +3142,5 @@
         "GARIS JALAN TEPI DARI LABEL: 1041 baris klaim tahap 1 (29.607,7 m) dibuang karena kedua sisinya, pada offset tegak lurus 0.8 m, jatuh di persil yang berbeda pada >= 80% titik sampel: garis itu pembatas dua bidang tanah, bukan tepi jalan. Saringan berjalan sebelum tahap 2, jadi sumbu dibangun ulang tanpa baris itu dan `tepi_all` tidak menunjuk baris yang hilang."
     ],
     "converted_at": "2026-10-31T11:01:27+01:00",
-    "derived_at": "2026-11-16T11:51:57+07:00"
+    "derived_at": "2026-11-21T11:41:17+07:00"
 }
