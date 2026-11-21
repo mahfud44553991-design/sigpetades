@@ -3266,6 +3266,40 @@
                 "sumber": "tabel bidang (status <> dihapus)",
                 "cincin": 4329
             }
+        },
+        "GARIS TEPI SUNGAI DARI SUMBU": {
+            "features": 142,
+            "types": {
+                "line": 142
+            },
+            "file": "garis-tepi-sungai-dari-sumbu.geojson",
+            "panjang_m": 8367,
+            "derived_from": "tepi nyata garis-perairan.geojson (143 rantai/15.010,9 m) yang menyertai garis-sungai-jahit.geojson (27 polilin), dipotong menurut klaim sampel sumbu; tanpa titik karangan, tanpa jembatan antarrantai, dan tanpa tulisan ke basis data",
+            "ambang": {
+                "jarak_min_m": 0.4,
+                "jarak_maks_m": 12,
+                "sudut_derajat": 25,
+                "langkah_m": 2,
+                "min_panjang_m": 1,
+                "lanjut_segmen": 2,
+                "uji_persil": true
+            },
+            "sumbu": {
+                "file": "garis-sungai-jahit.geojson",
+                "polilin": 27,
+                "panjang_m": 9559.9,
+                "bertepi": 26,
+                "dua_sisi": 19
+            },
+            "bahan": {
+                "file": "garis-perairan.geojson",
+                "rantai": 143,
+                "panjang_m": 15010.9
+            },
+            "permukaan_bidang": {
+                "sumber": "tabel bidang (status <> dihapus)",
+                "cincin": 4329
+            }
         }
     },
     "warning": "Jangan ditafsirkan sebagai EPSG:4326 atau meter persegi sebelum satuan dan titik kontrol diverifikasi.",
@@ -3294,5 +3328,5 @@
         "GARIS SUMBU SUNGAI JAHIT: 38 polilin (5.930,5 m) sesudah 3 celah lagi dijahit lewat koridor dua tepi perairan oleh tools/jahit-sumbu-tepi.php: celah 11,2 + 23,1 + 59,0 = 93,3 m, susuran 96,1 m termasuk ruas penutup <= 3 m ke ujung B. Susuran mengikuti titik tengah pasangan tepi kiri-kanan (masing-masing <= 15 m, sejajar satu sama lain, lebar alur 3-60 m) dan hanya dipakai bila penyusur sampai <= 3 m dari ujung B tanpa tersangkut; sudut sambung di kedua ujung 76/36, 39/37, dan 20/40 derajat. Verifikasi: 3.524 titik bahan tetap utuh dan berurutan, 45 titik baru semuanya titik jejak susuran (terjauh 8,3 m dari tepi), panjang 5.834,4 + 96,1 = 5.930,5 m tepat, sisa 76 ujung bebas (<=2 m 0, 2-10 m 0, 10-50 m 25, >50 m 23). Dari 37 celah <= 150 m hanya 3 yang bisa disusur; sisanya koridor putus atau arah berbalik, jadi tidak ditambal. Berkas sebelumnya (41 polilin, 5.834,4 m) ada di _lama/cadangan-sumbu-tepi-20261121/garis-sungai-jahit-41.geojson."
     ],
     "converted_at": "2026-10-31T11:01:27+01:00",
-    "derived_at": "2026-11-21T13:30:47+07:00"
+    "derived_at": "2026-11-21T14:29:16+07:00"
 }

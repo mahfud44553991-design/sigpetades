@@ -8330,6 +8330,57 @@ tanpa galat aplikasi. Basis data tidak disentuh.
 
 ---
 
+### 3.114 Garis tepi sungai diturunkan dari 27 sumbu yang sudah terbentuk (21 Nov 2026)
+
+**Pertanyaannya dibalik.** Setelah sumbu sungai menjadi 27 polilin (§3.113),
+lapis Sungai masih memuat SEMUA tepi perairan (143 rantai, 15.010,9 m) —
+termasuk alur yang tidak punya sumbu — sehingga tidak ada daftar tepi yang
+menyertai sumbu. `tools/sumbu-dari-dua-tepi.php` bergerak dari tepi ke sumbu;
+alat baru `tools/tepi-sungai-dari-sumbu.php` bergerak dari sumbu ke tepi.
+
+**Bahan dan aturan.** Tepi diambil dari `garis-perairan.geojson` (hasil
+`tools/tepi-sungai.php`), bukan dari garis karangan. Tiap 2 m sepanjang sumbu
+dicari satu segmen tepi terdekat di kiri dan di kanan yang sejajar (beda arah
+≤25°), berjarak 0,4–12 m dari sumbu, dan titik tengah sumbu-tepi TIDAK di
+dalam poligon bidang (4.329 cincin, dibaca saja dari tabel `bidang`); tanpa
+syarat terakhir, tepi seberang sebidang tanah ikut terklaim di tikungan.
+Segmen yang diklaim dipotong menurut klaim yang bersambung di sepanjang sumbu,
+jadi baris keluaran memakai verteks rantai tepi asli ditambah dua titik
+proyeksi sampel ujungnya: **0 titik karangan, 0 jembatan antarrantai** — tepi
+yang putus di mulut anak sungai tetap putus. Potongan < 1 m dibuang.
+
+**Hasil.** `php -d memory_limit=1024M tools/tepi-sungai-dari-sumbu.php
+--terapkan` menulis `garis-tepi-sungai-dari-sumbu.geojson`: **142 baris ·
+8.366,9 m · 744 titik** (kiri 65 baris/3.965,1 m, kanan 77 baris/4.401,8 m),
+dari 581 potongan mikro yang dibuang. **26 dari 27 sumbu** mendapat tepi,
+**19 di antaranya bertepi dua sisi**. Cakupan terkuat: JAHIT-0021 96,2%,
+JAHIT-0022 91,2%, JAHIT-0006 91,0% (kiri 686,6 m/kanan 725,9 m); sumbu
+terpanjang JAHIT-0001 (1.505,7 m) mendapat 964,2 m kiri dan 968,6 m kanan
+(64,0% dua sisi setara). Cakupan terlemah: JAHIT-0018 (79,3 m) tanpa tepi sama
+sekali — gabungan label 0002 dan garis manual M0019 berjalan di bentang yang
+memang tidak punya tepi perairan dalam 12 m; JAHIT-0010 0,7%, JAHIT-0007 3,5%,
+JAHIT-0011 hanya sisi kiri (118,5 m), JAHIT-0009 hanya sisi kanan (37,5 m).
+
+**Berkas dan properti.** Satu LineString per baris: `kode` TEPI-SUMBU-0001..
+0142, `cara` tepi-dari-sumbu, `sumbu` (kode sumbu asal), `sisi` kiri/kanan,
+`panjang_m`, `jarak_rata_m`/`jarak_min_m`/`jarak_maks_m`, `bahan` (kode rantai
+tepi asal), dan `sampel`. `metadata.json` mendapat kunci `GARIS TEPI SUNGAI
+DARI SUMBU`: features 142, `panjang_m` 8.367, ambang koridor, blok `sumbu`
+(27 polilin, bertepi 26, dua sisi 19), dan blok `bahan` (143 rantai). Berkas
+lama dicadangkan lebih dulu ke `_lama/cadangan-garis-tepi-sungai-dari-sumbu-<stempel>/`
+kalau alat dijalankan ulang.
+
+**Verifikasi.** Tiap titik keluaran diuji terhadap 1.086 segmen tepi: 0 titik
+berjarak > 5 mm dari tepi asli, 0 baris yang `panjang_m`-nya beda > 5 cm dari
+panjang geometrinya, 142 kode unik, dan titik terjauh dari sumbu asalnya
+12,39 m (koridor 12 m ditambah panjang segmen tepi di antara dua sampel).
+Basis data tidak ditulis.
+
+**Belum disajikan.** Berkas ini baru ada di disk; belum ada pil, chip, atau
+kunci whitelist API untuknya. Lapis Sungai tetap 143 rantai seperti §3.105.
+
+---
+
 ## 4. Berkas SPPT dari Excel
 
 Importer CSV menerima kolom berikut (nama kolom dibersihkan dari spasi dan tanda
