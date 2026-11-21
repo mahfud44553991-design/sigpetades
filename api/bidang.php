@@ -9,7 +9,7 @@ declare(strict_types=1);
  *   GET api/bidang.php?lapisan=batas    -> GeoJSON garis batas desa (lapisan 010500)
  *   GET api/bidang.php?lapisan=garis-jalan -> GeoJSON garis tepi jalan turunan label
  *   GET api/bidang.php?lapisan=garis-selokan -> GeoJSON garis selokan 020100
- *   GET api/bidang.php?lapisan=garis-sungai -> GeoJSON sumbu sungai (57 polilin hasil jahit)
+ *   GET api/bidang.php?lapisan=garis-sungai -> GeoJSON sumbu sungai (38 polilin hasil jahit)
  *   GET api/bidang.php?lapisan=laporan  -> GeoJSON titik laporan (hanya pengelola)
  *   GET api/bidang.php?cari=&dusun=     -> daftar ringkas untuk tabel/pencarian
  *   GET api/bidang.php?tanpa_blok=1     -> hanya bidang yang belum punya blok
@@ -208,10 +208,12 @@ try {
     }
 
     // ------------------------------------------------------------------ garis sungai
-    // Sumbu sungai: 57 polilin hasil tools/jahit-sumbu-sungai.php dari 72 rantai
-    // turunan tools/garis-sungai-label.php. Melengkapi 143 rantai lapis Sungai
-    // pada celah yang belum bergaris; berkas bermeter lokal DXF, diterjemahkan
-    // dxfKeWgs84(). Bila hasil jahit belum ada, rantai label disajikan apa adanya.
+    // Sumbu sungai: 38 polilin hasil tools/jahit-sumbu-sungai.php dari 72 rantai
+    // turunan tools/garis-sungai-label.php, lalu 3 celah disusur dari dua tepi
+    // perairan oleh tools/jahit-sumbu-tepi.php. Melengkapi 143 rantai lapis
+    // Sungai pada celah yang belum bergaris; berkas bermeter lokal DXF,
+    // diterjemahkan dxfKeWgs84(). Bila hasil jahit belum ada, rantai label
+    // disajikan apa adanya.
     if ($lapisan === 'garis-sungai') {
         require_once __DIR__ . '/../tools/lib-impor.php';
         $dir = SIP_ROOT . '/files/sig-pertanahan-gedong-lokal/data/dxf-layers/';

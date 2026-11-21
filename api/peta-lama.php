@@ -20,10 +20,12 @@ declare(strict_types=1);
  *       tools/tepi-sungai.php) sejak 21 Nov 2026; baris aslinya 275 ada di
  *       _lama/cadangan-garis-perairan-275-20261121/.
  *   GET api/peta-lama.php?lapisan=garis-sungai
- *       Sumbu sungai (garis-sungai-jahit.geojson): 57 polilin, 5.752,6 m, hasil
+ *       Sumbu sungai (garis-sungai-jahit.geojson): 38 polilin, 5.930,5 m, hasil
  *       tools/jahit-sumbu-sungai.php yang menjahit 72 rantai turunan
- *       tools/garis-sungai-label.php (15 jembatan celah 59,4 m) untuk mengisi
- *       celah yang belum punya garis tepi. Berkasnya belum tentu ada karena tidak
+ *       tools/garis-sungai-label.php (15 jembatan celah 59,4 m, 16 jembatan
+ *       simpul pertemuan 81,8 m), lalu 3 celah lagi disusur di tengah alur dari
+ *       dua tepi perairan oleh tools/jahit-sumbu-tepi.php (93,3 m celah, 96,1 m
+ *       susuran). Berkasnya belum tentu ada karena tidak
  *       ikut git; selama hilang, lapis ini menjawab koleksi kosong.
  *   GET api/peta-lama.php?lapisan=garis-jalan-sumbu
  *       Sumbu jalan yang sudah rapi: garis kembar dibuang lalu sisanya dijahit

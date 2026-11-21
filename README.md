@@ -8041,6 +8041,133 @@ sama langsung mengganti berkas yang disajikan kedua peta.
 
 ---
 
+### 3.109 Simpul pertemuan menutup 57 polilin jadi 41 (21 Nov 2026)
+
+Keluhan "sumbu sungai masih banyak yang terputus" diukur ulang, bukan langsung
+ditambal dengan garis panjang. Tiga temuan:
+
+1. **Ujung berkerumun.** Sesudah 15 jembatan celah, 114 ujung bebas tetap
+   berderajat 1. Diagnosa per pasangan ujung (arah keluar, sudut, jarak)
+   menunjukkan 30 ujung berjarak 2–15 m satu sama lain, tetapi hampir semua
+   pasangan itu **belok > 40°** sehingga aturan celah searah menolaknya. Itu
+   pertemuan cabang dan belokan sungai, bukan alur yang lurus terputus.
+2. **Bentang tanpa label.** Lubang 80–240 m yang tersisa berisi puluhan ruas
+   tepi perairan di dekatnya, tetapi **tidak ada satu pun label sungai** di
+   sepanjang bentang itu. Sumbu diturunkan dari label, jadi di situ datanya
+   memang berhenti; menjembatani 80 m berarti mengarang ruas melintasi persil
+   tanpa dasar.
+3. **Pasangan lurus jarak jauh tidak didukung tepi.** Dari 27 pasangan ujung
+   ≤ 50 m, 5 lurus (≤ 40°), tetapi 4 di antaranya punya garis penghubung yang
+   **tidak berdekatan dengan tepi perairan** (dukungan 0–15%). Hanya satu
+   pasangan 16,0 m yang garis penghubungnya 100% berdekatan dengan tepi —
+   sedikit di atas ambang celah 15 m, tetapi menaikkan `--celah` ke 16 untuk
+   satu pasangan tidak sepadan.
+
+Karena itu yang ditambal hanya kelompok (1), lewat aturan baru **simpul
+pertemuan** `--simpul` (bawaan 10 m, 0 mematikan):
+
+- Ujung bebas yang tersisa dikerumunkan dengan single-linkage: dua ujung masuk
+  satu kerumunan bila jaraknya ≤ 10 m; rantai kerumunan tidak dibatasi 10 m
+  (ujung A–B dan B–C boleh satu kerumunan walau A–C 18 m).
+- Tiap kerumunan disatukan dengan pohon rentang minimum, **setiap ruas
+  jembatan dibatasi ≤ 10 m** dan tidak boleh menyambung dua ujung dari rantai
+  yang sama. Tiga ujung di satu pertemuan tetap terhubung tanpa mengarang titik
+  baru: jembatan hanya memakai ujung-ujung bahan.
+- Jembatan yang memotong badan salah satu rantai yang disambungnya ditolak.
+- Kasus khusus cincin: kerumunan berisi tepat dua ujung dari satu rantai
+  panjang (≥ 10× jarak ujungnya) ditutup. Pada data ini satu-satunya kandidat
+  (SUNGAI-LABEL-0003, 291,2 m, ujung 4,18 m) justru ditolak karena talikusur
+  penutupnya memotong badannya sendiri, jadi tidak ada cincin baru.
+
+Hasil `--terapkan` (21 Nov 12:35): **41 polilin · 5.834,4 m · 3.524 titik**
+(sebelumnya 57 polilin · 5.752,6 m). 15 jembatan celah 59,4 m ditambah **16
+jembatan simpul 81,8 m**, terpanjang 9,6 m, 1 ditolak memotong. Polilin
+terpanjang 640,1 m menyatukan 4 rantai. Sisa **82 ujung bebas** (dari 114): 0
+ujung ≤ 2 m, 0 ujung 2–10 m, 27 ujung 10–50 m, 24 ujung > 50 m. Jadi tidak ada
+lagi ujung yang berdekatan ≤ 10 m; yang tersisa adalah kelompok (2) dan (3) di
+atas.
+
+Verifikasi alat diperbarui: 3.524 titik keluaran semuanya titik bahan, panjang
+keluaran = 5.693,25 m bahan + 59,37 m celah + 81,79 m simpul (beda 0,0 m), dan
+setiap ruas > 5 m adalah jembatan (10 ruas, 83,4 m). Kunci `metadata.json`
+`GARIS SUMBU SUNGAI JAHIT` kini features 41, `panjang_m` 5834, `ambang.
+simpul_pertemuan_m` 10, dan `penyambungan` memuat `simpul`/`simpul_m`/
+`simpul_terpanjang_m`/`simpul_ditolak_memotong`. Pil Peta Induk menjadi **Sumbu
+sungai (41)**; `api/peta-lama.php`, `api/bidang.php`, dan paragraf petunjuk
+`peta-lama.php` ikut menyebut 41 polilin, 15 jembatan celah, dan 16 jembatan
+simpul.
+
+Berkas 57 polilin dicadangkan di
+`_lama/scratch/garis-sungai-jahit-57-bek.geojson`. Berkas tersaji tetap
+`garis-sungai-jahit.geojson` dan tetap tidak ikut git.
+
+### 3.110 Tiga celah disusur dari dua tepi perairan (21 Nov 2026)
+
+Sisa 82 ujung bebas §3.109 diuji: bisakah garis tengahnya diturunkan dari
+lapis tepi perairan (`garis-perairan.geojson`, 143 rantai) alih-alih dari
+label? Jawabannya **tidak secara umum**, tetapi tiga celah bisa.
+
+**Tepi perairan terlalu sepihak untuk jadi sumbu.** Sepanjang 605 titik sampel
+jalur sumbu yang ada, hanya 208 (34,4%) punya pasangan tepi kiri-kanan yang
+sah (masing-masing ≤ 15 m, sejajar, lebar alur 3–60 m); 45,8% tidak punya tepi
+kedua dalam 25 m. Tepi terdekat berjarak median 5,7 m (10% 2,1 m, 90% 17,5 m):
+< 2 m 48 sampel, 2–5 m 231, 5–10 m 199, 10–15 m 55, 15–25 m 39, 25–50 m 28,
+> 50 m 4. Jadi lapis ini menandai satu sisi alur, bukan dua.
+
+**Celah yang ada.** 82 ujung bebas membentuk 37 pasangan ≤ 150 m (1.674,1 m:
+23 pasangan ≤ 50 m = 521,4 m, 14 pasangan 50–150 m = 1.152,7 m) dan 8 ujung
+yatim yang ujung lainnya 70–241 m (alur berbeda). Tiap pasangan disampel
+lurus: hanya 1 yang lolos (dukungan ≥ 80%, lompatan ≤ 6 m, ujung trek ≤ 12 m).
+Sampel lurus menghukum alur yang membelok — pasangan 26 dukungan 100% tetapi
+titik tengahnya melompat 7 m, sedangkan pasangan 2 dukungan 29% justru bisa
+dilewati. Karena itu penentu akhirnya **penyusur koridor**: langkah 2 m
+mengikuti titik tengah pasangan tepi, arah boleh membelok ≤ 40° per langkah,
+dikoreksi 60% ke titik tengah, berhasil bila sampai ≤ 3 m dari ujung B tanpa
+tersangkut > 3 langkah dan tanpa menjauh > 100 m.
+
+Hasil penyusur: **3 dari 37 pasangan tersusur** — pasangan 2 (celah 11,2 m,
+susuran 9,9 m, lebar alur 14,6 m), 12 (23,1 m, 21,2 m, 5,0 m), dan 26 (59,0 m,
+59,4 m, 4,5 m). Gagal: 26 pasangan koridor putus di langkah 3 (tidak ada
+pasangan tepi), 6 arah berbalik (6, 13, 17, 24, 25, 31), 2 setengah jalan
+(11 berhenti di langkah 12, 27 di langkah 15).
+
+**Alat baru** `tools/jahit-sumbu-tepi.php` (uji kering bawaan, `--terapkan`
+menulis; `--celah` bawaan 150 m). Jejak susuran dipakai apa adanya, ditambah
+satu ruas penutup ≤ 3 m ke ujung B (terpanjang 2,9 m), lalu dua polilin
+digabung urut: rantai menuju A, jejak A–B, rantai dari B. Titik sambung yang
+berimpit dibuang. Sudut sambung di A dan B wajib ≤ 90° supaya tidak lahir
+huruf U; hasilnya 76/36, 39/37, dan 20/40 derajat. Menjalankan alat dua kali
+tidak menambah apa-apa karena celah yang sudah tersambung tidak lagi punya
+dua ujung bebas.
+
+**Hasil `--terapkan` (21 Nov 12:55): 38 polilin · 5.930,5 m · 3.569 titik**
+(dari 41 polilin · 5.834,4 m · 3.524 titik). Susuran 3 konektor 96,1 m
+(90,5 m jejak + 5,6 m ruas penutup). Verifikasi: 3.524 titik bahan tetap utuh
+dan berurutan di keluarannya, 45 titik baru semuanya titik jejak susuran
+(terjauh 8,3 m dari tepi, batas 15 m), panjang = 5.834,4 + 96,1 = 5.930,5 m
+tepat (beda 0,0 m), tidak ada ruas karangan lain. Sisa **76 ujung bebas**:
+0 ujung ≤ 2 m, 0 ujung 2–10 m, 25 ujung 10–50 m, 23 ujung > 50 m.
+
+**Penyajian.** Berkas tersaji tetap `garis-sungai-jahit.geojson` (tidak ikut
+git). Pil Peta Induk menjadi **Sumbu sungai (38)** dari kunci `metadata.json`
+`GARIS SUMBU SUNGAI JAHIT` (features 38, `panjang_m` 5930.5, blok baru `tepi`
+berisi 3 konektor + `sesudah_tepi`); paragraf petunjuk `peta-lama.php`,
+`api/peta-lama.php`, dan `api/bidang.php` ikut menyebut 38 dan tiga celah
+tersusur. Diuji browser: kedua API menjawab 200/38 fitur; piksel `#1e3a8a`
+Peta Induk 2.094 → 0 saat pil dimatikan → 2.040 saat dinyalakan lagi; kanvas
+`pane-sungai` Peta Bidang 1.643 piksel → 0 → 1.708; konsol tanpa galat.
+
+**Cadangan.** Berkas 41 polilin dan `metadata.json` sebelum perubahan ada di
+`_lama/cadangan-sumbu-tepi-20261121/`.
+
+**Yang masih terbuka.** 25 celah 10–50 m dan 23 celah > 50 m tidak bisa
+ditutup dengan tepi perairan: 34 dari 37 pasangan gagal disusur, dan yang
+gagal bukan karena sambungan algoritme, melainkan karena di bentang itu tidak
+ada dua tebing yang mengapit alur. Menambalnya tetap berarti mengarang ruas,
+atau menurunkan ulang sumbu di bentang yang tidak berlabel.
+
+---
+
 ## 4. Berkas SPPT dari Excel
 
 Importer CSV menerima kolom berikut (nama kolom dibersihkan dari spasi dan tanda

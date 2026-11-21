@@ -12,6 +12,8 @@ declare(strict_types=1);
  *   --rapat=METER      ikut sambung ujung yang jaraknya <= ini tanpa syarat arah
  *                      (bawaan 1; di lapis air ujung saluran bisa bertemu tegak
  *                      lurus dengan selisih hampir berimpit)
+ *   --simpul=METER     satukan ujung bebas yang berkerumun (pertemuan sungai)
+ *                      sampai radius ini tanpa syarat arah (bawaan 10; 0 mematikan)
  *   --rinci            cetak semua polilin hasil
  *   --keluaran=BERKAS  nama berkas (tanpa .geojson), bawaan garis-sungai-jahit
  *   --terapkan         tulis berkas keluaran; tanpa ini tidak ada yang ditulis
@@ -38,6 +40,13 @@ declare(strict_types=1);
  *     <= --celah. Ujung yang jaraknya <= --rapat disambung tanpa syarat arah.
  *     Pasangan terpendek didahulukan, satu ujung sekali. Jembatan memakai dua
  *     ujung itu sebagai titik; panjangnya dicatat di `jembatan_m` tiap baris.
+ *  4. SIMPUL PERTEMUAN. Ujung bebas yang tersisa dan berkerumun <= --simpul
+ *     satu sama lain (single-linkage, sudut bebas) disatukan lewat pohon
+ *     rentang minimum: tiap ruas jembatan menyambung dua ujung, jadi tiga
+ *     ujung di satu pertemuan tetap terhubung tanpa mengarang titik baru.
+ *     Ini yang menutup celah di pertemuan/belokan sungai yang sudutnya
+ *     melebihi 40 derajat; tanpa aturan ini 30 ujung berjarak 2-15 m tetap
+ *     terlihat putus. Jembatannya dicatat di `simpul_m`.
  *
  * Ambang 15 m + rapat 1 m adalah ambang lapis air yang dipakai
  * tools/rapikan-garis-jalan.php --lapis=perairan --celah=15 --rapat=1. Ujung
@@ -121,6 +130,7 @@ function panjangTitik(array $titik): float
 $berkasKeluar = 'garis-sungai-jahit';
 $celahMaks = 15.0;
 $rapatMaks = 1.0;
+$simpulMaks = 10.0;
 $terapkan = false;
 $rinci = false;
 foreach (array_slice($argv, 1) as $arg) {
@@ -140,6 +150,12 @@ foreach (array_slice($argv, 1) as $arg) {
             galat('--rapat harus angka meter, contoh --rapat=1');
         }
         $rapatMaks = (float) str_replace(',', '.', $isi);
+    } elseif (str_starts_with($arg, '--simpul=')) {
+        $isi = trim(substr($arg, 9));
+        if (!preg_match('/^\d{1,2}([.,]\d{1,2})?$/', $isi)) {
+            galat('--simpul harus angka meter, contoh --simpul=10');
+        }
+        $simpulMaks = (float) str_replace(',', '.', $isi);
     } elseif (str_starts_with($arg, '--keluaran=')) {
         $berkasKeluar = trim(substr($arg, 11));
         if ($berkasKeluar === '' || !preg_match('/^[a-z0-9-]+$/', $berkasKeluar)) {
@@ -397,6 +413,136 @@ if ($celahMaks > 0.0 || $rapatMaks > 0.0) {
 }
 
 // ---------------------------------------------------------------------------
+// 3b. Simpul pertemuan: ujung bebas yang berkerumun <= --simpul
+// ---------------------------------------------------------------------------
+
+$jumlahSimpul = 0;
+$panjangSimpul = 0.0;
+$simpulTerpanjang = 0.0;
+$simpulDitolak = 0;
+if ($simpulMaks > 0.0) {
+    $bebas2 = [];
+    foreach ($ruas as $id => $r) {
+        foreach ([0, 1] as $e) {
+            $s = $e === 0 ? $r['a'] : $r['b'];
+            if (isset($pasangan[$s][$id])) {
+                continue;
+            }
+            $bebas2[] = ['simpul' => $s, 'ruas' => $id, 'p' => $e === 0 ? $r['pa'] : $r['pb'],
+                'baris' => $r['baris']];
+        }
+    }
+    $m2 = count($bebas2);
+    $induk2 = range(0, max(0, $m2 - 1));
+    $cari2 = static function (int $a) use (&$cari2, &$induk2): int {
+        return $induk2[$a] === $a ? $a : ($induk2[$a] = $cari2($induk2[$a]));
+    };
+    $gabung2 = static function (int $a, int $b) use (&$cari2, &$induk2): void {
+        $ra = $cari2($a);
+        $rb = $cari2($b);
+        if ($ra !== $rb) {
+            $induk2[$rb] = $ra;
+        }
+    };
+    for ($i = 0; $i < $m2; $i++) {
+        for ($j = $i + 1; $j < $m2; $j++) {
+            if (jarak($bebas2[$i]['p'][0], $bebas2[$i]['p'][1],
+                $bebas2[$j]['p'][0], $bebas2[$j]['p'][1]) <= $simpulMaks) {
+                $gabung2($i, $j);
+            }
+        }
+    }
+    $klaster = [];
+    for ($i = 0; $i < $m2; $i++) {
+        $klaster[$cari2($i)][] = $i;
+    }
+    /** Sambung dua ujung dengan ruas jembatan simpul; tolak bila memotong badan keduanya. */
+    $tambahSimpul = static function (int $i, int $j, float $d) use (&$ruas, &$pasangan,
+        &$jumlahSimpul, &$panjangSimpul, &$simpulTerpanjang, &$simpulDitolak, $bebas2, $baris): bool {
+        $memotong = false;
+        foreach ([$bebas2[$i]['baris'], $bebas2[$j]['baris']] as $barisKena) {
+            $t = $baris[$barisKena]['titik'];
+            for ($k = 1, $nt = count($t); $k < $nt; $k++) {
+                if (memotong($bebas2[$i]['p'], $bebas2[$j]['p'], $t[$k - 1], $t[$k])) {
+                    $memotong = true;
+                    break 2;
+                }
+            }
+        }
+        if ($memotong) {
+            $simpulDitolak++;
+
+            return false;
+        }
+        $idSimpul = count($ruas);
+        $ruas[] = ['a' => $bebas2[$i]['simpul'], 'b' => $bebas2[$j]['simpul'],
+            'pa' => $bebas2[$i]['p'], 'pb' => $bebas2[$j]['p'],
+            'keluar' => [arah($bebas2[$j]['p'], $bebas2[$i]['p']),
+                arah($bebas2[$i]['p'], $bebas2[$j]['p'])],
+            'kode' => 'SIMPUL', 'label' => '', 'titik' => null, 'jembatan' => true,
+            'jenis' => 'simpul', 'jembatan_m' => $d, 'baris' => -1];
+        $pasangan[$bebas2[$i]['simpul']][$bebas2[$i]['ruas']] = $idSimpul;
+        $pasangan[$bebas2[$i]['simpul']][$idSimpul] = $bebas2[$i]['ruas'];
+        $pasangan[$bebas2[$j]['simpul']][$bebas2[$j]['ruas']] = $idSimpul;
+        $pasangan[$bebas2[$j]['simpul']][$idSimpul] = $bebas2[$j]['ruas'];
+        $jumlahSimpul++;
+        $panjangSimpul += $d;
+        $simpulTerpanjang = max($simpulTerpanjang, $d);
+
+        return true;
+    };
+    foreach ($klaster as $anggota) {
+        if (count($anggota) < 2) {
+            continue;
+        }
+        // Cincin: hanya dua ujung milik satu rantai panjang, mis. 0004 (291 m,
+        // ujung 4,2 m). Rantai pendek yang ujungnya berdekatan bukan cincin.
+        if (count($anggota) === 2
+            && $bebas2[$anggota[0]]['ruas'] === $bebas2[$anggota[1]]['ruas']) {
+            $idR = $bebas2[$anggota[0]]['ruas'];
+            $d = jarak($bebas2[$anggota[0]]['p'][0], $bebas2[$anggota[0]]['p'][1],
+                $bebas2[$anggota[1]]['p'][0], $bebas2[$anggota[1]]['p'][1]);
+            if ($d > SIMPUL_M && panjangTitik($ruas[$idR]['titik']) >= 10.0 * $d) {
+                $tambahSimpul($anggota[0], $anggota[1], $d);
+            }
+
+            continue;
+        }
+        // Pohon rentang minimum: tiap jembatan menyambung dua ujung.
+        $dalam = [$anggota[0] => true];
+        $sisa = array_slice($anggota, 1);
+        while ($sisa !== []) {
+            $terbaik = null;
+            foreach (array_keys($dalam) as $a) {
+                foreach ($sisa as $bi => $b) {
+                    if ($bebas2[$a]['ruas'] === $bebas2[$b]['ruas']) {
+                        continue;
+                    }
+                    $d = jarak($bebas2[$a]['p'][0], $bebas2[$a]['p'][1],
+                        $bebas2[$b]['p'][0], $bebas2[$b]['p'][1]);
+                    if ($d <= SIMPUL_M || $d > $simpulMaks) {
+                        continue;
+                    }
+                    if ($terbaik === null || $d < $terbaik[0]) {
+                        $terbaik = [$d, $a, $b, $bi];
+                    }
+                }
+            }
+            if ($terbaik === null) {
+                break;
+            }
+            [$d, $a, $b, $bi] = $terbaik;
+            $tambahSimpul($a, $b, $d);
+            $dalam[$b] = true;
+            unset($sisa[$bi]);
+        }
+    }
+    printf("simpul pertemuan <= %s m: %d jembatan · %s m · terpanjang %s m · %d ditolak memotong\n",
+        angkaNum($simpulMaks, 1), $jumlahSimpul, angkaNum($panjangSimpul, 1),
+        angkaNum($simpulTerpanjang, 1), $simpulDitolak);
+}
+
+// ---------------------------------------------------------------------------
 // 4. Telusuri jadi polilin
 // ---------------------------------------------------------------------------
 
@@ -421,8 +567,10 @@ foreach ($ruas as $idAwal => $rAwal) {
     $kodeRantai = [$rAwal['kode'] => true];
     $label = [$rAwal['label'] => true];
     $jumlahRuas = 1;
-    $jumlahJembatan = $rAwal['jembatan'] ? 1 : 0;
-    $panjangJembatan = $rAwal['jembatan_m'];
+    $jumlahJembatan = 0;
+    $panjangJembatan = 0.0;
+    $jumlahTitikSimpul = 0;
+    $panjangTitikSimpul = 0.0;
     $simpulAwal = $rAwal['a'];
     $simpulAkhir = $rAwal['b'];
 
@@ -462,8 +610,13 @@ foreach ($ruas as $idAwal => $rAwal) {
             $kodeRantai[$lanjut['kode']] = true;
             $label[$lanjut['label']] = true;
             if ($lanjut['jembatan']) {
-                $jumlahJembatan++;
-                $panjangJembatan += $lanjut['jembatan_m'];
+                if (($lanjut['jenis'] ?? '') === 'simpul') {
+                    $jumlahTitikSimpul++;
+                    $panjangTitikSimpul += $lanjut['jembatan_m'];
+                } else {
+                    $jumlahJembatan++;
+                    $panjangJembatan += $lanjut['jembatan_m'];
+                }
             }
             if ($maju) {
                 $titik = array_merge($titik, $potong);
@@ -480,12 +633,14 @@ foreach ($ruas as $idAwal => $rAwal) {
     $polilin[] = [
         'titik' => $titik,
         'rantai' => array_values(array_filter(array_keys($kodeRantai),
-            static fn(string $s): bool => $s !== '' && $s !== 'CELAH')),
+            static fn(string $s): bool => $s !== '' && $s !== 'CELAH' && $s !== 'SIMPUL')),
         'label' => array_values(array_filter(array_keys($label),
             static fn(string $s): bool => $s !== '')),
         'ruas' => $jumlahRuas,
         'jembatan' => $jumlahJembatan,
         'jembatan_m' => $panjangJembatan,
+        'simpul' => $jumlahTitikSimpul,
+        'simpul_m' => $panjangTitikSimpul,
         'panjang' => panjangTitik($titik),
     ];
 }
@@ -498,14 +653,17 @@ foreach ($baris as $b) {
         continue;
     }
     $polilin[] = ['titik' => $b['titik'], 'rantai' => [$b['kode']], 'label' => [$b['label']],
-        'ruas' => 1, 'jembatan' => 0, 'jembatan_m' => 0.0, 'panjang' => $b['panjang']];
+        'ruas' => 1, 'jembatan' => 0, 'jembatan_m' => 0.0, 'simpul' => 0, 'simpul_m' => 0.0,
+        'panjang' => $b['panjang']];
 }
 
 usort($polilin, static fn(array $a, array $b): int => $b['panjang'] <=> $a['panjang']);
 
 $panjangKeluaran = array_sum(array_column($polilin, 'panjang'));
-printf("polilin: %d · %s m · rantai tergabung %d · jembatan %d\n", count($polilin),
-    angkaNum($panjangKeluaran, 1), array_sum(array_column($polilin, 'ruas')), $jumlahCelah);
+$jumlahSimpulKeluaran = array_sum(array_column($polilin, 'simpul'));
+printf("polilin: %d · %s m · rantai tergabung %d · jembatan celah %d · jembatan simpul %d\n",
+    count($polilin), angkaNum($panjangKeluaran, 1), array_sum(array_column($polilin, 'ruas')),
+    $jumlahCelah, $jumlahSimpulKeluaran);
 
 // ---------------------------------------------------------------------------
 // Verifikasi
@@ -532,14 +690,16 @@ if ($baru > 0) {
     galat('ada titik keluaran yang bukan titik bahan');
 }
 
-$jumlahDilewati = 0;
-$selisih = abs($panjangKeluaran - ($panjangMasuk + $panjangCelah));
+$selisih = abs($panjangKeluaran - ($panjangMasuk + $panjangCelah + $panjangSimpul));
 // Tiap sambungan membuang satu ujung yang berjarak <= SIMPUL_M dari ujung
 // rantai sebelumnya, jadi selisih panjang paling banyak sebanyak itu.
-$jumlahSambung = max(0, array_sum(array_column($polilin, 'ruas')) - count($polilin) - $jumlahCelah);
+// Jembatan (celah maupun simpul) menempel persis di ujung rantai, jadi
+// sambungan yang bisa membuang panjang hanya sambungan rantai ke rantai.
+$jumlahSambung = max(0, array_sum(array_column($polilin, 'ruas')) - count($polilin)
+    - $jumlahCelah - $jumlahSimpul);
 printf("verifikasi: bahan+jembatan %s m · keluaran %s m · beda %s m\n",
-    angkaNum($panjangMasuk + $panjangCelah, 1), angkaNum($panjangKeluaran, 1),
-    angkaNum($panjangKeluaran - ($panjangMasuk + $panjangCelah), 1));
+    angkaNum($panjangMasuk + $panjangCelah + $panjangSimpul, 1), angkaNum($panjangKeluaran, 1),
+    angkaNum($panjangKeluaran - ($panjangMasuk + $panjangCelah + $panjangSimpul), 1));
 if ($selisih > $jumlahSambung * SIMPUL_M + 0.5) {
     galat('panjang keluaran menyimpang dari bahan ditambah jembatan');
 }
@@ -579,15 +739,22 @@ foreach ($polilin as $p) {
 printf("verifikasi: ruas > 5 m %d · %s m · bukan jembatan %d\n", $jumlahRuasPanjang,
     angkaNum($panjangRuasPanjang, 1), $ruasAsing);
 if ($ruasAsing > 0) {
-    galat('ada ruas panjang yang bukan jembatan celah');
+    galat('ada ruas panjang yang bukan jembatan');
 }
 
 if ($rinci) {
     echo "\npolilin hasil:\n";
     foreach ($polilin as $i => $p) {
+        $catatan = [];
+        if ($p['jembatan'] > 0) {
+            $catatan[] = 'celah ' . angkaNum($p['jembatan_m'], 1) . ' m';
+        }
+        if ($p['simpul'] > 0) {
+            $catatan[] = 'simpul ' . angkaNum($p['simpul_m'], 1) . ' m';
+        }
         printf("  %3d. %8s m · %3d rantai · %s%s\n", $i + 1, angkaNum($p['panjang'], 1),
             count($p['rantai']), implode(',', $p['rantai']),
-            $p['jembatan'] > 0 ? ' · jembatan ' . angkaNum($p['jembatan_m'], 1) . ' m' : '');
+            $catatan === [] ? '' : ' · ' . implode(' · ', $catatan));
     }
 }
 
@@ -665,6 +832,8 @@ foreach ($polilin as $i => $p) {
             'jumlah_titik' => count($p['titik']),
             'jembatan' => $p['jembatan'],
             'jembatan_m' => round($p['jembatan_m'], 2),
+            'simpul' => $p['simpul'],
+            'simpul_m' => round($p['simpul_m'], 2),
             'panjang_m' => round($p['panjang'], 2),
         ],
         'geometry' => ['type' => 'LineString', 'coordinates' => $p['titik']],
@@ -677,10 +846,11 @@ $naskah = json_encode(['type' => 'FeatureCollection', 'features' => $fitur,
         'sumber' => BERKAS_MASUK . '.geojson',
         'dibuat' => date('c'),
         'ambang' => ['simpul_m' => SIMPUL_M, 'belok_derajat' => BELOK_MAKS,
-            'celah_m' => $celahMaks, 'rapat_m' => $rapatMaks],
+            'celah_m' => $celahMaks, 'rapat_m' => $rapatMaks, 'simpul_pertemuan_m' => $simpulMaks],
         'sebelum' => ['rantai' => count($baris), 'panjang_m' => round($panjangMasuk, 2)],
         'sesudah' => ['polilin' => count($fitur), 'panjang_m' => round($panjangKeluaran, 2),
-            'jembatan' => $jumlahCelah, 'jembatan_m' => round($panjangCelah, 2)],
+            'jembatan' => $jumlahCelah, 'jembatan_m' => round($panjangCelah, 2),
+            'simpul' => $jumlahSimpul, 'simpul_m' => round($panjangSimpul, 2)],
     ]], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION);
 if ($naskah === false) {
     galat('gagal menyusun JSON keluaran');
