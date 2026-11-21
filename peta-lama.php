@@ -434,9 +434,6 @@ sip_judul(
                 <label class="cek" title="Layer GARIS BATAS PERAIRAN 020100">
                     <input type="checkbox" data-lapisan="garis-perairan">
                     Sungai (<?= e(angka($jumlah('GARIS BATAS PERAIRAN 020100'))) ?>)</label>
-                <label class="cek" title="Garis perairan yang disambung menjadi rantai tepi (tools/tepi-sungai.php); geometri sama dengan lapis Sungai, hanya digabung dan dijadikan satu garis per tepian">
-                    <input type="checkbox" data-lapisan="garis-tepi-sungai">
-                    Tepi sungai (<?= e(angka($jumlah('GARIS TEPI SUNGAI 020100'))) ?>)</label>
                 <label class="cek" title="Layer GARIS LAIN 020100">
                     <input type="checkbox" data-lapisan="garis-lain">
                     Tanpa label (<?= e(angka($jumlah('GARIS LAIN 020100'))) ?>)</label>
@@ -445,8 +442,8 @@ sip_judul(
                     dibaca dari teks label, bukan dari berkas asalnya. Jalan kini berisi garis
                     tepi yang diturunkan dari semua sumbu jalan oleh
                     tools/garis-jalan-dari-sumbu.php. Perhitungan kelas ada di README §3.77.
-                    Tepi sungai menyambung ulang lapis Sungai menjadi 126 rantai (12.349,52 m)
-                    dengan tools/tepi-sungai.php; geometrinya tidak digeser, hanya disatukan.</p>
+                    Pil Tepi sungai sudah digabung ke Sungai: seluruh rantainya memang
+                    berasal dari lapis ini, jadi tidak ada geometri baru.</p>
                 <p class="petunjuk">Turunan Jalan dua tahap</p>
                 <label class="cek" title="Layer GARIS JALAN SUMBU DARI LABEL, dirapikan: garis kembar dibuang lalu dijahit">
                     <input type="checkbox" data-lapisan="garis-jalan-sumbu" checked>
@@ -714,7 +711,6 @@ $naskah = <<<'JS'
         if (nama === 'garis-jalan') return () => ({ color: '#0f766e', weight: 1.1, opacity: .85 });
         if (nama === 'garis-selokan') return () => ({ color: '#0ea5e9', weight: 1.4, opacity: .95 });
         if (nama === 'garis-perairan') return () => ({ color: '#1d4ed8', weight: 1.7, opacity: .95 });
-        if (nama === 'garis-tepi-sungai') return () => ({ color: '#0e7490', weight: 2.1, opacity: .95 });
         if (nama === 'garis-lain') return () => ({ color: '#a16207', weight: 1.3, dashArray: '6 4', opacity: .95 });
         if (nama === 'garis-jalan-sumbu') return () => ({ color: '#9d174d', weight: 2.2, opacity: .95 });
         if (nama === 'bidang-manual') return () => ({

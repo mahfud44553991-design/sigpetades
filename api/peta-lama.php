@@ -11,16 +11,14 @@ declare(strict_types=1);
  *   GET api/peta-lama.php?lapisan=batas-perairan
  *   GET api/peta-lama.php?lapisan=tn-nama
  *   GET api/peta-lama.php?lapisan=garis-jalan   (juga garis-selokan,
- *                                                garis-perairan, garis-tepi-sungai,
- *                                                garis-lain)
+ *                                                garis-perairan, garis-lain)
  *       garis-jalan menyajikan garis-jalan-dari-sumbu.geojson, yaitu garis tepi
  *       jalan yang diturunkan dari SEMUA sumbu jalan (1.560 sumbu label + 130
  *       sumbu manual) oleh tools/garis-jalan-dari-sumbu.php (sejak 18 Nov 2026).
  *       Berkas lama garis-jalan-tepi.geojson tetap di disk, tidak lagi disajikan.
- *   GET api/peta-lama.php?lapisan=garis-tepi-sungai
- *       Garis perairan yang disambung menjadi rantai tepi oleh
- *       tools/tepi-sungai.php (sejak 20 Nov 2026): 126 rantai, 12.349,52 m.
- *       Geometri berasal dari garis-perairan.geojson, tidak digeser.
+ *       garis-perairan menyajikan garis sungai apa adanya; rantai Tepi sungai
+ *       (tools/tepi-sungai.php) sudah digabung ke lapis ini 21 Nov 2026 —
+ *       seluruh geometrinya memang berasal dari berkas yang sama.
  *   GET api/peta-lama.php?lapisan=garis-jalan-sumbu
  *       Sumbu jalan yang sudah rapi: garis kembar dibuang lalu sisanya dijahit
  *       menjadi polilin utuh oleh app/sumbu-rapi.php (sejak 19 Nov 2026).
@@ -79,7 +77,6 @@ const LAPISAN_PETA_LAMA = [
     'garis-sumbu-manual' => 'garis-sumbu-manual.geojson',
     'garis-selokan'  => 'garis-selokan.geojson',
     'garis-perairan' => 'garis-perairan.geojson',
-    'garis-tepi-sungai' => 'garis-tepi-sungai.geojson',
     'garis-lain'     => 'garis-lain.geojson',
     'titik-obyek'    => 'titik-obyek-manual.geojson',
     'bidang-manual'  => 'bidang-manual.geojson',

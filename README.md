@@ -7835,6 +7835,40 @@ salurannya tetap ada di cadangan di atas bila perlu digabung lagi.
 
 ---
 
+### 3.104 Tepi sungai digabung ke lapis Sungai (21 Nov 2026)
+
+Panel Peta Induk punya dua pil air: **Sungai** (`garis-perairan.geojson`,
+**275 baris · 15.013,57 m**) dan **Tepi sungai** (`garis-tepi-sungai.geojson`,
+**143 rantai · 15.010,91 m**). Rantai Tepi sungai bukan garis baru: alat
+`tools/tepi-sungai.php` hanya menyambung baris-baris Sungai menurut simpul,
+tanpa menggeser geometri (§3.101). Karena itu penggabungannya diukur dulu,
+bukan disalin-tempel seperti §3.103.
+
+Uji tutup: sepanjang 143 rantai disampel tiap 0,5 m, dan sampel yang jaraknya
+≤ 0,35 m dari sembarang ruas Sungai dianggap sudah tertutup. Hasilnya
+**30.598 sampel, tertutup 15.010,91 m, tak tertutup 0,00 m** — tidak ada satu
+meter pun geometri baru yang bisa ditambahkan. Selisih panjang −2,65 m berasal
+dari 21 cincin mikro yang dibuang saat rantai tepi dibentuk; lapis Sungai
+masih memuatnya. Dengan begitu lapis Sungai **tetap 275 baris · 15.013,57 m**
+dan tidak ada fitur yang ditulis ulang.
+
+Pil **Tepi sungai** dihapus dari `peta-lama.php` beserta cabang gayanya (teal
+`#0e7490`), keterangan yang menyebut "126 rantai (12.349,52 m)" di paragraf
+petunjuk diganti kalimat penggabungan, dan kunci `garis-tepi-sungai` dicabut
+dari daftar putih `api/peta-lama.php` (sekarang menjawab 404). Entri metadata
+`GARIS TEPI SUNGAI 020100` dihapus; jejaknya dicatat sebagai blok
+`gabung_tepi_sungai` di bawah `GARIS BATAS PERAIRAN 020100` (sumber berkas,
+jumlah baris/panjang yang dipensiunkan, dan angka uji tutup). Berkas
+`garis-tepi-sungai.geojson` dan salinan metadata sebelum suntingan dipindahkan
+ke `_lama/cadangan-gabung-tepi-sungai-20261121/` (berstempel `20261121-034453`).
+
+Alat `tools/tepi-sungai.php` sengaja tidak dihapus: masih bisa dipakai
+menurunkan rantai secara luring, tetapi keluarannya tidak lagi disajikan.
+Menjalankannya dengan `--terapkan` akan membuat ulang berkas dan entri
+metadata itu tanpa pil yang menampilkannya.
+
+---
+
 ## 4. Berkas SPPT dari Excel
 
 Importer CSV menerima kolom berikut (nama kolom dibersihkan dari spasi dan tanda

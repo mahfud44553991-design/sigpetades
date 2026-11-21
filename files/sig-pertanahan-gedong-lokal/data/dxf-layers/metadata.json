@@ -2442,6 +2442,28 @@
                     "putaran": 2
                 },
                 "cadangan": "storage/cadangan/garis-perairan-sebelum-lengkapi-20261120-163625.geojson"
+            },
+            "gabung_tepi_sungai": {
+                "pada": "2026-11-21T09:44:53+07:00",
+                "cara": "gabung-manual: uji tutup 0,5 m per sampel dengan toleransi 0,35 m membuktikan seluruh rantai Tepi sungai sudah ada di lapis ini, jadi tidak ada geometri baru",
+                "sumber_berkas": "garis-tepi-sungai.geojson",
+                "dipensiunkan": {
+                    "berkas": "garis-tepi-sungai.geojson",
+                    "baris": 143,
+                    "panjang_m": 15010.91
+                },
+                "uji_tutup": {
+                    "sampel_m": 0.5,
+                    "toleransi_m": 0.35,
+                    "tertutup_m": 15010.91,
+                    "tak_tertutup_m": 0,
+                    "selisih_panjang_m": -2.65,
+                    "catatan_selisih": "lapis Sungai lebih panjang 2,65 m karena masih memuat 21 cincin mikro yang dibuang saat rantai tepi dibentuk"
+                },
+                "sesudah": {
+                    "baris": 275,
+                    "panjang_m": 15014
+                }
             }
         },
         "GARIS LAIN 020100": {
@@ -3015,41 +3037,6 @@
                 "celah_panjang_m": 130.6
             },
             "derived_at": "2026-11-16T10:43:55+07:00"
-        },
-        "GARIS TEPI SUNGAI 020100": {
-            "features": 143,
-            "types": {
-                "line": 143
-            },
-            "panjang_m": 15010.91,
-            "cara": {
-                "rantai-tepi": 143
-            },
-            "asal": {
-                "garis-perairan": 143
-            },
-            "tepi_sungai": {
-                "alat": "tools/tepi-sungai.php",
-                "pada": "2026-11-20T16:39:39+07:00",
-                "aturan": "baris garis-perairan disambung menjadi rantai menurut simpul (ujung berjarak <= toleransi, termasuk ujung yang menempel di tengah ruas garis lain) dan arah paling lurus; geometri tidak digeser, verteks sisipan kolinear",
-                "toleransi_simpul_m": 0.35,
-                "sudut_lanjut_derajat": 90,
-                "sumber_berkas": "garis-perairan.geojson",
-                "sebelum": {
-                    "baris": 275,
-                    "panjang_m": 15013.57,
-                    "komponen": 77
-                },
-                "sesudah": {
-                    "baris": 143,
-                    "panjang_m": 15010.91,
-                    "komponen": 143,
-                    "terpanjang_m": 895.15,
-                    "median_m": 56.72
-                },
-                "sisipan_simpul": 91,
-                "rantai_mikro_dibuang": 21
-            }
         },
         "TITIK TENGAH BIDANG HM": {
             "features": 1496,
