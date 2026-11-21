@@ -8243,6 +8243,36 @@ Peta Bidang 0 → 1.790 (label sungai 279); konsol tanpa galat.
 putus atau arah berbalik; bentang tanpa tebing kedua tetap tidak bisa diberi
 sumbu tanpa mengarang titik.
 
+### 3.112 Sumbu sungai bisa digambar dengan alat Garis manual (21 Nov 2026)
+
+**Lapis keempat.** Alat "Garis manual" di Peta Induk sebelumnya melayani Sumbu
+jalan, Garis luar desa, dan Bidang; sekarang menerima `lapis=garis-sungai`
+(`api/garis-manual.php`). Garis yang digambar tersimpan di berkas sendiri
+`garis-sungai-manual.geojson` dengan kode `SUNGAI-M0001` dan seterusnya, label
+bawaan `SUNGAI`. Aksinya sama dengan lapis garis lain: `simpan`, `potong`,
+`hapus`, `hapus-terakhir`; minimal dua titik, panjang minimal 1 m, maksimal
+2.000 titik per garis.
+
+**Penyajian.** `api/peta-lama.php?lapisan=garis-sungai` dan
+`api/bidang.php?lapisan=garis-sungai` menyajikan hasil turunan (45 polilin
+`garis-sungai-jahit.geojson`) lalu menambahkan garis manual. Berkas manual
+tetap terpisah supaya tidak terhapus saat alat penurunan atau penjahit
+dijalankan ulang — jahitan hanya memakai bahan label dan dua-tepi. Lapis yang
+berkas turunannya belum ada (clone tanpa data CLI) tetap menjawab 200 dengan
+garis manual saja. Angka pil Peta Induk kini dihitung, bukan dari metadata:
+`id="jumlahSumbuSungai"` dengan `data-turunan` 45 ditambah jumlah garis
+manual, jadi mula-mula (45) lalu (46) sesudah satu garis disimpan. Garis manual digambar dengan gaya yang sama (putus-putus `#1e3a8a`)
+dan tetap bisa dipilih dengan klik di dekatnya, lalu dipotong atau dihapus.
+Kanvas `pane-sungai` di Peta Bidang ikut menerima garis manual karena chip
+Sungai memanggil `api/bidang.php?lapisan=garis-sungai`.
+
+**Uji.** Berkas manual uji satu garis 3 titik diletakkan sementara: kedua API
+menjawab 46 fitur, pil 46, `data-tersimpan-sungai` 1; berkas dihapus lagi →
+45 fitur, pil 45, dataset 0. Panel: memilih "Sumbu sungai" mengubah petunjuk
+menjadi "Klik peta untuk menambah titik pada lapis Sumbu sungai", placeholder
+label `SUNGAI`, dan saat alat dimatikan menjadi "Sumbu sungai tersimpan: 1."
+Konsol tanpa galat. Basis data tidak disentuh.
+
 ---
 
 ## 4. Berkas SPPT dari Excel

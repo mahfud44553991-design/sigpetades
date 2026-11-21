@@ -9,7 +9,8 @@ declare(strict_types=1);
  *   GET api/bidang.php?lapisan=batas    -> GeoJSON garis batas desa (lapisan 010500)
  *   GET api/bidang.php?lapisan=garis-jalan -> GeoJSON garis tepi jalan turunan label
  *   GET api/bidang.php?lapisan=garis-selokan -> GeoJSON garis selokan 020100
- *   GET api/bidang.php?lapisan=garis-sungai -> GeoJSON sumbu sungai (45 polilin hasil jahit)
+ *   GET api/bidang.php?lapisan=garis-sungai -> GeoJSON sumbu sungai (45 polilin hasil jahit
+ *                                              + garis manual dari alat Garis manual)
  *   GET api/bidang.php?lapisan=laporan  -> GeoJSON titik laporan (hanya pengelola)
  *   GET api/bidang.php?cari=&dusun=     -> daftar ringkas untuk tabel/pencarian
  *   GET api/bidang.php?tanpa_blok=1     -> hanya bidang yang belum punya blok
@@ -218,41 +219,50 @@ try {
     if ($lapisan === 'garis-sungai') {
         require_once __DIR__ . '/../tools/lib-impor.php';
         $dir = SIP_ROOT . '/files/sig-pertanahan-gedong-lokal/data/dxf-layers/';
-        $berkas = $dir . 'garis-sungai-jahit.geojson';
-        if (!is_file($berkas)) {
-            $berkas = $dir . 'garis-sungai-label.geojson';
+        // Garis dari alat "Garis manual" (lapis Sumbu sungai) disajikan bersama
+        // hasil turunan; berkasnya terpisah supaya tidak terhapus saat alat
+        // penurunan/jahit dijalankan ulang.
+        $berkasTurunan = $dir . 'garis-sungai-jahit.geojson';
+        if (!is_file($berkasTurunan)) {
+            $berkasTurunan = $dir . 'garis-sungai-label.geojson';
         }
-        if (!is_file($berkas)) {
+        $daftarBerkas = is_file($berkasTurunan) ? [$berkasTurunan] : [];
+        if (is_file($dir . 'garis-sungai-manual.geojson')) {
+            $daftarBerkas[] = $dir . 'garis-sungai-manual.geojson';
+        }
+        if ($daftarBerkas === []) {
             json_error('Berkas sumbu sungai tidak ditemukan. Jalankan tools/garis-sungai-label.php.', 404);
         }
-        $data = json_decode((string) file_get_contents($berkas), true);
         $fitur = [];
-        foreach (($data['features'] ?? []) as $f) {
-            $geom = $f['geometry'] ?? [];
-            if (($geom['type'] ?? '') !== 'LineString') {
-                continue;
-            }
-            $garis = [];
-            foreach (($geom['coordinates'] ?? []) as $titik) {
-                if (!is_array($titik) || count($titik) < 2) {
+        foreach ($daftarBerkas as $berkas) {
+            $data = json_decode((string) file_get_contents($berkas), true);
+            foreach (($data['features'] ?? []) as $f) {
+                $geom = $f['geometry'] ?? [];
+                if (($geom['type'] ?? '') !== 'LineString') {
                     continue;
                 }
-                [$lon, $lat] = dxfKeWgs84((float) $titik[0], (float) $titik[1]);
-                $garis[] = [round($lon, 7), round($lat, 7)];
+                $garis = [];
+                foreach (($geom['coordinates'] ?? []) as $titik) {
+                    if (!is_array($titik) || count($titik) < 2) {
+                        continue;
+                    }
+                    [$lon, $lat] = dxfKeWgs84((float) $titik[0], (float) $titik[1]);
+                    $garis[] = [round($lon, 7), round($lat, 7)];
+                }
+                if (count($garis) < 2) {
+                    continue;
+                }
+                $label = $f['properties']['label'] ?? '';
+                $fitur[] = [
+                    'type' => 'Feature',
+                    'geometry' => ['type' => 'LineString', 'coordinates' => $garis],
+                    'properties' => [
+                        'kode' => (string) ($f['properties']['kode'] ?? ''),
+                        'label' => is_array($label) ? implode(', ', $label) : (string) $label,
+                        'panjang_m' => $f['properties']['panjang_m'] ?? null,
+                    ],
+                ];
             }
-            if (count($garis) < 2) {
-                continue;
-            }
-            $label = $f['properties']['label'] ?? '';
-            $fitur[] = [
-                'type' => 'Feature',
-                'geometry' => ['type' => 'LineString', 'coordinates' => $garis],
-                'properties' => [
-                    'kode' => (string) ($f['properties']['kode'] ?? ''),
-                    'label' => is_array($label) ? implode(', ', $label) : (string) $label,
-                    'panjang_m' => $f['properties']['panjang_m'] ?? null,
-                ],
-            ];
         }
         json_response(['type' => 'FeatureCollection', 'features' => $fitur]);
     }

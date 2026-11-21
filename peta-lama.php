@@ -92,6 +92,13 @@ if (is_file($berkasSumbuManual)) {
     $jumlahSumbuManual = is_array($isiSumbuManual['features'] ?? null) ? count($isiSumbuManual['features']) : 0;
 }
 
+$berkasSungaiManual = __DIR__ . '/files/sig-pertanahan-gedong-lokal/data/dxf-layers/garis-sungai-manual.geojson';
+$jumlahSungaiManual = 0;
+if (is_file($berkasSungaiManual)) {
+    $isiSungaiManual = json_decode((string) file_get_contents($berkasSungaiManual), true);
+    $jumlahSungaiManual = is_array($isiSungaiManual['features'] ?? null) ? count($isiSungaiManual['features']) : 0;
+}
+
 $berkasBatasManual = __DIR__ . '/files/sig-pertanahan-gedong-lokal/data/dxf-layers/garis-luar-desa-manual.geojson';
 $jumlahBatasManual = 0;
 if (is_file($berkasBatasManual)) {
@@ -239,13 +246,14 @@ sip_judul(
         <?php if ($kelola): ?>
             <section class="kartu">
                 <header class="kepala-kartu">
-                    <div><h2>Garis manual</h2><p>Gambar garis pada lapis Sumbu jalan dan Garis luar desa, atau gambar bidang tanah baru</p></div>
+                    <div><h2>Garis manual</h2><p>Gambar garis pada lapis Sumbu jalan, Sumbu sungai, dan Garis luar desa, atau gambar bidang tanah baru</p></div>
                 </header>
                 <div class="isi-kartu">
                     <div class="lapangan">
                         <label for="garisLapisan">Lapis</label>
                         <select class="pilih-kecil" id="garisLapisan">
                             <option value="garis-jalan-sumbu">Sumbu jalan</option>
+                            <option value="garis-sungai">Sumbu sungai</option>
                             <option value="010500">Garis luar desa</option>
                             <option value="bidang">Bidang</option>
                         </select>
@@ -278,10 +286,11 @@ sip_judul(
                                 <?= $jumlahSumbuManual === 0 ? 'disabled' : '' ?>>Hapus garis tersimpan terakhir</button>
                     </div>
                     <p class="petunjuk" id="infoSumbu" data-tersimpan="<?= (int) $jumlahSumbuManual ?>"
+                        data-tersimpan-sungai="<?= (int) $jumlahSungaiManual ?>"
                         data-tersimpan-batas="<?= (int) $jumlahBatasManual ?>"
                         data-tersimpan-bidang="<?= (int) $jumlahBidangManual ?>">Alat mati. Sumbu jalan tersimpan: <?= e(angka($jumlahSumbuManual)) ?>.</p>
-                    <p class="petunjuk">Tiap lapis garis punya berkas manual sendiri (garis-sumbu-manual.geojson dan
-                        garis-luar-desa-manual.geojson), terpisah dari berkas turunan supaya tidak terhapus saat
+                    <p class="petunjuk">Tiap lapis garis punya berkas manual sendiri (garis-sumbu-manual.geojson,
+                        garis-sungai-manual.geojson, dan garis-luar-desa-manual.geojson), terpisah dari berkas turunan supaya tidak terhapus saat
                         alat penurunan dijalankan ulang, lalu digabung saat lapisnya ditampilkan. Garis yang
                         digambar berupa garis terbuka; klik lagi titik awalnya di ujung untuk menutup keliling
                         desa. Panjang dihitung dari jarak lurus antar titik dalam meter DXF, jadi titik yang
@@ -435,9 +444,10 @@ sip_judul(
                 <label class="cek" title="Layer GARIS BATAS PERAIRAN 020100">
                     <input type="checkbox" data-lapisan="garis-perairan" checked>
                     Sungai (<?= e(angka($jumlah('GARIS BATAS PERAIRAN 020100'))) ?>)</label>
-                <label class="cek" title="Layer GARIS SUMBU SUNGAI JAHIT — 45 polilin hasil jahit 72 rantai sumbu label + 18 rantai dari dua tepi, 4 celah disusur dari dua tepi perairan">
+                <label class="cek" title="Layer GARIS SUMBU SUNGAI JAHIT — 45 polilin hasil jahit 72 rantai sumbu label + 18 rantai dari dua tepi, 4 celah disusur dari dua tepi perairan, ditambah garis Sumbu sungai dari alat Garis manual">
                     <input type="checkbox" data-lapisan="garis-sungai" checked>
-                    Sumbu sungai (<?= e(angka($jumlah('GARIS SUMBU SUNGAI JAHIT'))) ?>)</label>
+                    Sumbu sungai (<b id="jumlahSumbuSungai"
+                        data-turunan="<?= (int) $jumlah('GARIS SUMBU SUNGAI JAHIT') ?>"><?= e(angka($jumlah('GARIS SUMBU SUNGAI JAHIT') + $jumlahSungaiManual)) ?></b>)</label>
                 <label class="cek" title="Layer GARIS LAIN 020100">
                     <input type="checkbox" data-lapisan="garis-lain">
                     Tanpa label (<?= e(angka($jumlah('GARIS LAIN 020100'))) ?>)</label>
@@ -634,12 +644,14 @@ $naskah = <<<'JS'
     const elemenInfoSumbu = document.getElementById('infoSumbu');
     const LAPIS_MANUAL = {
         'garis-jalan-sumbu': { nama: 'Sumbu jalan', labelJumlah: 'jumlahSumbuJalan', labelBawaan: 'JALAN' },
+        'garis-sungai': { nama: 'Sumbu sungai', labelJumlah: 'jumlahSumbuSungai', labelBawaan: 'SUNGAI' },
         '010500': { nama: 'Garis luar desa', labelJumlah: 'jumlahGarisLuarDesa', labelBawaan: 'BATAS DESA' },
         'bidang': { nama: 'Bidang', labelJumlah: 'jumlahBidangManual', labelBawaan: 'BIDANG', tampil: 'bidang-manual' }
     };
     let lapisManual = 'garis-jalan-sumbu';
     const jumlahManual = {
         'garis-jalan-sumbu': elemenInfoSumbu ? (Number(elemenInfoSumbu.dataset.tersimpan) || 0) : 0,
+        'garis-sungai': elemenInfoSumbu ? (Number(elemenInfoSumbu.dataset.tersimpanSungai) || 0) : 0,
         '010500': elemenInfoSumbu ? (Number(elemenInfoSumbu.dataset.tersimpanBatas) || 0) : 0,
         'bidang': elemenInfoSumbu ? (Number(elemenInfoSumbu.dataset.tersimpanBidang) || 0) : 0
     };
@@ -1496,6 +1508,7 @@ $naskah = <<<'JS'
         }
         if (elemenInfoSumbu) {
             elemenInfoSumbu.dataset.tersimpan = String(jumlahManual['garis-jalan-sumbu']);
+            elemenInfoSumbu.dataset.tersimpanSungai = String(jumlahManual['garis-sungai']);
             elemenInfoSumbu.dataset.tersimpanBatas = String(jumlahManual['010500']);
             elemenInfoSumbu.dataset.tersimpanBidang = String(jumlahManual['bidang']);
         }

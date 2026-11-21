@@ -28,6 +28,8 @@ declare(strict_types=1);
  *       alur dari dua tepi perairan oleh tools/jahit-sumbu-tepi.php (112,5 m
  *       celah, 116,8 m susuran). Berkasnya belum tentu ada karena tidak
  *       ikut git; selama hilang, lapis ini menjawab koleksi kosong.
+ *       Garis yang digambar dengan alat "Garis manual" (lapis Sumbu sungai,
+ *       berkas garis-sungai-manual.geojson) ikut disajikan di lapis ini.
  *   GET api/peta-lama.php?lapisan=garis-jalan-sumbu
  *       Sumbu jalan yang sudah rapi: garis kembar dibuang lalu sisanya dijahit
  *       menjadi polilin utuh oleh app/sumbu-rapi.php (sejak 19 Nov 2026).
@@ -99,6 +101,7 @@ const LAPISAN_PETA_LAMA = [
 const LAPISAN_BOLEH_KOSONG = ['titik-obyek', 'garis-sumbu-manual', 'garis-sungai'];
 
 const GARIS_MANUAL_PER_LAPISAN = [
+    'garis-sungai' => 'garis-sungai-manual.geojson',
     '010500' => 'garis-luar-desa-manual.geojson',
 ];
 
@@ -234,7 +237,13 @@ if (isset(GARIS_MANUAL_PER_LAPISAN[$lapisan])) {
     $turunan = is_file($berkas) ? json_decode((string) file_get_contents($berkas), true) : null;
     if (!is_array($turunan) || ($turunan['type'] ?? '') !== 'FeatureCollection'
         || !is_array($turunan['features'] ?? null)) {
-        json_error('Berkas lapisan ' . $lapisan . ' tidak dapat dibaca.', 500);
+        // Lapis turunan yang boleh kosong (mis. sumbu sungai hasil CLI yang tidak
+        // ikut git) tetap bisa menampilkan garis manual saja.
+        if (!is_file($berkas) && in_array($lapisan, LAPISAN_BOLEH_KOSONG, true)) {
+            $turunan = ['type' => 'FeatureCollection', 'features' => []];
+        } else {
+            json_error('Berkas lapisan ' . $lapisan . ' tidak dapat dibaca.', 500);
+        }
     }
     $fitur = array_values(array_filter($turunan['features'], 'is_array'));
     $berkasManual = __DIR__ . '/../files/sig-pertanahan-gedong-lokal/data/dxf-layers/'

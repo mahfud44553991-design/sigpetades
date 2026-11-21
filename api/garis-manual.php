@@ -9,12 +9,13 @@ declare(strict_types=1);
  *   POST {lapis: "garis-jalan-sumbu", aksi: "hapus", kode: "SUMBU-M0002"}
  *   POST {lapis: "garis-jalan-sumbu", aksi: "hapus-terakhir"}
  *
- * lapis juga boleh "010500" (Garis luar desa) dan "bidang" (cincin yang
- * langsung menjadi bidang baru). Titik datang sebagai meter DXF lokal
- * (X = easting, Y = northing) persis seperti koordinat yang ditampilkan
- * peta. Tiap lapis garis punya berkas manual sendiri:
+ * lapis juga boleh "garis-sungai" (Sumbu sungai), "010500" (Garis luar desa),
+ * dan "bidang" (cincin yang langsung menjadi bidang baru). Titik datang sebagai
+ * meter DXF lokal (X = easting, Y = northing) persis seperti koordinat yang
+ * ditampilkan peta. Tiap lapis garis punya berkas manual sendiri:
  *
  *   garis-jalan-sumbu -> garis-sumbu-manual.geojson
+ *   garis-sungai      -> garis-sungai-manual.geojson
  *   010500            -> garis-luar-desa-manual.geojson
  *   bidang            -> tabel bidang (kode MANUAL-B0001, hak BLM)
  *
@@ -39,6 +40,12 @@ const LAPIS_GARIS_MANUAL = [
         'awalan' => 'SUMBU-M',
         'label' => 'JALAN',
         'nama' => 'Sumbu jalan',
+    ],
+    'garis-sungai' => [
+        'berkas' => 'garis-sungai-manual.geojson',
+        'awalan' => 'SUNGAI-M',
+        'label' => 'SUNGAI',
+        'nama' => 'Sumbu sungai',
     ],
     '010500' => [
         'berkas' => 'garis-luar-desa-manual.geojson',
