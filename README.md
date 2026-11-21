@@ -8166,6 +8166,83 @@ gagal bukan karena sambungan algoritme, melainkan karena di bentang itu tidak
 ada dua tebing yang mengapit alur. Menambalnya tetap berarti mengarang ruas,
 atau menurunkan ulang sumbu di bentang yang tidak berlabel.
 
+### 3.111 Sumbu baru dari dua tepi perairan (21 Nov 2026)
+
+Sisa 76 ujung bebas §3.110 tidak bisa ditutup dengan menyusuri koridor dari
+ujung ke ujung. Jalan lain yang diukur: menurunkan sumbu di bentang yang
+**kedua tepinya sudah ada** tetapi belum pernah ditelusuri karena tidak ada
+label. Bahan tepinya `garis-perairan.geojson` (143 rantai, 15.010,9 m).
+
+**Ukuran potensi.** Tiap 5 m sepanjang tiap rantai tepi dicari satu segmen
+lain yang sejajar (≤ 25°), berhadapan tegak lurus, selebar 3–20 m: 1.290
+sampel punya pasangan; 436 (33,8%) berjarak lebih dari 10 m dari sumbu tersaji;
+dipadatkan 10 m tinggal 137 titik (lebar median 8,1 m) di sekitar 20 kerumunan.
+
+**Alat baru** `tools/sumbu-dari-dua-tepi.php` (uji kering bawaan, `--terapkan`
+menulis berkas + entri metadata; `--cetak`, `--rinci`, `--tanya=X,Y` untuk
+memeriksa). Penyeed: tiap 5 m tepi bank dicari segmen bank lain yang sejajar
+≤ 25°, berhadapan (|cos| ≥ 0,7), lebar 3–20 m; titik tengah dua titik nyata itu
+dipakai bila tidak jatuh di dalam poligon bidang dan lebih dari 10 m dari sumbu
+tersaji. Penyeed dipadatkan satu per sel 10 m (3.155 sampel → 309 mentah → 89
+sel; 24 diproses, 65 dilewati karena ≤ 10 m dari rantai). Penelusuran berjalan
+2 m per langkah dengan koridor kiri-kanan **dua tepi perairan saja**; lebar
+3–20 m, kedua sisi setimbang, titik tengah keluar persil, dan rantai berhenti
+bila tidak ada pasangan, bergeser > 3,5 m, masuk persil, atau menyentuh rantai
+diterima.
+
+**Dua cacat uji pertama, dan aturannya.** Versi pertama memakai semua tepi
+(garis 020100 + tepi persil) sebagai dinding koridor. Hasilnya terlihat wajar
+di angka (21 rantai, 1.286,7 m) tetapi gambar perbesaran menunjukkan satu
+rantai 226,5 m menyusuri sambungan sawah yang lurus di tengah bidang. Koridor
+lalu dibatasi ke dua tepi perairan saja. Versi kedua masih melahirkan rantai
+304,2 m yang bolak-balik di antara dua titik berjarak 1,05 m di (262373,
+715183): tiap langkah "maju" 2 m, pasangan yang ditemukan tetap dua titik yang
+sama. Dua aturan menutupnya: langkah yang kembali ke titik ≤ 0,6 m yang baru
+dilalui menghentikan penelusuran (`bolak-balik`), dan rantai yang panjangnya
+lebih dari 10× sebaran kotaknya dibuang (`melipat`).
+
+**Hasil `--terapkan` (21 Nov 13:30): 18 rantai · 635,4 m · lebar 3,0–16,3 m**
+(rata-rata 7,1 m). Berhenti: bolak-balik 31, tanpa sisi 7, menempel rantai 7,
+arah buntu 3; 6 penyeed gagal karena rantai < 5 m. Sebaran jarak ke sumbu lama:
+hanya 2 rantai punya sampel ≤ 3 m (5% dan 8%); sebagian besar rantai adalah
+alur yang selama ini tidak punya sumbu sama sekali, bukan celah di antara dua
+polilin yang ada.
+
+**Jahit ulang.** `tools/jahit-sumbu-sungai.php` mendapat `--masuk=a,b` supaya
+bahan label dan dua tepi dapat digabung; `sumber` di metadata berkas kini
+menyebut kedua berkas. Bahan 90 rantai 6.328,7 m (72 label 5.693,2 + 18 dua
+tepi 635,5) dijahit jadi 49 polilin 6.499,1 m dengan 23 jembatan celah 76,5 m
+(terpanjang 14,3) dan 19 jembatan simpul 93,9 m (terpanjang 9,6; 1 ditolak
+memotong). Lalu `tools/jahit-sumbu-tepi.php` menyusur 4 dari 40 pasangan celah
+(112,5 m celah, 116,8 m susuran: 11,2/9,9, 19,1/18,4, 23,1/21,3, 59,0/59,4 —
+lebar 14,6, 11,7, 5,0, 4,5 m), menghasilkan
+**45 polilin · 6.615,9 m · 3.925 titik** (dari 38 · 5.930,5 · 3.569).
+
+**Verifikasi.** 3.868 titik bahan tetap utuh dan berurutan; 0 koordinat baru
+selain titik bahan dan jejak susuran; panjang = 6.499,1 + 116,8 = 6.615,9 m
+tepat (beda 0,0 m); titik jejak terjauh 8,3 m dari tepi (batas 15 m). Uji
+kering alat dua tepi dan jahit tepi keduanya idempoten setelah diterapkan
+(0 dari 36 pasangan tersisa). Sisa **90 ujung bebas**: 0 ≤ 2 m, 0 2–10 m, 31
+10–50 m, 29 > 50 m.
+
+**Penyajian.** `metadata.json` kunci `GARIS SUMBU SUNGAI JAHIT` menjadi
+features 45, `panjang_m` 6615.9, dengan blok `dua_tepi` (18 rantai, 635,4 m) di
+samping blok `tepi` (4 konektor). Berkas bahan mendapat entri sendiri
+`SUMBU SUNGAI DARI DUA TEPI` (18 fitur, 635 m). Pil Peta Induk menjadi
+**Sumbu sungai (45)**; paragraf `peta-lama.php`, `api/peta-lama.php`, dan
+`api/bidang.php` ikut menyebut 45 polilin, 23+19 jembatan, dan 4 celah
+tersusur. Diuji browser: kedua API menjawab 200/45 fitur; piksel `#1e3a8a`
+Peta Induk 0 saat pil dimatikan → 785 saat dinyalakan; kanvas `pane-sungai`
+Peta Bidang 0 → 1.790 (label sungai 279); konsol tanpa galat.
+
+**Cadangan.** Berkas 38 polilin dan `metadata.json` sebelum perubahan ada di
+`_lama/cadangan-sumbu-sungai-20261121-1335/`.
+
+**Batasnya.** Yang lahir hanya alur yang punya dua tebing nyata berseberangan
+3–20 m. Dari 40 celah yang masih bisa disusur tepi, 36 gagal karena koridor
+putus atau arah berbalik; bentang tanpa tebing kedua tetap tidak bisa diberi
+sumbu tanpa mengarang titik.
+
 ---
 
 ## 4. Berkas SPPT dari Excel

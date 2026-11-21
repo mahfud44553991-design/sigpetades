@@ -3118,13 +3118,13 @@
             }
         },
         "GARIS SUMBU SUNGAI JAHIT": {
-            "features": 38,
+            "features": 45,
             "types": {
-                "line": 38
+                "line": 45
             },
             "file": "garis-sungai-jahit.geojson",
-            "panjang_m": 5930.5,
-            "derived_from": "garis-sungai-label.geojson (72 rantai, 5.693,2 m) dijahit UTUH per baris oleh tools/jahit-sumbu-sungai.php; satu baris tidak dipecah, jadi tidak ada verteks yang dibuang; tiga celah lagi dijahit lewat koridor dua tepi perairan oleh tools/jahit-sumbu-tepi.php (3 konektor, susuran 96,1 m)",
+            "panjang_m": 6615.9,
+            "derived_from": "garis-sungai-label.geojson (72 rantai) + garis-sungai-dua-tepi.geojson (18 rantai) dijahit UTUH per baris oleh tools/jahit-sumbu-sungai.php --masuk=garis-sungai-label,garis-sungai-dua-tepi; satu baris tidak dipecah, jadi tidak ada verteks yang dibuang; lalu 4 celah lagi dijahit lewat koridor dua tepi perairan oleh tools/jahit-sumbu-tepi.php (susuran 116,8 m)",
             "ambang": {
                 "simpul_m": 0.35,
                 "belok_derajat": 40,
@@ -3133,19 +3133,30 @@
                 "simpul_pertemuan_m": 10
             },
             "penyambungan": {
-                "rantai_masuk": 72,
-                "polilin": 41,
-                "jembatan": 15,
-                "jembatan_m": 59.4,
+                "rantai_masuk": 90,
+                "panjang_bahan_m": 6328.69,
+                "polilin": 49,
+                "jembatan": 23,
+                "jembatan_m": 76.51,
                 "jembatan_terpanjang_m": 14.3,
                 "ditolak_memotong": 0,
-                "simpul": 16,
-                "simpul_m": 81.8,
+                "simpul": 19,
+                "simpul_m": 93.88,
                 "simpul_terpanjang_m": 9.6,
                 "simpul_ditolak_memotong": 1,
-                "sisa_ujung_bebas": 82
+                "sisa_ujung_bebas": 98
             },
-            "derived_at": "2026-11-21T06:55:28+01:00",
+            "dua_tepi": {
+                "file": "garis-sungai-dua-tepi.geojson",
+                "alat": "tools/sumbu-dari-dua-tepi.php",
+                "rantai": 18,
+                "panjang_m": 635,
+                "lebar_m": [
+                    3,
+                    20
+                ]
+            },
+            "derived_at": "2026-11-21T13:31:52+07:00",
             "tepi": {
                 "bahan_tepi": "garis-perairan.geojson (143 rantai tepi)",
                 "alat": "tools/jahit-sumbu-tepi.php",
@@ -3159,47 +3170,121 @@
                 "sampai_m": 3,
                 "belok_susur_derajat": 40,
                 "belok_sambung_derajat": 90,
-                "jumlah": 3,
-                "celah_m_total": 93.3,
-                "susur_m_total": 96.1,
-                "polilin": 38,
-                "panjang_m": 5930.5,
-                "titik": 3569,
-                "sisa_ujung_bebas": 76,
+                "jumlah": 4,
+                "celah_m_total": 112.47,
+                "susur_m_total": 116.82,
+                "polilin": 45,
+                "panjang_m": 6615.9,
+                "titik": 3925,
+                "sisa_ujung_bebas": 90,
                 "konektor": [
                     {
-                        "celah_m": 11.2,
-                        "susur_m": 9.9,
+                        "celah_m": 11.22,
+                        "susur_m": 9.92,
                         "tutup_m": 1.3,
                         "lebar_m": 14.6,
                         "belok_sambung": [
                             76,
-                            36
+                            35.8
+                        ],
+                        "fitur": [
+                            13,
+                            23
                         ]
                     },
                     {
-                        "celah_m": 23.1,
-                        "susur_m": 21.2,
-                        "tutup_m": 2.9,
+                        "celah_m": 19.14,
+                        "susur_m": 18.37,
+                        "tutup_m": 2.38,
+                        "lebar_m": 11.7,
+                        "belok_sambung": [
+                            45.4,
+                            17.9
+                        ],
+                        "fitur": [
+                            26,
+                            42
+                        ]
+                    },
+                    {
+                        "celah_m": 23.14,
+                        "susur_m": 21.25,
+                        "tutup_m": 2.83,
                         "lebar_m": 5,
                         "belok_sambung": [
                             39,
                             37
+                        ],
+                        "fitur": [
+                            27,
+                            34
                         ]
                     },
                     {
-                        "celah_m": 59,
-                        "susur_m": 59.4,
-                        "tutup_m": 1.4,
+                        "celah_m": 58.97,
+                        "susur_m": 59.36,
+                        "tutup_m": 1.42,
                         "lebar_m": 4.5,
                         "belok_sambung": [
-                            20,
-                            40
+                            19.7,
+                            40.2
+                        ],
+                        "fitur": [
+                            0,
+                            32
                         ]
                     }
                 ]
             },
-            "tepi_dibuat": "2026-11-21T06:55:28+01:00"
+            "tepi_dibuat": "2026-11-21T13:31:53+07:00"
+        },
+        "SUMBU SUNGAI DARI DUA TEPI": {
+            "features": 18,
+            "types": {
+                "line": 18
+            },
+            "file": "garis-sungai-dua-tepi.geojson",
+            "panjang_m": 635,
+            "derived_from": "titik tengah dua tepi perairan berhadapan (garis-perairan.geojson) yang lebih dari 10 m dari sumbu tersaji, ditelusuri dengan koridor kiri-kanan dua tepi perairan saja (tanpa garis persil maupun 020100); titik tengah benih wajib di luar poligon bidang; bahan tambahan untuk jahit ulang garis-sungai-jahit.geojson; tidak ada titik karangan dan tidak ada tulisan ke basis data",
+            "ambang": {
+                "lebar_min_m": 3,
+                "lebar_koridor_m": 20,
+                "seed_lebar_m": 20,
+                "seed_jarak_sumbu_m": 10,
+                "seed_langkah_m": 5,
+                "seed_tegak": 0.7,
+                "timbang_koridor": 0.35,
+                "sudut_derajat": 25,
+                "langkah_m": 2,
+                "langkah_maks": 300,
+                "maju_m": 3.5,
+                "pangkas_m": 1.2,
+                "min_panjang_m": 5,
+                "kembar_sampel_m": 3,
+                "kembar_bagi": 0.6
+            },
+            "bank": {
+                "file": "garis-perairan.geojson",
+                "panjang_m": 15010.9,
+                "sampel": 3155
+            },
+            "sumbu_lama": {
+                "file": "garis-sungai-jahit.geojson",
+                "rantai": 38,
+                "panjang_m": 5930.5
+            },
+            "penyeed": {
+                "mentah": 309,
+                "sel": 89,
+                "diproses": 24,
+                "dilewati_dekat_m": 65
+            },
+            "kembar_dibuang": 0,
+            "kembar_dibuang_panjang_m": 0,
+            "permukaan_bidang": {
+                "sumber": "tabel bidang (status <> dihapus)",
+                "cincin": 4329
+            }
         }
     },
     "warning": "Jangan ditafsirkan sebagai EPSG:4326 atau meter persegi sebelum satuan dan titik kontrol diverifikasi.",
@@ -3228,5 +3313,5 @@
         "GARIS SUMBU SUNGAI JAHIT: 38 polilin (5.930,5 m) sesudah 3 celah lagi dijahit lewat koridor dua tepi perairan oleh tools/jahit-sumbu-tepi.php: celah 11,2 + 23,1 + 59,0 = 93,3 m, susuran 96,1 m termasuk ruas penutup <= 3 m ke ujung B. Susuran mengikuti titik tengah pasangan tepi kiri-kanan (masing-masing <= 15 m, sejajar satu sama lain, lebar alur 3-60 m) dan hanya dipakai bila penyusur sampai <= 3 m dari ujung B tanpa tersangkut; sudut sambung di kedua ujung 76/36, 39/37, dan 20/40 derajat. Verifikasi: 3.524 titik bahan tetap utuh dan berurutan, 45 titik baru semuanya titik jejak susuran (terjauh 8,3 m dari tepi), panjang 5.834,4 + 96,1 = 5.930,5 m tepat, sisa 76 ujung bebas (<=2 m 0, 2-10 m 0, 10-50 m 25, >50 m 23). Dari 37 celah <= 150 m hanya 3 yang bisa disusur; sisanya koridor putus atau arah berbalik, jadi tidak ditambal. Berkas sebelumnya (41 polilin, 5.834,4 m) ada di _lama/cadangan-sumbu-tepi-20261121/garis-sungai-jahit-41.geojson."
     ],
     "converted_at": "2026-10-31T11:01:27+01:00",
-    "derived_at": "2026-11-21T11:41:17+07:00"
+    "derived_at": "2026-11-21T13:30:47+07:00"
 }

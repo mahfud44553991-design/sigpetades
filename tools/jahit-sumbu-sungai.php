@@ -15,6 +15,8 @@ declare(strict_types=1);
  *   --simpul=METER     satukan ujung bebas yang berkerumun (pertemuan sungai)
  *                      sampai radius ini tanpa syarat arah (bawaan 10; 0 mematikan)
  *   --rinci            cetak semua polilin hasil
+ *   --masuk=a,b        berkas bahan (tanpa .geojson) yang digabung sebelum
+ *                      dijahit; bawaan garis-sungai-label
  *   --keluaran=BERKAS  nama berkas (tanpa .geojson), bawaan garis-sungai-jahit
  *   --terapkan         tulis berkas keluaran; tanpa ini tidak ada yang ditulis
  *
@@ -128,6 +130,7 @@ function panjangTitik(array $titik): float
 }
 
 $berkasKeluar = 'garis-sungai-jahit';
+$berkasMasuk = [BERKAS_MASUK];
 $celahMaks = 15.0;
 $rapatMaks = 1.0;
 $simpulMaks = 10.0;
@@ -156,6 +159,12 @@ foreach (array_slice($argv, 1) as $arg) {
             galat('--simpul harus angka meter, contoh --simpul=10');
         }
         $simpulMaks = (float) str_replace(',', '.', $isi);
+    } elseif (str_starts_with($arg, '--masuk=')) {
+        $isi = trim(substr($arg, 8));
+        if ($isi === '' || !preg_match('/^[a-z0-9-]+(,[a-z0-9-]+)*$/', $isi)) {
+            galat('--masuk harus daftar nama berkas tanpa .geojson, dipisah koma');
+        }
+        $berkasMasuk = explode(',', $isi);
     } elseif (str_starts_with($arg, '--keluaran=')) {
         $berkasKeluar = trim(substr($arg, 11));
         if ($berkasKeluar === '' || !preg_match('/^[a-z0-9-]+$/', $berkasKeluar)) {
@@ -173,47 +182,56 @@ if ($celahMaks <= 0.0 && $rapatMaks <= 0.0) {
 // Bahan
 // ---------------------------------------------------------------------------
 
-$bahan = geojsonBaca(DIR_LAPISAN . '/' . BERKAS_MASUK . '.geojson');
-if ($bahan === []) {
-    galat('bahan kosong: ' . BERKAS_MASUK . '.geojson');
-}
-
 $baris = [];
 $panjangMasuk = 0.0;
 $dilewati = 0;
-foreach ($bahan as $f) {
-    $g = $f['geometry'] ?? [];
-    if (($g['type'] ?? '') !== 'LineString') {
-        $dilewati++;
-        continue;
+$dilihat = [];
+foreach ($berkasMasuk as $namaMasuk) {
+    $bahan = geojsonBaca(DIR_LAPISAN . '/' . $namaMasuk . '.geojson');
+    if ($bahan === []) {
+        galat('bahan kosong: ' . $namaMasuk . '.geojson');
     }
-    $koor = [];
-    foreach (($g['coordinates'] ?? []) as $p) {
-        if (!is_array($p) || count($p) < 2) {
-            continue 2;
+    $sebelum = count($baris);
+    foreach ($bahan as $f) {
+        $g = $f['geometry'] ?? [];
+        if (($g['type'] ?? '') !== 'LineString') {
+            $dilewati++;
+            continue;
         }
-        $koor[] = [(float) $p[0], (float) $p[1]];
+        $koor = [];
+        foreach (($g['coordinates'] ?? []) as $p) {
+            if (!is_array($p) || count($p) < 2) {
+                continue 2;
+            }
+            $koor[] = [(float) $p[0], (float) $p[1]];
+        }
+        if (count($koor) < 2) {
+            $dilewati++;
+            continue;
+        }
+        $pro = is_array($f['properties'] ?? null) ? $f['properties'] : [];
+        $kode = (string) ($pro['kode'] ?? '');
+        if ($kode !== '' && isset($dilihat[$kode])) {
+            galat('kode ganda lintas bahan: ' . $kode);
+        }
+        $dilihat[$kode] = true;
+        $panjang = panjangTitik($koor);
+        $panjangMasuk += $panjang;
+        $baris[] = [
+            'kode' => $kode,
+            'label' => (string) ($pro['label'] ?? ''),
+            'cara' => (string) ($pro['cara'] ?? ''),
+            'titik' => $koor,
+            'panjang' => $panjang,
+        ];
     }
-    if (count($koor) < 2) {
-        $dilewati++;
-        continue;
-    }
-    $pro = is_array($f['properties'] ?? null) ? $f['properties'] : [];
-    $panjang = panjangTitik($koor);
-    $panjangMasuk += $panjang;
-    $baris[] = [
-        'kode' => (string) ($pro['kode'] ?? ''),
-        'label' => (string) ($pro['label'] ?? ''),
-        'cara' => (string) ($pro['cara'] ?? ''),
-        'titik' => $koor,
-        'panjang' => $panjang,
-    ];
+    printf("bahan %s: %d rantai\n", $namaMasuk, count($baris) - $sebelum);
 }
 if ($baris === []) {
     galat('tidak ada baris garis yang sah');
 }
-printf("bahan: %d rantai · %s m · %d baris dilewati\n", count($baris), angkaNum($panjangMasuk, 1),
-    $dilewati);
+printf("bahan gabungan: %d rantai · %s m · %d baris dilewati\n", count($baris),
+    angkaNum($panjangMasuk, 1), $dilewati);
 
 // ---------------------------------------------------------------------------
 // 1. Simpul ujung rantai
@@ -843,7 +861,8 @@ $naskah = json_encode(['type' => 'FeatureCollection', 'features' => $fitur,
     'metadata' => [
         'judul' => JUDUL,
         'alat' => 'tools/jahit-sumbu-sungai.php',
-        'sumber' => BERKAS_MASUK . '.geojson',
+        'sumber' => implode(' + ', array_map(static fn(string $b): string => $b . '.geojson',
+            $berkasMasuk)),
         'dibuat' => date('c'),
         'ambang' => ['simpul_m' => SIMPUL_M, 'belok_derajat' => BELOK_MAKS,
             'celah_m' => $celahMaks, 'rapat_m' => $rapatMaks, 'simpul_pertemuan_m' => $simpulMaks],
