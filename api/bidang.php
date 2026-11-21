@@ -9,7 +9,7 @@ declare(strict_types=1);
  *   GET api/bidang.php?lapisan=batas    -> GeoJSON garis batas desa (lapisan 010500)
  *   GET api/bidang.php?lapisan=garis-jalan -> GeoJSON garis tepi jalan turunan label
  *   GET api/bidang.php?lapisan=garis-selokan -> GeoJSON garis selokan 020100
- *   GET api/bidang.php?lapisan=garis-sungai -> GeoJSON sumbu sungai turunan label
+ *   GET api/bidang.php?lapisan=garis-sungai -> GeoJSON sumbu sungai (57 polilin hasil jahit)
  *   GET api/bidang.php?lapisan=laporan  -> GeoJSON titik laporan (hanya pengelola)
  *   GET api/bidang.php?cari=&dusun=     -> daftar ringkas untuk tabel/pencarian
  *   GET api/bidang.php?tanpa_blok=1     -> hanya bidang yang belum punya blok
@@ -208,12 +208,17 @@ try {
     }
 
     // ------------------------------------------------------------------ garis sungai
-    // Sumbu sungai turunan tools/garis-sungai-label.php: 72 rantai, 5.693,2 m.
-    // Melengkapi 143 rantai lapis Sungai pada celah yang belum bergaris; berkas
-    // bermeter lokal DXF, diterjemahkan dxfKeWgs84().
+    // Sumbu sungai: 57 polilin hasil tools/jahit-sumbu-sungai.php dari 72 rantai
+    // turunan tools/garis-sungai-label.php. Melengkapi 143 rantai lapis Sungai
+    // pada celah yang belum bergaris; berkas bermeter lokal DXF, diterjemahkan
+    // dxfKeWgs84(). Bila hasil jahit belum ada, rantai label disajikan apa adanya.
     if ($lapisan === 'garis-sungai') {
         require_once __DIR__ . '/../tools/lib-impor.php';
-        $berkas = SIP_ROOT . '/files/sig-pertanahan-gedong-lokal/data/dxf-layers/garis-sungai-label.geojson';
+        $dir = SIP_ROOT . '/files/sig-pertanahan-gedong-lokal/data/dxf-layers/';
+        $berkas = $dir . 'garis-sungai-jahit.geojson';
+        if (!is_file($berkas)) {
+            $berkas = $dir . 'garis-sungai-label.geojson';
+        }
         if (!is_file($berkas)) {
             json_error('Berkas sumbu sungai tidak ditemukan. Jalankan tools/garis-sungai-label.php.', 404);
         }
@@ -235,12 +240,13 @@ try {
             if (count($garis) < 2) {
                 continue;
             }
+            $label = $f['properties']['label'] ?? '';
             $fitur[] = [
                 'type' => 'Feature',
                 'geometry' => ['type' => 'LineString', 'coordinates' => $garis],
                 'properties' => [
                     'kode' => (string) ($f['properties']['kode'] ?? ''),
-                    'label' => (string) ($f['properties']['label'] ?? ''),
+                    'label' => is_array($label) ? implode(', ', $label) : (string) $label,
                     'panjang_m' => $f['properties']['panjang_m'] ?? null,
                 ],
             ];

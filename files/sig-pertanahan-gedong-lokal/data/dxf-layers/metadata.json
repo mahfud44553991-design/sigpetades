@@ -3116,6 +3116,31 @@
                 "020100_cincin": 2626,
                 "persil": 4329
             }
+        },
+        "GARIS SUMBU SUNGAI JAHIT": {
+            "features": 57,
+            "types": {
+                "line": 57
+            },
+            "file": "garis-sungai-jahit.geojson",
+            "panjang_m": 5753,
+            "derived_from": "garis-sungai-label.geojson (72 rantai, 5.693,2 m) dijahit UTUH per baris oleh tools/jahit-sumbu-sungai.php; satu baris tidak dipecah, jadi tidak ada verteks yang dibuang",
+            "ambang": {
+                "simpul_m": 0.35,
+                "belok_derajat": 40,
+                "celah_m": 15,
+                "rapat_m": 1
+            },
+            "penyambungan": {
+                "rantai_masuk": 72,
+                "polilin": 57,
+                "jembatan": 15,
+                "jembatan_m": 59.4,
+                "jembatan_terpanjang_m": 14.3,
+                "ditolak_memotong": 0,
+                "sisa_ujung_bebas": 114
+            },
+            "derived_at": "2026-11-21T12:10:07+07:00"
         }
     },
     "warning": "Jangan ditafsirkan sebagai EPSG:4326 atau meter persegi sebelum satuan dan titik kontrol diverifikasi.",
@@ -3139,7 +3164,8 @@
         "GARIS JALAN TEPI DARI LABEL: 440 dari 579 baris tepi yang titik awal dan akhirnya sama (56.716,5 m) dibuang karena >= 90% titik sampel keliling SATU persil jatuh <= 0.35 m dari baris itu: baris semacam ini keliling sebuah bidang tanah yang ditulis sebagai satu polilin, bukan tepi jalan. Uji per baris ini tidak memakai topologi, jadi tetap mengenali keliling yang bertemu keliling lain di satu simpul. Saringan berjalan sebelum saringan cincin topologis, sebelum saringan pembatas persil, dan sebelum tahap 2, jadi sumbu dibangun ulang tanpa baris itu.",
         "GARIS JALAN TEPI DARI LABEL: 69 dari 71 siklus sederhana (260 baris, 10.241,1 m) dibuang karena titik 1,0 m ke arah dalam siklus itu berada di dalam persil pada >= 80% titik uji — siklus seperti itu keliling sebuah bidang tanah, bukan tepi jalan. Cabang yang menempel dipangkas lebih dulu, jadi keliling tetap dikenali walau ada garis lain yang bersambung padanya; siklus yang mengurung ruang kosong (dua tepi jalan yang bertemu di ujung gang) dibiarkan. Saringan berjalan sebelum saringan pembatas persil dan sebelum tahap 2, jadi sumbu dibangun ulang tanpa baris itu dan `tepi_all` tidak menunjuk baris yang hilang. Ujung baris dianggap satu simpul bila jaraknya <= 0,01 m.",
         "GARIS JALAN TEPI DARI LABEL: 133 baris terbit (11.519,6 m) dicabut karena membentuk 87 siklus yang menempel ke jaringan jalan pada paling banyak satu simpul — keliling bidang tanah atau lingkaran buntu, bukan jalan lewat. Ujung baris dibulatkan 0,01 m, daun dipangkas, lalu simpul yang pada inti bersambung >= 3 dibuang; komponen sisa yang setiap simpulnya bersambung 2 adalah siklus lepas. Saringan berjalan SESUDAH --tepi=terpakai, jadi keliling yang baru terpisah dari jaringan sesudah baris tak terpakai dibuang ikut tertangkap. 316 rujukan dicabut dari `tepi_all` dan 3 sumbu yang kehilangan seluruh rujukannya ikut dibuang; geometri sumbu tidak dihitung ulang, sama seperti penyaringan --tepi=terpakai.",
-        "GARIS JALAN TEPI DARI LABEL: 1041 baris klaim tahap 1 (29.607,7 m) dibuang karena kedua sisinya, pada offset tegak lurus 0.8 m, jatuh di persil yang berbeda pada >= 80% titik sampel: garis itu pembatas dua bidang tanah, bukan tepi jalan. Saringan berjalan sebelum tahap 2, jadi sumbu dibangun ulang tanpa baris itu dan `tepi_all` tidak menunjuk baris yang hilang."
+        "GARIS JALAN TEPI DARI LABEL: 1041 baris klaim tahap 1 (29.607,7 m) dibuang karena kedua sisinya, pada offset tegak lurus 0.8 m, jatuh di persil yang berbeda pada >= 80% titik sampel: garis itu pembatas dua bidang tanah, bukan tepi jalan. Saringan berjalan sebelum tahap 2, jadi sumbu dibangun ulang tanpa baris itu dan `tepi_all` tidak menunjuk baris yang hilang.",
+        "GARIS SUMBU SUNGAI JAHIT: 57 polilin (5.752,6 m) dari 72 rantai sumbu sungai; 144 ujung rantai tidak ada yang bersimpul, jadi 15 celah <= 15 m dijembatani garis lurus (59,4 m, terpanjang 14,3 m) memakai dua ujung itu sebagai titik; tidak ada koordinat lain yang dibuat. Verifikasi: 3.524 titik keluaran semuanya titik bahan, panjang = 5.693,25 m + 59,37 m, ruas > 5 m hanya jembatan. Sisa 114 ujung bebas: <=2 m 2, 2-10 m 14, 10-50 m 32, >50 m 22. Alat tools/jahit-sumbu-sungai.php; berkas sumber tidak diubah."
     ],
     "converted_at": "2026-10-31T11:01:27+01:00",
     "derived_at": "2026-11-21T11:41:17+07:00"

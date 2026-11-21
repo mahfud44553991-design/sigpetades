@@ -7961,6 +7961,86 @@ pada kedua berkas PHP dan `node --check` bersih atas JS halaman.
 
 ---
 
+### 3.108 Sumbu sungai dijahit jadi 57 polilin lalu dipasang di dua peta (21 Nov 2026)
+
+Dua perintah berurutan — "jahit semua garis sumbu sungai" lalu "pasang lapis
+jahit di peta" — dijawab lewat alat baru `tools/jahit-sumbu-sungai.php` dan
+empat berkas: dua API, panel Peta Induk, dan metadata lapis.
+
+Bahan jahitan adalah `files/sig-pertanahan-gedong-lokal/data/dxf-layers/
+garis-sungai-label.geojson`: 72 rantai sumbu (5.693,2 m) turunan
+`tools/garis-sungai-label.php` dari label SUNGAI/KALI/BENGKONG di celah persil.
+Diukur dengan klaster simpul 0,35 m, **tidak ada dua rantai yang berbagi
+simpul**: 144 ujung semuanya berderajat 1 dan jaringannya 72 komponen. Jahitan
+karena itu mustahil hanya dengan menempelkan ujung yang sudah bersimpul;
+sebagian celah harus dijembatani garis lurus.
+
+Aturan jahit mengikuti `app/sumbu-rapi.php` dan `tools/jahit-sumbu-blok.php`,
+tetapi **baris bahan dijahit utuh** (bukan dipecah per ruas) supaya tidak ada
+verteks yang dibuang dan panjang tidak menyusut:
+
+- Ujung berjarak ≤ 0,35 m satu simpul; rantai yang kedua ujungnya menjadi simpul
+  sama adalah cincin dan ditulis apa adanya.
+- Di simpul derajat 2 kedua rantai selalu disambung; di simpul bercabang
+  pasangan paling lurus (lanjutan ≤ 40°) didahulukan dan satu rantai dipakai
+  sekali per simpul.
+- Dua ujung bebas pada baris berbeda disambung bila arah sambungannya menerus
+  (≤ 40°) di kedua ujung dan jaraknya ≤ `--celah` (bawaan 15 m); ujung berjarak
+  ≤ `--rapat` (bawaan 1 m) disambung tanpa syarat arah. Pasangan terpendek
+  didahulukan, satu ujung sekali.
+- Jembatan yang memotong rantai yang disambungnya ditolak.
+
+Ambang 15 m + 1 m itu ambang lapis air
+(`tools/rapikan-garis-jalan.php --lapis=perairan --celah=15 --rapat=1`). Ujung
+yang lebih jauh biasanya dua alur sungai berbeda, bukan satu alur putus, jadi
+dibiarkan dua garis.
+
+Hasil `--terapkan` (21 Nov 12:07): **57 polilin · 5.752,6 m · 3.524 titik**.
+Ada **15 jembatan · 59,4 m**, terpanjang 14,3 m (4 di antaranya > 5 m), dan 0
+jembatan ditolak karena memotong. Polilin terpanjang 536,7 m menyatukan 4
+rantai. Sisa **114 ujung bebas** dibiarkan terpisah: 2 ujung ≤ 2 m, 14 ujung
+2–10 m, 32 ujung 10–50 m, 22 ujung > 50 m — tidak ada garis panjang yang
+dikarang untuk menutupnya.
+
+Alat memverifikasi dirinya: 3.524 titik keluaran semuanya titik bahan (kunci
+koordinat 6 desimal), panjang keluaran sama dengan panjang bahan ditambah
+jumlah jembatan (selisih 0,0 m), dan setiap ruas > 5 m adalah jembatan (ruas
+bahan terpanjang 4,66 m; hanya 4 jembatan melewati 5 m). Berkas keluaran
+`garis-sungai-jahit.geojson` (152.652 bita) **tidak ikut git**; bahan
+`garis-sungai-label.geojson` tidak disentuh.
+
+Pemasangan lapis jahit:
+
+- `api/bidang.php?lapisan=garis-sungai` membaca berkas jahit dan jatuh ke berkas
+  label bila belum ada; properti `label` yang berupa larik digabung koma pada
+  jawaban.
+- `api/peta-lama.php` memetakan `garis-sungai` ke `garis-sungai-jahit.geojson`;
+  kunci itu tetap di `LAPISAN_BOLEH_KOSONG` sehingga clone tanpa berkas tetap
+  menjawab 200 kosong.
+- `peta-lama.php` menampilkan pil **Sumbu sungai (57)**, angkanya dari kunci
+  metadata baru `GARIS SUMBU SUNGAI JAHIT` (features 57, `panjang_m` 5753,
+  blok `ambang` dan `penyambungan`, `derived_from` 72 rantai). Paragraf
+  petunjuk menyebut 57 polilin hasil jahit 72 rantai dengan 15 jembatan celah
+  59,4 m.
+- `peta.php` tidak diubah: chip Sungai memang sudah memanggil
+  `lapisan=garis-sungai`, jadi kini menggambar 57 polilin putus-putus
+  `#1d4ed8` di kanvas `pane-sungai`.
+
+Pemeriksaan. CLI dengan sesi pengguna aktif: kedua API menjawab 57 fitur ·
+3.524 titik; Peta Induk berjumlah 5.752,6 m. Browser sesi Super Admin: pil
+"Sumbu sungai (57)" tercentang, piksel `#1e3a8a` di kanvas Peta Induk 841 → 1
+saat pil dimatikan → 841 lagi setelah dinyalakan lagi; kanvas `pane-sungai`
+Peta Bidang berisi 3.672 piksel tak transparan dengan warna dominan `#1d4ed8`;
+konsol tanpa galat. `php -l` bersih pada `tools/jahit-sumbu-sungai.php`,
+`api/bidang.php`, `api/peta-lama.php`, dan `peta-lama.php`.
+
+Catatan alat: uji kering adalah bawaan, `--terapkan` yang menulis;
+`--celah`/`--rapat` mengubah ambang, `--rinci` mencetak setiap polilin,
+`--keluaran` mengganti nama berkas. Menjalankan ulang lalu menulis ke nama yang
+sama langsung mengganti berkas yang disajikan kedua peta.
+
+---
+
 ## 4. Berkas SPPT dari Excel
 
 Importer CSV menerima kolom berikut (nama kolom dibersihkan dari spasi dan tanda

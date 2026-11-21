@@ -435,9 +435,9 @@ sip_judul(
                 <label class="cek" title="Layer GARIS BATAS PERAIRAN 020100">
                     <input type="checkbox" data-lapisan="garis-perairan" checked>
                     Sungai (<?= e(angka($jumlah('GARIS BATAS PERAIRAN 020100'))) ?>)</label>
-                <label class="cek" title="Layer GARIS SUNGAI DARI LABEL — sumbu dari celah persil yang belum bergaris">
+                <label class="cek" title="Layer GARIS SUMBU SUNGAI JAHIT — 57 polilin hasil jahit 72 rantai sumbu sungai">
                     <input type="checkbox" data-lapisan="garis-sungai" checked>
-                    Sumbu sungai (<?= e(angka($jumlah('GARIS SUNGAI DARI LABEL'))) ?>)</label>
+                    Sumbu sungai (<?= e(angka($jumlah('GARIS SUMBU SUNGAI JAHIT'))) ?>)</label>
                 <label class="cek" title="Layer GARIS LAIN 020100">
                     <input type="checkbox" data-lapisan="garis-lain">
                     Tanpa label (<?= e(angka($jumlah('GARIS LAIN 020100'))) ?>)</label>
@@ -448,9 +448,9 @@ sip_judul(
                     tools/garis-jalan-dari-sumbu.php. Perhitungan kelas ada di README §3.77.
                     Pil Tepi sungai sudah digabung ke Sungai; lapis Sungai kini
                     disajikan sebagai 143 rantai, satu garis per tepian.
-                    Sumbu sungai (72 rantai) diturunkan tools/garis-sungai-label.php
-                    dari label yang celahnya belum bergaris dan digambar putus-putus
-                    karena melintasi badan persil.</p>
+                    Sumbu sungai kini 57 polilin hasil jahit 72 rantai turunan
+                    tools/garis-sungai-label.php (15 jembatan celah, 59,4 m), digambar
+                    putus-putus karena melintasi badan persil.</p>
                 <p class="petunjuk">Turunan Jalan dua tahap</p>
                 <label class="cek" title="Layer GARIS JALAN SUMBU DARI LABEL, dirapikan: garis kembar dibuang lalu dijahit">
                     <input type="checkbox" data-lapisan="garis-jalan-sumbu" checked>
