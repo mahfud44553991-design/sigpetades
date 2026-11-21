@@ -8273,6 +8273,61 @@ menjadi "Klik peta untuk menambah titik pada lapis Sumbu sungai", placeholder
 label `SUNGAI`, dan saat alat dimatikan menjadi "Sumbu sungai tersimpan: 1."
 Konsol tanpa galat. Basis data tidak disentuh.
 
+### 3.113 26 garis Sumbu sungai manual dijahit ke sumbu asli (21 Nov 2026)
+
+**Bahannya.** Setelah lapis keempat dipasang (§3.112), 26 garis digambar tangan
+lewat alat Garis manual: `SUNGAI-M0001` sampai `SUNGAI-M0026`, 2.862,4 m,
+paling pendek 11,7 m (M0015) dan paling panjang 413,8 m (M0023, 32 titik).
+Garis-garis itu bukan hiasan di atas sumbu lama: dari 52 ujungnya, 33 berjarak
+≤0,5 m dan 39 ≤1 m dari segmen `garis-sungai-jahit.geojson`, dan urutan
+kodenya berpindah dari satu polilin turunan ke polilin berikutnya — jadi
+fungsinya menambal bentang yang belum punya sumbu, bukan menggambar ulang
+alur yang sudah ada.
+
+**Jahit ulang dari bahan mentah.** `tools/jahit-sumbu-sungai.php` dijalankan
+dengan tiga bahan, bukan dua:
+`--masuk=garis-sungai-label,garis-sungai-dua-tepi,garis-sungai-manual
+--celah=17 --simpul=10`. Ambang celah 17 m dipilih karena jarak terlebar
+antar-ujung manual yang masih satu alur 16,5 m (M0024–M0025); dengan bawaan
+15 m M0025 tetap jadi polilin yatim. Hasilnya 30 polilin, 9.454,4 m: 52
+jembatan celah 169,5 m (terpanjang 16,4 m) dan 20 jembatan simpul pertemuan
+93,5 m. Selanjutnya `tools/jahit-sumbu-tepi.php` menyusur 3 dari 20 celah
+lewat koridor dua tepi perairan (celah 101,3 m, susuran 105,5 m), jadi berkas
+terbit **27 polilin, 9.559,9 m, 4.115 titik**.
+
+**Verifikasi.** Ke-26 kode `SUNGAI-M` ada di dalam polilin hasil dan tidak ada
+satu pun polilin yang hanya berisi garis manual. Uji yang dibawa alat tetap
+berlaku: 0 titik keluaran yang bukan titik bahan, 0 koordinat karangan selain
+jejak susuran, selisih panjang bahan+jembatan 0,3 m (hanya dari simpul yang
+disatukan), dan tidak ada ruas panjang di luar jembatan maupun bahan. Sisa
+setelah jahitan: 54 ujung bebas (0 ≤2 m, 0 2–10 m, 16 10–50 m, 23 >50 m).
+Ujung terjauh M0025 berjarak 261,8 m dari sumbu mana pun dan dibiarkan bebas —
+menjembataninya berarti mengarang alur melintasi persil.
+
+**Dua perbaikan alat.** Pemeriksaan "ruas >5 m hanya boleh jembatan" menganggap
+semua bahan beruas pendek, padahal garis manual digambar dengan ruas 10–40 m;
+sekarang ruas bahan ikut sah, dicocokkan dengan toleransi simpul 0,35 m karena
+penyatuan simpul bisa menggeser ujung rantai. Properti `label` yang berupa
+larik (seperti di berkas jahit lama) juga tidak lagi memicu "Array to string
+conversion" — jangan memberi berkas hasil jahit sebagai bahan, pakai bahan
+mentahnya.
+
+**Penyajian dan retensi.** `garis-sungai-manual.geojson` dihapus setelah
+dijahit (cadangan:
+`_lama/cadangan-sumbu-sungai-manual-20261121-1414/`), karena isinya sudah
+menjadi bagian berkas terbit; membiarkannya akan menggambar garis yang sama
+dua kali. Jalur penyajian manual di `api/peta-lama.php` dan `api/bidang.php`
+tetap ada supaya garis baru yang digambar sesudah ini langsung tampil.
+`metadata.json` kunci `GARIS SUMBU SUNGAI JAHIT` diperbarui: features 27,
+`panjang_m` 9.559,9, ambang celah 17, blok `manual` 26 rantai, dan blok `tepi`
+3 konektor. Pil Peta Induk "Sumbu sungai (27)", paragraf panel, doc-block
+`api/peta-lama.php` dan `api/bidang.php` ikut menyebut 27 polilin.
+
+**Uji hidup.** Kedua API menjawab 200/27 fitur; pil 27 dengan `data-turunan`
+27 dan `data-tersimpan-sungai` 0; kanvas `pane-sungai` Peta Bidang 0 → 470
+piksel sesudah diperkecil, Peta Induk 2.730 piksel warna `#1e3a8a`; konsol
+tanpa galat aplikasi. Basis data tidak disentuh.
+
 ---
 
 ## 4. Berkas SPPT dari Excel

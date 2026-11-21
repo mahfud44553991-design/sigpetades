@@ -20,15 +20,16 @@ declare(strict_types=1);
  *       tools/tepi-sungai.php) sejak 21 Nov 2026; baris aslinya 275 ada di
  *       _lama/cadangan-garis-perairan-275-20261121/.
  *   GET api/peta-lama.php?lapisan=garis-sungai
- *       Sumbu sungai (garis-sungai-jahit.geojson): 45 polilin, 6.615,9 m, hasil
- *       tools/jahit-sumbu-sungai.php --masuk=garis-sungai-label,garis-sungai-dua-tepi
- *       yang menjahit 72 rantai turunan tools/garis-sungai-label.php + 18 rantai
- *       turunan tools/sumbu-dari-dua-tepi.php (23 jembatan celah 76,5 m, 19
- *       jembatan simpul pertemuan 93,9 m), lalu 4 celah lagi disusur di tengah
- *       alur dari dua tepi perairan oleh tools/jahit-sumbu-tepi.php (112,5 m
- *       celah, 116,8 m susuran). Berkasnya belum tentu ada karena tidak
+ *       Sumbu sungai (garis-sungai-jahit.geojson): 27 polilin, 9.559,9 m, hasil
+ *       tools/jahit-sumbu-sungai.php --masuk=garis-sungai-label,garis-sungai-dua-tepi,
+ *       garis-sungai-manual yang menjahit 72 rantai turunan tools/garis-sungai-label.php
+ *       + 18 rantai turunan tools/sumbu-dari-dua-tepi.php + 26 rantai garis Sumbu
+ *       sungai yang digambar lewat alat "Garis manual" (52 jembatan celah 169,5 m,
+ *       20 jembatan simpul pertemuan 93,5 m), lalu 3 celah lagi disusur di tengah
+ *       alur dari dua tepi perairan oleh tools/jahit-sumbu-tepi.php (101,3 m
+ *       celah, 105,5 m susuran). Berkasnya belum tentu ada karena tidak
  *       ikut git; selama hilang, lapis ini menjawab koleksi kosong.
- *       Garis yang digambar dengan alat "Garis manual" (lapis Sumbu sungai,
+ *       Garis baru yang digambar dengan alat "Garis manual" (lapis Sumbu sungai,
  *       berkas garis-sungai-manual.geojson) ikut disajikan di lapis ini.
  *   GET api/peta-lama.php?lapisan=garis-jalan-sumbu
  *       Sumbu jalan yang sudah rapi: garis kembar dibuang lalu sisanya dijahit

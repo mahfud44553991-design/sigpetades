@@ -186,6 +186,8 @@ $baris = [];
 $panjangMasuk = 0.0;
 $dilewati = 0;
 $dilihat = [];
+$kunciBahan = [];
+$segmenBahan = [];
 foreach ($berkasMasuk as $namaMasuk) {
     $bahan = geojsonBaca(DIR_LAPISAN . '/' . $namaMasuk . '.geojson');
     if ($bahan === []) {
@@ -217,9 +219,22 @@ foreach ($berkasMasuk as $namaMasuk) {
         $dilihat[$kode] = true;
         $panjang = panjangTitik($koor);
         $panjangMasuk += $panjang;
+        // Ruas bahan garis manual bisa lebih dari 5 m, jadi ruas itu harus
+        // tetap sah di pemeriksaan "ruas panjang hanya jembatan".
+        for ($i = 1, $m = count($koor); $i < $m; $i++) {
+            $a = sprintf('%.6f:%.6f', $koor[$i - 1][0], $koor[$i - 1][1]);
+            $b = sprintf('%.6f:%.6f', $koor[$i][0], $koor[$i][1]);
+            $kunciBahan[$a . '|' . $b] = true;
+            $kunciBahan[$b . '|' . $a] = true;
+            $segmenBahan[] = [$koor[$i - 1][0], $koor[$i - 1][1], $koor[$i][0], $koor[$i][1]];
+        }
+        $label = $pro['label'] ?? '';
+        if (is_array($label)) {
+            $label = implode(', ', array_map('strval', $label));
+        }
         $baris[] = [
             'kode' => $kode,
-            'label' => (string) ($pro['label'] ?? ''),
+            'label' => (string) $label,
             'cara' => (string) ($pro['cara'] ?? ''),
             'titik' => $koor,
             'panjang' => $panjang,
@@ -722,9 +737,9 @@ if ($selisih > $jumlahSambung * SIMPUL_M + 0.5) {
     galat('panjang keluaran menyimpang dari bahan ditambah jembatan');
 }
 
-// Satu-satunya ruas keluaran yang boleh lebih dari 5 m adalah jembatan: ruas
-// bahan terpanjang 4,66 m, jadi ruas panjang membuktikan tidak ada garis
-// karangan selain jembatan celah yang sudah dihitung.
+// Satu-satunya ruas keluaran yang boleh lebih dari 5 m adalah jembatan atau
+// ruas bahan itu sendiri (garis manual digambar dengan ruas panjang); ruas
+// panjang lain membuktikan ada garis karangan selain jembatan yang dihitung.
 $kunciJembatan = [];
 foreach ($ruas as $r) {
     if (!$r['jembatan']) {
@@ -749,8 +764,20 @@ foreach ($polilin as $p) {
         $jumlahRuasPanjang++;
         $panjangRuasPanjang += $d;
         $kunci = sprintf('%.6f:%.6f|%.6f:%.6f', $ax, $ay, $bx, $by);
-        if (!isset($kunciJembatan[$kunci])) {
-            $ruasAsing++;
+        if (!isset($kunciJembatan[$kunci]) && !isset($kunciBahan[$kunci])) {
+            // Simpul yang disatukan bisa menggeser ujung rantai sampai SIMPUL_M,
+            // jadi ruas bahan dicocokkan ulang dengan toleransi itu.
+            $dariBahan = false;
+            foreach ($segmenBahan as $s) {
+                if ((jarak($ax, $ay, $s[0], $s[1]) <= SIMPUL_M && jarak($bx, $by, $s[2], $s[3]) <= SIMPUL_M)
+                    || (jarak($ax, $ay, $s[2], $s[3]) <= SIMPUL_M && jarak($bx, $by, $s[0], $s[1]) <= SIMPUL_M)) {
+                    $dariBahan = true;
+                    break;
+                }
+            }
+            if (!$dariBahan) {
+                $ruasAsing++;
+            }
         }
     }
 }

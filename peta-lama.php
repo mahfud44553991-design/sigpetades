@@ -444,7 +444,7 @@ sip_judul(
                 <label class="cek" title="Layer GARIS BATAS PERAIRAN 020100">
                     <input type="checkbox" data-lapisan="garis-perairan" checked>
                     Sungai (<?= e(angka($jumlah('GARIS BATAS PERAIRAN 020100'))) ?>)</label>
-                <label class="cek" title="Layer GARIS SUMBU SUNGAI JAHIT — 45 polilin hasil jahit 72 rantai sumbu label + 18 rantai dari dua tepi, 4 celah disusur dari dua tepi perairan, ditambah garis Sumbu sungai dari alat Garis manual">
+                <label class="cek" title="Layer GARIS SUMBU SUNGAI JAHIT — 27 polilin hasil jahit 72 rantai sumbu label + 18 rantai dari dua tepi + 26 garis Sumbu sungai dari alat Garis manual, 3 celah disusur dari dua tepi perairan">
                     <input type="checkbox" data-lapisan="garis-sungai" checked>
                     Sumbu sungai (<b id="jumlahSumbuSungai"
                         data-turunan="<?= (int) $jumlah('GARIS SUMBU SUNGAI JAHIT') ?>"><?= e(angka($jumlah('GARIS SUMBU SUNGAI JAHIT') + $jumlahSungaiManual)) ?></b>)</label>
@@ -458,12 +458,13 @@ sip_judul(
                     tools/garis-jalan-dari-sumbu.php. Perhitungan kelas ada di README §3.77.
                     Pil Tepi sungai sudah digabung ke Sungai; lapis Sungai kini
                     disajikan sebagai 143 rantai, satu garis per tepian.
-                    Sumbu sungai kini 45 polilin hasil jahit 72 rantai turunan
+                    Sumbu sungai kini 27 polilin hasil jahit 72 rantai turunan
                     tools/garis-sungai-label.php + 18 rantai turunan
-                    tools/sumbu-dari-dua-tepi.php (23 jembatan celah 76,5 m dan 19
-                    jembatan simpul pertemuan 93,9 m), lalu 4 celah lagi disusur di
+                    tools/sumbu-dari-dua-tepi.php + 26 rantai garis Sumbu sungai yang
+                    digambar lewat alat Garis manual (52 jembatan celah 169,5 m dan
+                    20 jembatan simpul pertemuan 93,5 m), lalu 3 celah lagi disusur di
                     tengah alur dari dua tepi perairan oleh tools/jahit-sumbu-tepi.php
-                    (112,5 m celah, 116,8 m susuran), digambar putus-putus karena
+                    (101,3 m celah, 105,5 m susuran), digambar putus-putus karena
                     melintasi badan persil. Sumbu dari dua tepi hanya ditelusuri
                     di antara dua tepi perairan nyata, tanpa titik karangan.</p>
                 <p class="petunjuk">Turunan Jalan dua tahap</p>
