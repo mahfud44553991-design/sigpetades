@@ -7784,6 +7784,57 @@ ke git karena bisa dibuat ulang dari `bidang-hm.geojson` yang sudah terlacak.
 
 ---
 
+### 3.103 Jalan 5 sumbu digabung ke lapis Jalan (21 Nov 2026)
+
+Pil **Jalan 5 sumbu** menampilkan draf alat yang sama dengan
+`--sumbu=rapi --maks=5 --tutup=40` (`garis-jalan-dari-sumbu-panjang.geojson`,
+**52 fitur · 8.628,41 m**, satu cincin tertutup). Draf itu bertumpang tindih
+dengan lapis Jalan dan sebagian besar geometrinya sudah ada di sana: **33 dari
+52 fitur** utuh tertutup lapis Jalan. Karena itu geometrinya digabung ke
+`garis-jalan-dari-sumbu.geojson` lalu pilnya dicabut, bukan dipertahankan
+sebagai lapis kedua.
+
+Penggabungan memakai aturan de-duplikasi, bukan salin-tempel:
+
+- Sepanjang tiap baris 5 sumbu disampel tiap 0,5 m; sampel yang jaraknya
+  ≤ 0,35 m dari sembarang ruas Jalan dianggap sudah tertutup.
+- Yang tersisa ditulis sebagai potongan yang tersusun dari **verteks asli**,
+  ditambah dua titik potong di batas tertutup/terbuka (186 verteks untuk
+  1.856,28 m). Tidak ada verteks yang digeser atau diratakan.
+- Potongan di bawah 2 m dibuang: **46 rentang · 40,65 m**. Dua puluh lima di
+  antaranya berukuran 1–2 m; 22 berujung ≤ 0,6 m dari Jalan di kedua sisi —
+  salinan tipis akibat sampel di batas, bukan jalan baru — dan 3 sisanya
+  berujung 1,0–2,0 m di satu sisi. Ambang ini sejalan dengan rantai mikro yang
+  dibuang di §3.101.
+
+Hasil gabungan: **67 potongan · 1.856,28 m** (median 10,50 m, terpendek
+2,00 m, terpanjang 165,00 m), sehingga Jalan menjadi **3.911 fitur ·
+92.877,55 m** (sebelumnya 3.844 · 91.021,27 m). Kode potongan `TUTUP-0001`
+sampai `TUTUP-0067` (unik, tidak ada yang kembar), dengan sifat
+`cara: "gabung-5-sumbu"`, `dari` (kode baris 5 sumbu asal), `sumbu`, `sisi`,
+`panjang_m`, `jumlah_titik`, dan `label: "JALAN"`.
+
+Pemeriksaan sambungan ujung potongan ke Jalan: median 0,20/0,22 m dan p90
+0,50/0,51 m untuk ujung awal/akhir, jadi hampir semuanya menempel. Empat
+potongan berujung jauh, semuanya sisa cincin yang memang tidak ada di Jalan:
+tiga potongan berujung 2,7–7,4 m dari Jalan dan satu ekor 99,05 m yang
+ujungnya 97,95 m dari Jalan
+(tepi kanan sumbu `JAHIT-0001` yang tidak masuk jalur semua-sumbu).
+
+Pil **Jalan 5 sumbu** dihapus dari `peta-lama.php` beserta blok hitung
+jumlahnya dan cabang gayanya (ungu `#7e22ce`), dan kunci
+`garis-jalan-panjang` dicabut dari daftar putih `api/peta-lama.php` (sekarang
+menjawab 404). Berkas `garis-jalan-dari-sumbu-panjang.geojson` tidak dihapus,
+melainkan dipindahkan bersama salinan lapis Jalan lama ke
+`_lama/cadangan-jalan-5sumbu-20261121/` (berstempel `20261121-032007`). Kedua
+lapis Jalan tidak punya entri di `metadata.json`, jadi metadata tidak berubah.
+
+Catatan: menjalankan ulang `tools/garis-jalan-dari-sumbu.php --terapkan` akan
+menulis ulang lapis Jalan dari sumbu dan **membuang** 67 potongan `TUTUP`;
+salurannya tetap ada di cadangan di atas bila perlu digabung lagi.
+
+---
+
 ## 4. Berkas SPPT dari Excel
 
 Importer CSV menerima kolom berikut (nama kolom dibersihkan dari spasi dan tanda

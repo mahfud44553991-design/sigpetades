@@ -85,14 +85,6 @@ if (is_file($berkasGarisJalan)) {
     $jumlahGarisJalan = is_array($isiGarisJalan['features'] ?? null) ? count($isiGarisJalan['features']) : 0;
 }
 
-$berkasGarisJalanPanjang = __DIR__ . '/files/sig-pertanahan-gedong-lokal/data/dxf-layers/garis-jalan-dari-sumbu-panjang.geojson';
-$jumlahGarisJalanPanjang = 0;
-if (is_file($berkasGarisJalanPanjang)) {
-    $isiGarisJalanPanjang = json_decode((string) file_get_contents($berkasGarisJalanPanjang), true);
-    $jumlahGarisJalanPanjang = is_array($isiGarisJalanPanjang['features'] ?? null)
-        ? count($isiGarisJalanPanjang['features']) : 0;
-}
-
 $berkasSumbuManual = __DIR__ . '/files/sig-pertanahan-gedong-lokal/data/dxf-layers/garis-sumbu-manual.geojson';
 $jumlahSumbuManual = 0;
 if (is_file($berkasSumbuManual)) {
@@ -436,9 +428,6 @@ sip_judul(
                 <label class="cek" title="Layer GARIS JALAN DARI SUMBU">
                     <input type="checkbox" data-lapisan="garis-jalan" checked>
                     Jalan (<?= e(angka($jumlahGarisJalan)) ?>)</label>
-                <label class="cek" title="Garis tepi tertutup dari 5 sumbu terpanjang, cincin keliling + jahit pertemuan antarsumbu (tools/garis-jalan-dari-sumbu.php --sumbu=rapi --maks=5 --tutup=40)">
-                    <input type="checkbox" data-lapisan="garis-jalan-panjang" checked>
-                    Jalan 5 sumbu (<?= e(angka($jumlahGarisJalanPanjang)) ?>)</label>
                 <label class="cek" title="Layer GARIS SELOKAN 020100">
                     <input type="checkbox" data-lapisan="garis-selokan">
                     Selokan (<?= e(angka($jumlah('GARIS SELOKAN 020100'))) ?>)</label>
@@ -723,7 +712,6 @@ $naskah = <<<'JS'
         if (nama === 'optimalisasi-hm') return () => ({ color: '#b45309', weight: 1.6, dashArray: '6 4', opacity: .95 });
         if (nama === 'lb-lai') return () => ({ color: '#7c3aed', weight: 1.4, dashArray: '2 4', opacity: .9 });
         if (nama === 'garis-jalan') return () => ({ color: '#0f766e', weight: 1.1, opacity: .85 });
-        if (nama === 'garis-jalan-panjang') return () => ({ color: '#7e22ce', weight: 2.4, opacity: .9 });
         if (nama === 'garis-selokan') return () => ({ color: '#0ea5e9', weight: 1.4, opacity: .95 });
         if (nama === 'garis-perairan') return () => ({ color: '#1d4ed8', weight: 1.7, opacity: .95 });
         if (nama === 'garis-tepi-sungai') return () => ({ color: '#0e7490', weight: 2.1, opacity: .95 });
