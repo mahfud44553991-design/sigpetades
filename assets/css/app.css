@@ -252,6 +252,10 @@ input[readonly], input:disabled, select:disabled, textarea:disabled { background
     height: 2px; border-radius: 0; vertical-align: 2px;
     background: #0ea5e9;
 }
+.legenda i.contoh-garis-sungai {
+    height: 2px; border-radius: 0; vertical-align: 2px;
+    background: repeating-linear-gradient(90deg, #1d4ed8 0 5px, transparent 5px 9px);
+}
 
 /* Tata letak halaman peta: tombol lapisan di atas kanvas, legenda berjaring. */
 .kartu-peta .kepala-kartu { margin-bottom: 12px; }

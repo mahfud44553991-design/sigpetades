@@ -313,6 +313,7 @@ $naskah = <<<'JS'
     // ribuan elemen SVG; label jalannya tetap div di atas kanvas itu.
     const kanvasJalan = L.canvas({ pane: 'pane-jalan', padding: 0.4 });
     const kanvasSelokan = L.canvas({ pane: 'pane-selokan', padding: 0.4 });
+    const kanvasSungai = L.canvas({ pane: 'pane-sungai', padding: 0.4 });
 
     const dasar = {
         jalan: L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -456,6 +457,9 @@ $naskah = <<<'JS'
         }
         if (setelan.selokan) {
             baris.push('<span><i class="contoh-garis-selokan"></i>Garis selokan</span>');
+        }
+        if (setelan.sungai) {
+            baris.push('<span><i class="contoh-garis-sungai"></i>Sumbu sungai</span>');
         }
         document.getElementById('legendaPeta').innerHTML = baris.join('');
     }
@@ -795,9 +799,21 @@ $naskah = <<<'JS'
     }
 
     async function muatSungai() {
-        const data = await Sip.api('api/bidang.php', { query: { lapisan: 'sungai' } });
+        const [garis, label] = await Promise.all([
+            // Berkas turunan ini tidak ikut git; tanpa berkas, label tetap tampil.
+            Sip.api('api/bidang.php', { query: { lapisan: 'garis-sungai' } })
+                .catch(() => ({ features: [] })),
+            Sip.api('api/bidang.php', { query: { lapisan: 'sungai' } })
+        ]);
         grup.sungai.clearLayers();
-        (data.features || []).forEach((f) => {
+        kanvasSungai.addTo(peta);
+        L.geoJSON(garis, {
+            renderer: kanvasSungai,
+            pane: 'pane-sungai',
+            interactive: false,
+            style: { color: '#1d4ed8', weight: 2, dashArray: '9 5', opacity: .95 }
+        }).addTo(grup.sungai);
+        (label.features || []).forEach((f) => {
             const p = f.properties;
             const koordinat = f.geometry.coordinates;
             L.marker([Number(koordinat[1]), Number(koordinat[0])], {

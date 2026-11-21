@@ -170,6 +170,7 @@ sip_judul(
                 <span><i style="background:#0f766e"></i>Garis jalan</span>
                 <span><i style="background:#0ea5e9"></i>Garis selokan</span>
                 <span><i style="background:#1d4ed8"></i>Garis sungai</span>
+                <span><i style="background:#1e3a8a"></i>Sumbu sungai</span>
                 <span><i style="background:#a16207"></i>Garis tanpa label</span>
                 <span><i style="background:#9d174d"></i>Sumbu jalan</span>
                 <span><i style="background:#7e22ce"></i>Jalan 5 sumbu (cincin)</span>
@@ -434,6 +435,9 @@ sip_judul(
                 <label class="cek" title="Layer GARIS BATAS PERAIRAN 020100">
                     <input type="checkbox" data-lapisan="garis-perairan" checked>
                     Sungai (<?= e(angka($jumlah('GARIS BATAS PERAIRAN 020100'))) ?>)</label>
+                <label class="cek" title="Layer GARIS SUNGAI DARI LABEL — sumbu dari celah persil yang belum bergaris">
+                    <input type="checkbox" data-lapisan="garis-sungai" checked>
+                    Sumbu sungai (<?= e(angka($jumlah('GARIS SUNGAI DARI LABEL'))) ?>)</label>
                 <label class="cek" title="Layer GARIS LAIN 020100">
                     <input type="checkbox" data-lapisan="garis-lain">
                     Tanpa label (<?= e(angka($jumlah('GARIS LAIN 020100'))) ?>)</label>
@@ -443,7 +447,10 @@ sip_judul(
                     tepi yang diturunkan dari semua sumbu jalan oleh
                     tools/garis-jalan-dari-sumbu.php. Perhitungan kelas ada di README §3.77.
                     Pil Tepi sungai sudah digabung ke Sungai; lapis Sungai kini
-                    disajikan sebagai 143 rantai, satu garis per tepian.</p>
+                    disajikan sebagai 143 rantai, satu garis per tepian.
+                    Sumbu sungai (72 rantai) diturunkan tools/garis-sungai-label.php
+                    dari label yang celahnya belum bergaris dan digambar putus-putus
+                    karena melintasi badan persil.</p>
                 <p class="petunjuk">Turunan Jalan dua tahap</p>
                 <label class="cek" title="Layer GARIS JALAN SUMBU DARI LABEL, dirapikan: garis kembar dibuang lalu dijahit">
                     <input type="checkbox" data-lapisan="garis-jalan-sumbu" checked>
@@ -497,7 +504,7 @@ sip_judul(
                     <input type="checkbox" data-lapisan="batas-jalan">
                     Label jalan (<?= e(angka($jumlah('BATAS JALAN'))) ?>)</label>
             </div>
-            <p class="petunjuk">Bidang kadastrum, kedua lapis turunan Jalan, Selokan, Sungai, calon bidang,
+            <p class="petunjuk">Bidang kadastrum, kedua lapis turunan Jalan, Selokan, Sungai, sumbu sungai, calon bidang,
                 titik obyek, dan bidang manual dimuat lebih dulu; sisanya mati secara bawaan agar peta tetap ringan.</p>
             <p class="petunjuk">Calon bidang adalah garis 020100 yang ujungnya hampir bertemu
                 (celah ≤ 1 unit, luas ≥ 20 unit²) dan belum tertutup sebagai bidang. Yang bentuknya
@@ -711,6 +718,7 @@ $naskah = <<<'JS'
         if (nama === 'garis-jalan') return () => ({ color: '#0f766e', weight: 1.1, opacity: .85 });
         if (nama === 'garis-selokan') return () => ({ color: '#0ea5e9', weight: 1.4, opacity: .95 });
         if (nama === 'garis-perairan') return () => ({ color: '#1d4ed8', weight: 1.7, opacity: .95 });
+        if (nama === 'garis-sungai') return () => ({ color: '#1e3a8a', weight: 2, dashArray: '9 5', opacity: .95 });
         if (nama === 'garis-lain') return () => ({ color: '#a16207', weight: 1.3, dashArray: '6 4', opacity: .95 });
         if (nama === 'garis-jalan-sumbu') return () => ({ color: '#9d174d', weight: 2.2, opacity: .95 });
         if (nama === 'bidang-manual') return () => ({

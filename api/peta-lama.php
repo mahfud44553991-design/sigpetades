@@ -19,6 +19,11 @@ declare(strict_types=1);
  *       garis-perairan menyajikan 143 rantai gabungan (bekas lapis Tepi sungai,
  *       tools/tepi-sungai.php) sejak 21 Nov 2026; baris aslinya 275 ada di
  *       _lama/cadangan-garis-perairan-275-20261121/.
+ *   GET api/peta-lama.php?lapisan=garis-sungai
+ *       Sumbu sungai dari label (garis-sungai-label.geojson): 72 rantai,
+ *       5.693,2 m, diturunkan tools/garis-sungai-label.php untuk mengisi celah
+ *       yang belum punya garis tepi. Berkasnya belum tentu ada karena tidak
+ *       ikut git; selama hilang, lapis ini menjawab koleksi kosong.
  *   GET api/peta-lama.php?lapisan=garis-jalan-sumbu
  *       Sumbu jalan yang sudah rapi: garis kembar dibuang lalu sisanya dijahit
  *       menjadi polilin utuh oleh app/sumbu-rapi.php (sejak 19 Nov 2026).
@@ -77,15 +82,17 @@ const LAPISAN_PETA_LAMA = [
     'garis-sumbu-manual' => 'garis-sumbu-manual.geojson',
     'garis-selokan'  => 'garis-selokan.geojson',
     'garis-perairan' => 'garis-perairan.geojson',
+    'garis-sungai'   => 'garis-sungai-label.geojson',
     'garis-lain'     => 'garis-lain.geojson',
     'titik-obyek'    => 'titik-obyek-manual.geojson',
     'bidang-manual'  => 'bidang-manual.geojson',
 ];
 
-// Lapis yang berkasnya belum tentu ada karena baru terisi dari alat di Peta
-// Induk; selama berkasnya belum ada, jawab koleksi kosong supaya lapis tetap
-// bisa dicentang tanpa galat 404.
-const LAPISAN_BOLEH_KOSONG = ['titik-obyek', 'garis-sumbu-manual'];
+// Lapis yang berkasnya belum tentu ada: dua lapis terisi dari alat di Peta
+// Induk, sedangkan sumbu sungai adalah turunan CLI yang tidak ikut git. Selama
+// berkasnya belum ada, jawab koleksi kosong supaya lapis tetap bisa dicentang
+// tanpa galat 404.
+const LAPISAN_BOLEH_KOSONG = ['titik-obyek', 'garis-sumbu-manual', 'garis-sungai'];
 
 const GARIS_MANUAL_PER_LAPISAN = [
     '010500' => 'garis-luar-desa-manual.geojson',
