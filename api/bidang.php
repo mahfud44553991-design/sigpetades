@@ -8,6 +8,7 @@ declare(strict_types=1);
  *   GET api/bidang.php?lapisan=blok     -> GeoJSON blok peta
  *   GET api/bidang.php?lapisan=batas    -> GeoJSON garis batas desa (lapisan 010500)
  *   GET api/bidang.php?lapisan=garis-jalan -> GeoJSON garis tepi jalan turunan label
+ *   GET api/bidang.php?lapisan=garis-selokan -> GeoJSON garis selokan 020100
  *   GET api/bidang.php?lapisan=laporan  -> GeoJSON titik laporan (hanya pengelola)
  *   GET api/bidang.php?cari=&dusun=     -> daftar ringkas untuk tabel/pencarian
  *   GET api/bidang.php?tanpa_blok=1     -> hanya bidang yang belum punya blok
@@ -135,6 +136,45 @@ try {
         $berkas = SIP_ROOT . '/files/sig-pertanahan-gedong-lokal/data/dxf-layers/garis-jalan-tepi.geojson';
         if (!is_file($berkas)) {
             json_error('Berkas garis jalan tidak ditemukan. Jalankan tools/garis-jalan-label.php.', 404);
+        }
+        $data = json_decode((string) file_get_contents($berkas), true);
+        $fitur = [];
+        foreach (($data['features'] ?? []) as $f) {
+            $geom = $f['geometry'] ?? [];
+            if (($geom['type'] ?? '') !== 'LineString') {
+                continue;
+            }
+            $garis = [];
+            foreach (($geom['coordinates'] ?? []) as $titik) {
+                if (!is_array($titik) || count($titik) < 2) {
+                    continue;
+                }
+                [$lon, $lat] = dxfKeWgs84((float) $titik[0], (float) $titik[1]);
+                $garis[] = [round($lon, 7), round($lat, 7)];
+            }
+            if (count($garis) < 2) {
+                continue;
+            }
+            $fitur[] = [
+                'type' => 'Feature',
+                'geometry' => ['type' => 'LineString', 'coordinates' => $garis],
+                'properties' => [
+                    'kode' => (string) ($f['properties']['kode'] ?? ''),
+                    'panjang_m' => $f['properties']['panjang_m'] ?? null,
+                ],
+            ];
+        }
+        json_response(['type' => 'FeatureCollection', 'features' => $fitur]);
+    }
+
+    // ------------------------------------------------------------------ garis selokan
+    // Kelas SALURAN turunan 020100 oleh tools/garis-batas-020100.php: 689 baris,
+    // 50.798,5 m. Berkas bermeter lokal DXF, diterjemahkan dxfKeWgs84().
+    if ($lapisan === 'garis-selokan') {
+        require_once __DIR__ . '/../tools/lib-impor.php';
+        $berkas = SIP_ROOT . '/files/sig-pertanahan-gedong-lokal/data/dxf-layers/garis-selokan.geojson';
+        if (!is_file($berkas)) {
+            json_error('Berkas garis selokan tidak ditemukan. Jalankan tools/garis-batas-020100.php.', 404);
         }
         $data = json_decode((string) file_get_contents($berkas), true);
         $fitur = [];

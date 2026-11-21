@@ -7931,6 +7931,36 @@ pesan, dan `php -l peta-lama.php` bersih.
 
 ---
 
+### 3.107 Lapis Selokan di Peta Bidang (21 Nov 2026)
+
+Perintah "belum ada layer selokan pada Peta bidang tanah desa" dijawab di dua
+berkas: `api/bidang.php` dan `peta.php` (halaman berjudul "Peta bidang tanah
+desa"). Sebelumnya halaman itu hanya punya lapis Jalan (garis tepi) dan label
+Sungai; garis selokan hanya ada di Peta Induk.
+
+- API mendapat cabang baru `?lapisan=garis-selokan`. Isinya
+  `files/sig-pertanahan-gedong-lokal/data/dxf-layers/garis-selokan.geojson` —
+  689 baris, 50.798,5 m, kelas SALURAN turunan `tools/garis-batas-020100.php`.
+  Koordinatnya bermeter lokal DXF, jadi tiap titik diterjemahkan
+  `dxfKeWgs84()` seperti `garis-jalan`; tiap fitur membawa `kode` dan
+  `panjang_m`. Jawaban: 200, 689 LineString.
+- Chip **Selokan** (swatch `#0ea5e9`) diletakkan antara Jalan dan Sungai,
+  bawaan aktif. Pilihannya disimpan sebagai `setelan.selokan` di
+  localStorage dan preset peta; preset lama tanpa kunci itu otomatis memakai
+  bawaan aktif karena `rapikanSetelan()` menambal nilai boolean.
+- Garis digambar di pane baru `pane-selokan` (z 414, di atas jalan 412 dan label
+  sungai 413) lewat kanvas tersendiri, gaya `#0ea5e9` tebal 1,4 opasitas 0,95.
+  Pane itu tidak menerima klik supaya klik bidang tetap mendarat di pane tanah.
+  Legenda diberi butir "Garis selokan" yang ikut muncul/hilang bersama chip.
+
+Diperiksa di browser pada sesi Super Admin: chip tercentang, permintaan
+`lapisan=garis-selokan` menjawab 200 dengan 689 fitur, `pane-selokan` berisi
+satu kanvas dan bergaris biru di atas peta, legenda "Garis selokan" hilang saat
+chip dimatikan lalu kembali saat dinyalakan, konsol tanpa pesan. `php -l` bersih
+pada kedua berkas PHP dan `node --check` bersih atas JS halaman.
+
+---
+
 ## 4. Berkas SPPT dari Excel
 
 Importer CSV menerima kolom berikut (nama kolom dibersihkan dari spasi dan tanda
