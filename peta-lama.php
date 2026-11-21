@@ -429,10 +429,10 @@ sip_judul(
                     <input type="checkbox" data-lapisan="garis-jalan" checked>
                     Jalan (<?= e(angka($jumlahGarisJalan)) ?>)</label>
                 <label class="cek" title="Layer GARIS SELOKAN 020100">
-                    <input type="checkbox" data-lapisan="garis-selokan">
+                    <input type="checkbox" data-lapisan="garis-selokan" checked>
                     Selokan (<?= e(angka($jumlah('GARIS SELOKAN 020100'))) ?>)</label>
                 <label class="cek" title="Layer GARIS BATAS PERAIRAN 020100">
-                    <input type="checkbox" data-lapisan="garis-perairan">
+                    <input type="checkbox" data-lapisan="garis-perairan" checked>
                     Sungai (<?= e(angka($jumlah('GARIS BATAS PERAIRAN 020100'))) ?>)</label>
                 <label class="cek" title="Layer GARIS LAIN 020100">
                     <input type="checkbox" data-lapisan="garis-lain">
@@ -442,8 +442,8 @@ sip_judul(
                     dibaca dari teks label, bukan dari berkas asalnya. Jalan kini berisi garis
                     tepi yang diturunkan dari semua sumbu jalan oleh
                     tools/garis-jalan-dari-sumbu.php. Perhitungan kelas ada di README §3.77.
-                    Pil Tepi sungai sudah digabung ke Sungai: seluruh rantainya memang
-                    berasal dari lapis ini, jadi tidak ada geometri baru.</p>
+                    Pil Tepi sungai sudah digabung ke Sungai; lapis Sungai kini
+                    disajikan sebagai 143 rantai, satu garis per tepian.</p>
                 <p class="petunjuk">Turunan Jalan dua tahap</p>
                 <label class="cek" title="Layer GARIS JALAN SUMBU DARI LABEL, dirapikan: garis kembar dibuang lalu dijahit">
                     <input type="checkbox" data-lapisan="garis-jalan-sumbu" checked>
@@ -497,8 +497,8 @@ sip_judul(
                     <input type="checkbox" data-lapisan="batas-jalan">
                     Label jalan (<?= e(angka($jumlah('BATAS JALAN'))) ?>)</label>
             </div>
-            <p class="petunjuk">Bidang kadastrum, kedua lapis turunan Jalan, calon bidang, titik obyek,
-                dan bidang manual dimuat lebih dulu; sisanya mati secara bawaan agar peta tetap ringan.</p>
+            <p class="petunjuk">Bidang kadastrum, kedua lapis turunan Jalan, Selokan, Sungai, calon bidang,
+                titik obyek, dan bidang manual dimuat lebih dulu; sisanya mati secara bawaan agar peta tetap ringan.</p>
             <p class="petunjuk">Calon bidang adalah garis 020100 yang ujungnya hampir bertemu
                 (celah ≤ 1 unit, luas ≥ 20 unit²) dan belum tertutup sebagai bidang. Yang bentuknya
                 sama dengan poligon tertutup dilewati (<?= e(angka((int) ($meta['layers']['CALON BIDANG']['duplicates_skipped'] ?? 0))) ?> duplikat),

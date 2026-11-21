@@ -217,12 +217,12 @@
             }
         },
         "GARIS BATAS PERAIRAN 020100": {
-            "features": 275,
+            "features": 143,
             "types": {
-                "line": 275
+                "line": 143
             },
             "file": "garis-perairan.geojson",
-            "panjang_m": 15014,
+            "panjang_m": 15010.91,
             "derived_from": "garis terbuka dan cincin poligon 020100 yang membawa label berkelas perairan (teks, bukan berkas asal) serta pita sejajarnya",
             "ambang": {
                 "benih_m": 8,
@@ -246,23 +246,12 @@
                 "poligon": 4176,
                 "segmen_tepi": 56315
             },
-            "label": 112,
+            "label": 143,
             "asal": {
-                "campur": 24,
-                "bidang": 19,
-                "tepi": 90,
-                "garis": 142
+                "garis-perairan-275-baris": 143
             },
             "cara": {
-                "benih": 66,
-                "pita1": 35,
-                "jahit-bidang": 22,
-                "susur-tepi": 70,
-                "pita2": 13,
-                "tarik-lurus": 21,
-                "lengkapi-benih": 16,
-                "lengkapi-pita1": 19,
-                "lengkapi-yatim": 13
+                "rantai-tepi": 143
             },
             "dirapikan": {
                 "alat": "tools/rapikan-garis-jalan.php",
@@ -2464,6 +2453,19 @@
                     "baris": 275,
                     "panjang_m": 15014
                 }
+            },
+            "pakai_rantai_tepi": {
+                "pada": "2026-11-21T09:53:35+07:00",
+                "cara": "permintaan \"pasang sekarang\": lapis ini disajikan sebagai 143 rantai gabungan (bekas lapis Tepi sungai) supaya satu garis per tepian; geometri tidak digeser",
+                "sumber_275": "garis-perairan-275-20261121-095335.geojson di _lama/cadangan-garis-perairan-275-20261121/",
+                "sesudah": {
+                    "baris": 143,
+                    "panjang_m": 15010.91,
+                    "terpanjang_m": 895.15,
+                    "median_m": 56.72,
+                    "berlabel": 143
+                },
+                "catatan": "blok dirapikan, buang_cincin, pangkas_gantung, lengkapi_label, sambung_bidang, dan sambung_tepi menjelaskan 275 baris yang kini ada di cadangan; properti per baris dibawa ke rantai lewat garis_sumber, label_sumber, jarak_label_m, dan cara_baris"
             }
         },
         "GARIS LAIN 020100": {

@@ -16,9 +16,9 @@ declare(strict_types=1);
  *       jalan yang diturunkan dari SEMUA sumbu jalan (1.560 sumbu label + 130
  *       sumbu manual) oleh tools/garis-jalan-dari-sumbu.php (sejak 18 Nov 2026).
  *       Berkas lama garis-jalan-tepi.geojson tetap di disk, tidak lagi disajikan.
- *       garis-perairan menyajikan garis sungai apa adanya; rantai Tepi sungai
- *       (tools/tepi-sungai.php) sudah digabung ke lapis ini 21 Nov 2026 —
- *       seluruh geometrinya memang berasal dari berkas yang sama.
+ *       garis-perairan menyajikan 143 rantai gabungan (bekas lapis Tepi sungai,
+ *       tools/tepi-sungai.php) sejak 21 Nov 2026; baris aslinya 275 ada di
+ *       _lama/cadangan-garis-perairan-275-20261121/.
  *   GET api/peta-lama.php?lapisan=garis-jalan-sumbu
  *       Sumbu jalan yang sudah rapi: garis kembar dibuang lalu sisanya dijahit
  *       menjadi polilin utuh oleh app/sumbu-rapi.php (sejak 19 Nov 2026).

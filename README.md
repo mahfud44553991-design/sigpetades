@@ -7867,6 +7867,68 @@ menurunkan rantai secara luring, tetapi keluarannya tidak lagi disajikan.
 Menjalankannya dengan `--terapkan` akan membuat ulang berkas dan entri
 metadata itu tanpa pil yang menampilkannya.
 
+Permintaan berikutnya mengganti isi lapis Sungai dengan rantai itu (§3.105).
+
+---
+
+### 3.105 Lapis Sungai disajikan sebagai 143 rantai (21 Nov 2026)
+
+Permintaan singkat "pasang sekarang" (pilihan yang dipakai: rantai menjadi isi
+Sungai) menindaklanjuti §3.104. Lapis Sungai tidak lagi menyajikan 275 baris
+pecahan, melainkan **143 rantai · 15.010,91 m** — geometri yang sama dengan
+bekas lapis Tepi sungai, tidak satu titik pun digeser. Perubahannya hanya
+bentuk penyajian: satu garis per tepian, bukan potongan-potongan.
+
+- Sumber rantai: `_lama/cadangan-gabung-tepi-sungai-20261121/garis-tepi-sungai-
+  20261121-034453.geojson` (143 fitur).
+- Properti per baris dibawa ke rantai: `garis_sumber` (daftar kode baris 275),
+  `jumlah_baris`, `label_sumber` (mis. `["SUNGAI"]`, `["KALI SARI"]`),
+  `jarak_label_m` (terdekat di antara baris sumber), dan `cara_baris` (hitungan
+  cara asal). `kode` tetap `TEPI-SUNGAI-0001` sampai `TEPI-SUNGAI-0143`.
+- Panjang dihitung ulang dari koordinat: total 15.010,91 m, terpanjang
+  895,15 m, median 56,72 m. Selisih 0,34 m terhadap jumlah `panjang_m` lama
+  hanya pembulatan dua desimal per rantai; seluruh 143 rantai berlabel, dan
+  tidak ada kode baris sumber yang hilang.
+- Berkas 275 baris dan metadata sebelum suntingan dicadangkan ke
+  `_lama/cadangan-garis-perairan-275-20261121/` (stempel `20261121-095335`).
+- Metadata `GARIS BATAS PERAIRAN 020100` kini `features` 143, `panjang_m`
+  15.010,91, `cara` `{"rantai-tepi": 143}`, `asal`
+  `{"garis-perairan-275-baris": 143}`, `label` 143; jejaknya di blok
+  `pakai_rantai_tepi`. Blok riwayat 275 baris (`dirapikan`, `buang_cincin`,
+  `pangkas_gantung`, `lengkapi_label`, `sambung_bidang`, `sambung_tepi`)
+  dibiarkan sebagai keterangan bahan yang kini ada di cadangan.
+- Pil berubah menjadi **Sungai (143)**; gaya biru `#1d4ed8` tebal 1,7 tidak
+  berubah. API `?lapisan=garis-perairan` menjawab 200 dengan 143 fitur
+  `LineString` berkode `TEPI-SUNGAI-0001..0143`.
+
+Catatan alat: `tools/lengkapi-garis-perairan.php`, `tools/rapikan-garis-jalan.php
+--lapis=perairan`, dan `tools/tepi-sungai.php` membaca berkas ini, jadi
+menjalankannya kini memasukkan rantai sebagai bahan. Pelengkapan label akan
+menambah baris berskema lama (kode `PERAIRAN-LENGKAP-*`), sehingga berkas bisa
+berisi campuran rantai dan baris; kalau perlu kembali ke bentuk 275 baris,
+cadangan di atas yang dipakai.
+
+---
+
+### 3.106 Jalan, Selokan, dan Sungai tampil sejak awal (21 Nov 2026)
+
+Perintah "tampilkan layer jalan, sungai dan selokan pada panel peta" dijawab
+dengan menjadikan ketiga pil itu aktif secara bawaan. `garis-jalan` memang sudah
+`checked`; kini centang bawaan ditambahkan pada `garis-selokan` (689) dan
+`garis-perairan` (143). Tidak ada perubahan data, gaya, atau API: warna
+`#0f766e` Jalan, `#0ea5e9` Selokan, dan `#1d4ed8` Sungai tetap, ketiga lapis
+tetap bisa dimatikan lewat centang.
+
+Catatan di bawah panel diperbarui menjadi "Bidang kadastrum, kedua lapis turunan
+Jalan, Selokan, Sungai, calon bidang, titik obyek, dan bidang manual dimuat
+lebih dulu; sisanya mati secara bawaan agar peta tetap ringan." Bawaan aktif
+kini delapan pil.
+
+Diperiksa di browser pada sesi Super Admin: ketiga kotak tercentang, API
+menjawab 200 untuk `garis-jalan`, `garis-selokan`, dan `garis-perairan`, garis
+biru kedua lapis air tampak di kanvas bersama garis teal Jalan, konsol tanpa
+pesan, dan `php -l peta-lama.php` bersih.
+
 ---
 
 ## 4. Berkas SPPT dari Excel
