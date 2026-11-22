@@ -732,6 +732,15 @@ sip_header('ArcToolbox', 'digitasi');
                 </a>
             </li>
         </ol>
+        <h2 class="toolbox-nav-pisah">Analisis</h2>
+        <ol>
+            <li>
+                <a href="#analisis-spasial">
+                    <span>Analisis spasial dasar</span>
+                    <b>4</b>
+                </a>
+            </li>
+        </ol>
         <h2 class="toolbox-nav-pisah">Kelompok alat</h2>
         <ol>
             <?php foreach ($katalog as $kunci => $bagian): ?>
@@ -1020,6 +1029,80 @@ sip_header('ArcToolbox', 'digitasi');
             <p class="toolbox-katalog-catatan">Select by Attribute sepadan dengan kartu <strong>Saring peta</strong>
                 di samping peta (kata kunci, blok, hak, status), yang menyaring bidang sebelum tabel dibaca.
                 Add Data untuk SHP, raster, atau basemap baru belum tersedia di Peta Bidang.</p>
+        </section>
+
+        <section class="kartu toolbox-bagian toolbox-analisis" id="analisis-spasial">
+            <header class="kepala-kartu">
+                <div>
+                    <h2>Analisis spasial dasar</h2>
+                    <p>Empat alat pada kartu <strong>Analisis spasial</strong> di samping Peta Induk:
+                        memotong, menyangga, mengiris atau menggabung, dan menyatukan fitur. Hitungan
+                        berjalan di peramban dengan pustaka Turf memakai koordinat DXF lokal; data Peta
+                        Induk tidak diubah.</p>
+                </div>
+                <a class="toolbox-arah" href="<?= e(sip_url('peta-lama.php')) ?>">Buka Peta Induk &rarr;</a>
+            </header>
+            <div class="toolbox-mode">
+                <article class="toolbox-mode-kartu">
+                    <header>
+                        <span class="toolbox-mode-lencana">Clip</span>
+                        <h3>Memotong lapis input</h3>
+                    </header>
+                    <p>Memotong fitur lapis input dengan batas poligon lapis lain, misalnya jalan atau
+                        sungai sesuai batas desa. Fitur yang seluruhnya di dalam batas disalin apa adanya;
+                        yang sebagian di luar batas diiris tepat pada garis poligon.</p>
+                    <ul>
+                        <li>Input boleh titik, garis, atau poligon; lapis pemotong wajib punya poligon.</li>
+                        <li>Poligon diperiksa dulu apakah utuh di dalam; hanya yang terpotong yang diiris.</li>
+                        <li>Atribut fitur input dibawa ke hasil.</li>
+                    </ul>
+                </article>
+                <article class="toolbox-mode-kartu">
+                    <header>
+                        <span class="toolbox-mode-lencana">Buffer</span>
+                        <h3>Zona penyangga</h3>
+                    </header>
+                    <p>Membuat zona penyangga berjarak tertentu di sekitar tiap titik, garis, atau poligon
+                        lapis terpilih. Jarak diisi dalam meter, 0,1 sampai 5.000.</p>
+                    <ul>
+                        <li>Zona dibuat per fitur; centang <strong>Gabung zona</strong> untuk menyatukan
+                            zona yang bertumpang tindih.</li>
+                        <li>Penggabungan bisa gagal pada zona yang sangat rapat; hasil per fitur tetap
+                            ditampilkan dengan catatan.</li>
+                    </ul>
+                </article>
+                <article class="toolbox-mode-kartu">
+                    <header>
+                        <span class="toolbox-mode-lencana toolbox-mode-lencana-garis">Overlay</span>
+                        <h3>Intersect &amp; Union</h3>
+                    </header>
+                    <p>Intersect mengambil bagian yang bertumpang antara lapis A dan B; Union menambahkan
+                        sisa tiap fitur sehingga kedua lapis utuh. Atribut kedua lapis digabung, dan nama
+                        atribut yang sama diberi awalan <code>B_</code> agar tidak tertimpa.</p>
+                    <ul>
+                        <li>Hanya poligon; pasangan dicari lewat kotak batas lebih dulu.</li>
+                        <li>Batas 20.000 pasangan berdekatan; kurangi lapis bila terlampaui.</li>
+                    </ul>
+                </article>
+                <article class="toolbox-mode-kartu">
+                    <header>
+                        <span class="toolbox-mode-lencana toolbox-mode-lencana-garis">Dissolve</span>
+                        <h3>Menyatukan atribut sama</h3>
+                    </header>
+                    <p>Menyatukan poligon yang nilai atributnya sama menjadi satu kesatuan, misalnya
+                        bidang pada blok atau hak yang sama. Tanpa pilihan atribut, seluruh fitur lapis
+                        digabung.</p>
+                    <ul>
+                        <li>Daftar atribut dibaca dari lapis terpilih; <code>dxf_handle</code> tidak
+                            ditawarkan.</li>
+                        <li>Hasil dipisah per bagian bila satu nilai menutupi beberapa wilayah terpisah.</li>
+                    </ul>
+                </article>
+            </div>
+            <p class="toolbox-katalog-catatan">Hasil keempat alat tampil sebagai lapis ungu sementara
+                bertajuk <strong>Hasil analisis spasial</strong>, lengkap dengan jumlah fitur, luas,
+                panjang, dan tombol unduh GeoJSON. <strong>Bersihkan hasil</strong> menghapus lapis itu
+                tanpa menyentuh data Peta Induk, dan hasilnya hilang saat halaman dimuat ulang.</p>
         </section>
 
         <section class="kartu toolbox-bagian toolbox-katalog" id="katalog-berkas">

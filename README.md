@@ -9382,6 +9382,94 @@ ArcToolbox: 18 anchor navigasi, 0 menunjuk id yang hilang, 20 id unik,
 
 ---
 
+### 3.134 Analisis spasial dasar di Peta Induk: Clip, Buffer, Intersect, Union, Dissolve (23 Nov 2026)
+
+**Permintaan.** Panel peta lama ditambah **Analisis Spasial Dasar** ala
+ArcToolbox: Clip (memotong lapis input dengan batas poligon lapis lain,
+misalnya jalan atau sungai menurut batas administrasi), Buffer (zona
+penyangga jarak tertentu di sekitar titik, garis, atau poligon), Intersect &
+Union (mengiris atau menggabungkan fitur tumpang tindih antar-lapis beserta
+atributnya), dan Dissolve (menyatukan fitur bernilai atribut sama).
+
+**Pendekatan.** Alat dipasang di kartu **Analisis spasial** pada
+`peta-lama.php` (Peta Induk, CRS.Simple). Hitungan berjalan seluruhnya di
+peramban memakai **Turf.js 7.2.0** yang disalin ke
+`assets/js/turf.min.js` (563.590 B, lisensi MIT, komentar sumber
+dipertahankan). Lapis diambil dari `api/peta-lama.php` yang sudah ada lalu
+disimpan di cache per kunci selama halaman terbuka; tidak ada API baru,
+tidak ada penulisan basis data, dan tidak ada berkas data yang diubah.
+
+Turf menghitung buffer di atas bola bumi, sedangkan koordinat DXF berupa
+meter lokal (x sekitar 263.000). Karena itu tiap himpunan fitur digeser ke
+titik pusat lalu diskalakan `1/111320` sebelum masuk Turf, dan hasilnya
+dikembalikan ke meter DXF. Tanpa penggeseran lokal, dissolve zona buffer
+gagal menyelesaikan cincin keluaran; dengan penggeseran, hasilnya utuh.
+Uji luas buffer titik 10 m menghasilkan nisbah 0,9999 terhadap luas
+lingkaran.
+
+**Clip.** Lapis input boleh titik, garis, atau poligon; lapis pemotong wajib
+punya poligon. Pasangan dicari lewat kotak batas dulu. Poligon yang seluruh
+verteks luarnya berada di dalam pemotong disalin apa adanya; poligon yang
+terpotong diiris, garis dipotong dengan `lineSplit` (dengan cadangan uji
+titik tengah bila garis seluruhnya di dalam), dan titik disaring dengan
+`booleanPointInPolygon`. Atribut fitur input dibawa ke hasil.
+
+**Buffer.** Zona dibuat per fitur dengan jarak 0,1 sampai 5.000 meter
+(`steps: 8`). Opsi **Gabung zona** menjalankan dissolve atas seluruh zona;
+bila gabungan gagal karena tumpangan terlalu rapat, hasil per fitur tetap
+ditampilkan disertai catatan.
+
+**Intersect & Union.** Hanya untuk lapis poligon. Pasangan dari kotak batas
+dihitung dulu; lebih dari 20.000 pasangan ditolak dengan pesan agar lapis
+diperkecil. Intersect mengambil irisan tiap pasangan; Union menambahkan
+selisih A−B dan B−A serta menyalin fitur tanpa tumpangan. Atribut kedua
+lapis digabung, dan nama yang bertabrakan diberi awalan `B_`.
+
+**Dissolve.** Pilihan atribut dibaca dari 200 fitur pertama lapis terpilih,
+dengan `dxf_handle` dikecualikan; pilihan pertama `(seluruh fitur)`
+menggabungkan semua. Keluaran Turf memecah MultiPolygon menjadi Polygon,
+sehingga hasil berupa N bagian; bagian yang menutupi wilayah terpisah
+memang tidak bisa disatukan menjadi satu poligon.
+
+**Hasil.** Seluruh alat menampilkan hasil sebagai lapis ungu sementara
+(legenda **Hasil analisis spasial**), memusatkan peta ke batas hasil,
+mengisi jumlah fitur, luas, dan panjang, serta mengaktifkan **Unduh
+GeoJSON** (nama `analisis-<alat>-YYYYMMDD.geojson`, `crs: LOCAL:DXF`) dan
+**Bersihkan hasil**. Hasil hilang saat halaman dimuat ulang. Tombol Jalankan
+dinonaktifkan selama hitungan berjalan dan teks kemajuan diperbarui tiap
+100–200 fitur/pasangan.
+
+**ArcToolbox.** Navigasi kiri mendapat kelompok **Analisis** berisi satu
+butir "Analisis spasial dasar" dengan jumlah 4, dan `digitasi.php` mendapat
+bagian `#analisis-spasial` berisi empat kartu (Clip, Buffer, Intersect &
+Union, Dissolve) dengan tautan "Buka Peta Induk". Tautan itu menuju
+`peta-lama.php`, bukan `peta.php`, karena alatnya hidup di Peta Induk.
+
+**Perbaikan saat uji.** Daftar atribut Dissolve semula terisi dua kali bila
+lapis diganti cepat karena dua pemuatan berjalan bersamaan; pemuatan kini
+membuang hasil lama dan hanya menulis bila lapisnya belum berganti.
+
+**Pemeriksaan.** `php -l` bersih pada kedua halaman. Blok JS `peta-lama.php`
+(2.420 baris) lolos `--check` dan memuat `window.turf` sebelum IIFE.
+Di peramban (lebar 845 px, salinan halaman dengan sesi login):
+Clip Jalan (3.911 rantai) dengan 010500 menghasilkan 3.907 fitur/90.196,88 m
+dalam 2,5 detik; Buffer 12 m atas Blok ukur dengan Gabung menghasilkan
+1 bagian/5.096.949,33 m² dalam 0,4 detik; Intersect Calon bidang × Bidang HM
+menghasilkan 398 fitur/42,31 m² dalam 0,8 detik; Intersect Bidang × 010500
+menghasilkan 2.624 fitur/2.808.303,26 m² dalam 26,4 detik; Union Calon
+bidang × Bidang HM 2.911 fitur/2.489.399,70 m² dalam 1,2 detik; Dissolve
+Bidang seluruh fitur 433 bagian/2.563.384,24 m² dalam 0,7 detik, dengan
+atribut `entity` hasil sama karena seluruh fitur satu nilai; Dissolve Bidang
+HM menurut `layer` 476 bagian/1.327.935,75 m² dalam 0,5 detik. Dissolve
+Calon bidang ditolak dengan pesan cincin keluaran gagal diselesaikan karena
+cincinnya saling bertumpang; pesan itu tampil di kartu, bukan galat konsol.
+Bersihkan hasil mengembalikan hitungan ke tanda pisah dan menonaktifkan
+kedua tombol. 0 pesan konsol; 0 karakter CJK pada tiga berkas yang disunting
+(`peta-lama.php` 3.124 baris, +719/−1; `digitasi.php` 1.493 baris, +83;
+`assets/js/turf.min.js` berkas baru 563.590 B).
+
+---
+
 ## 4. Berkas SPPT dari Excel
 
 Importer CSV menerima kolom berikut (nama kolom dibersihkan dari spasi dan tanda

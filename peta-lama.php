@@ -184,6 +184,7 @@ sip_judul(
                 <span><i style="background:#0891b2; border-radius:50%"></i>Titik obyek</span>
                 <span><i style="background:#f59e0b"></i>Bidang manual</span>
                 <span><i style="background:#d97706"></i>Calon bidang</span>
+                <span><i style="background:#7e22ce"></i>Hasil analisis spasial</span>
                 <span><i style="background:#64748b"></i>Label NIB &amp; batas</span>
             </div>
             <p class="petunjuk" id="infoLama">Menyiapkan layer…</p>
@@ -534,6 +535,84 @@ sip_judul(
                 sehingga layer ini hanya berisi bidang yang benar-benar belum terpetakan.</p>
         </section>
 
+        <section class="kartu" id="kartuAnalisis">
+            <header class="kepala-kartu">
+                <div><h2>Analisis spasial</h2><p>Clip, Buffer, Intersect &amp; Union, serta Dissolve pada lapis Peta Induk</p></div>
+            </header>
+            <div class="isi-kartu">
+                <div class="lapangan">
+                    <label for="analisisAlat">Alat</label>
+                    <select class="pilih-kecil" id="analisisAlat">
+                        <option value="clip">Clip — potong lapis dengan poligon</option>
+                        <option value="buffer">Buffer — zona penyangga (meter)</option>
+                        <option value="intersect">Intersect — irisan dua lapis</option>
+                        <option value="union">Union — gabungan dua lapis</option>
+                        <option value="dissolve">Dissolve — satukan atribut sama</option>
+                    </select>
+                </div>
+                <div class="analisis-panel" id="analisisPanelClip">
+                    <div class="lapangan">
+                        <label for="analisisClipMasukan">Lapis input (titik, garis, poligon)</label>
+                        <select class="pilih-kecil" id="analisisClipMasukan"></select>
+                    </div>
+                    <div class="lapangan">
+                        <label for="analisisClipPemotong">Poligon pemotong</label>
+                        <select class="pilih-kecil" id="analisisClipPemotong"></select>
+                    </div>
+                </div>
+                <div class="analisis-panel" id="analisisPanelBuffer" hidden>
+                    <div class="lapangan">
+                        <label for="analisisBufferLapis">Lapis</label>
+                        <select class="pilih-kecil" id="analisisBufferLapis"></select>
+                    </div>
+                    <div class="lapangan">
+                        <label for="analisisBufferJarak">Jarak penyangga (meter DXF)</label>
+                        <input id="analisisBufferJarak" type="number" min="0.1" max="5000" step="0.5"
+                               value="10" inputmode="decimal">
+                    </div>
+                    <label class="cek"><input type="checkbox" id="analisisBufferGabung">
+                        Gabung zona yang bertumpang tindih (lebih lambat)</label>
+                </div>
+                <div class="analisis-panel" id="analisisPanelDua" hidden>
+                    <div class="lapangan">
+                        <label for="analisisDuaA">Lapis A (poligon)</label>
+                        <select class="pilih-kecil" id="analisisDuaA"></select>
+                    </div>
+                    <div class="lapangan">
+                        <label for="analisisDuaB">Lapis B (poligon)</label>
+                        <select class="pilih-kecil" id="analisisDuaB"></select>
+                    </div>
+                </div>
+                <div class="analisis-panel" id="analisisPanelDissolve" hidden>
+                    <div class="lapangan">
+                        <label for="analisisDissolveLapis">Lapis (poligon)</label>
+                        <select class="pilih-kecil" id="analisisDissolveLapis"></select>
+                    </div>
+                    <div class="lapangan">
+                        <label for="analisisDissolveAtribut">Nilai atribut</label>
+                        <select class="pilih-kecil" id="analisisDissolveAtribut"></select>
+                    </div>
+                </div>
+                <div class="baris-tombol jarak-atas">
+                    <button class="tombol tombol-kecil tombol-utama" type="button" id="analisisJalankan">Jalankan</button>
+                    <button class="tombol tombol-kecil" type="button" id="analisisUnduh" disabled>Unduh GeoJSON</button>
+                    <button class="tombol tombol-kecil" type="button" id="analisisBersih" disabled>Bersihkan hasil</button>
+                </div>
+                <dl class="daftar-kecil jarak-atas">
+                    <li><span class="redup">Fitur hasil</span><span class="rapek-kanan" id="analisisJumlahHasil">–</span></li>
+                    <li><span class="redup">Luas</span><span class="rapek-kanan" id="analisisLuasHasil">–</span></li>
+                    <li><span class="redup">Panjang</span><span class="rapek-kanan" id="analisisPanjangHasil">–</span></li>
+                </dl>
+                <p class="petunjuk" id="infoAnalisis">Pilih alat lalu tekan Jalankan. Hasil tampil sebagai lapis ungu sementara; data Peta Induk dan tabel bidang tidak diubah.</p>
+                <p class="petunjuk">Analisis memakai koordinat lokal DXF (1 satuan = 1 meter) dan berjalan di peramban.
+                    Clip memotong tiap fitur dengan poligon pemotong; Buffer membuat zona per fitur
+                    (gabungkan bila ingin tumpang tindih disatukan); Intersect dan Union hanya untuk
+                    lapis poligon, sedangkan Dissolve menyatukan poligon yang bertumpang atau bersentuhan
+                    dengan nilai atribut sama. Hasil dapat diunduh sebagai GeoJSON dan hilang saat
+                    halaman dimuat ulang.</p>
+            </div>
+        </section>
+
         <section class="kartu">
             <header class="kepala-kartu"><div><h2>Catatan koordinat</h2></div></header>
             <p class="penjelasan">
@@ -604,6 +683,10 @@ sip_judul(
 #obyekDaftar li { cursor: pointer; }
 #obyekDaftar li:hover { background: #f2f7f4; }
 #obyekDaftar .hapus-obyek { padding: 2px 8px; font-size: 11px; }
+#kartuAnalisis .analisis-panel[hidden] { display: none; }
+#kartuAnalisis .lapangan + .lapangan { margin-top: 8px; }
+#kartuAnalisis .analisis-panel { margin-top: 8px; }
+#kartuAnalisis .cek { display: flex; gap: 6px; align-items: flex-start; margin-top: 8px; }
 @media (max-width: 720px) {
     .kepala-peta { flex-wrap: wrap; }
     .baris-peta { width: 100%; }
@@ -2344,6 +2427,639 @@ $naskah = <<<'JS'
         perbaruiObyek();
     }
 
+    // ===== Analisis spasial dasar (Turf) =====
+    const TURF = window.turf;
+    const SKALA_ANALISIS = 1 / 111320;
+    const BATAS_PASANGAN = 20000;
+    const grupAnalisis = L.featureGroup();
+    let hasilAnalisis = null;
+    let analisisBerjalan = false;
+
+    const LAPIS_ANALISIS = [
+        '020100-bidang', '020100-garis', 'batas-blok', 'batas-blok-mentah',
+        'bidang-hm', 'titik-tengah-bidang-hm', 'hm', 'optimalisasi-hm', 'lb-lai',
+        'garis-jalan', 'garis-jalan-sumbu', 'garis-selokan', 'garis-tepi-sungai',
+        'garis-sungai', 'garis-lain', '010500', '020400', 'titik-obyek',
+        'bidang-manual', 'calon-bidang'
+    ];
+    const LAPIS_POLIGON = [
+        '020100-bidang', 'batas-blok', 'bidang-hm', '010500', '020400',
+        'calon-bidang', 'bidang-manual'
+    ];
+
+    const elAnalisis = {
+        alat: document.getElementById('analisisAlat'),
+        panel: {
+            clip: document.getElementById('analisisPanelClip'),
+            buffer: document.getElementById('analisisPanelBuffer'),
+            dua: document.getElementById('analisisPanelDua'),
+            dissolve: document.getElementById('analisisPanelDissolve')
+        },
+        clipMasukan: document.getElementById('analisisClipMasukan'),
+        clipPemotong: document.getElementById('analisisClipPemotong'),
+        bufferLapis: document.getElementById('analisisBufferLapis'),
+        bufferJarak: document.getElementById('analisisBufferJarak'),
+        bufferGabung: document.getElementById('analisisBufferGabung'),
+        duaA: document.getElementById('analisisDuaA'),
+        duaB: document.getElementById('analisisDuaB'),
+        dissolveLapis: document.getElementById('analisisDissolveLapis'),
+        dissolveAtribut: document.getElementById('analisisDissolveAtribut'),
+        jalankan: document.getElementById('analisisJalankan'),
+        unduh: document.getElementById('analisisUnduh'),
+        bersih: document.getElementById('analisisBersih'),
+        jumlah: document.getElementById('analisisJumlahHasil'),
+        luas: document.getElementById('analisisLuasHasil'),
+        panjang: document.getElementById('analisisPanjangHasil'),
+        info: document.getElementById('infoAnalisis')
+    };
+    const namaLapisAnalisis = new Map();
+    document.querySelectorAll('[data-lapisan]').forEach((k) => {
+        const label = k.closest('label');
+        let nama = label ? label.textContent : k.dataset.lapisan;
+        nama = nama.replace(/\s*\([^)]*\)\s*$/, '').replace(/\s+\d[\d.,]*\s*$/, '').replace(/\s+/g, ' ').trim();
+        namaLapisAnalisis.set(k.dataset.lapisan, nama || k.dataset.lapisan);
+    });
+    const cacheFiturAnalisis = new Map();
+
+    function pustakaAnalisis() {
+        if (!TURF) throw new Error('Pustaka Turf belum termuat; muat ulang halaman.');
+        return TURF;
+    }
+
+    const tipeGeometri = (f) => (f && f.geometry && f.geometry.type) || '';
+    const geometriPoligon = (f) => tipeGeometri(f) === 'Polygon' || tipeGeometri(f) === 'MultiPolygon';
+    const geometriGaris = (f) => tipeGeometri(f) === 'LineString' || tipeGeometri(f) === 'MultiLineString';
+    const geometriTitik = (f) => tipeGeometri(f) === 'Point' || tipeGeometri(f) === 'MultiPoint';
+
+    function isiPilihanAnalisis(sel, kunci, bawaan) {
+        sel.textContent = '';
+        kunci.forEach((k) => {
+            const opsi = document.createElement('option');
+            opsi.value = k;
+            opsi.textContent = namaLapisAnalisis.get(k) || k;
+            sel.appendChild(opsi);
+        });
+        if (bawaan && kunci.includes(bawaan)) sel.value = bawaan;
+    }
+
+    async function ambilFiturAnalisis(kunci) {
+        if (!cacheFiturAnalisis.has(kunci)) {
+            const sumber = kunci === '020100-bidang' || kunci === '020100-garis' ? '020100' : kunci;
+            const janji = Sip.api('api/peta-lama.php', { query: { lapisan: sumber } }).then((data) => {
+                let fitur = Array.isArray(data.features) ? data.features : [];
+                if (kunci === '020100-bidang') fitur = fitur.filter(geometriPoligon);
+                if (kunci === '020100-garis') fitur = fitur.filter(geometriGaris);
+                return fitur;
+            });
+            cacheFiturAnalisis.set(kunci, janji);
+            janji.catch(() => cacheFiturAnalisis.delete(kunci));
+        }
+        return cacheFiturAnalisis.get(kunci);
+    }
+
+    function siapkanTransformasi(fitur) {
+        let minX = Infinity;
+        let minY = Infinity;
+        let maxX = -Infinity;
+        let maxY = -Infinity;
+        const jelajah = (c) => {
+            if (typeof c[0] === 'number') {
+                if (c[0] < minX) minX = c[0];
+                if (c[0] > maxX) maxX = c[0];
+                if (c[1] < minY) minY = c[1];
+                if (c[1] > maxY) maxY = c[1];
+                return;
+            }
+            c.forEach(jelajah);
+        };
+        fitur.forEach((f) => { if (f.geometry) jelajah(f.geometry.coordinates); });
+        const ox = Number.isFinite(minX) ? (minX + maxX) / 2 : 0;
+        const oy = Number.isFinite(minY) ? (minY + maxY) / 2 : 0;
+        const kecil = (c) => (typeof c[0] === 'number'
+            ? [(c[0] - ox) * SKALA_ANALISIS, (c[1] - oy) * SKALA_ANALISIS]
+            : c.map(kecil));
+        const besar = (c) => (typeof c[0] === 'number'
+            ? [c[0] / SKALA_ANALISIS + ox, c[1] / SKALA_ANALISIS + oy]
+            : c.map(besar));
+        return { kecil, besar };
+    }
+
+    function keTurf(fitur, tr) {
+        return {
+            type: 'Feature',
+            properties: Object.assign({}, fitur.properties || {}),
+            geometry: { type: fitur.geometry.type, coordinates: tr.kecil(fitur.geometry.coordinates) }
+        };
+    }
+
+    function dariTurf(fitur, tr) {
+        return {
+            type: 'Feature',
+            properties: Object.assign({}, fitur.properties || {}),
+            geometry: { type: fitur.geometry.type, coordinates: tr.besar(fitur.geometry.coordinates) }
+        };
+    }
+
+    function luasCincinAnalisis(cincin) {
+        let jumlah = 0;
+        for (let i = 0, j = cincin.length - 1; i < cincin.length; j = i++) {
+            jumlah += cincin[j][0] * cincin[i][1] - cincin[i][0] * cincin[j][1];
+        }
+        return Math.abs(jumlah / 2);
+    }
+
+    function luasGeometriAnalisis(g) {
+        if (!g) return 0;
+        if (g.type === 'Polygon') return g.coordinates.reduce((s, c) => s + luasCincinAnalisis(c), 0);
+        if (g.type === 'MultiPolygon') {
+            return g.coordinates.reduce((s, p) => s + p.reduce((t, c) => t + luasCincinAnalisis(c), 0), 0);
+        }
+        return 0;
+    }
+
+    function panjangRuasAnalisis(c) {
+        let total = 0;
+        for (let i = 1; i < c.length; i++) {
+            total += Math.hypot(c[i][0] - c[i - 1][0], c[i][1] - c[i - 1][1]);
+        }
+        return total;
+    }
+
+    function panjangGeometriAnalisis(g) {
+        if (!g) return 0;
+        if (g.type === 'LineString') return panjangRuasAnalisis(g.coordinates);
+        if (g.type === 'MultiLineString') return g.coordinates.reduce((s, c) => s + panjangRuasAnalisis(c), 0);
+        return 0;
+    }
+
+    const jedaAnalisis = () => new Promise((selesai) => window.setTimeout(selesai, 0));
+
+    function cincinLuarAnalisis(g) {
+        if (g.type === 'Polygon') return g.coordinates[0] || [];
+        if (g.type === 'MultiPolygon') return (g.coordinates[0] || [])[0] || [];
+        return [];
+    }
+
+    function utuhDiDalamAnalisis(fitur, klip) {
+        const T = pustakaAnalisis();
+        if (fitur.geometry.type === 'MultiPolygon') {
+            return fitur.geometry.coordinates.every((poli) =>
+                (poli[0] || []).every((c) => T.booleanPointInPolygon(T.point(c), klip)));
+        }
+        return cincinLuarAnalisis(fitur.geometry).every((c) => T.booleanPointInPolygon(T.point(c), klip));
+    }
+
+    function titikTengahGarisAnalisis(c) {
+        let panjang = 0;
+        for (let i = 1; i < c.length; i++) {
+            panjang += Math.hypot(c[i][0] - c[i - 1][0], c[i][1] - c[i - 1][1]);
+        }
+        let sisa = panjang / 2;
+        for (let i = 1; i < c.length; i++) {
+            const dx = c[i][0] - c[i - 1][0];
+            const dy = c[i][1] - c[i - 1][1];
+            const jarak = Math.hypot(dx, dy);
+            if (jarak >= sisa && jarak > 0) {
+                const t = sisa / jarak;
+                return [c[i - 1][0] + dx * t, c[i - 1][1] + dy * t];
+            }
+            sisa -= jarak;
+        }
+        return c[c.length - 1] || c[0];
+    }
+
+    function gabungPropertiAnalisis(a, b) {
+        const hasil = Object.assign({}, a || {});
+        Object.keys(b || {}).forEach((k) => {
+            hasil[Object.prototype.hasOwnProperty.call(hasil, k) ? 'B_' + k : k] = b[k];
+        });
+        return hasil;
+    }
+
+    function potongGarisAnalisis(fitur, kandidat, hitung) {
+        const T = pustakaAnalisis();
+        const garis = fitur.geometry.type === 'MultiLineString'
+            ? fitur.geometry.coordinates.map((c) => T.lineString(c, fitur.properties))
+            : [fitur];
+        const hasil = [];
+        garis.forEach((g) => {
+            let bagian = null;
+            for (const p of kandidat) {
+                let pecah;
+                try {
+                    pecah = T.lineSplit(g, p.f);
+                } catch (err) {
+                    hitung.gagal++;
+                    continue;
+                }
+                if (pecah.features.length) {
+                    bagian = pecah.features;
+                    break;
+                }
+            }
+            if (!bagian) {
+                const tengah = titikTengahGarisAnalisis(g.geometry.coordinates);
+                if (kandidat.some((p) => T.booleanPointInPolygon(T.point(tengah), p.f))) {
+                    hasil.push(g);
+                }
+                return;
+            }
+            bagian.forEach((b) => {
+                const tengah = titikTengahGarisAnalisis(b.geometry.coordinates);
+                if (kandidat.some((p) => T.booleanPointInPolygon(T.point(tengah), p.f))) {
+                    b.properties = Object.assign({}, fitur.properties || {});
+                    hasil.push(b);
+                }
+            });
+        });
+        return hasil;
+    }
+
+    async function analisisClip() {
+        const T = pustakaAnalisis();
+        const kMasuk = elAnalisis.clipMasukan.value;
+        const kPotong = elAnalisis.clipPemotong.value;
+        const masuk = await ambilFiturAnalisis(kMasuk);
+        const pemotong = (await ambilFiturAnalisis(kPotong)).filter(geometriPoligon);
+        if (!pemotong.length) {
+            throw new Error('Lapis pemotong "' + (namaLapisAnalisis.get(kPotong) || kPotong) + '" tidak punya poligon.');
+        }
+        if (!masuk.length) throw new Error('Lapis input kosong.');
+        const tr = siapkanTransformasi(masuk.concat(pemotong));
+        const kandidat = pemotong.map((f) => {
+            const ft = keTurf(f, tr);
+            return { f: ft, bb: T.bbox(ft) };
+        });
+        const hasil = [];
+        const hitung = { gagal: 0 };
+        for (let i = 0; i < masuk.length; i++) {
+            const f = masuk[i];
+            const ft = keTurf(f, tr);
+            const bb = T.bbox(ft);
+            const dekat = kandidat.filter((p) =>
+                !(bb[0] > p.bb[2] || bb[2] < p.bb[0] || bb[1] > p.bb[3] || bb[3] < p.bb[1]));
+            if (dekat.length) {
+                if (geometriPoligon(f)) {
+                    if (dekat.some((p) => utuhDiDalamAnalisis(ft, p.f))) {
+                        hasil.push(ft);
+                    } else {
+                        dekat.forEach((p) => {
+                            try {
+                                const iris = T.intersect(T.featureCollection([ft, p.f]));
+                                if (iris) {
+                                    iris.properties = Object.assign({}, f.properties || {});
+                                    hasil.push(iris);
+                                }
+                            } catch (err) {
+                                hitung.gagal++;
+                            }
+                        });
+                    }
+                } else if (geometriGaris(f)) {
+                    hasil.push(...potongGarisAnalisis(ft, dekat, hitung));
+                } else if (geometriTitik(f)) {
+                    const titik = ft.geometry.type === 'Point' ? [ft.geometry.coordinates] : ft.geometry.coordinates;
+                    if (titik.some((c) => dekat.some((p) => T.booleanPointInPolygon(T.point(c), p.f)))) {
+                        hasil.push(ft);
+                    }
+                }
+            }
+            if (i % 200 === 0) {
+                elAnalisis.info.textContent = 'Clip: memeriksa ' + Sip.angka(i + 1) + ' dari '
+                    + Sip.angka(masuk.length) + ' fitur…';
+                await jedaAnalisis();
+            }
+        }
+        const catatan = hitung.gagal
+            ? ' ' + Sip.angka(hitung.gagal) + ' pasangan gagal diiris karena geometri bermasalah.'
+            : '';
+        return { fitur: hasil, tr, catatan };
+    }
+
+    async function analisisBuffer() {
+        const T = pustakaAnalisis();
+        const kunci = elAnalisis.bufferLapis.value;
+        const jarak = Number(elAnalisis.bufferJarak.value);
+        if (!Number.isFinite(jarak) || jarak <= 0) throw new Error('Jarak buffer harus lebih dari 0 meter.');
+        if (jarak > 5000) throw new Error('Jarak buffer dibatasi 5.000 meter.');
+        const fitur = await ambilFiturAnalisis(kunci);
+        if (!fitur.length) throw new Error('Lapis kosong.');
+        const tr = siapkanTransformasi(fitur);
+        let hasil = [];
+        let gagal = 0;
+        for (let i = 0; i < fitur.length; i++) {
+            try {
+                const zona = T.buffer(keTurf(fitur[i], tr), jarak, { units: 'meters', steps: 8 });
+                if (zona) {
+                    zona.properties = Object.assign({}, fitur[i].properties || {});
+                    hasil.push(zona);
+                }
+            } catch (err) {
+                gagal++;
+            }
+            if (i % 200 === 0) {
+                elAnalisis.info.textContent = 'Buffer: membuat zona ' + Sip.angka(i + 1) + ' dari '
+                    + Sip.angka(fitur.length) + ' fitur…';
+                await jedaAnalisis();
+            }
+        }
+        let catatan = '';
+        if (elAnalisis.bufferGabung.checked && hasil.length) {
+            elAnalisis.info.textContent = 'Buffer: menggabungkan ' + Sip.angka(hasil.length) + ' zona…';
+            await jedaAnalisis();
+            try {
+                const gabung = T.dissolve(T.featureCollection(hasil));
+                catatan = ' Zona bertumpang tindih digabung menjadi '
+                    + Sip.angka(gabung.features.length) + ' bagian.';
+                hasil = gabung.features;
+            } catch (err) {
+                catatan = ' Zona gagal digabung karena bertumpang tindih terlalu rapat; hasil ditampilkan per fitur.';
+            }
+        }
+        if (gagal) catatan += ' ' + Sip.angka(gagal) + ' fitur dilewati karena geometri bermasalah.';
+        return { fitur: hasil, tr, catatan };
+    }
+
+    async function analisisOverlay(mode) {
+        const T = pustakaAnalisis();
+        const kA = elAnalisis.duaA.value;
+        const kB = elAnalisis.duaB.value;
+        const A = (await ambilFiturAnalisis(kA)).filter(geometriPoligon);
+        const B = (await ambilFiturAnalisis(kB)).filter(geometriPoligon);
+        if (!A.length) throw new Error('Lapis A tidak punya poligon.');
+        if (!B.length) throw new Error('Lapis B tidak punya poligon.');
+        const tr = siapkanTransformasi(A.concat(B));
+        const aT = A.map((f) => keTurf(f, tr));
+        const bT = B.map((f) => keTurf(f, tr));
+        const bbB = bT.map((f) => T.bbox(f));
+        const pasangan = [];
+        for (let i = 0; i < aT.length; i++) {
+            const bb = T.bbox(aT[i]);
+            for (let j = 0; j < bT.length; j++) {
+                const kb = bbB[j];
+                if (bb[0] > kb[2] || bb[2] < kb[0] || bb[1] > kb[3] || bb[3] < kb[1]) continue;
+                pasangan.push([i, j]);
+            }
+        }
+        if (pasangan.length > BATAS_PASANGAN) {
+            throw new Error('Ada ' + Sip.angka(pasangan.length) + ' pasangan berdekatan, melebihi batas '
+                + Sip.angka(BATAS_PASANGAN) + '. Pilih lapis yang lebih kecil.');
+        }
+        const hasil = [];
+        const pakaiA = new Set();
+        const pakaiB = new Set();
+        let gagal = 0;
+        let selesai = 0;
+        for (const [i, j] of pasangan) {
+            let iris = null;
+            try {
+                iris = T.intersect(T.featureCollection([aT[i], bT[j]]));
+            } catch (err) {
+                gagal++;
+            }
+            if (iris) {
+                iris.properties = gabungPropertiAnalisis(A[i].properties, B[j].properties);
+                hasil.push(iris);
+                pakaiA.add(i);
+                pakaiB.add(j);
+                if (mode === 'union') {
+                    try {
+                        const sisaA = T.difference(T.featureCollection([aT[i], bT[j]]));
+                        if (sisaA) {
+                            sisaA.properties = Object.assign({}, A[i].properties || {});
+                            hasil.push(sisaA);
+                        }
+                        const sisaB = T.difference(T.featureCollection([bT[j], aT[i]]));
+                        if (sisaB) {
+                            sisaB.properties = Object.assign({}, B[j].properties || {});
+                            hasil.push(sisaB);
+                        }
+                    } catch (err) {
+                        gagal++;
+                    }
+                }
+            }
+            selesai++;
+            if (selesai % 100 === 0) {
+                elAnalisis.info.textContent = (mode === 'union' ? 'Union' : 'Intersect')
+                    + ': memeriksa ' + Sip.angka(selesai) + ' dari ' + Sip.angka(pasangan.length) + ' pasangan…';
+                await jedaAnalisis();
+            }
+        }
+        if (mode === 'union') {
+            aT.forEach((f, i) => { if (!pakaiA.has(i)) hasil.push(f); });
+            bT.forEach((f, j) => { if (!pakaiB.has(j)) hasil.push(f); });
+        }
+        let catatan = '';
+        if (mode === 'union') {
+            catatan = ' Fitur tanpa tumpangan tetap utuh; satu fitur yang bertumpang dengan beberapa fitur lapis lain dapat muncul sebagai beberapa potongan.';
+        }
+        if (gagal) catatan += ' ' + Sip.angka(gagal) + ' pasangan gagal diiris karena geometri bermasalah.';
+        return { fitur: hasil, tr, catatan };
+    }
+
+    async function analisisDissolve() {
+        const T = pustakaAnalisis();
+        const kunci = elAnalisis.dissolveLapis.value;
+        const fitur = (await ambilFiturAnalisis(kunci)).filter(geometriPoligon);
+        if (!fitur.length) throw new Error('Lapis tidak punya poligon.');
+        const bidang = elAnalisis.dissolveAtribut.value;
+        const tr = siapkanTransformasi(fitur);
+        const kecil = fitur.map((f) => keTurf(f, tr));
+        elAnalisis.info.textContent = 'Dissolve: menggabungkan ' + Sip.angka(fitur.length) + ' poligon…';
+        await jedaAnalisis();
+        let hasil;
+        try {
+            hasil = T.dissolve(T.featureCollection(kecil), bidang ? { propertyName: bidang } : undefined).features;
+        } catch (err) {
+            throw new Error('Dissolve gagal karena geometri bertumpang tindih terlalu rapat (' + err.message + ').');
+        }
+        const catatan = bidang
+            ? ' Digabung menurut atribut "' + bidang + '".'
+            : ' Seluruh fitur digabung.';
+        return { fitur: hasil, tr, catatan };
+    }
+
+    async function muatAtributDissolve() {
+        if (!elAnalisis.dissolveAtribut) return;
+        const kunci = elAnalisis.dissolveLapis.value;
+        elAnalisis.dissolveAtribut.textContent = '';
+        const kunciAtribut = new Set();
+        try {
+            const fitur = (await ambilFiturAnalisis(kunci)).filter(geometriPoligon);
+            fitur.slice(0, 200).forEach((f) => {
+                Object.keys(f.properties || {}).forEach((k) => {
+                    const nilai = (f.properties || {})[k];
+                    const tipe = typeof nilai;
+                    if (k !== 'dxf_handle' && (nilai === null || tipe === 'string' || tipe === 'number' || tipe === 'boolean')) {
+                        kunciAtribut.add(k);
+                    }
+                });
+            });
+        } catch (err) {
+            elAnalisis.info.textContent = 'Atribut dissolve gagal dimuat: ' + err.message;
+            return;
+        }
+        if (elAnalisis.dissolveLapis.value !== kunci) return;
+        elAnalisis.dissolveAtribut.textContent = '';
+        const semua = document.createElement('option');
+        semua.value = '';
+        semua.textContent = '(seluruh fitur)';
+        elAnalisis.dissolveAtribut.appendChild(semua);
+        [...kunciAtribut].sort().forEach((k) => {
+            const opsi = document.createElement('option');
+            opsi.value = k;
+            opsi.textContent = k;
+            elAnalisis.dissolveAtribut.appendChild(opsi);
+        });
+    }
+
+    function ringkasPropertiAnalisis(p) {
+        return Object.keys(p || {}).slice(0, 6).map((k) => {
+            let nilai = p[k];
+            if (nilai === null || nilai === undefined) nilai = '';
+            return '<br><span class="redup">' + Sip.esc(k) + ':</span> ' + Sip.esc(String(nilai));
+        }).join('');
+    }
+
+    function tampilkanHasilAnalisis(nama, fitur, tr, catatan) {
+        const fc = {
+            type: 'FeatureCollection',
+            name: 'analisis-' + nama.toLowerCase(),
+            crs: { type: 'name', properties: { name: 'LOCAL:DXF' } },
+            features: fitur.map((f) => dariTurf(f, tr))
+        };
+        hasilAnalisis = { nama, fc };
+        grupAnalisis.clearLayers();
+        L.geoJSON(fc, {
+            style: () => ({ color: '#6d28d9', weight: 1.8, opacity: .95, fillColor: '#a855f7', fillOpacity: .16 }),
+            pointToLayer: (f, ll) => L.circleMarker(ll, {
+                radius: 4, color: '#ffffff', weight: 1, fillColor: '#7e22ce', fillOpacity: 1
+            }),
+            onEachFeature: (f, l) => {
+                l.bindPopup('<strong>' + Sip.esc(nama) + '</strong>' + ringkasPropertiAnalisis(f.properties));
+            }
+        }).addTo(grupAnalisis);
+        if (!peta.hasLayer(grupAnalisis)) grupAnalisis.addTo(peta);
+        const batasHasil = grupAnalisis.getBounds();
+        if (batasHasil.isValid()) peta.fitBounds(batasHasil.pad(.08));
+        let luas = 0;
+        let panjang = 0;
+        fc.features.forEach((f) => {
+            luas += luasGeometriAnalisis(f.geometry);
+            panjang += panjangGeometriAnalisis(f.geometry);
+        });
+        elAnalisis.jumlah.textContent = Sip.angka(fc.features.length);
+        elAnalisis.luas.textContent = luas > 0 ? Sip.angka(luas, 2) + ' m²' : '–';
+        elAnalisis.panjang.textContent = panjang > 0 ? Sip.angka(panjang, 2) + ' m' : '–';
+        elAnalisis.info.textContent = nama + ': ' + Sip.angka(fc.features.length) + ' fitur hasil.' + catatan;
+        elAnalisis.unduh.disabled = false;
+        elAnalisis.bersih.disabled = false;
+        Sip.pesan(nama + ' selesai: ' + Sip.angka(fc.features.length) + ' fitur hasil.');
+    }
+
+    function unduhHasilAnalisis() {
+        if (!hasilAnalisis) return;
+        const blob = new Blob([JSON.stringify(hasilAnalisis.fc)], { type: 'application/geo+json' });
+        const url = URL.createObjectURL(blob);
+        const tautan = document.createElement('a');
+        const hari = new Date();
+        const cap = hari.getFullYear()
+            + String(hari.getMonth() + 1).padStart(2, '0')
+            + String(hari.getDate()).padStart(2, '0');
+        tautan.href = url;
+        tautan.download = 'analisis-' + hasilAnalisis.nama.toLowerCase() + '-' + cap + '.geojson';
+        document.body.appendChild(tautan);
+        tautan.click();
+        tautan.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 30000);
+    }
+
+    function bersihkanHasilAnalisis(beriPesan) {
+        const ada = !!hasilAnalisis;
+        grupAnalisis.clearLayers();
+        if (peta.hasLayer(grupAnalisis)) peta.removeLayer(grupAnalisis);
+        hasilAnalisis = null;
+        elAnalisis.jumlah.textContent = '–';
+        elAnalisis.luas.textContent = '–';
+        elAnalisis.panjang.textContent = '–';
+        elAnalisis.unduh.disabled = true;
+        elAnalisis.bersih.disabled = true;
+        if (beriPesan) {
+            elAnalisis.info.textContent = 'Hasil analisis dibersihkan. Data Peta Induk tidak berubah.';
+            if (ada) Sip.pesan('Hasil analisis dibersihkan.', 'info');
+        }
+    }
+
+    function aturAlatAnalisis() {
+        const alat = elAnalisis.alat.value;
+        elAnalisis.panel.clip.hidden = alat !== 'clip';
+        elAnalisis.panel.buffer.hidden = alat !== 'buffer';
+        elAnalisis.panel.dua.hidden = alat !== 'intersect' && alat !== 'union';
+        elAnalisis.panel.dissolve.hidden = alat !== 'dissolve';
+        const label = {
+            clip: 'Clip', buffer: 'Buffer', intersect: 'Intersect', union: 'Union', dissolve: 'Dissolve'
+        }[alat];
+        elAnalisis.jalankan.textContent = 'Jalankan ' + label;
+        elAnalisis.info.textContent = 'Alat ' + label + ' siap. Hasil akan tampil sebagai lapis ungu sementara.';
+        if (alat === 'dissolve') muatAtributDissolve();
+    }
+
+    async function jalankanAnalisis() {
+        if (analisisBerjalan) return;
+        analisisBerjalan = true;
+        elAnalisis.jalankan.disabled = true;
+        elAnalisis.alat.disabled = true;
+        const teksTombol = elAnalisis.jalankan.textContent;
+        elAnalisis.jalankan.textContent = 'Menghitung…';
+        const mulai = Date.now();
+        try {
+            const alat = elAnalisis.alat.value;
+            let hasil;
+            if (alat === 'clip') {
+                hasil = await analisisClip();
+            } else if (alat === 'buffer') {
+                hasil = await analisisBuffer();
+            } else if (alat === 'dissolve') {
+                hasil = await analisisDissolve();
+            } else {
+                hasil = await analisisOverlay(alat);
+            }
+            if (!hasil.fitur.length) {
+                elAnalisis.info.textContent = 'Tidak ada hasil: tidak ada fitur yang memenuhi alat ini.';
+                Sip.pesan('Analisis selesai tanpa hasil.', 'info');
+                return;
+            }
+            const nama = alat.charAt(0).toUpperCase() + alat.slice(1);
+            tampilkanHasilAnalisis(nama, hasil.fitur, hasil.tr, hasil.catatan);
+            const detik = ((Date.now() - mulai) / 1000).toFixed(1).replace('.', ',');
+            elAnalisis.info.textContent += ' Waktu ' + detik + ' detik.';
+        } catch (err) {
+            elAnalisis.info.textContent = 'Analisis gagal: ' + err.message;
+            Sip.pesan(err.message, 'gagal');
+        } finally {
+            analisisBerjalan = false;
+            elAnalisis.jalankan.disabled = false;
+            elAnalisis.alat.disabled = false;
+            elAnalisis.jalankan.textContent = teksTombol;
+        }
+    }
+
+    if (elAnalisis.alat) {
+        isiPilihanAnalisis(elAnalisis.clipMasukan, LAPIS_ANALISIS, 'garis-jalan');
+        isiPilihanAnalisis(elAnalisis.clipPemotong, LAPIS_POLIGON, '010500');
+        isiPilihanAnalisis(elAnalisis.bufferLapis, LAPIS_ANALISIS, 'garis-jalan');
+        isiPilihanAnalisis(elAnalisis.duaA, LAPIS_POLIGON, '020100-bidang');
+        isiPilihanAnalisis(elAnalisis.duaB, LAPIS_POLIGON, 'bidang-hm');
+        isiPilihanAnalisis(elAnalisis.dissolveLapis, LAPIS_POLIGON, 'calon-bidang');
+        elAnalisis.alat.addEventListener('change', aturAlatAnalisis);
+        elAnalisis.dissolveLapis.addEventListener('change', () => { muatAtributDissolve(); });
+        elAnalisis.jalankan.addEventListener('click', () => { jalankanAnalisis(); });
+        elAnalisis.bersih.addEventListener('click', () => bersihkanHasilAnalisis(true));
+        elAnalisis.unduh.addEventListener('click', unduhHasilAnalisis);
+        aturAlatAnalisis();
+    }
+
     document.getElementById('keDigitasi').addEventListener('click', async (ev) => {
         ev.preventDefault();
         const tujuan = new URL(ev.currentTarget.href, location.href);
@@ -2404,4 +3120,5 @@ $naskah = <<<'JS'
 </script>
 JS;
 
-sip_footer(['leaflet' => true, 'kaki' => $naskah]);
+$naskahTurf = '<script src="' . e(sip_base_url()) . '/assets/js/turf.min.js' . e(sip_versi_aset('assets/js/turf.min.js')) . '"></script>' . "\n";
+sip_footer(['leaflet' => true, 'kaki' => $naskahTurf . $naskah]);
