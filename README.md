@@ -8887,6 +8887,41 @@ API `api/bidang.php` menjawab 200 untuk `garis-jalan` (1.907),
 `garis-tepi-sungai` 200. Di browser dengan muat ulang paksa kedua peta: 0 galat
 konsol, pane lapis tetap ada.
 
+### 3.126 Lapis Sungai (143) dicabut dari Peta Induk (22 Nov 2026)
+
+**Permintaan.** "hapus layer Sungai (143)." Angka 143 adalah jumlah rantai
+lapis Sungai yang dipasang Peta Induk; Peta Bidang tidak mencantumkan angka
+pada pil Sungai-nya.
+
+**Yang dihapus.** Tiga tempat di Peta Induk dan API-nya:
+
+1. pil `data-lapisan="garis-perairan"` (label "Sungai (143)") beserta
+   centang bawaannya di panel Lapisan peta, sehingga jumlah pil 31 → 30;
+2. cabang gaya `garis-perairan` (`#1d4ed8`, tebal 1,7) di `gayaLapisan()`
+   dan butir legenda "Garis sungai";
+3. kunci `garis-perairan` di daftar putih `LAPISAN_PETA_LAMA`, sehingga
+   `api/peta-lama.php?lapisan=garis-perairan` menjawab 404 "Lapisan peta lama
+   tidak dikenal". Catatan panel dan kepala berkas API diperbarui: lapis itu
+   tidak lagi dipasang, bukan berkasnya dihapus.
+
+**Yang tetap.** `garis-perairan.geojson` (143 rantai, 15.010,9 m) tetap di
+disk dan tetap bahan turunan Tepi sungai serta Sumbu sungai; alat
+`tepi-sungai.php`, `tepi-sungai-dari-sumbu.php`, `sumbu-dari-dua-tepi.php`,
+`jahit-sumbu-tepi.php`, dan `sambung-ujung-garis.php` membacanya. Pil "Tepi
+sungai" (123) dan "Sumbu sungai" (27) tidak berubah. Peta Bidang (`peta.php`)
+tidak disentuh: pil "Sungai" di sana tanpa angka, dan lapisnya disajikan
+`api/bidang.php`.
+
+**Pemeriksaan.** `php -l` bersih untuk `peta-lama.php` dan
+`api/peta-lama.php`. Panel dirender ulang lewat sesi CLI: 30 pil,
+`garis-perairan` tidak ada, sedangkan `garis-sungai` dan
+`garis-tepi-sungai` tetap ada. `api/peta-lama.php?lapisan=garis-perairan`
+menjawab galat "Lapisan peta lama tidak dikenal" (404), `lapisan=garis-selokan`
+tetap 200 berisi FeatureCollection. Halaman dan API tanpa login tetap 302 dan
+401 seperti sebelumnya. Sesi browser tidak login saat pemeriksaan, jadi
+pemuatan peta di peramban tidak diuji ulang; tidak ada JS yang berubah selain
+penghapusan satu cabang gaya dan satu butir legenda.
+
 ---
 
 ## 4. Berkas SPPT dari Excel

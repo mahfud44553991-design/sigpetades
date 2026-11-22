@@ -11,13 +11,14 @@ declare(strict_types=1);
  *   GET api/peta-lama.php?lapisan=batas-perairan
  *   GET api/peta-lama.php?lapisan=tn-nama
  *   GET api/peta-lama.php?lapisan=garis-jalan   (juga garis-selokan,
- *                                                garis-perairan, garis-lain)
+ *                                                garis-lain)
  *       garis-jalan menyajikan garis-jalan-dari-sumbu.geojson, yaitu garis tepi
  *       jalan yang diturunkan dari SEMUA sumbu jalan (1.560 sumbu label + 130
  *       sumbu manual) oleh tools/garis-jalan-dari-sumbu.php (sejak 18 Nov 2026).
  *       Berkas lama garis-jalan-tepi.geojson tetap di disk, tidak lagi disajikan.
- *       garis-perairan menyajikan 143 rantai gabungan (bekas lapis Tepi sungai,
- *       tools/tepi-sungai.php) sejak 21 Nov 2026; baris aslinya 275 ada di
+ *       garis-perairan (143 rantai tepi perairan) tidak lagi disajikan sejak
+ *       22 Nov 2026; berkasnya tetap di disk sebagai bahan turunan Tepi sungai
+ *       dan Sumbu sungai, baris aslinya 275 ada di
  *       _lama/cadangan-garis-perairan-275-20261121/.
  *   GET api/peta-lama.php?lapisan=garis-tepi-sungai
  *       Tepi sungai turunan (garis-tepi-sungai-dari-sumbu.geojson): 123 baris,
@@ -25,7 +26,8 @@ declare(strict_types=1);
  *       (jarak 0,4-15 m, beda arah <=30 derajat, sisi dan s tetap) oleh
  *       tools/tepi-sungai-dari-sumbu.php; semua verteks keluaran = verteks rantai
  *       tepi, tanpa titik proyeksi; bebas cincin dan silang diri.
- *       Sejak 21 Nov 2026, dirombak 22 Nov 2026; terpisah dari lapis Sungai (143 rantai).
+ *       Sejak 21 Nov 2026, dirombak 22 Nov 2026; terpisah dari berkas
+ *       garis-perairan (143 rantai) yang tidak lagi disajikan.
  *   GET api/peta-lama.php?lapisan=garis-sungai
  *       Sumbu sungai (garis-sungai-jahit.geojson): 27 polilin, 9.559,9 m, hasil
  *       tools/jahit-sumbu-sungai.php --masuk=garis-sungai-label,garis-sungai-dua-tepi,
@@ -95,7 +97,6 @@ const LAPISAN_PETA_LAMA = [
     'garis-jalan-sumbu' => 'garis-jalan-sumbu.geojson',
     'garis-sumbu-manual' => 'garis-sumbu-manual.geojson',
     'garis-selokan'  => 'garis-selokan.geojson',
-    'garis-perairan' => 'garis-perairan.geojson',
     'garis-sungai'   => 'garis-sungai-jahit.geojson',
     'garis-tepi-sungai' => 'garis-tepi-sungai-dari-sumbu.geojson',
     'garis-lain'     => 'garis-lain.geojson',
