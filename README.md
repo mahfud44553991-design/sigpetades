@@ -9185,6 +9185,62 @@ UI tersembunyi, legenda/judul/panah utara/skala/atribusi tampil. ArcToolbox:
 16 id tanpa kembar, 14 anchor menunjuk id yang ada, 0 karakter CJK pada ketiga
 berkas.
 
+### 3.131 ArcToolbox: Measure, alat ukur jarak & luas (22 Nov 2026)
+
+**Permintaan.** "lanjut README §3.131", melanjutkan seri ArcToolbox sesudah
+Table of Contents, Katalog, dan Data View/Layout View. Alat ArcMap yang belum
+ada di web ini adalah **Measure**: klik bidang sudah membuka popup rincian
+(identify), tampilan sudah bisa disimpan sebagai preset (bookmark), tetapi
+belum ada cara mengukur jarak dan luas tanpa perangkat GIS.
+
+**Isi peta.** Bilah Tampilan di `peta.php` mendapat tombol **Ukur** (dengan
+`aria-pressed`). Saat dinyalakan, panel oranye muncul berisi pilihan
+**Jarak**/**Luas**, kalimat hasil, tombol **Hapus titik**, dan **Tutup**.
+Klik peta menambah titik: titik digambar lingkaran putih bergaris oranye,
+ruas sebagai garis putus-putus, dan pada mode Luas poligon tertutup diisi
+oranye tipis. Escape menutup alat. Panel dan tombol Ukur disembunyikan di
+Layout View, dan berpindah ke Layout View otomatis menutup alat.
+
+**Hitungan.** Jarak tiap ruas memakai rumus bola Leaflet (`peta.distance`),
+lalu dijumlahkan; hasil di bawah 1 km ditulis dalam meter satu desimal,
+di atasnya dalam kilometer dua desimal. Luas memakai kelebihan bola
+(Chamberlain-Duquette) dengan jari-jari 6.371.008,8 m, sehingga persil
+ratusan meter tidak melengkung seperti proyeksi bidang datar; hasil ditulis
+dalam m² dan hektare, disertai keliling (termasuk ruas penutup). Format angka
+memakai `Sip.angka` (pemisah desimal koma). Pada sesi uji tiga titik
+menghasilkan jarak 212,1 m untuk dua ruas, dan mode Luas menghasilkan
+5.536 m² (0,55 ha) dengan keliling 355,1 m.
+
+**Selama mengukur.** Popup bidang dimatikan lewat CSS
+(`#wadahPeta.mode-ukur #peta .leaflet-interactive` dan
+`.leaflet-marker-icon` ber-`pointer-events: none`), jadi klik tidak membuka
+popup atau memindahkan peta ke bidang; klik ganda untuk zoom dimatikan
+sementara dan dinyalakan lagi saat alat ditutup. Geser dan perbesar peta
+tetap jalan, karena hanya penanganan klik pada objek yang dimatikan. Titik
+ukur tidak disimpan: menutup alat mengosongkan ukuran.
+
+**ArcToolbox.** Navigasi kiri mendapat blok "Peta" berisi "Alat ukur" dengan
+hitungan 2 (Jarak dan Luas), dan bagian baru `#alat-ukur-peta` berisi dua
+kartu: "Garis berantai" dan "Poligon tertutup", ditambah catatan bahwa
+tombol Ukur hanya aktif di Data View. Tautan "Buka Peta Bidang" mengarah ke
+`peta.php`.
+
+**Tidak diubah.** Tidak ada API baru, tidak ada penulisan basis data, dan
+tidak ada berkas data yang diubah. `peta.php` menjadi 1.542 baris (+137),
+`digitasi.php` 1.245 baris (+53), dan `assets/css/app.css` 844 baris (+31).
+
+**Pemeriksaan.** `php -l` bersih. Skrip sebaris 53.108 B diperiksa dengan
+`--check` (Electron sebagai Node) keluar 0. Di peramban dengan sesi login
+(lebar 846 px): tombol Ukur menyalakan panel, tiga klik peta menghasilkan
+"Jarak 212,1 m · 3 titik (2 ruas)" lalu "Luas 5.536 m² (0,55 ha) · keliling
+355,1 m · 3 titik", 0 popup terbuka, 0 pesan konsol, dan tanpa gulir
+mendatar. Hapus titik mengembalikan kalimat petunjuk; Escape menutup panel
+dan melepas `aria-pressed`; di Layout View tombol Ukur ber-`display: none`.
+Tangkapan layar statis 500 px: `scrollWidth` 485 px, panel ukur melipat
+tombol di baris pertama dan hasil selebar baris di bawahnya. ArcToolbox: 17
+id tanpa kembar, 15 anchor menunjuk id yang ada, 0 karakter CJK pada ketiga
+berkas.
+
 ---
 
 ## 4. Berkas SPPT dari Excel

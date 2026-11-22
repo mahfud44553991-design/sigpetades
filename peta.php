@@ -106,9 +106,21 @@ sip_judul(
                     title="Mode pengolahan data spasial: peta interaktif penuh dengan panel lapisan.">Data View</button>
                 <button type="button" class="mode-tombol" id="modeLayout" aria-pressed="false"
                     title="Mode perancangan tata letak: bingkai lembar, judul, legenda, skala, dan arah utara untuk diekspor.">Layout View</button>
+                <button type="button" class="mode-tombol" id="modeUkur" aria-pressed="false"
+                    title="Alat ukur jarak dan luas: klik peta untuk menambah titik, Escape untuk menutup.">Ukur</button>
                 <span class="peta-mode-info" id="modeInfo">Mode pengolahan data spasial.</span>
                 <button type="button" class="tombol tombol-utama tombol-kecil" id="eksporPeta" hidden
                     title="Buka dialog cetak peramban; pilih Simpan sebagai PDF, ukuran A4 lanskap.">Ekspor PDF</button>
+            </div>
+
+            <div class="peta-ukur" id="panelUkur" hidden>
+                <div class="ukur-jenis" role="group" aria-label="Jenis ukuran">
+                    <button type="button" class="ukur-tombol aktif" id="ukurJarak" aria-pressed="true">Jarak</button>
+                    <button type="button" class="ukur-tombol" id="ukurLuas" aria-pressed="false">Luas</button>
+                </div>
+                <p class="ukur-hasil" id="ukurHasil" aria-live="polite">Klik peta untuk menambah titik ukur.</p>
+                <button type="button" class="ukur-aksi" id="ukurHapus" title="Buang semua titik ukur">Hapus titik</button>
+                <button type="button" class="ukur-aksi" id="ukurTutup" title="Tutup alat ukur">Tutup</button>
             </div>
 
             <div class="peta-wadah" id="wadahPeta">
@@ -450,6 +462,13 @@ $naskah = <<<'JS'
     const lembarLegendaIsi = document.getElementById('lembarLegendaIsi');
     const lembarSkala = document.getElementById('lembarSkala');
     const lembarJumlah = document.getElementById('lembarJumlah');
+    const modeUkur = document.getElementById('modeUkur');
+    const panelUkur = document.getElementById('panelUkur');
+    const ukurJarak = document.getElementById('ukurJarak');
+    const ukurLuas = document.getElementById('ukurLuas');
+    const ukurHasil = document.getElementById('ukurHasil');
+    const ukurHapus = document.getElementById('ukurHapus');
+    const ukurTutup = document.getElementById('ukurTutup');
     let modeTampilan = 'data';
     const dataLapisan = { tanah: null, lain: null };
     const filterLapisan = { tanah: null, lain: null };
@@ -561,10 +580,115 @@ $naskah = <<<'JS'
         eksporPeta.hidden = !layout;
         lembarPeta.hidden = !layout;
         if (layout) {
+            if (ukurAktif) aturUkur(false);
             perbaruiSkalaLembar();
             salinLegenda();
         }
         window.setTimeout(() => peta.invalidateSize(), 60);
+    }
+
+    // Alat ukur: klak-klik menambah titik, Escape atau Tutup mengakhiri.
+    // Jarak memakai rumus bola Leaflet (peta.distance); luas memakai kelebihan
+    // bola (Chamberlain-Duquette) supaya persil ratusan meter tidak melengkung.
+    const grupUkur = L.layerGroup();
+    let ukurAktif = false;
+    let ukurJenis = 'jarak';
+    let ukurTitik = [];
+    let ukurDobelZoom = false;
+
+    function luasBola(titik) {
+        const R = 6371008.8;
+        let jumlah = 0;
+        for (let i = 0; i < titik.length; i++) {
+            const a = titik[i];
+            const b = titik[(i + 1) % titik.length];
+            const f1 = a.lat * Math.PI / 180;
+            const f2 = b.lat * Math.PI / 180;
+            jumlah += (b.lng - a.lng) * Math.PI / 180 * (2 + Math.sin(f1) + Math.sin(f2));
+        }
+        return Math.abs(jumlah * R * R / 2);
+    }
+
+    function teksJarak(meter) {
+        return meter >= 1000
+            ? Sip.angka(meter / 1000, 2) + ' km'
+            : Sip.angka(meter, 1) + ' m';
+    }
+
+    function perbaruiHasilUkur() {
+        const n = ukurTitik.length;
+        if (!n) {
+            ukurHasil.textContent = 'Klik peta untuk menambah titik ukur.';
+            return;
+        }
+        let jarak = 0;
+        for (let i = 1; i < n; i++) jarak += peta.distance(ukurTitik[i - 1], ukurTitik[i]);
+        if (ukurJenis === 'luas' && n >= 3) {
+            const keliling = jarak + peta.distance(ukurTitik[n - 1], ukurTitik[0]);
+            const luas = luasBola(ukurTitik);
+            ukurHasil.textContent = 'Luas ' + Sip.angka(luas, 0) + ' m² ('
+                + Sip.angka(luas / 10000, 2) + ' ha) · keliling ' + teksJarak(keliling)
+                + ' · ' + n + ' titik.';
+        } else if (ukurJenis === 'luas') {
+            ukurHasil.textContent = 'Butuh minimal 3 titik. Sudah ' + n + ' titik'
+                + (n >= 2 ? ', panjang ' + teksJarak(jarak) : '') + '.';
+        } else {
+            ukurHasil.textContent = 'Jarak ' + teksJarak(jarak) + ' · ' + n + ' titik'
+                + (n > 1 ? ' (' + (n - 1) + ' ruas)' : '') + '.';
+        }
+    }
+
+    function gambarUkur() {
+        grupUkur.clearLayers();
+        if (ukurTitik.length) {
+            if (ukurJenis === 'luas' && ukurTitik.length >= 3) {
+                L.polygon(ukurTitik, {
+                    color: '#c2410c', weight: 2, fillColor: '#fb923c', fillOpacity: .22,
+                    interactive: false
+                }).addTo(grupUkur);
+            }
+            if (ukurTitik.length > 1) {
+                L.polyline(ukurTitik, {
+                    color: '#c2410c', weight: 2.5, dashArray: '6 4', interactive: false
+                }).addTo(grupUkur);
+            }
+            ukurTitik.forEach((t) => {
+                L.circleMarker(t, {
+                    radius: 4, color: '#c2410c', weight: 2,
+                    fillColor: '#fff', fillOpacity: 1, interactive: false
+                }).addTo(grupUkur);
+            });
+        }
+        perbaruiHasilUkur();
+    }
+
+    function aturJenisUkur(jenis) {
+        ukurJenis = jenis === 'luas' ? 'luas' : 'jarak';
+        ukurJarak.classList.toggle('aktif', ukurJenis === 'jarak');
+        ukurLuas.classList.toggle('aktif', ukurJenis === 'luas');
+        ukurJarak.setAttribute('aria-pressed', String(ukurJenis === 'jarak'));
+        ukurLuas.setAttribute('aria-pressed', String(ukurJenis === 'luas'));
+        gambarUkur();
+    }
+
+    function aturUkur(hidup) {
+        ukurAktif = !!hidup;
+        modeUkur.classList.toggle('aktif', ukurAktif);
+        modeUkur.setAttribute('aria-pressed', String(ukurAktif));
+        panelUkur.hidden = !ukurAktif;
+        document.getElementById('wadahPeta').classList.toggle('mode-ukur', ukurAktif);
+        if (ukurAktif) {
+            peta.closePopup();
+            grupUkur.addTo(peta);
+            ukurDobelZoom = peta.doubleClickZoom.enabled();
+            if (ukurDobelZoom) peta.doubleClickZoom.disable();
+            gambarUkur();
+        } else {
+            peta.removeLayer(grupUkur);
+            if (ukurDobelZoom) { peta.doubleClickZoom.enable(); ukurDobelZoom = false; }
+            ukurTitik = [];
+            gambarUkur();
+        }
     }
 
     // L.LayerGroup tidak punya getBounds(), jadi batas dihitung dari lapisan anak.
@@ -1369,6 +1493,19 @@ $naskah = <<<'JS'
         salinLegenda();
         perbaruiSkalaLembar();
         window.setTimeout(() => window.print(), 120);
+    });
+    modeUkur.addEventListener('click', () => aturUkur(!ukurAktif));
+    ukurJarak.addEventListener('click', () => aturJenisUkur('jarak'));
+    ukurLuas.addEventListener('click', () => aturJenisUkur('luas'));
+    ukurHapus.addEventListener('click', () => { ukurTitik = []; gambarUkur(); });
+    ukurTutup.addEventListener('click', () => aturUkur(false));
+    peta.on('click', (e) => {
+        if (!ukurAktif) return;
+        ukurTitik.push(e.latlng);
+        gambarUkur();
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && ukurAktif) aturUkur(false);
     });
     window.addEventListener('resize', rapikanLabelBlok);
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(rapikanLabelBlok);

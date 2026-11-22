@@ -705,6 +705,15 @@ sip_header('ArcToolbox', 'digitasi');
                 </a>
             </li>
         </ol>
+        <h2 class="toolbox-nav-pisah">Peta</h2>
+        <ol>
+            <li>
+                <a href="#alat-ukur-peta">
+                    <span>Alat ukur</span>
+                    <b>2</b>
+                </a>
+            </li>
+        </ol>
         <h2 class="toolbox-nav-pisah">Kelompok alat</h2>
         <ol>
             <?php foreach ($katalog as $kunci => $bagian): ?>
@@ -802,6 +811,50 @@ sip_header('ArcToolbox', 'digitasi');
                 <strong>Layout View</strong> di atas peta, atau langsung dengan alamat
                 <code>peta.php?tampilan=layout</code>. Tidak ada data yang ditulis: tata letak hanya mengubah
                 cara peta ditampilkan dan dicetak.</p>
+        </section>
+
+        <section class="kartu toolbox-bagian toolbox-ukur" id="alat-ukur-peta">
+            <header class="kepala-kartu">
+                <div>
+                    <h2>Measure (Alat ukur)</h2>
+                    <p>Ukur jarak dan luas langsung di Peta Bidang. Semua hitungan berjalan di peramban;
+                        tidak ada hasil yang disimpan ke basis data.</p>
+                </div>
+                <a class="toolbox-arah" href="<?= e(sip_url('peta.php')) ?>">Buka Peta Bidang &rarr;</a>
+            </header>
+            <div class="toolbox-mode">
+                <article class="toolbox-mode-kartu">
+                    <header>
+                        <span class="toolbox-mode-lencana">Jarak</span>
+                        <h3>Garis berantai</h3>
+                    </header>
+                    <p>Klik peta untuk menambah titik; panjang tiap ruas dijumlahkan mengikuti rumus
+                        jarak bola Leaflet. Cocok untuk mengukur lebar jalan atau panjang saluran.</p>
+                    <ul>
+                        <li>Hasil di bawah 1 km dalam meter satu desimal; di atasnya dalam kilometer dua desimal.</li>
+                        <li>Titik ditandai lingkaran, ruas digambar putus-putus oranye.</li>
+                        <li><strong>Hapus titik</strong> mengosongkan ukuran tanpa menutup alat.</li>
+                    </ul>
+                </article>
+                <article class="toolbox-mode-kartu">
+                    <header>
+                        <span class="toolbox-mode-lencana toolbox-mode-lencana-garis">Luas</span>
+                        <h3>Poligon tertutup</h3>
+                    </header>
+                    <p>Mulai dari tiga titik; poligon menutup sendiri dari titik terakhir ke titik pertama.
+                        Luas memakai kelebihan bola (Chamberlain-Duquette), jadi persil ratusan meter tetap
+                        akurat tanpa proyeksi bidang datar.</p>
+                    <ul>
+                        <li>Hasil ditampilkan dalam m² dan hektare, disertai keliling.</li>
+                        <li>Ganti jenis ukuran kapan saja; titik yang sudah ada dipakai ulang.</li>
+                        <li><strong>Tutup</strong> atau tombol <kbd>Esc</kbd> mengakhiri pengukuran.</li>
+                    </ul>
+                </article>
+            </div>
+            <p class="toolbox-katalog-catatan">Tombol <strong>Ukur</strong> ada di bilah Tampilan, di atas peta,
+                dan hanya aktif di Data View. Selama mengukur, klik pada bidang tidak membuka popup supaya
+                titik ukur tidak tertutup; klik ganda untuk zoom dimatikan sementara dan dinyalakan lagi
+                ketika alat ditutup.</p>
         </section>
 
         <section class="kartu toolbox-bagian toolbox-katalog" id="katalog-berkas">
