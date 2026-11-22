@@ -8594,6 +8594,32 @@ disajikan** — tidak ada pil di peta dan tidak ada API. Metadata kunci
 Selokan yang tersaji tidak diubah. Cadangan sebelum menulis:
 `_lama/cadangan-garis-tepi-saluran-20261122-133534/`.
 
+### 3.120 Label nama lapisan peta disembunyikan (22 Nov 2026)
+
+**Permintaan.** "Sembunyikan label pada lapisan peta."
+
+**Yang diubah.** Di panel **Lapisan peta** Peta Bidang (`peta.php`) tidak lagi
+dibuat penanda nama untuk **Jalan** (626 label layer BATAS JALAN), **Saluran**
+(165 nama dari BATAS PERAIRAN), dan **Sungai** (114 nama). Garis dan pilnya tetap
+ada. Legenda berubah dari "Saluran & nama" menjadi "Saluran", dan `title` pil
+Saluran tidak lagi menyebut 165 nama. `peta.php` juga berhenti meminta
+`lapisan=jalan` dan `lapisan=sungai` untuk label, jadi pemuatan peta meminta
+berkas lebih sedikit; kedua endpoint tetap ada karena dipakai Peta Blok.
+
+**Teknis.** Tiga loop `L.marker(L.divIcon(...))` di `muatJalanSekali`,
+`muatSaluran`, dan `muatSungai` dihapus, begitu pula pembantu `ambilLabelPerairan`
+dan pola `POLA_SALURAN`. Gaya `.label-jalan`, `.label-saluran`, `.label-sungai`
+beserta aturan `peta-dekat-sungai` (yang tak pernah dipasang) dibuang dari
+`assets/css/app.css`. Label sungai sejak sebelumnya memang tak pernah tampil
+karena kelas itu tidak dipasang, tetapi penandanya tetap dibuat. Label bidang
+dan nama blok tidak diubah; keduanya tetap diatur dari panel Saring peta.
+
+**Pemeriksaan.** `php -l peta.php` bersih. Di browser dengan sesi login dan muat
+ulang paksa: 0 elemen `.label-jalan`, `.label-saluran`, dan `.label-sungai`;
+legenda memuat "Saluran"; permintaan jaringan hanya `preset`, `garis-jalan`,
+`garis-selokan`, dan `batas` (tanpa `lapisan=jalan`/`lapisan=sungai`); 0 galat
+atau peringatan konsol. Data peta tidak berubah.
+
 ---
 
 ## 4. Berkas SPPT dari Excel

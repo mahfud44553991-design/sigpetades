@@ -298,16 +298,6 @@ input[readonly], input:disabled, select:disabled, textarea:disabled { background
 #peta:not(.peta-dekat) .label-blok,
 #peta.tanpa-label-blok .label-blok { display: none; }
 
-.label-jalan, .label-sungai { background: none; border: 0; pointer-events: none; }
-.label-jalan span, .label-sungai span {
-    position: absolute; left: 0; top: 0; transform: translate(-50%, -50%);
-    display: inline-block; padding: 1px 5px; border-radius: 3px;
-    font-size: 9px; font-weight: 700; letter-spacing: .3px; white-space: nowrap;
-    text-shadow: 0 0 3px rgba(255,255,255,.9), 0 0 6px rgba(255,255,255,.7);
-}
-.label-jalan span { color: #444; }
-.label-sungai span { color: #1565c0; font-style: italic; }
-
 .popup-peta .leaflet-popup-content { margin: 12px 14px; }
 .popup-peta-isi { font-size: 11.5px; line-height: 1.5; }
 .popup-peta-judul { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
@@ -326,22 +316,6 @@ input[readonly], input:disabled, select:disabled, textarea:disabled { background
     font-size: 9.5px; font-weight: 700; color: #22392f;
 }
 .label-bidang::before { display: none; }
-.label-sungai { background: none; border: 0; pointer-events: none; }
-.label-sungai span {
-    position: absolute; left: 0; top: 0; transform: translate(-50%, -50%);
-    display: inline-block; padding: 1px 5px; border-radius: 999px;
-    background: rgba(255, 255, 255, .82); border: 1px solid rgba(8, 123, 131, .3);
-    color: #087b83; font-size: 8.5px; font-weight: 700; white-space: nowrap;
-}
-#peta:not(.peta-dekat-sungai) .label-sungai { display: none; }
-.label-saluran { background: none; border: 0; pointer-events: none; }
-.label-saluran span {
-    position: absolute; left: 0; top: 0; transform: translate(-50%, -50%);
-    display: inline-block; padding: 1px 5px; border-radius: 3px;
-    font-size: 8.5px; font-weight: 700; letter-spacing: .2px; white-space: nowrap;
-    color: #075985; background: rgba(255, 255, 255, .72);
-    text-shadow: 0 0 3px rgba(255, 255, 255, .9);
-}
 .cad-label {
     background: transparent; border: 0;
     color: #172c28; font-size: 10px; font-weight: 700; white-space: nowrap;

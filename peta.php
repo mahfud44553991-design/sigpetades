@@ -78,7 +78,7 @@ sip_judul(
                     <input type="checkbox" id="tampilSelokan" autocomplete="off" checked>
                     <i style="background:#0ea5e9"></i>Selokan
                 </label>
-                <label class="chip-lapisan" title="689 garis saluran/irigasi turunan 020100 (berkas yang sama dengan pil Selokan) beserta 165 nama saluran dari layer BATAS PERAIRAN">
+                <label class="chip-lapisan" title="689 garis saluran/irigasi turunan 020100 (berkas yang sama dengan pil Selokan)">
                     <input type="checkbox" id="tampilSaluran" autocomplete="off" checked>
                     <i style="background:#0369a1"></i>Saluran
                 </label>
@@ -465,7 +465,7 @@ $naskah = <<<'JS'
             baris.push('<span><i class="contoh-garis-selokan"></i>Garis selokan</span>');
         }
         if (setelan.saluran) {
-            baris.push('<span><i class="contoh-garis-saluran"></i>Saluran &amp; nama</span>');
+            baris.push('<span><i class="contoh-garis-saluran"></i>Saluran</span>');
         }
         if (setelan.sungai) {
             baris.push('<span><i class="contoh-garis-sungai"></i>Sumbu sungai</span>');
@@ -768,10 +768,7 @@ $naskah = <<<'JS'
     }
 
     async function muatJalanSekali() {
-        const [garis, label] = await Promise.all([
-            Sip.api('api/bidang.php', { query: { lapisan: 'garis-jalan' } }),
-            Sip.api('api/bidang.php', { query: { lapisan: 'jalan' } })
-        ]);
+        const garis = await Sip.api('api/bidang.php', { query: { lapisan: 'garis-jalan' } });
         grup.jalan.clearLayers();
         kanvasJalan.addTo(peta);
         L.geoJSON(garis, {
@@ -780,19 +777,6 @@ $naskah = <<<'JS'
             interactive: false,
             style: { color: '#0f766e', weight: 1.1, opacity: .85 }
         }).addTo(grup.jalan);
-        (label.features || []).forEach((f) => {
-            const p = f.properties;
-            const koordinat = f.geometry.coordinates;
-            L.marker([Number(koordinat[1]), Number(koordinat[0])], {
-                icon: L.divIcon({
-                    className: 'label-jalan',
-                    html: '<span>' + Sip.esc(p.label) + '</span>',
-                    iconSize: [0, 0]
-                }),
-                pane: 'pane-jalan',
-                interactive: false, keyboard: false
-            }).addTo(grup.jalan);
-        });
     }
 
     // Pil Selokan dan Saluran memakai berkas yang sama; satu unduhan dipakai bersama.
@@ -803,15 +787,6 @@ $naskah = <<<'JS'
                 .catch((err) => { janjiBerkasSelokan = null; throw err; });
         }
         return janjiBerkasSelokan;
-    }
-
-    let janjiLabelPerairan = null;
-    function ambilLabelPerairan() {
-        if (!janjiLabelPerairan) {
-            janjiLabelPerairan = Sip.api('api/bidang.php', { query: { lapisan: 'sungai' } })
-                .catch((err) => { janjiLabelPerairan = null; throw err; });
-        }
-        return janjiLabelPerairan;
     }
 
     async function muatSelokan() {
@@ -826,13 +801,9 @@ $naskah = <<<'JS'
         }).addTo(grup.selokan);
     }
 
-    // Saluran = garis selokan 020100 (semuanya berlabel SALURAN/IRIGASI) ditambah
-    // nama saluran dari layer BATAS PERAIRAN; nama yang sama tidak digambar lagi
-    // di pil Sungai (lihat muatSungai).
-    const POLA_SALURAN = /SALURAN|SLURAN|IRIGASI/i;
-
+    // Saluran = garis selokan 020100 (semuanya berlabel SALURAN/IRIGASI), warna lebih tua.
     async function muatSaluran() {
-        const [garis, label] = await Promise.all([ambilBerkasSelokan(), ambilLabelPerairan()]);
+        const garis = await ambilBerkasSelokan();
         grup.saluran.clearLayers();
         kanvasSaluran.addTo(peta);
         L.geoJSON(garis, {
@@ -841,29 +812,12 @@ $naskah = <<<'JS'
             interactive: false,
             style: { color: '#0369a1', weight: 1.7, opacity: .95 }
         }).addTo(grup.saluran);
-        (label.features || []).forEach((f) => {
-            const p = f.properties;
-            if (!POLA_SALURAN.test(p.label || '')) return;
-            const koordinat = f.geometry.coordinates;
-            L.marker([Number(koordinat[1]), Number(koordinat[0])], {
-                icon: L.divIcon({
-                    className: 'label-saluran',
-                    html: '<span>' + Sip.esc(p.label) + '</span>',
-                    iconSize: [0, 0]
-                }),
-                pane: 'pane-saluran',
-                interactive: false, keyboard: false
-            }).addTo(grup.saluran);
-        });
     }
 
     async function muatSungai() {
-        const [garis, label] = await Promise.all([
-            // Berkas turunan ini tidak ikut git; tanpa berkas, label tetap tampil.
-            Sip.api('api/bidang.php', { query: { lapisan: 'garis-sungai' } })
-                .catch(() => ({ features: [] })),
-            ambilLabelPerairan()
-        ]);
+        // Berkas turunan ini tidak ikut git; tanpa berkas, garis sungai saja yang kosong.
+        const garis = await Sip.api('api/bidang.php', { query: { lapisan: 'garis-sungai' } })
+            .catch(() => ({ features: [] }));
         grup.sungai.clearLayers();
         kanvasSungai.addTo(peta);
         L.geoJSON(garis, {
@@ -872,20 +826,6 @@ $naskah = <<<'JS'
             interactive: false,
             style: { color: '#1d4ed8', weight: 2, dashArray: '9 5', opacity: .95 }
         }).addTo(grup.sungai);
-        (label.features || []).forEach((f) => {
-            const p = f.properties;
-            if (POLA_SALURAN.test(p.label || '')) return;
-            const koordinat = f.geometry.coordinates;
-            L.marker([Number(koordinat[1]), Number(koordinat[0])], {
-                icon: L.divIcon({
-                    className: 'label-sungai',
-                    html: '<span>' + Sip.esc(p.label) + '</span>',
-                    iconSize: [0, 0]
-                }),
-                pane: 'pane-sungai',
-                interactive: false, keyboard: false
-            }).addTo(grup.sungai);
-        });
     }
 
     function aktifkan(nama, hidup) {
