@@ -3341,14 +3341,14 @@
             }
         },
         "GARIS TEPI SALURAN": {
-            "features": 1061,
+            "features": 850,
             "types": {
-                "line": 1061
+                "line": 850
             },
             "file": "garis-tepi-saluran.geojson",
-            "panjang_m": 59052,
+            "panjang_m": 55815,
             "panjang_acuan_m": 50798.5,
-            "panjang_pasangan_m": 8253.5,
+            "panjang_pasangan_m": 5016.6,
             "derived_from": "garis-selokan.geojson (689 garis/50.798,5 m) dipasangkan per segmen ke tebing nyata 020100.geojson (16307 rantai); tiap garis saluran disalin sebagai tebing acuan, tebing lawan diklaim dari segmen 020100 yang jaraknya 0,4-4,0 m, arahnya <= 25 derajat, sisinya tetap, dan koridornya di luar poligon bidang; semua verteks keluaran = verteks bahan, tanpa offset karangan",
             "ambang": {
                 "jarak_min_m": 0.4,
@@ -3362,17 +3362,17 @@
                 "file": "garis-selokan.geojson",
                 "baris": 689,
                 "panjang_m": 50798.5,
-                "berpasangan": 101,
-                "satu_tebing": 588
+                "berpasangan": 100,
+                "satu_tebing": 589
             },
             "pasangan": {
-                "baris": 372,
-                "panjang_m": 8253.5,
-                "titik": 1014,
-                "kiri": 146,
-                "kanan": 226,
-                "lebar_median_m": 2.2,
-                "pasangan_per_baris": 3.68
+                "baris": 161,
+                "panjang_m": 5016.6,
+                "titik": 556,
+                "kiri": 57,
+                "kanan": 104,
+                "lebar_median_m": 2.47,
+                "pasangan_per_baris": 1.61
             },
             "bahan": {
                 "file": "020100.geojson",
@@ -3404,6 +3404,23 @@
             "permukaan_bidang": {
                 "sumber": "tabel bidang (status <> dihapus)",
                 "cincin": 4329
+            },
+            "dirapikan": {
+                "aturan": "tebing kembar (deret titik sama) dibuang; potongan pasangan pada saluran+sisi yang sama dijahit bila ujungnya berimpit atau celahnya <= celah_m dan arahnya menerus; jembatan memakai ujung bahan, tanpa koordinat karangan",
+                "toleransi_m": 0.05,
+                "celah_m": 1,
+                "belok_derajat": 40,
+                "baris_sebelum": 1061,
+                "panjang_sebelum_m": 59052,
+                "kembar_dibuang": 156,
+                "kembar_dibuang_m": 3237.6,
+                "verteks_ganda_dibuang": 15,
+                "sambungan_ujung": 53,
+                "jembatan_celah": 2,
+                "jembatan_m": 0.8,
+                "baris_sesudah": 850,
+                "panjang_sesudah_m": 55815.2,
+                "diterapkan": "20261122-141309"
             }
         }
     },
@@ -3433,5 +3450,5 @@
         "GARIS SUMBU SUNGAI JAHIT: 38 polilin (5.930,5 m) sesudah 3 celah lagi dijahit lewat koridor dua tepi perairan oleh tools/jahit-sumbu-tepi.php: celah 11,2 + 23,1 + 59,0 = 93,3 m, susuran 96,1 m termasuk ruas penutup <= 3 m ke ujung B. Susuran mengikuti titik tengah pasangan tepi kiri-kanan (masing-masing <= 15 m, sejajar satu sama lain, lebar alur 3-60 m) dan hanya dipakai bila penyusur sampai <= 3 m dari ujung B tanpa tersangkut; sudut sambung di kedua ujung 76/36, 39/37, dan 20/40 derajat. Verifikasi: 3.524 titik bahan tetap utuh dan berurutan, 45 titik baru semuanya titik jejak susuran (terjauh 8,3 m dari tepi), panjang 5.834,4 + 96,1 = 5.930,5 m tepat, sisa 76 ujung bebas (<=2 m 0, 2-10 m 0, 10-50 m 25, >50 m 23). Dari 37 celah <= 150 m hanya 3 yang bisa disusur; sisanya koridor putus atau arah berbalik, jadi tidak ditambal. Berkas sebelumnya (41 polilin, 5.834,4 m) ada di _lama/cadangan-sumbu-tepi-20261121/garis-sungai-jahit-41.geojson."
     ],
     "converted_at": "2026-10-31T11:01:27+01:00",
-    "derived_at": "2026-11-22T13:35:34+07:00"
+    "derived_at": "2026-11-22T14:13:09+07:00"
 }

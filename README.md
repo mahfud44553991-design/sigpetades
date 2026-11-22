@@ -8665,6 +8665,73 @@ permintaan `garis-jalan` dan `garis-selokan` masing-masing sekali, 0 galat konso
 
 ---
 
+### 3.122 Tepi saluran dirapikan: tebing kembar dibuang, potongan dijahit (22 Nov 2026)
+
+**Permintaan.** "Rapikan semua garis tepi saluran."
+
+**Temuan.** Lapis **Tepi saluran** (`garis-tepi-saluran.geojson`, 1.061 baris,
+59.052,0 m: 689 acuan + 372 pasangan, §3.119) menyimpan dua jenis kotoran:
+
+- **156 baris pasangan** (3.237,6 m) bergeometri kembar — deret verteksnya sama
+  dengan baris lain, maju atau balik, karena satu tebing nyata 020100 diklaim
+  oleh lebih dari satu saluran atau lebih dari satu potongan. Selain itu **15
+  verteks ganda** (dua titik berurutan sama) tersebar di 11 baris acuan.
+- **372 potongan pasangan** tersebar di **111 grup saluran+sisi**, rata-rata
+  3,68 ruas per saluran; tebing yang sama terpecah tiap kali 020100 terputus di
+  persil.
+
+**Aturan yang dipakai.** Semua keluaran tetap memakai verteks bahan; tidak ada
+koordinat karangan.
+
+1. Tebing kembar dibuang di seluruh lapis (kunci deret titik 3 desimal, maju
+   atau balik), sehingga satu tebing hanya digambar sekali.
+2. Dalam satu grup saluran+sisi, potongan dijahit bila ujungnya berimpit
+   (≤ 0,05 m) tanpa syarat arah; bila tidak berimpit, celah ≤ 1 m boleh
+   dijembatani asalkan arah ujungnya menerus (≤ 40°) dan ruas jembatan tidak
+   memotong ruas lain. Jembatan hanya menyambung ujung bahan, tidak menambah
+   titik.
+3. Jahitan ditolak bila hasilnya jadi cincin, menyilang diri sendiri, atau
+   jembatannya memotong ruas lain. Baris acuan tidak pernah dijahit ke baris
+   pasangan, dan acuan tidak pernah dijahit satu sama lain (689 baris acuan
+   tetap satu baris per saluran).
+
+**Alat.** `tools/rapikan-tepi-saluran.php` (uji kering bawaan, `--terapkan`
+untuk menulis, `--rinci` untuk daftar; ambang `--toleransi=0.05 --celah=1
+--belok=40`). Sebelum menulis, berkas dan `metadata.json` dicadangkan ke
+`_lama/cadangan-tepi-saluran-rapi-<stempel>/`. Alat berhenti tanpa menulis bila
+hasil masih memuat geometri kembar, silang diri, cincin bertambah, atau titik
+yang bukan titik bahan, dan bila total panjang tidak seimbang dengan panjang
+bahan unik + panjang jembatan.
+
+**Hasil.** `garis-tepi-saluran.geojson` kini **850 baris, 55.815,2 m**:
+
+- 156 baris kembar (3.237,6 m) dibuang; 15 verteks ganda dirapatkan;
+- 53 sambungan ujung berimpit + 2 jembatan celah (0,8 m) dijalankan; ditolak
+  2 cincin dan 10 silang diri;
+- 689 baris acuan (50.798,5 m) + 161 baris pasangan (5.016,7 m); 4.026 titik;
+- pasangan per sisi: kiri 57 baris/1.971,9 m, kanan 104 baris/3.044,8 m;
+- saluran bertebing lawan 101 → **100**: tebing 8,45 m milik
+  SELOKAN-020100-0290 (kiri) dan SELOKAN-020100-0604 (kanan) adalah satu
+  dinding yang sama, jadi sesudah dedup hanya digambar sekali dan 0604 menjadi
+  satu tebing;
+- lebar median 2,47 m; cincin 164 (sama dengan bahan), silang diri 0, kembar 0,
+  titik asing 0; kode `TEPI-SALURAN-####` unik dan berurutan.
+
+Metadata `GARIS TEPI SALURAN` diperbarui (features 850, panjang_m 55.815,
+acuan/pasangan) dan mendapat blok `dirapikan` (ambang, jumlah kembar, sambungan,
+jembatan, baris/p panjang sebelum dan sesudah, stempel terapan). Lapis ini
+**tetap belum disajikan** — tidak ada pil atau API. Cadangan sebelum menulis:
+`_lama/cadangan-tepi-saluran-rapi-20261122-141309/`.
+
+**Pemeriksaan.** `php -l tools/rapikan-tepi-saluran.php` bersih. Skrip
+pemeriksa bebas membandingkan berkas pangkal dan hasil: 850 baris = metadata,
+55.815,2 m, `cara` acuan 689/pasangan 161, sisi acuan 689/kiri 57/kanan 104,
+kode unik dan berurutan, 4.026 titik, 0 geometri kembar, cincin 164 = 164,
+0 titik asing. Ke-689 baris acuan sama deret verteks uniknya dengan pangkal;
+selisih yang tampak pada 11 baris hanyalah 15 verteks ganda yang dibuang.
+
+---
+
 ## 4. Berkas SPPT dari Excel
 
 Importer CSV menerima kolom berikut (nama kolom dibersihkan dari spasi dan tanda
