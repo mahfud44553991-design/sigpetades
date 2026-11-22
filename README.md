@@ -8810,6 +8810,83 @@ yang masih terklaim penuh; kode `SALURAN-JALAN-*` unik. Di browser dengan muat
 ulang paksa: kedua permintaan (`garis-selokan` + `garis-saluran-dari-jalan`)
 terkirim sekali, pane saluran berkanvas, 0 galat konsol.
 
+### 3.125 Ujung garis yang terputus disambung (22 Nov 2026)
+
+**Permintaan.** "garis-jalan, garis-selokan, garis-saluran-dari-jalan,
+garis-tepi-saluran, garis tepi sungai belum rapi masih banyak yang terputus."
+Enam lapis diperiksa: Jalan Peta Bidang, Jalan Peta Induk, Selokan,
+Saluran dari Jalan, Tepi saluran, dan Tepi sungai. Pilihan keagresifan yang
+disetujui: **rapat 2 m + celah 3 m**.
+
+**Sebab terputus.** Sebagian besar ujung bebas berhenti 0,05–2 m di depan
+**badan** garis lain (tegak lurus ke segmennya), bukan di ujung garis itu,
+sehingga penggabungan simpul biasa tidak melihatnya. Sisanya adalah dua ujung
+baris berbeda yang saling berhadapan dengan arah menerus tetapi berselisih
+≤3 m. Ujung yang bertemu tegak lurus atau sejajar tidak dihitung celah.
+
+**Aturan.** Semuanya tambahan di ujung, tanpa memindahkan titik lama:
+
+1. ujung bebas ≤2 m dari segmen garis lain ditempel lewat **proyeksi tegak
+   lurus** ke segmen itu, bila sudut tempel ≤45 derajat;
+2. dua ujung bebas baris berbeda dengan jarak ≤3 m dijembatani garis lurus
+   bila arah sambungannya menerus ≤30 derajat di kedua ujung;
+3. ujung yang sudah ≤0,05 m dari garis lain dianggap menempel (tidak diubah);
+4. sambungan yang membentuk cincin baru atau memotong segmen lain ditolak,
+   begitu pula sambungan yang memotong jembatan lain yang sudah diterima.
+
+Karena itu titik baru hanya proyeksi tegak lurus atau ujung baris pasangan,
+tidak ada koordinat karangan. Jumlah baris, urutan, dan `kode` tidak berubah;
+cincin (pangkal = ujung) tidak disambung. Sambungan dicatat di properti baris
+`sambungan_ujung` dan `sambungan_ujung_m`.
+
+**Hasil.**
+
+| lapis | baris | panjang sebelum → sesudah | sambungan | komponen | ujung bebas |
+|---|---:|---|---:|---:|---:|
+| Jalan Peta Bidang | 1.907 | 66.318,9 → 66.351,1 m (+32,2) | 32 (19 tempel + 13 jembatan) | 469 → 442 | 1.020 → 921 |
+| Jalan Peta Induk | 3.911 | 92.877,5 → 93.892,7 m (+1.015,2) | 1.151 | 1.841 → 750 | 6.002 → 1.603 |
+| Selokan | 689 | 50.798,5 → 50.804,3 m (+5,8) | 4 tempel | 134 → 130 | 280 → 192 |
+| Saluran dari Jalan | 33 | 1.031,9 m (tetap) | 0 | tetap | 38 tetap |
+| Tepi saluran | 850 | 55.815,2 → 55.835,2 m (+20,0) | 19 (17 tempel + 2 jembatan) | 181 → 164 | 420 → 304 |
+| Tepi sungai | 123 | 9.367,9 → 9.382,1 m (+14,2) | 10 (9 tempel + 1 jembatan) | 102 → 92 | 205 → 185 |
+
+Lapis Jalan Peta Induk dijalankan **dua putaran** sampai titik tetap; angka
+1.151 adalah jumlah sambungan kedua putaran, sedangkan panjang dan titik diukur
+dari bahan sebelum putaran pertama. Ke-38 ujung Saluran dari Jalan semuanya
+bertemu sejajar/tegak lurus (sudut >45 derajat), jadi lapis itu memang tidak
+berubah. Sisa ujung bebas pada Jalan Peta Induk masih 1.603; putaran terakhir
+menolak 1.599 ujung karena arah, bukan karena jarak — memaksanya akan membuat
+tikungan tegak lurus yang bukan koridor jalan.
+
+**Berkas dan alat.** `tools/sambung-ujung-garis.php` (uji kering bawaan,
+`--terapkan`; opsi `--lapis=`, `--rapat=`, `--celah=`, `--sudut=`, `--belok=`,
+`--toleransi=`, `--rinci`). Cadangan per lapis di
+`_lama/cadangan-sambung-ujung-<lapis>-20261122-174410/` (Jalan Peta Induk juga
+`...-174428/` untuk putaran kedua). `metadata.json` mendapat blok
+`disambung_ujung` pada empat lapis yang punya judul panel (Jalan Peta Bidang,
+Selokan, Tepi saluran, Tepi sungai); Jalan Peta Induk tidak punya blok metadata.
+Angka `panjang_m` tingkat atas keempat lapis ikut diperbarui, dan blok Tepi
+saluran menghitung ulang `panjang_acuan_m` (50.801) serta `panjang_pasangan_m`
+(5.034,1). Berkas yang berubah: `garis-jalan-dari-sumbu.geojson` dan
+`garis-selokan.geojson` (terlacak git), `metadata.json` (terlacak), serta
+`garis-jalan-tepi.geojson`, `garis-tepi-saluran.geojson`, dan
+`garis-tepi-sungai-dari-sumbu.geojson` (di luar git). `garis-saluran-dari-jalan.geojson`
+tidak disentuh.
+
+**Pemeriksaan.** Putaran ketiga melapor 0 sambungan baru pada keenam lapis
+(titik tetap). Tiap lapis memverifikasi jumlah cincin tidak berubah, semua
+titik baru cocok dengan titik proyeksi/ujung pasangan, dan selisih panjang sama
+dengan panjang sambungan (≤0,05 m). Audit berkas hasil: 1.907/3.911/689/33/850/123
+baris, panjang 66.351,1 / 93.892,7 / 50.804,3 / 1.031,9 / 55.835,2 / 9.382,1 m,
+`|panjang_m − panjang terukur|` ≤0,005 m, 0 sambungan silang. Titik kembar
+berurutan pada Jalan Peta Bidang (39) dan Selokan (15) sudah ada di bahan dan
+tidak bertambah. JSON bolak-balik byte-identik, jadi tidak ada perubahan format.
+API `api/bidang.php` menjawab 200 untuk `garis-jalan` (1.907),
+`garis-selokan` (689), `garis-saluran-dari-jalan` (33), dan
+`garis-tepi-saluran` (850); Peta Induk memuat `garis-jalan` dan
+`garis-tepi-sungai` 200. Di browser dengan muat ulang paksa kedua peta: 0 galat
+konsol, pane lapis tetap ada.
+
 ---
 
 ## 4. Berkas SPPT dari Excel
