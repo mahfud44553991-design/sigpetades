@@ -8732,6 +8732,37 @@ selisih yang tampak pada 11 baris hanyalah 15 verteks ganda yang dibuang.
 
 ---
 
+### 3.123 Tepi saluran disajikan di Peta Bidang (22 Nov 2026)
+
+**Permintaan.** "Tampilkan pada live lapisan peta."
+
+**Yang diubah.** Panel **Lapisan peta** Peta Bidang (`peta.php`) mendapat pil
+**Tepi saluran** (`b` 850, centang bawaan menyala), berwarna biru gelap
+`#0c4a6e`, digambar di pane sendiri di atas garis Saluran. Pil ini membaca
+lapis yang baru dirapikan (§3.122), bukan berkas saluran. Legenda menampilkan
+butir "Tepi saluran" bila pil menyala. Pilihan pil ikut tersimpan di
+localStorage dan preset database seperti pil lain; preset lama tanpa kunci
+`tepiSaluran` memakai bawaan menyala.
+
+**API.** `api/bidang.php?lapisan=garis-tepi-saluran` menyajikan
+`garis-tepi-saluran.geojson` (850 fitur, 55.815,2 m) dengan terjemahan
+`dxfKeWgs84()` seperti lapis garis lain. Properti tiap fitur: `kode`, `cara`
+(`acuan`/`pasangan`), `sisi`, `saluran`, dan `panjang_m`.
+
+**Sifat data.** Ke-689 baris acuan memakai geometri yang sama dengan garis
+Saluran, jadi dengan kedua pil menyala garis itu tampak menebal; 161 baris
+pasangan adalah tebing nyata di seberang saluran (57 kiri/104 kanan). Unduhan
+dipakai bersama bila dua pemanggil memuat serentak.
+
+**Pemeriksaan.** `php -l peta.php` dan `php -l api/bidang.php` bersih. API
+menjawab 200, 850 fitur, koordinat WGS84. Di browser dengan muat ulang paksa:
+pil "Tepi saluran 850" ada dan menyala, legenda memuat "Tepi saluran", pane
+`pane-tepi-saluran` berkanvas, permintaan `lapisan=garis-tepi-saluran` hanya
+sekali, 0 galat konsol. Mematikan lalu menyalakan pil menyimpan `false`/`true`
+di localStorage tanpa mengunduh ulang.
+
+---
+
 ## 4. Berkas SPPT dari Excel
 
 Importer CSV menerima kolom berikut (nama kolom dibersihkan dari spasi dan tanda

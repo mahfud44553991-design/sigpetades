@@ -256,6 +256,10 @@ input[readonly], input:disabled, select:disabled, textarea:disabled { background
     height: 2px; border-radius: 0; vertical-align: 2px;
     background: #0369a1;
 }
+.legenda i.contoh-garis-tepi-saluran {
+    height: 2px; border-radius: 0; vertical-align: 2px;
+    background: #0c4a6e;
+}
 .legenda i.contoh-garis-sungai {
     height: 2px; border-radius: 0; vertical-align: 2px;
     background: repeating-linear-gradient(90deg, #1d4ed8 0 5px, transparent 5px 9px);
