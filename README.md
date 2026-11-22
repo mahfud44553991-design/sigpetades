@@ -9299,6 +9299,87 @@ konsol, tanpa gulir mendatar (`scrollWidth` 846 px). ArcToolbox: 16 anchor
 navigasi, 0 menunjuk id yang hilang, 0 id kembar, 0 karakter CJK pada keempat
 berkas.
 
+### 3.133 ArcToolbox: navigasi peta, seleksi & tabel atribut (22 Nov 2026)
+
+**Permintaan.** Daftar kemampuan ArcMap yang belum ada di web ini: Add Data
+(SHP, raster/citra, basemap, CSV XY), Navigasi Peta (Zoom In, Zoom Out, Pan,
+Full Extent, Previous/Next Extent), dan Seleksi & Tabel Atribut (memilih fitur
+di peta, Select by Attribute, Attribute Table). Setelah ditimbang, yang
+dikerjakan lebih dulu **navigasi dan atribut**; Add Data ditunda karena SHP
+dan raster membutuhkan pustaka baru dan basemap sudah punya pemilih sendiri.
+
+**Isi peta.** Bilah **Navigasi** muncul di bawah bilah Tampilan pada
+`peta.php`, berisi delapan tombol: Zoom In, Zoom Out, Pan, Full Extent,
+Sebelum, Sesudah, Pilih, dan Tabel atribut. Tombol memakai bentuk pil yang
+sama dengan bilah Tampilan; Pan menyala secara bawaan.
+
+**Riwayat pandangan.** Setiap `moveend` mencatat pusat dan tingkat zoom, jadi
+zoom, geser, pemusatan ke bidang, dan Full Extent semuanya masuk riwayat.
+Catatan yang sama tidak ditulis dua kali, dan melangkah dengan Sebelum/Sesudah
+tidak menambah catatan baru. Riwayat menyimpan 60 pandangan terakhir; setelah
+melangkah mundur, pandangan baru memotong cabang maju. Tombol nonaktif bila
+tidak ada langkah tersisa.
+
+Pemuatan pertama tidak dihitung sebagai langkah: pemusatan otomatis ke seluruh
+bidang menjadikan pandangannya titik awal, bukan tujuan tombol Sebelum. Bila
+pandangan tersimpan sudah ada, peta dipasang tanpa animasi supaya pandangan itu
+tercatat sekali, bukan dua kali (pusat lama lalu pusat baru).
+
+**Full Extent.** Batas dihitung dari geometri yang sedang tampil. Bila bidang
+belum termuat, batas blok dan lapis garis yang aktif dipakai sebagai cadangan;
+bila tidak ada apa pun, peta kembali ke pusat bawaan desa. Perpindahan memakai
+animasi halus tanpa memuat ulang data.
+
+**Pan.** Tombol Pan menyalakan atau mematikan penarikan peta
+(`dragging.enable()`/`disable()`). Saat dimatikan, kursor peta menjadi panah
+biasa dan klik bidang tidak berpindah pandangan. Zoom dan tombol navigasi lain
+tetap bekerja.
+
+**Seleksi.** Mode **Pilih** mengubah klik bidang menjadi menandai atau
+melepas pilihan: garis merah tebal, isi merah muda, dan bidang diangkat ke
+depan. Selama mode ini menyala, popup bidang tidak dibuka. Jumlah terpilih
+tampil pada tombol Pilih. Seleksi hanya penyorotan di peramban; mengganti
+saringan memuat ulang bidang dan membersihkan pilihan.
+
+**Tabel atribut.** Tombol **Tabel atribut** membuka kartu baru berisi kolom
+Pilih, Kode, Blok, Hak, Pemegang, Luas (m²), dan Status untuk bidang pada
+saringan aktif. Maksimal 500 baris pertama ditampilkan dan catatan kaki
+menyebutkan sisanya. Klik baris memusatkan peta ke bidang itu (paling jauh
+tingkat 19 karena ubin OSM berhenti di sana); centang memakai jalur seleksi
+yang sama dengan klik peta. **Pilih semua baris** memilih seluruh baris yang
+tampil, **Bersihkan pilihan** melepasnya, dan **Tutup** menyembunyikan kartu.
+Tabel tidak dapat disunting; isinya mengikuti Saring peta yang sudah ada.
+
+**ArcToolbox.** Navigasi kiri mendapat dua butir di kelompok Peta: "Navigasi
+peta" berisi 5 (Zoom In, Zoom Out, Pan, Full Extent, Previous/Next Extent) dan
+"Seleksi & tabel atribut" berisi 2. Dua bagian baru: `#navigasi-peta` dengan
+empat kartu dan `#seleksi-atribut` dengan dua kartu. Catatan bagian menyebut
+bahwa Select by Attribute sepadan dengan kartu Saring peta, dan Add Data untuk
+SHP, raster, atau basemap baru belum tersedia.
+
+**Tidak diubah.** Tidak ada API baru, tidak ada penulisan basis data, dan
+tidak ada berkas data yang diubah. `peta.php` menjadi 1.941 baris (+298),
+`digitasi.php` 1.410 baris (+124), dan `assets/css/app.css` 916 baris (+38).
+
+**Pemeriksaan.** `php -l` bersih pada kedua halaman. Blok JS `peta.php`
+(1.527 baris) lolos `--check`. Di peramban dengan sesi login (lebar 861 px):
+8 tombol navigasi, Sebelum dan Sesudah nonaktif saat halaman selesai dimuat;
+Zoom Out mengubah skala 1 : 35.800 menjadi 1 : 71.700, Sebelum kembali ke
+35.800, Sesudah maju lagi ke 71.700; Full Extent memindahkan pusat peta;
+Pan melepas dan memasang `tanpa-geser`; klik bidang dalam mode Pilih
+menghasilkan "Pilih · 1", 0 popup; tabel menampilkan 4.326 bidang dan 500
+baris pertama; centang, Pilih semua (500), dan Bersihkan bekerja; saringan
+POLINDES menyusutkan tabel menjadi 1 bidang/1 baris dan membersihkan pilihan;
+klik baris memindahkan pusat dari -7,08193, 110,07027 ke -7,08654, 110,07504.
+Di Layout View bilah Navigasi dan kartu atribut ber-`display: none`; kembali ke
+Data View bilah tampil lagi. 0 pesan konsol setelah pemusatan dibatasi tingkat
+19 (sebelumnya ubin z20 menjawab 400). Tanpa gulir mendatar: `scrollWidth`
+846 px pada jendela 861 px, dan 485 px pada jendela 500 px (tangkapan layar
+memperlihatkan bilah Navigasi melipat dua baris dan tabel bergulir sendiri
+tanpa menimpa catatan kaki). Pemeriksaan statis 500 px: 0 galat skrip.
+ArcToolbox: 18 anchor navigasi, 0 menunjuk id yang hilang, 20 id unik,
+0 karakter CJK pada ketiga berkas.
+
 ---
 
 ## 4. Berkas SPPT dari Excel

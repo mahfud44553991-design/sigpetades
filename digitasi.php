@@ -719,6 +719,18 @@ sip_header('ArcToolbox', 'digitasi');
                     <b>1</b>
                 </a>
             </li>
+            <li>
+                <a href="#navigasi-peta">
+                    <span>Navigasi peta</span>
+                    <b>5</b>
+                </a>
+            </li>
+            <li>
+                <a href="#seleksi-atribut">
+                    <span>Seleksi &amp; tabel atribut</span>
+                    <b>2</b>
+                </a>
+            </li>
         </ol>
         <h2 class="toolbox-nav-pisah">Kelompok alat</h2>
         <ol>
@@ -896,6 +908,118 @@ sip_header('ArcToolbox', 'digitasi');
             <p class="toolbox-katalog-catatan">Tombol <strong>Go To XY</strong> ada di bilah Tampilan, di atas peta,
                 dan hanya tampil di Data View. Membuka alat ukur menutup panel koordinat dan sebaliknya,
                 supaya klik peta tidak berebut fungsi.</p>
+        </section>
+
+        <section class="kartu toolbox-bagian toolbox-navigasi" id="navigasi-peta">
+            <header class="kepala-kartu">
+                <div>
+                    <h2>Navigasi peta</h2>
+                    <p>Bilah <strong>Navigasi</strong> di bawah bilah Tampilan Peta Bidang: zoom, geser,
+                        seluruh data, dan riwayat pandangan. Semua hanya mengubah pandangan peta.</p>
+                </div>
+                <a class="toolbox-arah" href="<?= e(sip_url('peta.php')) ?>">Buka Peta Bidang &rarr;</a>
+            </header>
+            <div class="toolbox-mode">
+                <article class="toolbox-mode-kartu">
+                    <header>
+                        <span class="toolbox-mode-lencana">Zoom</span>
+                        <h3>Zoom In &amp; Zoom Out</h3>
+                    </header>
+                    <p>Dua tombol memperbesar dan memperkecil peta satu tingkat. Roda tetikus dan
+                        tombol <kbd>+</kbd>/<kbd>&minus;</kbd> bawaan Leaflet tetap berfungsi.</p>
+                    <ul>
+                        <li>Setiap langkah zoom ikut dicatat di riwayat pandangan.</li>
+                        <li>Tingkat zoom saat ini tampil di legenda peta dan blok judul Layout View.</li>
+                    </ul>
+                </article>
+                <article class="toolbox-mode-kartu">
+                    <header>
+                        <span class="toolbox-mode-lencana">Pan</span>
+                        <h3>Geser peta</h3>
+                    </header>
+                    <p>Tombol <strong>Pan</strong> menyalakan atau mematikan geser dengan menarik peta.
+                        Saat dimatikan, menarik peta tidak memindahkan pandangan sehingga klik bidang
+                        lebih mudah.</p>
+                    <ul>
+                        <li>Keadaan tombol tersimpan selama halaman terbuka; bawaan menyala.</li>
+                        <li>Memperbesar peta dan menekan tombol navigasi tetap bisa saat Pan dimatikan.</li>
+                    </ul>
+                </article>
+                <article class="toolbox-mode-kartu">
+                    <header>
+                        <span class="toolbox-mode-lencana">Full Extent</span>
+                        <h3>Seluruh data</h3>
+                    </header>
+                    <p>Memperkecil dan memusatkan peta sampai semua bidang pada saringan ini masuk layar.
+                        Bila bidang belum termuat, batas blok dan lapis garis yang aktif dipakai sebagai
+                        cadangan.</p>
+                    <ul>
+                        <li>Batas dihitung dari geometri yang sedang tampil, bukan batas desa.</li>
+                        <li>Peta bergerak halus (fly) tanpa memuat ulang data.</li>
+                    </ul>
+                </article>
+                <article class="toolbox-mode-kartu">
+                    <header>
+                        <span class="toolbox-mode-lencana toolbox-mode-lencana-garis">Riwayat</span>
+                        <h3>Previous/Next Extent</h3>
+                    </header>
+                    <p>Tombol <strong>Sebelum</strong> dan <strong>Sesudah</strong> melangkah mundur dan
+                        maju di antara pandangan yang pernah dipakai, seperti Next/Previous Extent di ArcMap.</p>
+                    <ul>
+                        <li>Riwayat mencatat sampai 60 pandangan terakhir selama halaman terbuka.</li>
+                        <li>Pandangan baru setelah melangkah mundur menghapus cabang maju.</li>
+                        <li>Tombol nonaktif bila tidak ada langkah tersisa.</li>
+                    </ul>
+                </article>
+            </div>
+            <p class="toolbox-katalog-catatan">Bilah Navigasi hanya tampil di Data View; di Layout View
+                ia disembunyikan agar lembar cetak bersih. Tidak ada data yang ditulis.</p>
+        </section>
+
+        <section class="kartu toolbox-bagian toolbox-seleksi" id="seleksi-atribut">
+            <header class="kepala-kartu">
+                <div>
+                    <h2>Seleksi &amp; tabel atribut</h2>
+                    <p>Menandai bidang langsung di peta dan membacanya sebagai tabel. Seleksi hanya
+                        penyorotan di peramban; status bidang di basis data tidak berubah.</p>
+                </div>
+                <a class="toolbox-arah" href="<?= e(sip_url('peta.php')) ?>">Buka Peta Bidang &rarr;</a>
+            </header>
+            <div class="toolbox-mode">
+                <article class="toolbox-mode-kartu">
+                    <header>
+                        <span class="toolbox-mode-lencana">Pilih</span>
+                        <h3>Seleksi di peta</h3>
+                    </header>
+                    <p>Tombol <strong>Pilih</strong> mengubah klik bidang menjadi menandai atau melepas
+                        pilihan. Bidang terpilih diberi garis merah tebal dan isi merah muda, lalu diangkat
+                        ke depan.</p>
+                    <ul>
+                        <li>Jumlah terpilih tampil pada tombol Pilih dan pada tabel atribut.</li>
+                        <li>Sebelum alat ukur dipakai, seleksi tetap boleh; klik bidang tidak membuka popup
+                            selama mode Pilih menyala.</li>
+                        <li>Mengganti saringan memuat ulang bidang dan membersihkan pilihan.</li>
+                    </ul>
+                </article>
+                <article class="toolbox-mode-kartu">
+                    <header>
+                        <span class="toolbox-mode-lencana toolbox-mode-lencana-garis">Tabel atribut</span>
+                        <h3>Attribute Table (baca-saja)</h3>
+                    </header>
+                    <p>Tombol <strong>Tabel atribut</strong> membuka kartu berisi kolom Kode, Blok, Hak,
+                        Pemegang, Luas, dan Status untuk bidang yang sedang tampil. Klik baris untuk
+                        memusatkan peta; centang untuk memilih bidang.</p>
+                    <ul>
+                        <li>Maksimal 500 baris pertama ditampilkan; persempit Saring peta untuk sisanya.</li>
+                        <li><strong>Pilih semua baris</strong> dan <strong>Bersihkan pilihan</strong>
+                            bekerja pada baris yang tampil.</li>
+                        <li>Tabel mengikuti saringan yang sama dengan peta; tidak ada sel yang bisa diubah.</li>
+                    </ul>
+                </article>
+            </div>
+            <p class="toolbox-katalog-catatan">Select by Attribute sepadan dengan kartu <strong>Saring peta</strong>
+                di samping peta (kata kunci, blok, hak, status), yang menyaring bidang sebelum tabel dibaca.
+                Add Data untuk SHP, raster, atau basemap baru belum tersedia di Peta Bidang.</p>
         </section>
 
         <section class="kartu toolbox-bagian toolbox-katalog" id="katalog-berkas">

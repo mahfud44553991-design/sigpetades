@@ -115,6 +115,26 @@ sip_judul(
                     title="Buka dialog cetak peramban; pilih Simpan sebagai PDF, ukuran A4 lanskap.">Ekspor PDF</button>
             </div>
 
+            <div class="peta-nav" id="petaNav" role="group" aria-label="Navigasi peta">
+                <span class="peta-nav-label">Navigasi</span>
+                <button type="button" class="nav-tombol" id="navZoomMasuk"
+                    title="Perbesar peta satu tingkat">Zoom In</button>
+                <button type="button" class="nav-tombol" id="navZoomKeluar"
+                    title="Perkecil peta satu tingkat">Zoom Out</button>
+                <button type="button" class="nav-tombol aktif" id="navGeser" aria-pressed="true"
+                    title="Geser peta dengan menarik. Matikan bila klik tidak boleh menggeser peta.">Pan</button>
+                <button type="button" class="nav-tombol" id="navPenuh"
+                    title="Tampilkan seluruh data yang termuat di peta">Full Extent</button>
+                <button type="button" class="nav-tombol" id="navSebelum" disabled
+                    title="Kembali ke tampilan peta sebelumnya">&larr; Sebelum</button>
+                <button type="button" class="nav-tombol" id="navSesudah" disabled
+                    title="Maju ke tampilan peta sesudahnya">Sesudah &rarr;</button>
+                <button type="button" class="nav-tombol" id="navPilih" aria-pressed="false"
+                    title="Mode pilih: klik bidang di peta untuk menandai atau melepas pilihan.">Pilih</button>
+                <button type="button" class="nav-tombol" id="navAtribut" aria-pressed="false"
+                    title="Buka tabel atribut bidang pada tampilan ini.">Tabel atribut</button>
+            </div>
+
             <div class="peta-ukur" id="panelUkur" hidden>
                 <div class="ukur-jenis" role="group" aria-label="Jenis ukuran">
                     <button type="button" class="ukur-tombol aktif" id="ukurJarak" aria-pressed="true">Jarak</button>
@@ -189,6 +209,45 @@ sip_judul(
             <div class="daftar-bidang-mini" id="daftarBidang">
                 <p class="kosong">Belum ada bidang termuat.</p>
             </div>
+        </section>
+
+        <section class="kartu" id="kartuAtribut" hidden>
+            <header class="kepala-kartu">
+                <div>
+                    <h2>Tabel atribut bidang</h2>
+                    <p>Atribut bidang pada tampilan ini. Klik baris untuk memusatkan peta, centang untuk
+                        memilih dan menyorot bidang.</p>
+                </div>
+                <span class="lencana lencana-abu" id="atributJumlah">0 bidang</span>
+            </header>
+            <div class="atribut-aksi">
+                <button type="button" class="tombol tombol-kecil" id="atributPilihTampil"
+                    title="Pilih semua bidang yang tampil di tabel">Pilih semua baris</button>
+                <button type="button" class="tombol tombol-kecil" id="atributBersihkan"
+                    title="Lepas semua pilihan bidang">Bersihkan pilihan</button>
+                <span class="atribut-terpilih" id="atributTerpilih">Belum ada yang terpilih</span>
+                <button type="button" class="tombol tombol-kecil" id="atributTutup"
+                    title="Tutup tabel atribut">Tutup</button>
+            </div>
+            <div class="gulir-tabel tabel-atribut">
+                <table>
+                    <thead>
+                        <tr>
+                            <th class="tengah">Pilih</th>
+                            <th>Kode</th>
+                            <th>Blok</th>
+                            <th>Hak</th>
+                            <th>Pemegang</th>
+                            <th class="angka">Luas (m²)</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="atributIsi">
+                        <tr><td colspan="7" class="kosong">Belum ada bidang termuat.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <p class="petunjuk" id="atributCatatan">Tabel mengikuti saringan Saring peta.</p>
         </section>
     </div>
 
@@ -499,6 +558,22 @@ $naskah = <<<'JS'
     const koordinatPusat = document.getElementById('koordinatPusat');
     const koordinatMenuju = document.getElementById('koordinatMenuju');
     const koordinatTutup = document.getElementById('koordinatTutup');
+    const navZoomMasuk = document.getElementById('navZoomMasuk');
+    const navZoomKeluar = document.getElementById('navZoomKeluar');
+    const navGeser = document.getElementById('navGeser');
+    const navPenuh = document.getElementById('navPenuh');
+    const navSebelum = document.getElementById('navSebelum');
+    const navSesudah = document.getElementById('navSesudah');
+    const navPilih = document.getElementById('navPilih');
+    const navAtribut = document.getElementById('navAtribut');
+    const kartuAtribut = document.getElementById('kartuAtribut');
+    const atributIsi = document.getElementById('atributIsi');
+    const atributJumlah = document.getElementById('atributJumlah');
+    const atributTerpilih = document.getElementById('atributTerpilih');
+    const atributCatatan = document.getElementById('atributCatatan');
+    const atributPilihTampil = document.getElementById('atributPilihTampil');
+    const atributBersihkan = document.getElementById('atributBersihkan');
+    const atributTutup = document.getElementById('atributTutup');
     let modeTampilan = 'data';
     const dataLapisan = { tanah: null, lain: null };
     const filterLapisan = { tanah: null, lain: null };
@@ -777,6 +852,168 @@ $naskah = <<<'JS'
         }
     }
 
+    // Navigasi peta: zoom, pan, seluruh data, riwayat pandangan. Riwayat
+    // mencatat setiap moveend; melangkah di riwayat tidak menambah catatan baru.
+    let riwayatPandangan = [];
+    let riwayatPosisi = -1;
+    let riwayatDiam = false;
+    let riwayatSegeraUlang = false;
+    let geserAktif = true;
+
+    function pandanganSama(a, b) {
+        return !!a && !!b && a.zoom === b.zoom
+            && Math.abs(a.lat - b.lat) < 1e-5 && Math.abs(a.lng - b.lng) < 1e-5;
+    }
+
+    function perbaruiTombolRiwayat() {
+        navSebelum.disabled = riwayatPosisi <= 0;
+        navSesudah.disabled = riwayatPosisi < 0 || riwayatPosisi >= riwayatPandangan.length - 1;
+    }
+
+    // Pemusatan otomatis saat halaman dibuka tidak dihitung sebagai satu langkah
+    // riwayat: pandangan hasilnya menjadi titik awal, bukan tujuan "Sebelum".
+    function aturUlangRiwayat() {
+        const c = peta.getCenter();
+        riwayatPandangan = [{ lat: c.lat, lng: c.lng, zoom: peta.getZoom() }];
+        riwayatPosisi = 0;
+        perbaruiTombolRiwayat();
+    }
+
+    function catatPandangan() {
+        if (riwayatDiam) return;
+        const c = peta.getCenter();
+        const pos = { lat: c.lat, lng: c.lng, zoom: peta.getZoom() };
+        if (riwayatPosisi >= 0 && pandanganSama(riwayatPandangan[riwayatPosisi], pos)) return;
+        riwayatPandangan.length = riwayatPosisi + 1;
+        riwayatPandangan.push(pos);
+        if (riwayatPandangan.length > 60) riwayatPandangan.shift();
+        riwayatPosisi = riwayatPandangan.length - 1;
+        perbaruiTombolRiwayat();
+    }
+
+    function keRiwayat(langkah) {
+        const posisi = riwayatPosisi + langkah;
+        if (posisi < 0 || posisi >= riwayatPandangan.length) return;
+        riwayatPosisi = posisi;
+        const pos = riwayatPandangan[posisi];
+        riwayatDiam = true;
+        peta.setView([pos.lat, pos.lng], pos.zoom, { animate: false });
+        riwayatDiam = false;
+        perbaruiTombolRiwayat();
+    }
+
+    function seluruhData() {
+        let batas = batasTampil();
+        if (!batas.isValid()) {
+            ['batas', 'blok', 'jalan', 'selokan', 'saluran', 'tepiSaluran', 'sungai', 'laporan']
+                .forEach((k) => {
+                    if (peta.hasLayer(grup[k])) batas.extend(batasGrup(grup[k]));
+                });
+        }
+        if (!batas.isValid()) {
+            peta.setView([SIP.peta.lat, SIP.peta.lon], SIP.peta.zoom);
+            return;
+        }
+        peta.flyToBounds(batas.pad(.04), { duration: .45 });
+    }
+
+    function aturGeser(hidup) {
+        geserAktif = !!hidup;
+        navGeser.classList.toggle('aktif', geserAktif);
+        navGeser.setAttribute('aria-pressed', String(geserAktif));
+        document.getElementById('peta').classList.toggle('tanpa-geser', !geserAktif);
+        if (geserAktif) peta.dragging.enable();
+        else peta.dragging.disable();
+    }
+
+    // Seleksi bidang: klik peta menandai, tabel atribut menampilkan barisnya.
+    let pilihAktif = false;
+    const terpilih = new Set();
+
+    function gayaTerpilih(p) {
+        const g = gayaBidang(p);
+        return Object.assign({}, g, {
+            color: '#b42318', weight: Math.max(3, (g.weight || 1) + 1.6),
+            opacity: 1, fillColor: '#fca5a5',
+            fillOpacity: Math.min(1, (g.fillOpacity || 0) + .35), dashArray: null
+        });
+    }
+
+    function perbaruiPilihan() {
+        const n = terpilih.size;
+        navPilih.classList.toggle('aktif', pilihAktif);
+        navPilih.setAttribute('aria-pressed', String(pilihAktif));
+        navPilih.textContent = n ? 'Pilih · ' + Sip.angka(n) : 'Pilih';
+        atributTerpilih.textContent = n
+            ? Sip.angka(n) + ' bidang terpilih'
+            : 'Belum ada yang terpilih';
+        atributIsi.querySelectorAll('input[data-atribut]').forEach((k) => {
+            k.checked = terpilih.has(Number(k.dataset.atribut));
+        });
+    }
+
+    function pilihBidang(id, hidup) {
+        const v = tampil.get(id);
+        if (!v) return;
+        const jadi = hidup === undefined ? !terpilih.has(id) : !!hidup;
+        if (jadi) terpilih.add(id);
+        else terpilih.delete(id);
+        v.lapisan.setStyle(jadi ? gayaTerpilih(v.fitur.properties) : gayaBidang(v.fitur.properties));
+        if (jadi) v.lapisan.bringToFront();
+        perbaruiPilihan();
+    }
+
+    function bersihkanPilihan() {
+        terpilih.forEach((id) => {
+            const v = tampil.get(id);
+            if (v) v.lapisan.setStyle(gayaBidang(v.fitur.properties));
+        });
+        terpilih.clear();
+        perbaruiPilihan();
+    }
+
+    function aturPilih(hidup) {
+        pilihAktif = !!hidup;
+        document.getElementById('wadahPeta').classList.toggle('mode-pilih', pilihAktif);
+        perbaruiPilihan();
+    }
+
+    function gambarAtribut() {
+        const fitur = fiturTampil();
+        const baris = fitur.slice(0, 500);
+        atributJumlah.textContent = Sip.angka(fitur.length) + ' bidang';
+        if (!baris.length) {
+            atributIsi.innerHTML = '<tr><td colspan="7" class="kosong">'
+                + 'Tidak ada bidang yang cocok dengan saringan ini.</td></tr>';
+        } else {
+            atributIsi.innerHTML = baris.map((f) => {
+                const p = f.properties;
+                return '<tr data-lompat="' + p.id + '">'
+                    + '<td class="tengah"><input type="checkbox" data-atribut="' + p.id + '"'
+                    + (terpilih.has(p.id) ? ' checked' : '') + ' aria-label="Pilih '
+                    + Sip.esc(p.kode) + '"></td>'
+                    + '<td><strong>' + Sip.esc(p.kode) + '</strong></td>'
+                    + '<td>' + Sip.esc(p.blok || '—') + '</td>'
+                    + '<td>' + Sip.esc(p.hak_nama || p.hak_kode || '—') + '</td>'
+                    + '<td>' + Sip.esc(ringkas(p.pemegang || '—')) + '</td>'
+                    + '<td class="angka">' + (p.luas ? Sip.angka(p.luas) : '—') + '</td>'
+                    + '<td>' + Sip.esc(NAMA_STATUS[p.status] || p.status || '—') + '</td></tr>';
+            }).join('');
+        }
+        atributCatatan.textContent = fitur.length > baris.length
+            ? 'Hanya ' + Sip.angka(baris.length) + ' baris pertama yang ditampilkan; '
+                + 'persempit saringan untuk melihat sisanya.'
+            : 'Tabel mengikuti saringan Saring peta; klik baris untuk memusatkan peta, '
+                + 'centang untuk memilih bidang.';
+    }
+
+    function aturAtribut(hidup) {
+        kartuAtribut.hidden = !hidup;
+        navAtribut.classList.toggle('aktif', !!hidup);
+        navAtribut.setAttribute('aria-pressed', String(!!hidup));
+        if (hidup) gambarAtribut();
+    }
+
     // L.LayerGroup tidak punya getBounds(), jadi batas dihitung dari lapisan anak.
     function batasGrup(g) {
         const b = L.latLngBounds([]);
@@ -889,7 +1126,9 @@ $naskah = <<<'JS'
     }
 
     function gambarGaya() {
-        tampil.forEach((v) => v.lapisan.setStyle(gayaBidang(v.fitur.properties)));
+        tampil.forEach((v) => v.lapisan.setStyle(
+            terpilih.has(v.fitur.properties.id) ? gayaTerpilih(v.fitur.properties) : gayaBidang(v.fitur.properties)
+        ));
     }
 
     function segarkanTampilan() {
@@ -899,6 +1138,8 @@ $naskah = <<<'JS'
         gambarDaftar(fitur);
         pasangLabel();
         gambarLegenda();
+        perbaruiPilihan();
+        if (!kartuAtribut.hidden) gambarAtribut();
     }
 
     function kunciFilter(tipe) {
@@ -919,6 +1160,7 @@ $naskah = <<<'JS'
     }
 
     function kosongkanLapisan(tipe) {
+        bersihkanPilihan();
         const kunci = tipe === 'tanah' ? 'bidang' : 'lain';
         grup[kunci].clearLayers();
         Array.from(tampil.keys()).forEach((id) => {
@@ -939,16 +1181,22 @@ $naskah = <<<'JS'
                 tampil.set(p.id, { lapisan: l, fitur: f, tipe });
                 l.bindPopup(isiPopup(p), { maxWidth: 320, className: 'popup-peta' });
                 l.on('click', () => {
+                    if (pilihAktif) {
+                        peta.closePopup();
+                        pilihBidang(p.id);
+                        return;
+                    }
                     const batas = l.getBounds();
                     if (batas && batas.isValid()) peta.flyToBounds(batas.pad(.4), { duration: .4 });
                     tandaAktif(p.id);
                 });
                 l.on('mouseover', () => {
+                    if (terpilih.has(p.id)) return;
                     l.setStyle({ weight: tipe === 'tanah' ? 2.6 : 1.8, opacity: 1 });
                     l.bringToFront();
                 });
                 l.on('mouseout', () => {
-                    l.setStyle(gayaBidang(f.properties));
+                    l.setStyle(terpilih.has(p.id) ? gayaTerpilih(f.properties) : gayaBidang(f.properties));
                 });
             }
         }).addTo(grup[kunci]);
@@ -993,8 +1241,14 @@ $naskah = <<<'JS'
         if ((pusatkan || !sudahMemusat) && jumlah) {
             const batas = batasTampil();
             if (batas.isValid()) {
+                if (!sudahMemusat) riwayatSegeraUlang = true;
                 sudahMemusat = true;
                 pusatkanKe(batas);
+                window.setTimeout(() => {
+                    if (!riwayatSegeraUlang) return;
+                    riwayatSegeraUlang = false;
+                    aturUlangRiwayat();
+                }, 900);
             }
         }
 
@@ -1575,6 +1829,12 @@ $naskah = <<<'JS'
     peta.on('moveend', () => {
         perbaruiSkalaLembar();
         perbaruiPusatKoordinat();
+        if (riwayatSegeraUlang) {
+            riwayatSegeraUlang = false;
+            aturUlangRiwayat();
+        } else {
+            catatPandangan();
+        }
     });
     modeData.addEventListener('click', () => aturModeTampilan('data'));
     modeLayout.addEventListener('click', () => aturModeTampilan('layout'));
@@ -1603,6 +1863,43 @@ $naskah = <<<'JS'
             menujuKoordinat();
         });
     });
+    navZoomMasuk.addEventListener('click', () => peta.zoomIn());
+    navZoomKeluar.addEventListener('click', () => peta.zoomOut());
+    navGeser.addEventListener('click', () => aturGeser(!geserAktif));
+    navPenuh.addEventListener('click', seluruhData);
+    navSebelum.addEventListener('click', () => keRiwayat(-1));
+    navSesudah.addEventListener('click', () => keRiwayat(1));
+    navPilih.addEventListener('click', () => aturPilih(!pilihAktif));
+    navAtribut.addEventListener('click', () => aturAtribut(kartuAtribut.hidden));
+    atributTutup.addEventListener('click', () => aturAtribut(false));
+    atributPilihTampil.addEventListener('click', () => {
+        fiturTampil().slice(0, 500).forEach((f) => {
+            const v = tampil.get(f.properties.id);
+            if (!v) return;
+            terpilih.add(f.properties.id);
+            v.lapisan.setStyle(gayaTerpilih(f.properties));
+            v.lapisan.bringToFront();
+        });
+        perbaruiPilihan();
+    });
+    atributBersihkan.addEventListener('click', bersihkanPilihan);
+    atributIsi.addEventListener('change', (e) => {
+        const k = e.target.closest('input[data-atribut]');
+        if (!k) return;
+        pilihBidang(Number(k.dataset.atribut), k.checked);
+    });
+    atributIsi.addEventListener('click', (e) => {
+        const baris = e.target.closest('tr[data-lompat]');
+        if (!baris || e.target.closest('input')) return;
+        const v = tampil.get(Number(baris.dataset.lompat));
+        if (!v) return;
+        const batas = v.lapisan.getBounds();
+        if (batas && batas.isValid()) {
+            // Ubin OSM berhenti di tingkat 19; tanpa batas ini persil kecil berhenti di peta kosong.
+            peta.flyToBounds(batas.pad(.6), { duration: .45, maxZoom: 19 });
+            tandaAktif(v.fitur.properties.id);
+        }
+    });
     document.addEventListener('keydown', (e) => {
         if (e.key !== 'Escape') return;
         if (koordinatAktif) { aturKoordinat(false); return; }
@@ -1613,10 +1910,11 @@ $naskah = <<<'JS'
     L.control.scale({ imperial: false, position: 'bottomleft', maxWidth: 120 }).addTo(peta);
 
     if (setelan.tampilan && typeof setelan.tampilan.lat === 'number' && typeof setelan.tampilan.lon === 'number') {
-        peta.setView([setelan.tampilan.lat, setelan.tampilan.lon], setelan.tampilan.zoom || SIP.peta.zoom);
+        peta.setView([setelan.tampilan.lat, setelan.tampilan.lon], setelan.tampilan.zoom || SIP.peta.zoom, { animate: false });
         sudahMemusat = true;
     }
     terapkanSetelan();
+    catatPandangan();
 
     perbaruiSkalaLembar();
     if (new URLSearchParams(window.location.search).get('tampilan') === 'layout') {
