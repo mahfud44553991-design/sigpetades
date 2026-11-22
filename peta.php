@@ -54,52 +54,6 @@ sip_judul(
                 </div>
             </header>
 
-            <div class="lapisan-peta" role="group" aria-label="Lapisan peta">
-                <label class="chip-lapisan">
-                    <input type="checkbox" id="tampilBidang" autocomplete="off" checked>
-                    <i style="background:#1f9d4d"></i>Bidang tanah
-                    <b><?= e(angka((int) $ringkas['tanah'])) ?></b>
-                </label>
-                <label class="chip-lapisan">
-                    <input type="checkbox" id="tampilLain" autocomplete="off">
-                    <i style="background:#8a7a66"></i>Obyek non-tanah
-                    <b><?= e(angka((int) ($ringkas['total'] - $ringkas['tanah']))) ?></b>
-                </label>
-                <label class="chip-lapisan">
-                    <input type="checkbox" id="tampilBlok" autocomplete="off" checked>
-                    <i style="background:#14603a"></i>Batas blok
-                    <b><?= e(angka(count($blok))) ?></b>
-                </label>
-                <label class="chip-lapisan">
-                    <input type="checkbox" id="tampilJalan" autocomplete="off" checked>
-                    <i style="background:#0f766e"></i>Jalan
-                </label>
-                <label class="chip-lapisan">
-                    <input type="checkbox" id="tampilSelokan" autocomplete="off" checked>
-                    <i style="background:#0ea5e9"></i>Selokan
-                </label>
-                <label class="chip-lapisan" title="722 garis saluran: 689 turunan 020100 + 33 baris Jalan yang menjadi tebing saluran">
-                    <input type="checkbox" id="tampilSaluran" autocomplete="off" checked>
-                    <i style="background:#0369a1"></i>Saluran
-                </label>
-                <label class="chip-lapisan" title="850 garis tepi saluran: 689 acuan (sama dengan garis selokan 020100) + 161 tebing lawan nyata 020100">
-                    <input type="checkbox" id="tampilTepiSaluran" autocomplete="off" checked>
-                    <i style="background:#0c4a6e"></i>Tepi saluran
-                    <b><?= e(angka(850)) ?></b>
-                </label>
-                <label class="chip-lapisan">
-                    <input type="checkbox" id="tampilSungai" autocomplete="off" checked>
-                    <i style="background:#1e88e5"></i>Sungai
-                </label>
-                <?php if ($kelola): ?>
-                    <label class="chip-lapisan">
-                        <input type="checkbox" id="tampilLaporan" autocomplete="off">
-                        <i style="background:#b42318"></i>Titik laporan
-                        <b><?= e(angka($jmlLaporan)) ?></b>
-                    </label>
-                <?php endif; ?>
-            </div>
-
             <div class="peta-mode" role="group" aria-label="Mode tampilan peta">
                 <span class="peta-mode-label">Tampilan</span>
                 <button type="button" class="mode-tombol aktif" id="modeData" aria-pressed="true"
@@ -225,6 +179,52 @@ sip_judul(
                         <p class="lembar-jumlah" id="lembarJumlah"></p>
                     </div>
                 </div>
+            </div>
+
+            <div class="lapisan-peta" role="group" aria-label="Lapisan peta">
+                <label class="chip-lapisan">
+                    <input type="checkbox" id="tampilBidang" autocomplete="off" checked>
+                    <i style="background:#1f9d4d"></i>Bidang tanah
+                    <b><?= e(angka((int) $ringkas['tanah'])) ?></b>
+                </label>
+                <label class="chip-lapisan">
+                    <input type="checkbox" id="tampilLain" autocomplete="off">
+                    <i style="background:#8a7a66"></i>Obyek non-tanah
+                    <b><?= e(angka((int) ($ringkas['total'] - $ringkas['tanah']))) ?></b>
+                </label>
+                <label class="chip-lapisan">
+                    <input type="checkbox" id="tampilBlok" autocomplete="off" checked>
+                    <i style="background:#14603a"></i>Batas blok
+                    <b><?= e(angka(count($blok))) ?></b>
+                </label>
+                <label class="chip-lapisan">
+                    <input type="checkbox" id="tampilJalan" autocomplete="off" checked>
+                    <i style="background:#0f766e"></i>Jalan
+                </label>
+                <label class="chip-lapisan">
+                    <input type="checkbox" id="tampilSelokan" autocomplete="off" checked>
+                    <i style="background:#0ea5e9"></i>Selokan
+                </label>
+                <label class="chip-lapisan" title="722 garis saluran: 689 turunan 020100 + 33 baris Jalan yang menjadi tebing saluran">
+                    <input type="checkbox" id="tampilSaluran" autocomplete="off" checked>
+                    <i style="background:#0369a1"></i>Saluran
+                </label>
+                <label class="chip-lapisan" title="850 garis tepi saluran: 689 acuan (sama dengan garis selokan 020100) + 161 tebing lawan nyata 020100">
+                    <input type="checkbox" id="tampilTepiSaluran" autocomplete="off" checked>
+                    <i style="background:#0c4a6e"></i>Tepi saluran
+                    <b><?= e(angka(850)) ?></b>
+                </label>
+                <label class="chip-lapisan">
+                    <input type="checkbox" id="tampilSungai" autocomplete="off" checked>
+                    <i style="background:#1e88e5"></i>Sungai
+                </label>
+                <?php if ($kelola): ?>
+                    <label class="chip-lapisan">
+                        <input type="checkbox" id="tampilLaporan" autocomplete="off">
+                        <i style="background:#b42318"></i>Titik laporan
+                        <b><?= e(angka($jmlLaporan)) ?></b>
+                    </label>
+                <?php endif; ?>
             </div>
 
             <div class="legenda legenda-peta" id="legendaPeta"></div>

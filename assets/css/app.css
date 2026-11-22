@@ -265,9 +265,9 @@ input[readonly], input:disabled, select:disabled, textarea:disabled { background
     background: repeating-linear-gradient(90deg, #1d4ed8 0 5px, transparent 5px 9px);
 }
 
-/* Tata letak halaman peta: tombol lapisan di atas kanvas, legenda berjaring. */
+/* Tata letak halaman peta: tombol lapisan di bawah kanvas, legenda berjaring. */
 .kartu-peta .kepala-kartu { margin-bottom: 12px; }
-.lapisan-peta { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 12px; }
+.lapisan-peta { display: flex; flex-wrap: wrap; gap: 7px; margin: 12px 0 0; }
 .chip-lapisan {
     display: inline-flex; align-items: center; gap: 7px; padding: 6px 11px;
     background: var(--putih); border: 1px solid var(--garis); border-radius: 999px;
