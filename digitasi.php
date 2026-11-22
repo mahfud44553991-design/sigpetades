@@ -713,6 +713,12 @@ sip_header('ArcToolbox', 'digitasi');
                     <b>2</b>
                 </a>
             </li>
+            <li>
+                <a href="#menuju-koordinat">
+                    <span>Menuju koordinat</span>
+                    <b>1</b>
+                </a>
+            </li>
         </ol>
         <h2 class="toolbox-nav-pisah">Kelompok alat</h2>
         <ol>
@@ -855,6 +861,41 @@ sip_header('ArcToolbox', 'digitasi');
                 dan hanya aktif di Data View. Selama mengukur, klik pada bidang tidak membuka popup supaya
                 titik ukur tidak tertutup; klik ganda untuk zoom dimatikan sementara dan dinyalakan lagi
                 ketika alat ditutup.</p>
+        </section>
+
+        <section class="kartu toolbox-bagian toolbox-koordinat" id="menuju-koordinat">
+            <header class="kepala-kartu">
+                <div>
+                    <h2>Go To XY (Menuju koordinat)</h2>
+                    <p>Pusatkan Peta Bidang ke lintang dan bujur tertentu tanpa mencari nama bidang.
+                        Hanya memindahkan pandangan; tidak ada data yang ditulis.</p>
+                </div>
+                <a class="toolbox-arah" href="<?= e(sip_url('peta.php')) ?>">Buka Peta Bidang &rarr;</a>
+            </header>
+            <div class="toolbox-mode">
+                <article class="toolbox-mode-kartu">
+                    <header>
+                        <span class="toolbox-mode-lencana toolbox-mode-lencana-garis">Go To XY</span>
+                        <h3>Langsung ke derajat desimal</h3>
+                    </header>
+                    <p>Isi <strong>Lintang</strong> lalu <strong>Bujur</strong> dalam derajat desimal, misalnya
+                        <code>-7,0432</code> dan <code>110,0631</code>. Koma maupun titik diterima sebagai
+                        pemisah desimal.</p>
+                    <ul>
+                        <li><strong>Menuju</strong> memusatkan peta, memasang penanda merah di tujuan, dan
+                            memperbesar peta paling sedikit ke tingkat 17.</li>
+                        <li>Lintang dibatasi -90 sampai 90 dan bujur -180 sampai 180; isian salah
+                            dijawab pesan, bukan peta kosong.</li>
+                        <li>Baris <em>Pusat peta</em> membaca ulang koordinat tengah setiap kali peta
+                            digeser atau diperbesar.</li>
+                        <li><kbd>Esc</kbd> atau <strong>Tutup</strong> menyembunyikan panel; penanda tujuan
+                            tetap tampil sampai halaman dimuat ulang.</li>
+                    </ul>
+                </article>
+            </div>
+            <p class="toolbox-katalog-catatan">Tombol <strong>Go To XY</strong> ada di bilah Tampilan, di atas peta,
+                dan hanya tampil di Data View. Membuka alat ukur menutup panel koordinat dan sebaliknya,
+                supaya klik peta tidak berebut fungsi.</p>
         </section>
 
         <section class="kartu toolbox-bagian toolbox-katalog" id="katalog-berkas">

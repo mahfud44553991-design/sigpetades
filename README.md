@@ -9241,6 +9241,64 @@ tombol di baris pertama dan hasil selebar baris di bawahnya. ArcToolbox: 17
 id tanpa kembar, 15 anchor menunjuk id yang ada, 0 karakter CJK pada ketiga
 berkas.
 
+### 3.132 ArcToolbox: Go To XY, menuju koordinat (22 Nov 2026)
+
+**Permintaan.** "lanjut README §3.132", melanjutkan seri ArcToolbox sesudah
+Table of Contents, Katalog, Data View/Layout View, dan Measure. Alat ArcMap
+yang belum ada sekarang adalah **Go To XY**: peta bisa digeser dan diperbesar,
+bidang bisa dicari lewat nama, tetapi belum ada cara langsung menuju posisi
+lintang/bujur ketika koordinatnya sudah diketahui dari luar aplikasi.
+
+**Isi peta.** Bilah Tampilan di `peta.php` mendapat tombol **Go To XY**
+(dengan `aria-pressed`) di samping tombol Ukur. Saat dinyalakan, panel biru
+muda muncul berisi isian **Lintang** dan **Bujur**, tombol **Menuju**,
+**Tutup**, kalimat pesan `aria-live`, dan baris **Pusat peta** yang membaca
+koordinat tengah peta. Kedua isian menerima koma maupun titik sebagai
+pemisah desimal, dan Enter di dalam isian sama dengan menekan Menuju. Escape
+atau Tutup menyembunyikan panel; penanda tujuan tetap tampil sampai halaman
+dimuat ulang. Panel dan tombolnya disembunyikan di Layout View, dan
+berpindah ke Layout View otomatis menutup panel.
+
+**Validasi.** Isian kosong dijawab "Isi lintang dan bujur lebih dahulu.";
+lintang bukan angka atau di luar -90 sampai 90 dijawab "Lintang harus angka
+antara -90 dan 90."; bujur di luar -180 sampai 180 dijawab "Bujur harus angka
+antara -180 dan 180.". Masukan yang sah memusatkan peta dengan `setView` dan
+zoom paling sedikit 17, memasang penanda lingkaran merah berjari-jari 7
+dengan popup "Tujuan: <lintang>, <bujur>" (lima desimal), lalu menulis
+"Menuju <lintang>, <bujur>.". Baris Pusat peta diperbarui pada setiap
+`moveend`, jadi koordinat terbaca ulang sesudah digeser atau diperbesar.
+Membuka alat ukur menutup panel koordinat dan sebaliknya, supaya klik peta
+tidak berebut fungsi; keduanya memakai format angka `Sip.angka` (desimal
+koma).
+
+**ArcToolbox.** Navigasi kiri blok "Peta" mendapat butir kedua "Menuju
+koordinat" dengan hitungan 1, dan bagian baru `#menuju-koordinat` berisi satu
+kartu "Langsung ke derajat desimal": isian lintang/bujur, batas nilai,
+perilaku penanda, dan catatan bahwa tombol hanya tampil di Data View. Tautan
+"Buka Peta Bidang" mengarah ke `peta.php`.
+
+**Tidak diubah.** Tidak ada API baru, tidak ada penulisan basis data, dan
+tidak ada berkas data yang diubah. `peta.php` menjadi 1.643 baris (+105/-2),
+`digitasi.php` 1.286 baris (+41), dan `assets/css/app.css` 878 baris (+34).
+
+**Pemeriksaan.** `php -l` bersih. Blok JS `peta.php` (1.310 baris, 56.721 B)
+diperiksa dengan `--check` (Electron sebagai Node) keluar 0. Uji perilaku di
+Chrome headless atas hasil render CLI tanpa sesi login, lebar 1.280 px: panel
+terbuka, tiga pesan kesalahan muncul berurutan untuk isian kosong, lintang
+"abc", dan bujur "200"; masukan "-7,0432" dan "110,0631" menghasilkan
+"Menuju -7,04320, 110,06310." dengan Pusat peta "-7,04320, 110,06310",
+`aria-pressed` menjadi true, dan 0 galat skrip. Menyalakan Ukur menyembunyikan
+panel koordinat, dan sebaliknya. Di Layout View tombol dan panel
+ber-`display: none`; kembali ke Data View tombol tampil lagi. Tanpa gulir
+mendatar: `scrollWidth` 1.249 px pada jendela 1.264 px, dan 485 px pada
+jendela 500 px (tangkapan layar memperlihatkan isian melipat dua baris dan
+pesan selebar panel). Pemeriksaan yang sama di peramban dengan sesi login
+(lebar 861 px) memberi hasil identik: "Menuju -7,04320, 110,06310.", Pusat
+peta terbaca, tombol dan panel ber-`display: none` di Layout View, 0 pesan
+konsol, tanpa gulir mendatar (`scrollWidth` 846 px). ArcToolbox: 16 anchor
+navigasi, 0 menunjuk id yang hilang, 0 id kembar, 0 karakter CJK pada keempat
+berkas.
+
 ---
 
 ## 4. Berkas SPPT dari Excel

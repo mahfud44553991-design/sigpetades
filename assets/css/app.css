@@ -340,6 +340,35 @@ input[readonly], input:disabled, select:disabled, textarea:disabled { background
 body.tampilan-layout #modeUkur { display: none; }
 body.tampilan-layout .peta-ukur { display: none !important; }
 
+/* Go To XY: menuju koordinat (peta.php) */
+.peta-koordinat {
+    display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px;
+    margin: -4px 0 12px; padding: 7px 9px;
+    border: 1px solid #b6d4de; border-radius: 10px; background: #f0f9fb;
+}
+.peta-koordinat[hidden] { display: none !important; }
+.koordinat-lapangan { display: flex; flex-direction: column; gap: 2px; }
+.koordinat-lapangan label {
+    font-size: 10.5px; font-weight: 700; letter-spacing: .04em;
+    text-transform: uppercase; color: #0c4a5e;
+}
+.koordinat-lapangan input {
+    font: inherit; font-size: 12px; padding: 4px 8px; width: 110px;
+    border: 1px solid #b6d4de; border-radius: 8px; background: #fff; color: var(--tinta);
+}
+.koordinat-lapangan input:focus-visible { outline: 2px solid #0e7490; outline-offset: 1px; }
+.koordinat-aksi {
+    font: inherit; font-size: 11.5px; font-weight: 600; padding: 5px 12px;
+    border: 1px solid #9cc3cf; border-radius: 8px;
+    background: #fff; color: #0c4a5e; cursor: pointer;
+}
+.koordinat-aksi:hover { border-color: #0e7490; }
+.koordinat-aksi:focus-visible { outline: 2px solid #0e7490; outline-offset: 2px; }
+.koordinat-pesan { flex: 1 1 240px; margin: 0; font-size: 12px; color: #0c4a5e; }
+.koordinat-pusat { margin-left: auto; font-size: 11px; color: #4b7285; white-space: nowrap; }
+body.tampilan-layout #modeKoordinat { display: none; }
+body.tampilan-layout .peta-koordinat { display: none !important; }
+
 .lembar-peta[hidden] { display: none !important; }
 .lembar-peta {
     position: absolute; inset: 16px 16px 18px; z-index: 600;
@@ -565,6 +594,11 @@ body.tampilan-layout .kartu-peta .kepala-kartu { display: none; }
     .peta-mode-info { display: none; }
     .peta-ukur { padding: 6px 7px; gap: 6px; }
     .ukur-hasil { flex-basis: 100%; order: 4; font-size: 11px; }
+    .peta-koordinat { padding: 6px 7px; gap: 6px; }
+    .koordinat-lapangan { flex: 1 1 40%; }
+    .koordinat-lapangan input { width: 100%; }
+    .koordinat-pesan, .koordinat-pusat { flex-basis: 100%; font-size: 11px; }
+    .koordinat-pusat { margin-left: 0; white-space: normal; }
     body.tampilan-layout .peta-wadah #peta { height: 560px; }
     .lembar-judul { width: min(70%, 320px); right: 8px; bottom: 24px; }
     .lembar-legenda { width: min(62%, 300px); left: 8px; top: 10px; bottom: auto; max-height: 44%; }

@@ -108,6 +108,8 @@ sip_judul(
                     title="Mode perancangan tata letak: bingkai lembar, judul, legenda, skala, dan arah utara untuk diekspor.">Layout View</button>
                 <button type="button" class="mode-tombol" id="modeUkur" aria-pressed="false"
                     title="Alat ukur jarak dan luas: klik peta untuk menambah titik, Escape untuk menutup.">Ukur</button>
+                <button type="button" class="mode-tombol" id="modeKoordinat" aria-pressed="false"
+                    title="Menuju koordinat lintang dan bujur dalam derajat desimal.">Go To XY</button>
                 <span class="peta-mode-info" id="modeInfo">Mode pengolahan data spasial.</span>
                 <button type="button" class="tombol tombol-utama tombol-kecil" id="eksporPeta" hidden
                     title="Buka dialog cetak peramban; pilih Simpan sebagai PDF, ukuran A4 lanskap.">Ekspor PDF</button>
@@ -121,6 +123,26 @@ sip_judul(
                 <p class="ukur-hasil" id="ukurHasil" aria-live="polite">Klik peta untuk menambah titik ukur.</p>
                 <button type="button" class="ukur-aksi" id="ukurHapus" title="Buang semua titik ukur">Hapus titik</button>
                 <button type="button" class="ukur-aksi" id="ukurTutup" title="Tutup alat ukur">Tutup</button>
+            </div>
+
+            <div class="peta-koordinat" id="panelKoordinat" hidden>
+                <div class="koordinat-lapangan">
+                    <label for="koordinatLat">Lintang</label>
+                    <input id="koordinatLat" type="text" inputmode="decimal" autocomplete="off" spellcheck="false"
+                        placeholder="-7,0432" aria-describedby="koordinatPesan">
+                </div>
+                <div class="koordinat-lapangan">
+                    <label for="koordinatLon">Bujur</label>
+                    <input id="koordinatLon" type="text" inputmode="decimal" autocomplete="off" spellcheck="false"
+                        placeholder="110,0631" aria-describedby="koordinatPesan">
+                </div>
+                <button type="button" class="koordinat-aksi" id="koordinatMenuju"
+                    title="Pusatkan peta ke lintang dan bujur ini">Menuju</button>
+                <button type="button" class="koordinat-aksi" id="koordinatTutup"
+                    title="Tutup panel koordinat">Tutup</button>
+                <p class="koordinat-pesan" id="koordinatPesan" aria-live="polite">Isi lintang dan bujur
+                    dalam derajat desimal, boleh dengan koma desimal.</p>
+                <span class="koordinat-pusat" id="koordinatPusat">Pusat peta: &mdash;</span>
             </div>
 
             <div class="peta-wadah" id="wadahPeta">
@@ -469,6 +491,14 @@ $naskah = <<<'JS'
     const ukurHasil = document.getElementById('ukurHasil');
     const ukurHapus = document.getElementById('ukurHapus');
     const ukurTutup = document.getElementById('ukurTutup');
+    const modeKoordinat = document.getElementById('modeKoordinat');
+    const panelKoordinat = document.getElementById('panelKoordinat');
+    const koordinatLat = document.getElementById('koordinatLat');
+    const koordinatLon = document.getElementById('koordinatLon');
+    const koordinatPesan = document.getElementById('koordinatPesan');
+    const koordinatPusat = document.getElementById('koordinatPusat');
+    const koordinatMenuju = document.getElementById('koordinatMenuju');
+    const koordinatTutup = document.getElementById('koordinatTutup');
     let modeTampilan = 'data';
     const dataLapisan = { tanah: null, lain: null };
     const filterLapisan = { tanah: null, lain: null };
@@ -581,6 +611,7 @@ $naskah = <<<'JS'
         lembarPeta.hidden = !layout;
         if (layout) {
             if (ukurAktif) aturUkur(false);
+            if (koordinatAktif) aturKoordinat(false);
             perbaruiSkalaLembar();
             salinLegenda();
         }
@@ -678,6 +709,7 @@ $naskah = <<<'JS'
         panelUkur.hidden = !ukurAktif;
         document.getElementById('wadahPeta').classList.toggle('mode-ukur', ukurAktif);
         if (ukurAktif) {
+            if (koordinatAktif) aturKoordinat(false);
             peta.closePopup();
             grupUkur.addTo(peta);
             ukurDobelZoom = peta.doubleClickZoom.enabled();
@@ -688,6 +720,60 @@ $naskah = <<<'JS'
             if (ukurDobelZoom) { peta.doubleClickZoom.enable(); ukurDobelZoom = false; }
             ukurTitik = [];
             gambarUkur();
+        }
+    }
+
+    // Go To XY: pusatkan peta ke lintang/bujur derajat desimal. Koma diterima
+    // karena papan ketik Indonesia memakai koma sebagai pemisah desimal.
+    const grupKoordinat = L.layerGroup();
+    let koordinatAktif = false;
+
+    function angkaKoordinat(teks) {
+        const bersih = String(teks).trim().replace(/\s+/g, '').replace(',', '.');
+        return bersih === '' ? NaN : Number(bersih);
+    }
+
+    function perbaruiPusatKoordinat() {
+        if (!koordinatAktif) return;
+        const c = peta.getCenter();
+        koordinatPusat.textContent = 'Pusat peta: ' + Sip.angka(c.lat, 5) + ', ' + Sip.angka(c.lng, 5) + '.';
+    }
+
+    function menujuKoordinat() {
+        const lat = angkaKoordinat(koordinatLat.value);
+        const lon = angkaKoordinat(koordinatLon.value);
+        if (koordinatLat.value.trim() === '' || koordinatLon.value.trim() === '') {
+            koordinatPesan.textContent = 'Isi lintang dan bujur lebih dahulu.';
+            return;
+        }
+        if (!Number.isFinite(lat) || lat < -90 || lat > 90) {
+            koordinatPesan.textContent = 'Lintang harus angka antara -90 dan 90.';
+            return;
+        }
+        if (!Number.isFinite(lon) || lon < -180 || lon > 180) {
+            koordinatPesan.textContent = 'Bujur harus angka antara -180 dan 180.';
+            return;
+        }
+        grupKoordinat.clearLayers();
+        L.circleMarker([lat, lon], {
+            radius: 7, color: '#b42318', weight: 2.5, fillColor: '#fca5a5', fillOpacity: .85
+        }).bindPopup('Tujuan: ' + Sip.angka(lat, 5) + ', ' + Sip.angka(lon, 5)).addTo(grupKoordinat);
+        grupKoordinat.addTo(peta);
+        peta.setView([lat, lon], Math.max(peta.getZoom(), 17));
+        koordinatPesan.textContent = 'Menuju ' + Sip.angka(lat, 5) + ', ' + Sip.angka(lon, 5) + '.';
+        perbaruiPusatKoordinat();
+    }
+
+    function aturKoordinat(hidup) {
+        koordinatAktif = !!hidup;
+        modeKoordinat.classList.toggle('aktif', koordinatAktif);
+        modeKoordinat.setAttribute('aria-pressed', String(koordinatAktif));
+        panelKoordinat.hidden = !koordinatAktif;
+        if (koordinatAktif) {
+            if (ukurAktif) aturUkur(false);
+            peta.closePopup();
+            perbaruiPusatKoordinat();
+            koordinatLat.focus();
         }
     }
 
@@ -1486,7 +1572,10 @@ $naskah = <<<'JS'
     });
 
     peta.on('zoomend', perbaruiZoom);
-    peta.on('moveend', perbaruiSkalaLembar);
+    peta.on('moveend', () => {
+        perbaruiSkalaLembar();
+        perbaruiPusatKoordinat();
+    });
     modeData.addEventListener('click', () => aturModeTampilan('data'));
     modeLayout.addEventListener('click', () => aturModeTampilan('layout'));
     eksporPeta.addEventListener('click', () => {
@@ -1504,8 +1593,20 @@ $naskah = <<<'JS'
         ukurTitik.push(e.latlng);
         gambarUkur();
     });
+    modeKoordinat.addEventListener('click', () => aturKoordinat(!koordinatAktif));
+    koordinatMenuju.addEventListener('click', menujuKoordinat);
+    koordinatTutup.addEventListener('click', () => aturKoordinat(false));
+    [koordinatLat, koordinatLon].forEach((el) => {
+        el.addEventListener('keydown', (e) => {
+            if (e.key !== 'Enter') return;
+            e.preventDefault();
+            menujuKoordinat();
+        });
+    });
     document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && ukurAktif) aturUkur(false);
+        if (e.key !== 'Escape') return;
+        if (koordinatAktif) { aturKoordinat(false); return; }
+        if (ukurAktif) aturUkur(false);
     });
     window.addEventListener('resize', rapikanLabelBlok);
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(rapikanLabelBlok);
