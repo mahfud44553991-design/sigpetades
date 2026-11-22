@@ -2635,12 +2635,12 @@
             }
         },
         "GARIS JALAN TEPI DARI LABEL": {
-            "features": 2014,
+            "features": 1940,
             "types": {
                 "line": 2014
             },
             "file": "garis-jalan-tepi.geojson",
-            "panjang_m": 72505,
+            "panjang_m": 67351,
             "derived_from": "kandidat 020100 (garis terbuka dan cincin poligon) serta cincin tabel bidang yang membawa label berawalan JALAN (kelas dibaca dari teks, bukan dari berkas asal) serta pita sejajarnya",
             "ambang": {
                 "benih_m": 3,
@@ -2745,6 +2745,25 @@
                 "benih": 771,
                 "pita2": 192,
                 "benih-yatim": 103
+            },
+            "pisah_saluran": {
+                "aturan": "baris jalan dibuang bila indeks rantainya dipakai garis-selokan atau geometrinya penggalan utuh garis saluran",
+                "sumber": "garis-selokan.geojson",
+                "fitur_dibuang": 74,
+                "panjang_dibuang_m": 5154,
+                "sebab": {
+                    "rantai": {
+                        "fitur": 66,
+                        "panjang_m": 4671.5
+                    },
+                    "penggalan": {
+                        "fitur": 8,
+                        "panjang_m": 482.5
+                    }
+                },
+                "fitur_sesudah": 1940,
+                "panjang_sesudah_m": 67350.8,
+                "diterapkan": "20261122-135934"
             }
         },
         "GARIS JALAN SUMBU DARI LABEL": {

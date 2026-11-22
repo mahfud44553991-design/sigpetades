@@ -8622,6 +8622,49 @@ atau peringatan konsol. Data peta tidak berubah.
 
 ---
 
+### 3.121 Garis saluran dipisahkan dari lapis Jalan (22 Nov 2026)
+
+**Permintaan.** "Pisahkan garis yang membentuk lapisan jalan dengan saluran."
+
+**Temuan.** Lapis **Jalan** di Peta Bidang menyajikan `garis-jalan-tepi.geojson`
+(2.014 baris, 72.504,8 m). Sebagian barisnya memakai geometri yang sama dengan
+lapis **Saluran** (`garis-selokan.geojson`, 689 fitur, 50.798,5 m):
+
+- 66 baris (4.671,5 m) memakai indeks rantai 020100 yang sama dengan saluran;
+  rantai-rantai itu tersebar di 56 fitur saluran;
+- 8 baris lagi (482,5 m) bukan indeks yang sama, tetapi geometrinya penggalan
+  utuh satu garis saluran (deret verteks sama, arah maju atau balik).
+
+**Pilihan yang disetujui.** "Buang dari Jalan": ruas saluran dibuang dari lapis
+Jalan, sedangkan lapis Saluran tidak diubah, sehingga satu garis hanya tampil di
+satu lapis.
+
+**Alat.** `tools/pisah-saluran-dari-jalan.php` (uji kering bawaan, `--terapkan`
+untuk menulis, `--rinci` untuk daftar baris). Aturan buang: `indeks` termasuk
+`indeks_all` saluran, atau geometri baris adalah penggalan utuh garis saluran.
+Tiap verteks baris yang dibuang karena indeks wajib ada di verteks saluran; bila
+tidak, alat berhenti tanpa menulis. Sebelum menulis, berkas dan `metadata.json`
+dicadangkan ke `_lama/cadangan-jalan-tanpa-saluran-<stempel>/`.
+
+**Hasil.** `garis-jalan-tepi.geojson` kini **1.940 baris, 67.350,8 m** (dibuang
+74 baris, 5.154,0 m). Lapis Saluran tetap 689 fitur. Entri metadata
+`GARIS JALAN TEPI DARI LABEL` mendapat blok `pisah_saluran` (fitur_dibuang 74,
+panjang 5.154,0 m, sebab rantai 66/4.671,5 m dan penggalan 8/482,5 m).
+Cadangan pangkal 2.014 baris: `_lama/cadangan-jalan-tanpa-saluran-20261122-135737/`.
+
+**Sifat data.** Masih ada 8 baris jalan yang semua verteksnya milik saluran
+tetapi geometrinya bukan penggalan utuh (bukan garis yang sama), jadi
+dipertahankan. Peta Induk tidak terpengaruh: lapis Jalan di sana menyajikan
+`garis-jalan-dari-sumbu.geojson` (3.911 baris).
+
+**Pemeriksaan.** `php -l tools/pisah-saluran-dari-jalan.php` bersih. Hasil berkas:
+0 baris dengan indeks saluran, 0 penggalan tersisa; 1.940 baris yang tinggal
+verbatim sama dengan berkas pangkal (0 geometri berubah); API
+`lapisan=garis-jalan` menjawab 1.940 fitur. Di browser dengan muat ulang paksa:
+permintaan `garis-jalan` dan `garis-selokan` masing-masing sekali, 0 galat konsol.
+
+---
+
 ## 4. Berkas SPPT dari Excel
 
 Importer CSV menerima kolom berikut (nama kolom dibersihkan dari spasi dan tanda

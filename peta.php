@@ -314,7 +314,7 @@ $naskah = <<<'JS'
         jalan: L.layerGroup(), selokan: L.layerGroup(), saluran: L.layerGroup(), sungai: L.layerGroup()
     };
 
-    // 2.872 garis tepi jalan digambar di kanvas supaya pane jalan tidak menumpuk
+    // 1.940 garis tepi jalan digambar di kanvas supaya pane jalan tidak menumpuk
     // ribuan elemen SVG; label jalannya tetap div di atas kanvas itu.
     const kanvasJalan = L.canvas({ pane: 'pane-jalan', padding: 0.4 });
     const kanvasSelokan = L.canvas({ pane: 'pane-selokan', padding: 0.4 });
