@@ -292,6 +292,199 @@ $jumlahSaluran = ($jumlahSelokan === null || $jumlahSaluranDariJalan === null)
     ? null
     : $jumlahSelokan + $jumlahSaluranDariJalan;
 
+$akarWorkspace = __DIR__;
+$ukuranBerkas = static function (int $byte): string {
+    if ($byte >= 1048576) {
+        return number_format($byte / 1048576, 1, ',', '.') . ' MB';
+    }
+    if ($byte >= 1024) {
+        return number_format($byte / 1024, 0, ',', '.') . ' KB';
+    }
+    return $byte . ' B';
+};
+$jenisBerkas = static function (string $ext): ?string {
+    return match (strtolower($ext)) {
+        'geojson' => 'GeoJSON',
+        'dxf', 'dwg' => 'CAD',
+        'shp', 'shx', 'dbf', 'prj' => 'Shapefile',
+        'gdb', 'gpkg' => 'Geodatabase',
+        'csv' => 'Tabel',
+        'json' => 'JSON',
+        'sql' => 'SQL',
+        'kml', 'kmz' => 'KML',
+        default => null,
+    };
+};
+$kunciNormal = static fn (string $teks): string
+    => preg_replace('/[^a-z0-9]+/', '', strtolower($teks)) ?? '';
+
+$metaLapisBerkas = [];
+foreach (($meta['layers'] ?? []) as $kode => $info) {
+    $namaBerkas = (string) ($info['file'] ?? (strtolower(str_replace(' ', '-', (string) $kode)) . '.geojson'));
+    $metaLapisBerkas[$kunciNormal(pathinfo($namaBerkas, PATHINFO_FILENAME))] = [
+        'kode' => (string) $kode,
+        'fitur' => (int) ($info['features'] ?? 0),
+        'tipe' => (array) ($info['types'] ?? []),
+    ];
+}
+
+$katalogBerkas = [
+    'terbit' => [
+        'judul' => 'Data terbit',
+        'ringkas' => 'Berkas sumber dan turunan yang dibaca aplikasi.',
+        'folder' => [
+            [
+                'jalur' => 'files/sig-pertanahan-gedong-lokal/data/dxf-layers',
+                'judul' => 'Lapis DXF 020100',
+                'ringkas' => 'Hasil konversi MASTER-dari-dwg.dxf; dibaca Peta Induk dan Peta Bidang.',
+                'metadata' => true,
+            ],
+            [
+                'jalur' => 'files/master peta',
+                'judul' => 'Peta induk CAD',
+                'ringkas' => 'DXF/DWG asli dan rujukan jalan OSM.',
+            ],
+            [
+                'jalur' => 'files/peta gang',
+                'judul' => 'Peta gang',
+                'ringkas' => 'Rekap gang dalam CSV dan GeoJSON.',
+            ],
+            [
+                'jalur' => '.',
+                'judul' => 'Akar workspace',
+                'ringkas' => 'GeoJSON impor awal bidang, blok, dan tabel rekap.',
+                'hanya' => ['geojson', 'csv'],
+            ],
+            [
+                'jalur' => 'files/sig-pertanahan-gedong-lokal/uploads',
+                'judul' => 'Unggahan aplikasi',
+                'ringkas' => 'Folder unggahan; saat ini belum berisi berkas.',
+            ],
+        ],
+    ],
+    'cadangan' => [
+        'judul' => 'Cadangan & ekspor',
+        'ringkas' => 'Salinan sebelum alat menulis, ekspor basis data, dan catatan alat.',
+        'folder' => [
+            [
+                'jalur' => 'storage/cadangan',
+                'judul' => 'Cadangan lapis',
+                'ringkas' => 'Salinan GeoJSON dan dump SQL sebelum lapis atau tabel diubah.',
+            ],
+            [
+                'jalur' => 'storage/ekspor',
+                'judul' => 'Ekspor basis data',
+                'ringkas' => 'Snapshot JSON tabel aplikasi.',
+            ],
+            [
+                'jalur' => 'storage/impor',
+                'judul' => 'Impor & dump SQL',
+                'ringkas' => 'Berkas impor dan dump basis data sebelum pemulihan.',
+            ],
+            [
+                'jalur' => 'storage',
+                'judul' => 'Catatan alat',
+                'ringkas' => 'Laporan JSON dan dump SQL yang ditulis alat CLI di akar storage.',
+                'hanya' => ['json', 'sql'],
+            ],
+            [
+                'jalur' => 'storage/cache',
+                'judul' => 'Cache turunan',
+                'ringkas' => 'Hasil antara yang dipakai ulang alat garis.',
+            ],
+        ],
+    ],
+    'pendukung' => [
+        'judul' => 'Tabel pendukung',
+        'ringkas' => 'Berkas CSV untuk impor SPPT dan rekap.',
+        'folder' => [
+            [
+                'jalur' => 'files/data excel',
+                'judul' => 'Tabel SPPT & pemetaan',
+                'ringkas' => 'CSV SPPT 2026, template, dan data pemetaan bidang.',
+            ],
+        ],
+    ],
+];
+
+$ringkasJenis = [];
+$totalBerkas = 0;
+$totalByte = 0;
+$totalFolder = 0;
+$jumlahTanpaMeta = 0;
+
+foreach ($katalogBerkas as $grupKunci => $grup) {
+    foreach ($grup['folder'] as $i => $folder) {
+        $abs = $akarWorkspace . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $folder['jalur']);
+        $daftar = [];
+        if (is_dir($abs)) {
+            foreach (scandir($abs) ?: [] as $nama) {
+                if ($nama === '.' || $nama === '..') {
+                    continue;
+                }
+                $path = $abs . DIRECTORY_SEPARATOR . $nama;
+                if (!is_file($path)) {
+                    continue;
+                }
+                $ext = strtolower(pathinfo($nama, PATHINFO_EXTENSION));
+                $jenis = $jenisBerkas($ext);
+                if ($jenis === null || (isset($folder['hanya']) && !in_array($ext, $folder['hanya'], true))) {
+                    continue;
+                }
+                $info = $metaLapisBerkas[$kunciNormal(pathinfo($nama, PATHINFO_FILENAME))] ?? null;
+                $daftar[] = [
+                    'nama' => $nama,
+                    'ext' => $ext,
+                    'jenis' => $jenis,
+                    'byte' => (int) filesize($path),
+                    'waktu' => (int) filemtime($path),
+                    'kode' => $info['kode'] ?? null,
+                    'fitur' => $info['fitur'] ?? null,
+                    'tipe' => $info['tipe'] ?? null,
+                ];
+            }
+        }
+        usort($daftar, static fn (array $a, array $b): int => strnatcasecmp($a['nama'], $b['nama']));
+
+        $jenisFolder = [];
+        $byteFolder = 0;
+        $waktuFolder = null;
+        $tanpaMeta = 0;
+        foreach ($daftar as $baris) {
+            $jenisFolder[$baris['jenis']] = ($jenisFolder[$baris['jenis']] ?? 0) + 1;
+            $ringkasJenis[$baris['jenis']] = ($ringkasJenis[$baris['jenis']] ?? 0) + 1;
+            $byteFolder += $baris['byte'];
+            $waktuFolder = max($waktuFolder ?? 0, $baris['waktu']);
+            if ($baris['jenis'] === 'GeoJSON' && $baris['fitur'] === null) {
+                $tanpaMeta++;
+            }
+        }
+
+        $totalBerkas += count($daftar);
+        $totalByte += $byteFolder;
+        $totalFolder++;
+        if (!empty($folder['metadata'])) {
+            $jumlahTanpaMeta = $tanpaMeta;
+        }
+
+        $katalogBerkas[$grupKunci]['folder'][$i]['hasil'] = [
+            'ada' => is_dir($abs),
+            'berkas' => $daftar,
+            'jenis' => $jenisFolder,
+            'byte' => $byteFolder,
+            'waktu' => $waktuFolder,
+            'tanpa_meta' => $tanpaMeta,
+        ];
+    }
+}
+
+$jenisUrut = ['GeoJSON', 'CAD', 'Shapefile', 'Geodatabase', 'Tabel', 'JSON', 'SQL', 'KML'];
+$jumlahSpasial = 0;
+foreach (['GeoJSON', 'CAD', 'Shapefile', 'Geodatabase', 'KML'] as $jenis) {
+    $jumlahSpasial += $ringkasJenis[$jenis] ?? 0;
+}
+$jumlahMetadata = (int) count($meta['layers'] ?? []);
+
 $toc = [
     'bidang' => [
         'judul' => 'Peta Bidang',
@@ -477,10 +670,11 @@ sip_header('ArcToolbox', 'digitasi');
     <span><strong><?= e(angka($jumlahWeb)) ?></strong> alat web</span>
     <span><strong><?= e(angka($jumlahCli)) ?></strong> alat CLI</span>
     <span><strong><?= e(angka(count($katalog))) ?></strong> kelompok</span>
+    <span><strong><?= e(angka($totalBerkas)) ?></strong> berkas workspace</span>
 </div>
 
 <div class="toolbox-tata-letak">
-    <nav class="kartu toolbox-nav" aria-label="Kelompok alat">
+    <nav class="kartu toolbox-nav" aria-label="Daftar isi ArcToolbox">
         <h2>Table of Contents</h2>
         <ol class="toolbox-nav-toc">
             <li><a href="#toc-lapisan"><span>Semua lapis</span><b><?= e(angka($hitungLapisToc($toc['bidang']) + $hitungLapisToc($toc['induk']) + $hitungLapisToc($toc['blok']))) ?></b></a></li>
@@ -492,6 +686,15 @@ sip_header('ArcToolbox', 'digitasi');
                     </a>
                 </li>
             <?php endforeach; ?>
+        </ol>
+        <h2 class="toolbox-nav-pisah">Katalog</h2>
+        <ol>
+            <li>
+                <a href="#katalog-berkas">
+                    <span>Katalog berkas</span>
+                    <b><?= e(angka($totalBerkas)) ?></b>
+                </a>
+            </li>
         </ol>
         <h2 class="toolbox-nav-pisah">Kelompok alat</h2>
         <ol>
@@ -544,6 +747,139 @@ sip_header('ArcToolbox', 'digitasi');
                     <?php endforeach; ?>
                 </div>
             <?php endforeach; ?>
+        </section>
+
+        <section class="kartu toolbox-bagian toolbox-katalog" id="katalog-berkas">
+            <header class="kepala-kartu">
+                <div>
+                    <h2>Katalog (Workspace)</h2>
+                    <p>Folder, berkas spasial, dan metadata yang tersimpan di workspace server. Panel ini membaca
+                        isi folder saat halaman dibuka; belum ada tombol unggah, ubah nama, atau hapus.</p>
+                </div>
+                <span class="lencana lencana-abu"><?= e(angka($totalBerkas)) ?> berkas</span>
+            </header>
+            <div class="toolbox-ringkas toolbox-katalog-jumlah">
+                <span><strong><?= e(angka($totalFolder)) ?></strong> folder</span>
+                <span><strong><?= e(angka($jumlahSpasial)) ?></strong> berkas spasial</span>
+                <span><strong><?= e(angka($jumlahMetadata)) ?></strong> entri metadata</span>
+                <span><strong><?= e($ukuranBerkas($totalByte)) ?></strong> total</span>
+                <?php foreach ($jenisUrut as $jenis): ?>
+                    <span class="<?= ($ringkasJenis[$jenis] ?? 0) === 0 ? 'toolbox-katalog-nol' : '' ?>">
+                        <strong><?= e(angka($ringkasJenis[$jenis] ?? 0)) ?></strong> <?= e($jenis) ?>
+                    </span>
+                <?php endforeach; ?>
+            </div>
+            <p class="toolbox-katalog-catatan">Pemindaian satu tingkat per folder; <code>_lama/</code> (arsip riwayat)
+                tidak dihitung. Ukuran dan waktu diambil dari berkas di disk, jadi angka berubah bila alat menulis lapis baru.</p>
+            <?php foreach ($katalogBerkas as $grup): ?>
+                <div class="toolbox-katalog-grup">
+                    <h3><?= e($grup['judul']) ?></h3>
+                    <p><?= e($grup['ringkas']) ?></p>
+                    <div class="toolbox-katalog-daftar">
+                        <?php foreach ($grup['folder'] as $folder): ?>
+                            <?php $hasil = $folder['hasil']; ?>
+                            <article class="toolbox-katalog-folder">
+                                <header class="toolbox-katalog-kepala">
+                                    <div>
+                                        <h4><?= e($folder['judul']) ?></h4>
+                                        <code class="toolbox-katalog-jalur"><?= e($folder['jalur'] === '.' ? 'sigpetades/' : $folder['jalur']) ?></code>
+                                    </div>
+                                    <div class="toolbox-katalog-angka">
+                                        <b><?= e(angka(count($hasil['berkas']))) ?></b> berkas
+                                        &middot; <?= e($ukuranBerkas($hasil['byte'])) ?>
+                                        <?php if ($hasil['waktu'] !== null): ?>
+                                            &middot; diubah <?= e(tanggal(date('c', $hasil['waktu']), true)) ?>
+                                        <?php endif; ?>
+                                    </div>
+                                </header>
+                                <p class="toolbox-katalog-isiberkas"><?= e($folder['ringkas']) ?></p>
+                                <?php if ($hasil['jenis'] !== []): ?>
+                                    <div class="toolbox-katalog-jenis">
+                                        <?php foreach ($jenisUrut as $jenis): ?>
+                                            <?php if (($hasil['jenis'][$jenis] ?? 0) > 0): ?>
+                                                <span><?= e($jenis) ?> <?= e(angka($hasil['jenis'][$jenis])) ?></span>
+                                            <?php endif; ?>
+                                        <?php endforeach; ?>
+                                    </div>
+                                <?php endif; ?>
+                                <?php if ($hasil['berkas'] === []): ?>
+                                    <p class="toolbox-katalog-kosong">Folder kosong<?= $hasil['ada'] ? '' : ' atau tidak ditemukan' ?>.</p>
+                                <?php else: ?>
+                                    <details class="toolbox-katalog-rinci">
+                                        <summary>Lihat <?= e(angka(count($hasil['berkas']))) ?> berkas</summary>
+                                        <ul class="toolbox-katalog-berkas">
+                                            <li class="judul"><span>Berkas</span><span>Fitur</span><span>Ukuran</span><span>Diubah</span></li>
+                                            <?php foreach ($hasil['berkas'] as $berkas): ?>
+                                                <li>
+                                                    <span class="toolbox-katalog-nama">
+                                                        <?php if ($berkas['kode'] !== null): ?><code class="toolbox-kode"><?= e($berkas['kode']) ?></code><?php endif; ?>
+                                                        <?= e($berkas['nama']) ?>
+                                                    </span>
+                                                    <b class="toolbox-katalog-fitur"><?= $berkas['fitur'] === null ? '&mdash;' : e(angka($berkas['fitur'])) ?></b>
+                                                    <span class="toolbox-katalog-ukuran"><?= e($ukuranBerkas($berkas['byte'])) ?></span>
+                                                    <span class="toolbox-katalog-waktu"><?= e(tanggal(date('c', $berkas['waktu']))) ?></span>
+                                                </li>
+                                            <?php endforeach; ?>
+                                        </ul>
+                                    </details>
+                                <?php endif; ?>
+                            </article>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+            <?php if ($jumlahMetadata > 0): ?>
+                <div class="toolbox-katalog-meta" id="katalog-metadata">
+                    <h3>Metadata konversi DXF</h3>
+                    <p>Sumber, sistem koordinat, rentang, dan catatan dari <code>metadata.json</code> di folder lapis DXF.</p>
+                    <dl class="toolbox-katalog-meta-daftar">
+                        <div>
+                            <dt>Berkas sumber</dt>
+                            <dd><?= e((string) ($meta['source_file'] ?? '—')) ?></dd>
+                        </div>
+                        <div>
+                            <dt>Sistem koordinat</dt>
+                            <dd><?= e((string) ($meta['coordinate_system'] ?? '—')) ?></dd>
+                        </div>
+                        <div>
+                            <dt>Rentang X</dt>
+                            <dd><?= e(number_format((float) ($meta['extent']['min_x'] ?? 0), 1, ',', '.')) ?>
+                                &mdash; <?= e(number_format((float) ($meta['extent']['max_x'] ?? 0), 1, ',', '.')) ?></dd>
+                        </div>
+                        <div>
+                            <dt>Rentang Y</dt>
+                            <dd><?= e(number_format((float) ($meta['extent']['min_y'] ?? 0), 1, ',', '.')) ?>
+                                &mdash; <?= e(number_format((float) ($meta['extent']['max_y'] ?? 0), 1, ',', '.')) ?></dd>
+                        </div>
+                        <div>
+                            <dt>Dikonversi</dt>
+                            <dd><?= e(tanggal((string) ($meta['converted_at'] ?? ''), true)) ?></dd>
+                        </div>
+                        <div>
+                            <dt>Turunan terakhir</dt>
+                            <dd><?= e(tanggal((string) ($meta['derived_at'] ?? ''), true)) ?></dd>
+                        </div>
+                        <div>
+                            <dt>Entri lapis</dt>
+                            <dd><?= e(angka($jumlahMetadata)) ?> lapis,
+                                <?= e(angka($jumlahTanpaMeta)) ?> GeoJSON tanpa entri</dd>
+                        </div>
+                    </dl>
+                    <?php if (!empty($meta['warning'])): ?>
+                        <p class="toolbox-katalog-peringatan"><?= e((string) $meta['warning']) ?></p>
+                    <?php endif; ?>
+                    <?php if (!empty($meta['notes']) && is_array($meta['notes'])): ?>
+                        <details class="toolbox-katalog-rinci">
+                            <summary>Lihat <?= e(angka(count($meta['notes']))) ?> catatan konversi</summary>
+                            <ol class="toolbox-katalog-catatan-ol">
+                                <?php foreach ($meta['notes'] as $catatan): ?>
+                                    <li><?= e(str_replace('`', '', (string) $catatan)) ?></li>
+                                <?php endforeach; ?>
+                            </ol>
+                        </details>
+                    <?php endif; ?>
+                </div>
+            <?php endif; ?>
         </section>
 
         <?php foreach ($katalog as $kunci => $bagian): ?>
@@ -663,6 +999,83 @@ sip_header('ArcToolbox', 'digitasi');
     font-variant-numeric: tabular-nums;
 }
 .toolbox-toc-ket { grid-column: 2 / -1; color: var(--redup); font-size: 10.5px; line-height: 1.45; }
+.toolbox-katalog { margin-bottom: 18px; }
+.toolbox-katalog-jumlah { margin: 8px 0 0; }
+.toolbox-katalog-nol { opacity: .55; }
+.toolbox-katalog-catatan { margin: 9px 0 0; color: var(--redup); font-size: 11.5px; line-height: 1.6; }
+.toolbox-katalog-catatan code,
+.toolbox-katalog-meta code {
+    padding: 1px 5px; border-radius: 4px; background: #f4f7f5;
+    font: 600 10.5px ui-monospace, "Cascadia Mono", Consolas, monospace; color: #2b3b34;
+}
+.toolbox-katalog-grup { margin-top: 16px; }
+.toolbox-katalog-grup > h3 { margin: 0; color: var(--tinta); font-size: 13px; }
+.toolbox-katalog-grup > p { margin: 2px 0 0; color: var(--redup); font-size: 11.5px; }
+.toolbox-katalog-daftar { display: grid; gap: 8px; margin-top: 8px; }
+.toolbox-katalog-folder { padding: 10px 12px; border: 1px solid var(--garis); border-radius: 10px; }
+.toolbox-katalog-kepala {
+    display: flex; flex-wrap: wrap; align-items: baseline;
+    justify-content: space-between; gap: 4px 12px;
+}
+.toolbox-katalog-kepala h4 { margin: 0; color: var(--tinta); font-size: 12.5px; }
+.toolbox-katalog-jalur {
+    display: inline-block; margin-top: 3px; padding: 1px 5px; border-radius: 4px;
+    background: #f4f7f5; color: #5b6b64;
+    font: 600 10px ui-monospace, "Cascadia Mono", Consolas, monospace; overflow-wrap: anywhere;
+}
+.toolbox-katalog-angka { color: var(--redup); font-size: 10.5px; }
+.toolbox-katalog-angka b { color: var(--tinta); font-size: 11.5px; }
+.toolbox-katalog-isiberkas { margin: 4px 0 0; color: var(--redup); font-size: 11.5px; line-height: 1.5; }
+.toolbox-katalog-jenis { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
+.toolbox-katalog-jenis span {
+    padding: 1px 7px; border-radius: 999px; background: #f4f7f5;
+    color: #4b5b54; font-size: 10px; font-weight: 600;
+}
+.toolbox-katalog-kosong { margin: 6px 0 0; color: var(--redup); font-size: 11px; font-style: italic; }
+.toolbox-katalog-rinci { margin-top: 6px; }
+.toolbox-katalog-rinci > summary {
+    cursor: pointer; padding: 3px 0; color: var(--hijau-tua);
+    font-size: 11px; font-weight: 700;
+}
+.toolbox-katalog-berkas { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 1px; }
+.toolbox-katalog-berkas li {
+    display: grid; grid-template-columns: minmax(0, 1fr) 68px 78px 104px; gap: 8px;
+    align-items: center; padding: 4px 0; border-bottom: 1px dashed var(--garis); font-size: 11px;
+}
+.toolbox-katalog-berkas li.judul {
+    border-bottom: 0; padding-bottom: 1px; color: var(--redup);
+    font-size: 9.5px; font-weight: 800; letter-spacing: .6px; text-transform: uppercase;
+}
+.toolbox-katalog-berkas li.judul span:nth-child(n+2) { text-align: right; }
+.toolbox-katalog-nama { color: var(--tinta); font-weight: 600; overflow-wrap: anywhere; }
+.toolbox-katalog-nama code { margin-right: 4px; }
+.toolbox-katalog-fitur {
+    color: var(--tinta); font-weight: 700; text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+.toolbox-katalog-ukuran, .toolbox-katalog-waktu {
+    color: var(--redup); text-align: right; font-variant-numeric: tabular-nums;
+}
+.toolbox-katalog-meta { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--garis); }
+.toolbox-katalog-meta h3 { margin: 0; color: var(--tinta); font-size: 14px; }
+.toolbox-katalog-meta > p { margin: 2px 0 0; color: var(--redup); font-size: 11.5px; line-height: 1.55; }
+.toolbox-katalog-meta-daftar {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+    gap: 8px; margin: 10px 0 0;
+}
+.toolbox-katalog-meta-daftar div { padding: 7px 9px; border: 1px solid var(--garis); border-radius: 8px; }
+.toolbox-katalog-meta-daftar dt {
+    color: var(--redup); font-size: 9.5px; font-weight: 800;
+    letter-spacing: .6px; text-transform: uppercase;
+}
+.toolbox-katalog-meta-daftar dd {
+    margin: 2px 0 0; color: var(--tinta); font-size: 11.5px; line-height: 1.45; overflow-wrap: anywhere;
+}
+.toolbox-katalog-peringatan {
+    margin: 10px 0 0; padding: 8px 10px; border: 1px solid #f0d9a8; border-radius: 8px;
+    background: #fdf6e7; color: #7a5b12; font-size: 11.5px; line-height: 1.6;
+}
+.toolbox-katalog-catatan-ol { margin: 6px 0 0; padding-left: 18px; color: var(--redup); font-size: 11px; line-height: 1.65; }
 .toolbox-bagian { scroll-margin-top: 86px; }
 .toolbox-bagian > .kepala-kartu { margin-bottom: 4px; }
 .toolbox-daftar { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; margin-top: 10px; }
@@ -694,6 +1107,8 @@ a.toolbox-alat:hover { border-color: var(--hijau-garis); background: #fbfdfb; }
 }
 @media (max-width: 620px) {
     .toolbox-nav ol { grid-template-columns: 1fr; }
+    .toolbox-katalog-berkas li { grid-template-columns: minmax(0, 1fr) 60px 70px; }
+    .toolbox-katalog-berkas li > :nth-child(4) { display: none; }
 }
 </style>
 

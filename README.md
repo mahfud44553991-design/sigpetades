@@ -9051,6 +9051,76 @@ Di peramban dengan sesi login, 0 pesan konsol; klik "Peta Induk" mendarat tepat
 86 px di atas judulnya (scroll-margin). Tangkapan layar diperiksa di 1440 px,
 861 px, dan 500 px (lebar minimum Chrome headless).
 
+### 3.129 ArcToolbox: Katalog berkas workspace (22 Nov 2026)
+
+**Permintaan.** "tambahkan juga panel Katalog: Mengelola folder, file spasial
+(SHP, geodatabase), dan metadata langsung dari dalam workspace".
+
+**Tahap.** Panel dibuat sebagai katalog baca-saja. Isi folder, ukuran, waktu
+ubah, jumlah fitur, dan metadata dibaca saat halaman dibuka. Aksi yang mengubah
+isi disk (unggah, ubah nama, pindah, hapus) belum dibuat karena memerlukan
+konfirmasi tersendiri; dengan begitu angka di panel selalu mencerminkan berkas
+yang benar-benar ada.
+
+**Isi.** Satu kartu "Katalog (Workspace)" berisi 11 folder dalam tiga kelompok
+dan 136 berkas. Ringkasan di atas kartu: 11 folder, 58 berkas spasial, 30 entri
+metadata, 209,9 MB, lalu hitungan per jenis: GeoJSON 55, CAD 3, Shapefile 0,
+Geodatabase 0, Tabel 7, JSON 56, SQL 15, KML 0. Jenis yang belum ada tetap
+ditampilkan sebagai 0 (diredupkan), jadi ketiadaan SHP atau geodatabase terlihat
+langsung, bukan disembunyikan.
+
+| kelompok | folder | jalur | berkas | terbaru |
+|---|---|---|---:|---|
+| Data terbit | Lapis DXF 020100 | `files/sig-pertanahan-gedong-lokal/data/dxf-layers` | 33 (15,3 MB) | 22 Nov 2026 17:44 |
+| Data terbit | Peta induk CAD | `files/master peta` | 4 (37,8 MB) | 19 Okt 2026 19:08 |
+| Data terbit | Peta gang | `files/peta gang` | 2 (12 KB) | 19 Okt 2026 19:15 |
+| Data terbit | Akar workspace | `sigpetades/` | 5 (2,4 MB) | 5 Nov 2026 08:42 |
+| Data terbit | Unggahan aplikasi | `files/sig-pertanahan-gedong-lokal/uploads` | 0 (0 B) | — |
+| Cadangan & ekspor | Cadangan lapis | `storage/cadangan` | 30 (87,2 MB) | 20 Nov 2026 16:38 |
+| Cadangan & ekspor | Ekspor basis data | `storage/ekspor` | 2 (21,0 MB) | 16 Nov 2026 20:31 |
+| Cadangan & ekspor | Impor & dump SQL | `storage/impor` | 4 (39,9 MB) | 8 Nov 2026 14:35 |
+| Cadangan & ekspor | Catatan alat | `storage` | 51 (5,3 MB) | 20 Nov 2026 16:38 |
+| Cadangan & ekspor | Cache turunan | `storage/cache` | 1 (460 KB) | 20 Nov 2026 14:30 |
+| Tabel pendukung | Tabel SPPT & pemetaan | `files/data excel` | 4 (602 KB) | 1 Nov 2026 10:10 |
+
+Pemindaian hanya satu tingkat per folder; subfolder didaftarkan sebagai baris
+sendiri. `_lama/` (arsip riwayat) tidak dihitung. Berkas non-spasial seperti
+PDF dan skrip diabaikan, termasuk 815 MB arsip `files/Data C Desa`.
+
+**Rincian berkas.** Tiap kartu folder punya blok lipat "Lihat N berkas" berisi
+nama, kode DXF (bila ada), jumlah fitur, ukuran, dan waktu ubah. Untuk folder
+lapis DXF, kode dan jumlah fitur diambil dari `metadata.json`; berkas yang tidak
+punya entri ditampilkan "—". Pencocokan nama dinormalkan, jadi kunci `tn_nama`
+tetap menemukan `tn-nama.geojson`. Tepat 2 GeoJSON belum punya entri:
+`garis-jalan-dari-sumbu.geojson` dan `garis-sumbu-manual.geojson`.
+
+**Metadata.** Blok "Metadata konversi DXF" menampilkan isi `metadata.json`:
+sumber `MASTER-dari-dwg.dxf`, koordinat lokal tanpa CRS geografis, rentang
+X 261.327,5–264.664,7 dan Y 714.930,0–718.807,8, waktu konversi 31 Okt 2026
+17:01, turunan terakhir 22 Nov 2026 17:44, 30 entri lapis, dan 2 GeoJSON tanpa
+entri. Peringatan asli ditampilkan utuh (jangan ditafsirkan sebagai EPSG:4326),
+dan 22 catatan konversi dapat dibuka dari blok lipat.
+
+**Tata letak.** Navigasi kiri mendapat blok "Katalog" berisi satu tautan
+"Katalog berkas" dengan hitungan 136. Kartu folder memakai kolom ringkasan
+(berkas, ukuran, waktu ubah), lencana jenis, dan daftar lipat agar halaman tidak
+memanjang oleh 136 baris. Baris berkas memakai empat kolom; di bawah 620 px
+kolom waktu disembunyikan. Di lebar 500 px `scrollWidth` 485 px, tidak ada
+gulir mendatar.
+
+**Tidak diubah.** Tidak ada API baru, tidak ada penulisan basis data, dan tidak
+ada berkas data yang diubah. Panel hanya membaca `scandir`, `filesize`,
+`filemtime`, dan `metadata.json`. Angka berubah sendiri bila alat menulis lapis
+baru; tidak ada daftar berkas yang ditulis tetap di halaman.
+
+**Pemeriksaan.** `php -l` bersih. Render sesi CLI: 11 kartu folder, 136 baris
+berkas, 10 blok "Lihat N berkas" ditambah 1 blok 22 catatan, 30 entri metadata,
+2 GeoJSON tanpa entri, 0 pesan PHP, 0 karakter CJK. Di peramban dengan sesi
+login (lebar 846 px): 0 pesan konsol, 11 kartu, 136 baris, metadata tampil,
+tidak ada gulir mendatar; klik tautan "Katalog berkas" mendarat tepat 86 px di
+atas judul kartu. Tangkapan layar statis diperiksa di 1440 px, 500 px, dan
+daftar 33 berkas lapis DXF dalam keadaan terbuka.
+
 ---
 
 ## 4. Berkas SPPT dari Excel
