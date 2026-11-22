@@ -78,11 +78,11 @@ sip_judul(
                     <input type="checkbox" id="tampilSelokan" autocomplete="off" checked>
                     <i style="background:#0ea5e9"></i>Selokan
                 </label>
-                <label class="chip-lapisan" title="689 garis saluran/irigasi turunan 020100 (berkas yang sama dengan pil Selokan)">
+                <label class="chip-lapisan" title="722 garis saluran: 689 turunan 020100 + 33 baris Jalan yang menjadi tebing saluran">
                     <input type="checkbox" id="tampilSaluran" autocomplete="off" checked>
                     <i style="background:#0369a1"></i>Saluran
                 </label>
-                <label class="chip-lapisan" title="850 garis tepi saluran: 689 acuan (sama dengan garis Saluran) + 161 tebing lawan nyata 020100">
+                <label class="chip-lapisan" title="850 garis tepi saluran: 689 acuan (sama dengan garis selokan 020100) + 161 tebing lawan nyata 020100">
                     <input type="checkbox" id="tampilTepiSaluran" autocomplete="off" checked>
                     <i style="background:#0c4a6e"></i>Tepi saluran
                     <b><?= e(angka(850)) ?></b>
@@ -790,7 +790,9 @@ $naskah = <<<'JS'
         }).addTo(grup.jalan);
     }
 
-    // Pil Selokan dan Saluran memakai berkas yang sama; satu unduhan dipakai bersama.
+    // Pil Selokan membaca garis-selokan 020100 saja; pil Saluran membaca berkas
+    // yang sama ditambah 33 baris Jalan yang seluruh segmennya tebing saluran.
+    // Satu unduhan dipakai bersama.
     let janjiBerkasSelokan = null;
     function ambilBerkasSelokan() {
         if (!janjiBerkasSelokan) {
@@ -798,6 +800,15 @@ $naskah = <<<'JS'
                 .catch((err) => { janjiBerkasSelokan = null; throw err; });
         }
         return janjiBerkasSelokan;
+    }
+
+    let janjiBerkasSaluranJalan = null;
+    function ambilBerkasSaluranJalan() {
+        if (!janjiBerkasSaluranJalan) {
+            janjiBerkasSaluranJalan = Sip.api('api/bidang.php', { query: { lapisan: 'garis-saluran-dari-jalan' } })
+                .catch((err) => { janjiBerkasSaluranJalan = null; throw err; });
+        }
+        return janjiBerkasSaluranJalan;
     }
 
     async function muatSelokan() {
@@ -812,9 +823,15 @@ $naskah = <<<'JS'
         }).addTo(grup.selokan);
     }
 
-    // Saluran = garis selokan 020100 (semuanya berlabel SALURAN/IRIGASI), warna lebih tua.
+    // Saluran = 689 garis selokan 020100 (semuanya berlabel SALURAN/IRIGASI) + 33
+    // baris Jalan yang seluruh segmennya sudah menjadi tebing saluran (1.031,9 m),
+    // jadi 722 baris; warna lebih tua.
     async function muatSaluran() {
-        const garis = await ambilBerkasSelokan();
+        const [selokan, tambahan] = await Promise.all([ambilBerkasSelokan(), ambilBerkasSaluranJalan()]);
+        const garis = {
+            type: 'FeatureCollection',
+            features: [...(selokan.features || []), ...(tambahan.features || [])]
+        };
         grup.saluran.clearLayers();
         kanvasSaluran.addTo(peta);
         L.geoJSON(garis, {
@@ -825,7 +842,7 @@ $naskah = <<<'JS'
         }).addTo(grup.saluran);
     }
 
-    // Tepi saluran = 689 tebing acuan (sama dengan garis Saluran) + 161 tebing
+    // Tepi saluran = 689 tebing acuan (sama dengan garis selokan 020100) + 161 tebing
     // lawan nyata 020100; warna gelap supaya pasangan di seberang saluran terlihat.
     // Dua pemanggil bisa memuat serentak, jadi satu unduhan dipakai bersama.
     let janjiBerkasTepiSaluran = null;

@@ -8761,6 +8761,55 @@ pil "Tepi saluran 850" ada dan menyala, legenda memuat "Tepi saluran", pane
 sekali, 0 galat konsol. Mematikan lalu menyalakan pil menyimpan `false`/`true`
 di localStorage tanpa mengunduh ulang.
 
+### 3.124 Garis Jalan yang menjadi tebing saluran dipindah ke lapis Saluran (22 Nov 2026)
+
+**Permintaan.** "Ambil garis jalan yang terbentuk pada label saluran kedalam
+lapisan saluran." Karena "terbentuk pada label saluran" bisa berarti beberapa
+himpunan berbeda, diukur dulu tiga calon: baris Jalan terdekat label saluran,
+baris yang verteksnya tersarang di garis saluran, dan baris yang segmennya sudah
+diklaim tebing lawan. Pilihan yang disetujui: pindahkan baris yang **seluruh**
+segmennya sudah menjadi pasangan tebing saluran (`cara=pasangan`, §3.122), bukan
+baris sebagian.
+
+**Aturan.** Satu baris Jalan dipindah bila setiap segmennya (dibulatkan 3
+desimal, arah maju atau balik) ada pada segmen fitur `cara=pasangan`
+`garis-tepi-saluran.geojson`. Geometri disalin verbatim, tanpa titik baru; satu
+baris hanya ada di satu lapis. Induk fitur = kode saluran yang menyumbang segmen
+terbanyak.
+
+**Hasil.** 33 baris (1.031,9 m) pindah. Jalan 1.940 menjadi 1.907 baris
+(66.318,9 m). Lapis Saluran 689 menjadi 722 baris. Ada 17 saluran induk;
+terbanyak `SELOKAN-020100-0278` (15 baris). Masih ada 45 baris Jalan yang hanya
+**sebagian** segmennya terklaim; itu tetap di Jalan.
+
+**Berkas dan alat.** `tools/pindah-jalan-ke-saluran.php` (uji kering bawaan,
+`--terapkan`) menulis `garis-saluran-dari-jalan.geojson` (33 fitur, kode
+`SALURAN-JALAN-0001`..`0033`, properti `kode`, `dari_jalan`, `saluran`, `sisi`,
+`panjang_m`, `label`, `cara`) lalu mencabut baris yang sama dari
+`garis-jalan-tepi.geojson`. Cadangan
+`_lama/cadangan-jalan-ke-saluran-20261122-144018/` (Jalan 1.940 baris +
+metadata). `metadata.json`: blok Jalan mendapat `ambil_ke_saluran`, blok baru
+`GARIS SALURAN DARI JALAN`, dan blok Tepi saluran mendapat catatan
+`saluran_tambahan`.
+
+**Mengapa berkas terpisah.** `garis-selokan.geojson` juga dibaca pil **Selokan**;
+menambah 33 baris ke berkas itu akan mengubah Selokan juga. Berkas terpisah
+dengan gabungan di klien menjaga Selokan tetap 689.
+
+**Penyajian.** `api/bidang.php?lapisan=garis-saluran-dari-jalan` menyajikan 33
+fitur WGS84 lewat `dxfKeWgs84()`. `muatSaluran()` di `peta.php` memuat dua berkas
+serentak (`Promise.all`) lalu menggambar satu FeatureCollection 722 baris; pil
+Saluran berganti judul "722 garis saluran: 689 turunan 020100 + 33 baris Jalan
+yang menjadi tebing saluran". Pil Selokan tidak berubah dan tetap 689; tooltip
+Tepi saluran menyebut "689 acuan (sama dengan garis selokan 020100)".
+
+**Pemeriksaan.** `php -l api/bidang.php` dan `php -l peta.php` bersih. API: 33
+fitur; `garis-selokan` 689, `garis-jalan` 1.907, `garis-tepi-saluran` 850.
+Ke-33 geometri salinan byte-identik dengan baris Jalan di cadangan; 0 baris Jalan
+yang masih terklaim penuh; kode `SALURAN-JALAN-*` unik. Di browser dengan muat
+ulang paksa: kedua permintaan (`garis-selokan` + `garis-saluran-dari-jalan`)
+terkirim sekali, pane saluran berkanvas, 0 galat konsol.
+
 ---
 
 ## 4. Berkas SPPT dari Excel

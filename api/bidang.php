@@ -9,6 +9,8 @@ declare(strict_types=1);
  *   GET api/bidang.php?lapisan=batas    -> GeoJSON garis batas desa (lapisan 010500)
  *   GET api/bidang.php?lapisan=garis-jalan -> GeoJSON garis tepi jalan turunan label
  *   GET api/bidang.php?lapisan=garis-selokan -> GeoJSON garis selokan 020100
+ *   GET api/bidang.php?lapisan=garis-saluran-dari-jalan -> GeoJSON 33 baris Jalan
+ *                                              yang menjadi tebing saluran
  *   GET api/bidang.php?lapisan=garis-tepi-saluran -> GeoJSON tepi saluran (689 acuan +
  *                                              161 tebing lawan nyata 020100)
  *   GET api/bidang.php?lapisan=garis-sungai -> GeoJSON sumbu sungai (27 polilin hasil jahit,
@@ -205,6 +207,51 @@ try {
                 'properties' => [
                     'kode' => (string) ($f['properties']['kode'] ?? ''),
                     'panjang_m' => $f['properties']['panjang_m'] ?? null,
+                ],
+            ];
+        }
+        json_response(['type' => 'FeatureCollection', 'features' => $fitur]);
+    }
+
+    // ------------------------------------------------------------------ saluran dari jalan
+    // 33 baris Jalan yang seluruh segmennya juga pasangan tebing saluran dipindah
+    // ke lapis Saluran oleh tools/pindah-jalan-ke-saluran.php: 1.031,9 m. Lapis
+    // Saluran di peta membaca berkas ini bersama garis-selokan.geojson (722 baris);
+    // pil Selokan tetap 689. Berkas bermeter lokal DXF, diterjemahkan dxfKeWgs84().
+    if ($lapisan === 'garis-saluran-dari-jalan') {
+        require_once __DIR__ . '/../tools/lib-impor.php';
+        $berkas = SIP_ROOT . '/files/sig-pertanahan-gedong-lokal/data/dxf-layers/garis-saluran-dari-jalan.geojson';
+        if (!is_file($berkas)) {
+            json_error('Berkas saluran dari jalan tidak ditemukan. Jalankan tools/pindah-jalan-ke-saluran.php.', 404);
+        }
+        $data = json_decode((string) file_get_contents($berkas), true);
+        $fitur = [];
+        foreach (($data['features'] ?? []) as $f) {
+            $geom = $f['geometry'] ?? [];
+            if (($geom['type'] ?? '') !== 'LineString') {
+                continue;
+            }
+            $garis = [];
+            foreach (($geom['coordinates'] ?? []) as $titik) {
+                if (!is_array($titik) || count($titik) < 2) {
+                    continue;
+                }
+                [$lon, $lat] = dxfKeWgs84((float) $titik[0], (float) $titik[1]);
+                $garis[] = [round($lon, 7), round($lat, 7)];
+            }
+            if (count($garis) < 2) {
+                continue;
+            }
+            $fitur[] = [
+                'type' => 'Feature',
+                'geometry' => ['type' => 'LineString', 'coordinates' => $garis],
+                'properties' => [
+                    'kode' => (string) ($f['properties']['kode'] ?? ''),
+                    'dari_jalan' => (string) ($f['properties']['dari_jalan'] ?? ''),
+                    'saluran' => (string) ($f['properties']['saluran'] ?? ''),
+                    'sisi' => (string) ($f['properties']['sisi'] ?? ''),
+                    'panjang_m' => $f['properties']['panjang_m'] ?? null,
+                    'label' => (string) ($f['properties']['label'] ?? ''),
                 ],
             ];
         }

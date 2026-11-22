@@ -2635,12 +2635,12 @@
             }
         },
         "GARIS JALAN TEPI DARI LABEL": {
-            "features": 1940,
+            "features": 1907,
             "types": {
-                "line": 2014
+                "line": 1907
             },
             "file": "garis-jalan-tepi.geojson",
-            "panjang_m": 67351,
+            "panjang_m": 66319,
             "derived_from": "kandidat 020100 (garis terbuka dan cincin poligon) serta cincin tabel bidang yang membawa label berawalan JALAN (kelas dibaca dari teks, bukan dari berkas asal) serta pita sejajarnya",
             "ambang": {
                 "benih_m": 3,
@@ -2764,6 +2764,15 @@
                 "fitur_sesudah": 1940,
                 "panjang_sesudah_m": 67350.8,
                 "diterapkan": "20261122-135934"
+            },
+            "ambil_ke_saluran": {
+                "aturan": "baris Jalan yang seluruh segmennya juga segmen pasangan tebing saluran dipindah ke lapis Saluran; geometri disalin verbatim",
+                "sumber": "garis-tepi-saluran.geojson (cara=pasangan)",
+                "fitur": 33,
+                "panjang_m": 1031.9,
+                "fitur_sesudah": 1907,
+                "panjang_sesudah_m": 66318.9,
+                "diterapkan": "20261122-144018"
             }
         },
         "GARIS JALAN SUMBU DARI LABEL": {
@@ -3421,6 +3430,34 @@
                 "baris_sesudah": 850,
                 "panjang_sesudah_m": 55815.2,
                 "diterapkan": "20261122-141309"
+            },
+            "saluran_tambahan": {
+                "file": "garis-saluran-dari-jalan.geojson",
+                "fitur": 33,
+                "panjang_m": 1031.9,
+                "catatan": "acuan tetap 689 baris; lapis Saluran di peta = garis-selokan.geojson + berkas ini",
+                "diterapkan": "20261122-144018"
+            }
+        },
+        "GARIS SALURAN DARI JALAN": {
+            "features": 33,
+            "types": {
+                "line": 33
+            },
+            "file": "garis-saluran-dari-jalan.geojson",
+            "panjang_m": 1032,
+            "derived_from": "garis-jalan-tepi.geojson: baris yang SETIAP segmennya menjadi pasangan tebing saluran di garis-tepi-saluran.geojson; geometri disalin verbatim, tanpa titik baru",
+            "aturan": "satu baris dipindah bila semua segmennya (3 desimal, arah maju atau balik) ada pada fitur cara=pasangan; induk = kode saluran dengan segmen terbanyak",
+            "pasangan": {
+                "file": "garis-tepi-saluran.geojson",
+                "baris": 161
+            },
+            "terakhir": {
+                "fitur": 33,
+                "panjang_m": 1031.9,
+                "ditambahkan": 33,
+                "diterapkan": "20261122-144018",
+                "cadangan": "_lama/cadangan-jalan-ke-saluran-20261122-144018/"
             }
         }
     },
