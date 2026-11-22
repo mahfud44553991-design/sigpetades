@@ -8376,8 +8376,137 @@ panjang geometrinya, 142 kode unik, dan titik terjauh dari sumbu asalnya
 12,39 m (koridor 12 m ditambah panjang segmen tepi di antara dua sampel).
 Basis data tidak ditulis.
 
-**Belum disajikan.** Berkas ini baru ada di disk; belum ada pil, chip, atau
-kunci whitelist API untuknya. Lapis Sungai tetap 143 rantai seperti §3.105.
+**Disajikan.** Sejak 21 Nov 2026 berkas ini punya pil dan kunci API sendiri
+(§3.116); isinya kini versi rapi §3.115 (167 baris). Lapis Sungai tetap 143
+rantai seperti §3.105.
+
+### 3.115 Tepi sungai dirapikan sejajar sumbu, tanpa cincin (21 Nov 2026)
+
+**Masalahnya.** Turunan §3.114 masih memuat 744,9 m segmen yang menyimpang
+>25° dari arah sumbu (195,8 m di antaranya >45°), 6 baris yang verteksnya
+berpindah sisi sumbu, dan 3 baris yang posisinya mundur di sepanjang sumbu.
+Segmen seperti itu adalah bahan mentah bagi lengkung balik dan cincin.
+`tools/rapikan-tepi-sungai.php` memangkas semuanya tanpa memindahkan titik.
+
+**Aturan.** Tiap verteks ditempelkan ke sumbu asalnya (jarak, posisi `s` di
+sepanjang sumbu, sisi). Segmen dipertahankan hanya bila kedua ujungnya di sisi
+yang diklaim, `s` tidak mundur (toleransi `--geser=0,25` m), beda arah
+terhadap arah sumbu di `s` ≤25°, dan jarak 0,4–12 m. Baris dipotong di setiap
+segmen yang gagal, tanpa jembatan karangan; potongan <1 m dibuang. Karena
+baris tidak boleh memuat `s` yang mundur, cincin tertutup tidak mungkin
+terbentuk; pemeriksa internal menolak menulis kalau masih ada cincin, pindah
+sisi, silang diri, atau segmen >25°.
+
+**Hasil.** `php -d memory_limit=1024M tools/rapikan-tepi-sungai.php --terapkan`
+mengubah 142 baris/8.366,9 m/744 titik menjadi **167 baris · 7.477,0 m · 698
+titik** (kiri 79 baris, kanan 88 baris), jadi 889,9 m dibuang dan hanya 1
+potongan yang gugur karena <1 m. Baris bertambah karena baris bermasalah
+dipecah, bukan digabung. Terpendek 1,0 m, median 30,7 m, terpanjang 394,5 m.
+
+**Verifikasi.** Pemeriksa terpisah: cincin 0, balik arah 0, pindah sisi 0,
+silang diri 0, panjang >25° 0,0 m dan >45° 0,0 m. Tiap titik masih berada di
+tepi asli (0 titik >5 mm), 0 panjang properti yang beda dari geometri, 167
+kode unik TEPI-SUMBU-0001..0167, titik terjauh dari sumbu 11,96 m. Basis data
+tidak ditulis.
+
+**Berkas dan properti.** Tiap baris membawa `dari` (kode TEPI-SUMBU asal
+§3.114), `dipotong_m`, dan `rapi` {sudut_derajat, min_m}. `metadata.json` pada
+kunci `GARIS TEPI SUNGAI DARI SUMBU` kini features 167, `panjang_m` 7.477, dan
+blok `rapi` {alat, sudut, min, geser, sebelum 142/8.366,9, sesudah 167/7.477,0,
+`dibuang_m` 889,9, periksa semua nol}. Berkas dan metadata lama dicadangkan ke
+`_lama/cadangan-garis-tepi-sungai-dari-sumbu-20261121-143810/`. Lapis ini
+**disajikan** lewat pil Tepi sungai (§3.116).
+
+### 3.116 Lapis Tepi sungai disajikan di Peta Induk (21 Nov 2026)
+
+**API.** `api/peta-lama.php` mendapat kunci `lapisan=garis-tepi-sungai` yang
+melayani `garis-tepi-sungai-dari-sumbu.geojson` (167 LineString). Berkasnya
+turunan CLI yang tidak ikut git, jadi kunci ini masuk `LAPISAN_BOLEH_KOSONG`:
+kalau berkas belum ada, jawabannya koleksi kosong, bukan 404, dan pil tetap
+bisa dicentang. Doc-block dan komentar daftar putih diperbarui.
+
+**Panel.** Di kelompok Garis turunan, tepat sesudah pil Sungai, ada pil
+**Tepi sungai (167)** (`data-lapisan="garis-tepi-sungai"`, tercentang bawaan).
+Tooltip-nya menyebut layer `GARIS TEPI SUNGAI DARI SUMBU`, alat penurun
+`tools/tepi-sungai-dari-sumbu.php`, dan alat rapinya. Gaya gambar: biru
+`#3b82f6`, tebal 1,3, garis utuh; legenda mendapat swatch **Tepi sungai** di
+antara Garis sungai dan Sumbu sungai. Paragraf panel menyebut angka 167 dan
+README §3.114-§3.115.
+
+**Pemeriksaan.** `php -l` bersih pada kedua berkas. Di browser (sesi Peta
+Induk): `GET api/peta-lama.php?lapisan=garis-tepi-sungai` menjawab 200 dengan
+167 fitur `LineString`, contoh properti `TEPI-SUMBU-0001`/`SUNGAI-JAHIT-0001`
+lengkap dengan blok `rapi`; permintaan lapis muncul sekali saat halaman siap
+(23 ms) dan info panel "Layer DXF siap"; pil tercentang, 1 kanvas Leaflet, dan
+tidak ada galat konsol.
+
+### 3.117 Tepi sungai dirombak: dipasangkan per segmen tepi, 9.367,9 m (22 Nov 2026)
+
+**Keluhan dan ukurannya.** Setelah §3.114-§3.116 lapis Tepi sungai masih dinilai
+belum rapi dan banyak tepi belum terbentuk. Pengukuran atas berkas tersaji
+(167 baris/7.477,0 m) menunjukkan ia hanya memuat 52,0% bahan tepi (7.810,3 dari
+15.010,9 m); 1.820,7 m tepi yang berjarak ≤30 m dari sumbu dan ≤25° masih tak
+terklaim, dan barisnya menyimpan 29 belokan >30° (maksimum 60,8°) serta 17 baris
+<5 m. Akarnya ada pada cara lama: sumbu disampel tiap 2 m, tepi terdekat
+diklaim, lalu ujung potongan ditempeli titik proyeksi sampel. Titik proyeksi itu
+tidak berada di verteks tepi, sisa ruas di antara sampel hilang, dan potongan
+dapat memanjang melewati ruas tepi yang arahnya menyimpang.
+
+**Cara baru.** `tools/tepi-sungai-dari-sumbu.php` dirombak menjadi pemasangan per
+SEGMEN tepi: titik tengah tiap segmen rantai tepi dicarikan sumbu terdekat
+(jarak, posisi `s`, arah, sisi), lalu segmen dipakai bila jaraknya 0,4-15 m,
+beda arahnya ≤30°, dan sumbu+sisinya tetap dengan segmen sebelumnya. Baris
+diputus di setiap segmen yang gagal (termasuk `s` yang berbalik >1 m), jadi
+tidak ada jembatan; potongan <1 m dibuang. Semua verteks keluaran adalah verteks
+rantai tepi asli — tidak ada titik proyeksi dan tidak ada titik karangan. Uji
+titik tengah-di-luar-bidang tetap dipakai (4.329 cincin, dibaca saja); pada data
+ini tidak ada segmen yang ditolak olehnya. Baris yang memotong dirinya sendiri
+dibelah di titik potong nyata dan lekuk tertutupnya dibuang; pemeriksa akhir
+menolak menulis bila masih ada cincin, sisi berbalik, silang diri, atau segmen
+>30°.
+
+**Hasil.** `php -d memory_limit=1024M tools/tepi-sungai-dari-sumbu.php
+--terapkan`: **123 baris · 9.367,9 m · 769 titik** (kiri 60 baris/4.343,1 m,
+kanan 63 baris/5.024,8 m) — 1.890,9 m lebih panjang daripada berkas 167 baris
+dan 44 baris lebih sedikit, karena baris kini mengikuti ruas tepi yang utuh.
+23 dari 27 sumbu mendapat tepi (18 bertepi dua sisi). Bahan terpakai 9.367,9 m
+dari 15.010,9 m (62,4%); di dalam koridor 0,4-15 m ada 10.356,9 m, sisa 989,0 m
+(sudut 921,5 · pindah sumbu/sisi 65,6 · potongan pendek/lekuk 1,9). Di luar
+koridor 4.459,1 m dan 195,0 m menempel sumbu <0,4 m (sumbu digambar di atas
+tepi).
+
+**Verifikasi.** Pemeriksa terpisah (`_lama/scratch/verifikasi-tepi-rantai.php`):
+cincin 0, silang diri 0, sisi salah 0, segmen menyimpang >30° 0, jarak maksimum
+14,69 m, sumbu tak dikenal 0. Dari 769 titik, hanya 1 bukan verteks rantai tepi
+— titik potong lekuk silang 0,2 m di TEPI-SUMBU-0088. Basis data tidak ditulis.
+Belokan antarsegmen di dalam baris kini mengikuti tikungan tepi yang nyata:
+14 belokan >60° (maksimum 89,5°), semuanya pada ruas panjang 4–36 m di tikungan
+alur, bukan spike digitasi. Yang dijaga adalah tiap segmen ≤30° terhadap sumbu
+dan tidak ada cincin/silang diri; bentuk tepi tidak dihaluskan supaya tetap
+menempel pada garis asli.
+
+**Berkas dan metadata.** Cadangan berkas 167 baris + metadata:
+`_lama/cadangan-garis-tepi-sungai-dari-sumbu-20261122-130837/`. Metadata
+`GARIS TEPI SUNGAI DARI SUMBU`: features 123, `panjang_m` 9.368, ambang
+{jarak 0,4-15 m, sudut 30°, geser 1 m, min 1 m, uji persil}, `bahan`
+{terpakai_m 9.367,9, persen 62,4, dalam_koridor_m 10.356,9, rapat_sumbu_m 195,
+luar_koridor_m 4.459,1, tolak}, `rapi` semua nol, `permukaan_bidang` 4.329
+cincin. Properti baris: `kode`, `cara`, `sumbu`, `sisi`, `panjang_m`,
+`jarak_rata_m`/`jarak_min_m`/`jarak_maks_m`, `bahan`, `titik`, dan `segmen`.
+
+**Penyajian.** Pil **Tepi sungai (123)** mengambil jumlah dari metadata, jadi
+teksnya berubah sendiri; tooltip dan doc-block API diperbarui (123 baris,
+≤30°). Gaya biru `#3b82f6`, tebal 1,3 tidak berubah.
+`tools/rapikan-tepi-sungai.php` tidak lagi dipakai dalam rangkaian ini —
+keluarannya sudah memenuhi aturan rapi sejak lahir; alat itu tinggal sebagai
+catatan §3.115.
+
+**Sisa yang jujur.** 4.459,1 m tepi berada >15 m dari sumbu mana pun: itu alur
+yang belum punya sumbu, bukan tepi yang gagal dipasangkan. Menaikkan koridor ke
+20 m/35° hanya menambah 222,2 m (129 baris/9.590,1 m) dan mulai mengklaim tepi
+alur tetangga, jadi bawaan tetap 15 m/30°. Kalau sisa itu perlu menjadi tepi,
+langkahnya menambah sumbu (mis. menurunkan sumbu dari pasangan tepi), bukan
+melonggarkan koridor.
 
 ---
 

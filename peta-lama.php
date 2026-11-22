@@ -177,6 +177,7 @@ sip_judul(
                 <span><i style="background:#0f766e"></i>Garis jalan</span>
                 <span><i style="background:#0ea5e9"></i>Garis selokan</span>
                 <span><i style="background:#1d4ed8"></i>Garis sungai</span>
+                <span><i style="background:#3b82f6"></i>Tepi sungai</span>
                 <span><i style="background:#1e3a8a"></i>Sumbu sungai</span>
                 <span><i style="background:#a16207"></i>Garis tanpa label</span>
                 <span><i style="background:#9d174d"></i>Sumbu jalan</span>
@@ -444,6 +445,9 @@ sip_judul(
                 <label class="cek" title="Layer GARIS BATAS PERAIRAN 020100">
                     <input type="checkbox" data-lapisan="garis-perairan" checked>
                     Sungai (<?= e(angka($jumlah('GARIS BATAS PERAIRAN 020100'))) ?>)</label>
+                <label class="cek" title="Layer GARIS TEPI SUNGAI DARI SUMBU — 123 baris tepi nyata yang dipasangkan per segmen ke 27 sumbu sungai (tools/tepi-sungai-dari-sumbu.php), semua verteks dari rantai tepi, sejajar sumbu <=30 derajat, bebas cincin dan silang diri">
+                    <input type="checkbox" data-lapisan="garis-tepi-sungai" checked>
+                    Tepi sungai (<?= e(angka($jumlah('GARIS TEPI SUNGAI DARI SUMBU'))) ?>)</label>
                 <label class="cek" title="Layer GARIS SUMBU SUNGAI JAHIT — 27 polilin hasil jahit 72 rantai sumbu label + 18 rantai dari dua tepi + 26 garis Sumbu sungai dari alat Garis manual, 3 celah disusur dari dua tepi perairan">
                     <input type="checkbox" data-lapisan="garis-sungai" checked>
                     Sumbu sungai (<b id="jumlahSumbuSungai"
@@ -456,8 +460,12 @@ sip_judul(
                     dibaca dari teks label, bukan dari berkas asalnya. Jalan kini berisi garis
                     tepi yang diturunkan dari semua sumbu jalan oleh
                     tools/garis-jalan-dari-sumbu.php. Perhitungan kelas ada di README §3.77.
-                    Pil Tepi sungai sudah digabung ke Sungai; lapis Sungai kini
-                    disajikan sebagai 143 rantai, satu garis per tepian.
+                    Lapis Sungai disajikan sebagai 143 rantai, satu garis per tepian;
+                    pil Tepi sungai di atas memuat 123 baris tepi nyata yang
+                    dipasangkan per segmen ke 27 sumbu, sejajar sumbu <=30 derajat,
+                    bebas cincin dan silang diri (README §3.117).
+                    Sisa 4.459,1 m tepi berada lebih dari 15 m dari sumbu mana pun,
+                    jadi belum punya pasangan sumbu.
                     Sumbu sungai kini 27 polilin hasil jahit 72 rantai turunan
                     tools/garis-sungai-label.php + 18 rantai turunan
                     tools/sumbu-dari-dua-tepi.php + 26 rantai garis Sumbu sungai yang
@@ -737,6 +745,7 @@ $naskah = <<<'JS'
         if (nama === 'garis-selokan') return () => ({ color: '#0ea5e9', weight: 1.4, opacity: .95 });
         if (nama === 'garis-perairan') return () => ({ color: '#1d4ed8', weight: 1.7, opacity: .95 });
         if (nama === 'garis-sungai') return () => ({ color: '#1e3a8a', weight: 2, dashArray: '9 5', opacity: .95 });
+        if (nama === 'garis-tepi-sungai') return () => ({ color: '#3b82f6', weight: 1.3, opacity: .95 });
         if (nama === 'garis-lain') return () => ({ color: '#a16207', weight: 1.3, dashArray: '6 4', opacity: .95 });
         if (nama === 'garis-jalan-sumbu') return () => ({ color: '#9d174d', weight: 2.2, opacity: .95 });
         if (nama === 'bidang-manual') return () => ({

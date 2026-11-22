@@ -19,6 +19,13 @@ declare(strict_types=1);
  *       garis-perairan menyajikan 143 rantai gabungan (bekas lapis Tepi sungai,
  *       tools/tepi-sungai.php) sejak 21 Nov 2026; baris aslinya 275 ada di
  *       _lama/cadangan-garis-perairan-275-20261121/.
+ *   GET api/peta-lama.php?lapisan=garis-tepi-sungai
+ *       Tepi sungai turunan (garis-tepi-sungai-dari-sumbu.geojson): 123 baris,
+ *       9.367,9 m. Tiap segmen rantai tepi nyata dipasangkan ke sumbu terdekat
+ *       (jarak 0,4-15 m, beda arah <=30 derajat, sisi dan s tetap) oleh
+ *       tools/tepi-sungai-dari-sumbu.php; semua verteks keluaran = verteks rantai
+ *       tepi, tanpa titik proyeksi; bebas cincin dan silang diri.
+ *       Sejak 21 Nov 2026, dirombak 22 Nov 2026; terpisah dari lapis Sungai (143 rantai).
  *   GET api/peta-lama.php?lapisan=garis-sungai
  *       Sumbu sungai (garis-sungai-jahit.geojson): 27 polilin, 9.559,9 m, hasil
  *       tools/jahit-sumbu-sungai.php --masuk=garis-sungai-label,garis-sungai-dua-tepi,
@@ -90,16 +97,18 @@ const LAPISAN_PETA_LAMA = [
     'garis-selokan'  => 'garis-selokan.geojson',
     'garis-perairan' => 'garis-perairan.geojson',
     'garis-sungai'   => 'garis-sungai-jahit.geojson',
+    'garis-tepi-sungai' => 'garis-tepi-sungai-dari-sumbu.geojson',
     'garis-lain'     => 'garis-lain.geojson',
     'titik-obyek'    => 'titik-obyek-manual.geojson',
     'bidang-manual'  => 'bidang-manual.geojson',
 ];
 
 // Lapis yang berkasnya belum tentu ada: dua lapis terisi dari alat di Peta
-// Induk, sedangkan sumbu sungai adalah turunan CLI yang tidak ikut git. Selama
-// berkasnya belum ada, jawab koleksi kosong supaya lapis tetap bisa dicentang
-// tanpa galat 404.
-const LAPISAN_BOLEH_KOSONG = ['titik-obyek', 'garis-sumbu-manual', 'garis-sungai'];
+// Induk, sedangkan sumbu sungai dan tepi turunannya adalah hasil CLI yang tidak
+// ikut git. Selama berkasnya belum ada, jawab koleksi kosong supaya lapis tetap
+// bisa dicentang tanpa galat 404.
+const LAPISAN_BOLEH_KOSONG = ['titik-obyek', 'garis-sumbu-manual', 'garis-sungai',
+    'garis-tepi-sungai'];
 
 const GARIS_MANUAL_PER_LAPISAN = [
     'garis-sungai' => 'garis-sungai-manual.geojson',
