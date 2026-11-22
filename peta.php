@@ -111,8 +111,37 @@ sip_judul(
                 <button type="button" class="mode-tombol" id="modeKoordinat" aria-pressed="false"
                     title="Menuju koordinat lintang dan bujur dalam derajat desimal.">Go To XY</button>
                 <span class="peta-mode-info" id="modeInfo">Mode pengolahan data spasial.</span>
-                <button type="button" class="tombol tombol-utama tombol-kecil" id="eksporPeta" hidden
-                    title="Buka dialog cetak peramban; pilih Simpan sebagai PDF, ukuran A4 lanskap.">Ekspor PDF</button>
+            </div>
+
+            <div class="peta-layout-alat" id="layoutAlat" hidden>
+                <div class="layout-baris">
+                    <span class="peta-nav-label">Lembar</span>
+                    <label class="layout-lapangan" for="layoutJudul">Judul
+                        <input type="text" id="layoutJudul" maxlength="80" autocomplete="off">
+                    </label>
+                    <label class="layout-lapangan" for="layoutSubjudul">Subjudul
+                        <input type="text" id="layoutSubjudul" maxlength="140" autocomplete="off">
+                    </label>
+                    <label class="cek"><input type="checkbox" id="layoutUtara" autocomplete="off" checked> Arah utara</label>
+                    <label class="cek"><input type="checkbox" id="layoutLegenda" autocomplete="off" checked> Legenda</label>
+                    <label class="cek"><input type="checkbox" id="layoutSkalaBatang" autocomplete="off" checked> Skala batang</label>
+                </div>
+                <div class="layout-baris">
+                    <span class="peta-nav-label">Ekspor</span>
+                    <button type="button" class="tombol tombol-kecil" id="eksporPng"
+                        title="Simpan lembar peta sebagai gambar PNG (2x ukuran layar).">PNG</button>
+                    <button type="button" class="tombol tombol-kecil" id="eksporJpg"
+                        title="Simpan lembar peta sebagai gambar JPG (2x ukuran layar).">JPG</button>
+                    <button type="button" class="tombol tombol-utama tombol-kecil" id="eksporPeta"
+                        title="Buka dialog cetak peramban; pilih Simpan sebagai PDF, ukuran A4 lanskap.">PDF</button>
+                    <button type="button" class="tombol tombol-kecil" id="unduhProyek"
+                        title="Unduh pengaturan peta dan posisi pandangan sebagai berkas proyek JSON.">Unduh proyek (.json)</button>
+                    <button type="button" class="tombol tombol-kecil" id="muatProyek"
+                        title="Muat kembali berkas proyek JSON yang pernah diunduh.">Muat proyek</button>
+                    <input type="file" id="berkasProyek" accept=".json,application/json" hidden>
+                    <span class="layout-catatan">Dokumen .mxd ArcGIS tidak bisa dibuat peramban;
+                        proyek peta disimpan sebagai JSON.</span>
+                </div>
             </div>
 
             <div class="peta-nav" id="petaNav" role="group" aria-label="Navigasi peta">
@@ -174,14 +203,18 @@ sip_judul(
                         </svg>
                         <span>U</span>
                     </div>
+                    <div class="lembar-skala-batang" id="lembarSkalaBatang">
+                        <div class="skala-batang-garis" id="skalaBatangGaris"></div>
+                        <div class="skala-batang-teks" id="skalaBatangTeks"></div>
+                    </div>
                     <div class="lembar-legenda">
                         <h3>Legenda</h3>
                         <div id="lembarLegendaIsi"></div>
                     </div>
                     <div class="lembar-judul">
                         <p class="lembar-eyebrow">Pemerintah Desa <?= e(setelan('nama_desa', 'Gedong')) ?></p>
-                        <h3>PETA BIDANG TANAH</h3>
-                        <p>Desa <?= e(setelan('nama_desa', 'Gedong')) ?>, Kecamatan
+                        <h3 id="lembarJudul">PETA BIDANG TANAH</h3>
+                        <p id="lembarSubjudul">Desa <?= e(setelan('nama_desa', 'Gedong')) ?>, Kecamatan
                             <?= e(setelan('nama_kecamatan', 'Patean')) ?>, Kabupaten
                             <?= e(setelan('nama_kabupaten', 'Kendal')) ?></p>
                         <dl>
@@ -338,8 +371,79 @@ sip_judul(
                 </div>
                 <p class="petunjuk">Warna bidang tetap terlihat pada tingkat kepekatan minimum 45%.</p>
             </div>
-            <label class="cek jarak-atas"><input type="checkbox" id="labelBidang" autocomplete="off"> Tampilkan nama pemegang (kode jika belum tersedia)</label>
+            <div class="lapangan">
+                <label>Simbol garis lapisan</label>
+                <div class="tabel-simbol" id="simbolGaris">
+                    <div class="baris-simbol" data-lapis="blok">
+                        <span>Batas blok</span>
+                        <input type="color" data-warna value="#14603a" aria-label="Warna batas blok">
+                        <input type="range" min="0.4" max="4" step="0.1" value="2" data-tebal aria-label="Tebal batas blok">
+                        <output data-tebal-nilai>2,0</output>
+                        <input type="range" min="10" max="100" step="5" value="95" data-pekat aria-label="Kepekatan garis batas blok">
+                        <output data-pekat-nilai>95%</output>
+                    </div>
+                    <div class="baris-simbol" data-lapis="batas">
+                        <span>Batas desa</span>
+                        <input type="color" data-warna value="#1f4e79" aria-label="Warna batas desa">
+                        <input type="range" min="0.4" max="4" step="0.1" value="2.4" data-tebal aria-label="Tebal batas desa">
+                        <output data-tebal-nilai>2,4</output>
+                        <input type="range" min="10" max="100" step="5" value="100" data-pekat aria-label="Kepekatan garis batas desa">
+                        <output data-pekat-nilai>100%</output>
+                    </div>
+                    <div class="baris-simbol" data-lapis="jalan">
+                        <span>Jalan</span>
+                        <input type="color" data-warna value="#0f766e" aria-label="Warna garis jalan">
+                        <input type="range" min="0.4" max="4" step="0.1" value="1.1" data-tebal aria-label="Tebal garis jalan">
+                        <output data-tebal-nilai>1,1</output>
+                        <input type="range" min="10" max="100" step="5" value="85" data-pekat aria-label="Kepekatan garis jalan">
+                        <output data-pekat-nilai>85%</output>
+                    </div>
+                    <div class="baris-simbol" data-lapis="selokan">
+                        <span>Selokan</span>
+                        <input type="color" data-warna value="#0ea5e9" aria-label="Warna garis selokan">
+                        <input type="range" min="0.4" max="4" step="0.1" value="1.4" data-tebal aria-label="Tebal garis selokan">
+                        <output data-tebal-nilai>1,4</output>
+                        <input type="range" min="10" max="100" step="5" value="95" data-pekat aria-label="Kepekatan garis selokan">
+                        <output data-pekat-nilai>95%</output>
+                    </div>
+                    <div class="baris-simbol" data-lapis="saluran">
+                        <span>Saluran</span>
+                        <input type="color" data-warna value="#0369a1" aria-label="Warna garis saluran">
+                        <input type="range" min="0.4" max="4" step="0.1" value="1.7" data-tebal aria-label="Tebal garis saluran">
+                        <output data-tebal-nilai>1,7</output>
+                        <input type="range" min="10" max="100" step="5" value="95" data-pekat aria-label="Kepekatan garis saluran">
+                        <output data-pekat-nilai>95%</output>
+                    </div>
+                    <div class="baris-simbol" data-lapis="tepiSaluran">
+                        <span>Tepi saluran</span>
+                        <input type="color" data-warna value="#0c4a6e" aria-label="Warna garis tepi saluran">
+                        <input type="range" min="0.4" max="4" step="0.1" value="1.2" data-tebal aria-label="Tebal garis tepi saluran">
+                        <output data-tebal-nilai>1,2</output>
+                        <input type="range" min="10" max="100" step="5" value="90" data-pekat aria-label="Kepekatan garis tepi saluran">
+                        <output data-pekat-nilai>90%</output>
+                    </div>
+                    <div class="baris-simbol" data-lapis="sungai">
+                        <span>Sungai</span>
+                        <input type="color" data-warna value="#1d4ed8" aria-label="Warna garis sungai">
+                        <input type="range" min="0.4" max="4" step="0.1" value="2" data-tebal aria-label="Tebal garis sungai">
+                        <output data-tebal-nilai>2,0</output>
+                        <input type="range" min="10" max="100" step="5" value="95" data-pekat aria-label="Kepekatan garis sungai">
+                        <output data-pekat-nilai>95%</output>
+                    </div>
+                </div>
+                <p class="petunjuk">Warna, tebal, dan kepekatan garis tiap lapis. Isian bidang tetap memakai
+                    skema warna di atas.</p>
+            </div>
+            <label class="cek jarak-atas"><input type="checkbox" id="labelBidang" autocomplete="off"> Tampilkan label bidang</label>
             <label class="cek"><input type="checkbox" id="labelBlok" autocomplete="off" checked> Tampilkan nama blok</label>
+            <div class="lapangan jarak-atas">
+                <label for="labelIsi">Isi label bidang</label>
+                <select id="labelIsi" disabled>
+                    <option value="pemegang">Nama pemegang</option>
+                    <option value="kode">Kode bidang</option>
+                    <option value="luas">Luas (m²)</option>
+                </select>
+            </div>
             <p class="petunjuk">Nama blok hanya tampil pada zoom dekat (14 ke atas) agar tidak bertumpuk.</p>
             <div class="baris-tombol jarak-atas">
                 <button class="tombol" type="button" id="simpanTampilan">Simpan tampilan peta</button>
@@ -389,20 +493,63 @@ $naskah = <<<'JS'
 (function () {
     'use strict';
     const KUNCI = 'sip.peta.pengaturan.v2';
+    const GARIS_BAWAAN = {
+        blok: { warna: '#14603a', tebal: 2, pekat: 95 },
+        batas: { warna: '#1f4e79', tebal: 2.4, pekat: 100 },
+        jalan: { warna: '#0f766e', tebal: 1.1, pekat: 85 },
+        selokan: { warna: '#0ea5e9', tebal: 1.4, pekat: 95 },
+        saluran: { warna: '#0369a1', tebal: 1.7, pekat: 95 },
+        tepiSaluran: { warna: '#0c4a6e', tebal: 1.2, pekat: 90 },
+        sungai: { warna: '#1d4ed8', tebal: 2, pekat: 95 }
+    };
+    // Pola putus tetap per lapis; yang bisa diubah hanya warna, tebal, kepekatan.
+    const PUTUS_GARIS = { batas: '8 5', sungai: '9 5' };
     const BAWAAN = {
         dasar: 'jalan', warna: 'blok', kepekatan: 55, label: false, labelBlok: true,
+        labelIsi: 'pemegang',
         bidang: true, lain: false, blok: true, batas: true, laporan: false,
-        jalan: true, selokan: true, saluran: true, tepiSaluran: true, sungai: true, tampilan: null
+        jalan: true, selokan: true, saluran: true, tepiSaluran: true, sungai: true, tampilan: null,
+        garis: GARIS_BAWAAN,
+        layout: { judul: '', subjudul: '', utara: true, legenda: true, skalaBatang: true }
     };
     const MODE = ['blok', 'tipe', 'hak', 'pbb', 'status'];
+    const ISI_LABEL = ['pemegang', 'kode', 'luas'];
     const BATAS_LABEL = 1500;
     const ZOOM_LABEL = 14;
+
+    function rapikanGaris(isi) {
+        const hasil = {};
+        Object.keys(GARIS_BAWAAN).forEach((nama) => {
+            const b = GARIS_BAWAAN[nama];
+            const g = isi && typeof isi[nama] === 'object' ? isi[nama] : {};
+            hasil[nama] = {
+                warna: /^#[0-9a-f]{6}$/i.test(String(g.warna || '')) ? String(g.warna) : b.warna,
+                tebal: Math.max(0.4, Math.min(4, Number(g.tebal) || b.tebal)),
+                pekat: Math.max(10, Math.min(100, Math.round(Number(g.pekat) || b.pekat)))
+            };
+        });
+        return hasil;
+    }
+
+    function rapikanLayout(isi) {
+        const l = isi && typeof isi === 'object' ? isi : {};
+        return {
+            judul: typeof l.judul === 'string' ? l.judul.slice(0, 80) : '',
+            subjudul: typeof l.subjudul === 'string' ? l.subjudul.slice(0, 140) : '',
+            utara: l.utara !== false,
+            legenda: l.legenda !== false,
+            skalaBatang: l.skalaBatang !== false
+        };
+    }
 
     function rapikanSetelan(isi) {
         const s = Object.assign({}, BAWAAN, isi || {});
         if (s.dasar !== 'jalan' && s.dasar !== 'satelit') s.dasar = BAWAAN.dasar;
         if (MODE.indexOf(s.warna) < 0) s.warna = BAWAAN.warna;
         s.kepekatan = Math.max(45, Math.min(80, Number(s.kepekatan) || 0));
+        if (ISI_LABEL.indexOf(s.labelIsi) < 0) s.labelIsi = BAWAAN.labelIsi;
+        s.garis = rapikanGaris(s.garis);
+        s.layout = rapikanLayout(s.layout);
         ['label', 'labelBlok', 'bidang', 'blok', 'batas', 'laporan', 'jalan', 'selokan', 'saluran', 'tepiSaluran', 'sungai'].forEach((k) => { s[k] = !!s[k]; });
         // Kunci peninggalan lapisan garis OSM yang sudah dihapus. Tanpa dibuang,
         // localStorage lama dan preset database ikut menyimpannya kembali.
@@ -531,6 +678,16 @@ $naskah = <<<'JS'
         };
     }
 
+    // Gaya lapis garis dibaca dari pengaturan supaya muat ulang, preset, dan
+    // berkas proyek membawa warna, tebal, dan kepekatan yang sama.
+    function gayaGaris(nama) {
+        const g = setelan.garis[nama] || GARIS_BAWAAN[nama];
+        return {
+            color: g.warna, weight: g.tebal, opacity: g.pekat / 100,
+            fillOpacity: 0, dashArray: PUTUS_GARIS[nama] || null
+        };
+    }
+
     const daftar = document.getElementById('daftarBidang');
     const info = document.getElementById('infoMuat');
     const hitung = document.getElementById('hitungTampil');
@@ -543,6 +700,26 @@ $naskah = <<<'JS'
     const lembarLegendaIsi = document.getElementById('lembarLegendaIsi');
     const lembarSkala = document.getElementById('lembarSkala');
     const lembarJumlah = document.getElementById('lembarJumlah');
+    const lembarJudulIsi = document.getElementById('lembarJudul');
+    const lembarSubjudul = document.getElementById('lembarSubjudul');
+    const lembarUtara = lembarPeta.querySelector('.lembar-utara');
+    const lembarLegenda = lembarPeta.querySelector('.lembar-legenda');
+    const lembarSkalaBatang = document.getElementById('lembarSkalaBatang');
+    const skalaBatangGaris = document.getElementById('skalaBatangGaris');
+    const skalaBatangTeks = document.getElementById('skalaBatangTeks');
+    const layoutAlat = document.getElementById('layoutAlat');
+    const layoutJudul = document.getElementById('layoutJudul');
+    const layoutSubjudul = document.getElementById('layoutSubjudul');
+    const layoutUtara = document.getElementById('layoutUtara');
+    const layoutLegenda = document.getElementById('layoutLegenda');
+    const layoutSkalaBatang = document.getElementById('layoutSkalaBatang');
+    const eksporPng = document.getElementById('eksporPng');
+    const eksporJpg = document.getElementById('eksporJpg');
+    const unduhProyek = document.getElementById('unduhProyek');
+    const muatProyek = document.getElementById('muatProyek');
+    const berkasProyek = document.getElementById('berkasProyek');
+    const JUDUL_BAWAAN = lembarJudulIsi.textContent.trim();
+    const SUBJUDUL_BAWAAN = lembarSubjudul.textContent.trim().replace(/\s+/g, ' ');
     const modeUkur = document.getElementById('modeUkur');
     const panelUkur = document.getElementById('panelUkur');
     const ukurJarak = document.getElementById('ukurJarak');
@@ -594,6 +771,16 @@ $naskah = <<<'JS'
         const butir = (warna, teks, jumlah, kelas) =>
             '<span><i class="' + (kelas || '') + '" style="background:' + warna + '"></i>'
             + Sip.esc(teks) + (jumlah === null ? '' : ' <b>' + Sip.angka(jumlah) + '</b>') + '</span>';
+        // Contoh garis memakai warna, tebal, dan pola putus yang sedang dipakai peta.
+        const butirGaris = (nama, teks) => {
+            const g = setelan.garis[nama];
+            const latar = PUTUS_GARIS[nama]
+                ? 'repeating-linear-gradient(90deg, ' + g.warna + ' 0 5px, transparent 5px 8px)'
+                : g.warna;
+            const tebal = Math.max(2, Math.min(4, Math.round(g.tebal)));
+            return '<span><i style="height:' + tebal + 'px;border-radius:0;vertical-align:2px;'
+                + 'background:' + latar + '"></i>' + Sip.esc(teks) + '</span>';
+        };
         const baris = [];
 
         if (setelan.warna === 'blok') {
@@ -630,25 +817,25 @@ $naskah = <<<'JS'
         }
 
         if (setelan.blok) {
-            baris.push('<span><i class="contoh-batas-blok"></i>Batas blok ukur</span>');
+            baris.push(butirGaris('blok', 'Batas blok ukur'));
         }
         if (setelan.batas) {
-            baris.push('<span><i class="contoh-batas-desa"></i>Batas desa</span>');
+            baris.push(butirGaris('batas', 'Batas desa'));
         }
         if (setelan.jalan) {
-            baris.push('<span><i class="contoh-garis-jalan"></i>Garis jalan</span>');
+            baris.push(butirGaris('jalan', 'Garis jalan'));
         }
         if (setelan.selokan) {
-            baris.push('<span><i class="contoh-garis-selokan"></i>Garis selokan</span>');
+            baris.push(butirGaris('selokan', 'Garis selokan'));
         }
         if (setelan.saluran) {
-            baris.push('<span><i class="contoh-garis-saluran"></i>Saluran</span>');
+            baris.push(butirGaris('saluran', 'Saluran'));
         }
         if (setelan.tepiSaluran) {
-            baris.push('<span><i class="contoh-garis-tepi-saluran"></i>Tepi saluran</span>');
+            baris.push(butirGaris('tepiSaluran', 'Tepi saluran'));
         }
         if (setelan.sungai) {
-            baris.push('<span><i class="contoh-garis-sungai"></i>Sumbu sungai</span>');
+            baris.push(butirGaris('sungai', 'Sumbu sungai'));
         }
         document.getElementById('legendaPeta').innerHTML = baris.join('');
         if (modeTampilan === 'layout') salinLegenda();
@@ -671,6 +858,69 @@ $naskah = <<<'JS'
         lembarSkala.textContent = '± 1 : ' + Sip.angka(penyebut);
     }
 
+    // Skala batang memilih jarak bulat 1, 2, atau 5 x 10^n yang paling dekat
+    // dengan 110 piksel pada zoom sekarang; batang dibagi empat petak.
+    function perbaruiSkalaBatang() {
+        if (lembarSkalaBatang.hidden) return;
+        const pusat = peta.getCenter();
+        const meterPiksel = 156543.03392 * Math.cos(pusat.lat * Math.PI / 180) / Math.pow(2, peta.getZoom());
+        const sasaran = meterPiksel * 110;
+        const pangkat = Math.pow(10, Math.floor(Math.log10(Math.max(1, sasaran))));
+        let meter = pangkat;
+        [1, 2, 5, 10].forEach((k) => {
+            if (Math.abs(k * pangkat - sasaran) < Math.abs(meter - sasaran)) meter = k * pangkat;
+        });
+        const lebar = Math.max(40, Math.round(meter / meterPiksel));
+        const potong = lebar / 4;
+        const petak = [];
+        for (let i = 0; i < 4; i++) {
+            petak.push('<span style="width:' + potong + 'px;background:'
+                + (i % 2 ? '#fff' : '#1c2b22') + '"></span>');
+        }
+        skalaBatangGaris.innerHTML = petak.join('');
+        const label = (m) => m >= 1000
+            ? Sip.angka(m / 1000, m % 1000 ? 1 : 0) + ' km'
+            : Sip.angka(m) + ' m';
+        skalaBatangTeks.innerHTML = '<span>0</span><span>' + label(meter / 2)
+            + '</span><span>' + label(meter) + '</span>';
+    }
+
+    function terapkanLayout() {
+        const l = setelan.layout;
+        lembarJudulIsi.textContent = l.judul.trim() || JUDUL_BAWAAN;
+        lembarSubjudul.textContent = l.subjudul.trim() || SUBJUDUL_BAWAAN;
+        lembarUtara.hidden = !l.utara;
+        lembarLegenda.hidden = !l.legenda;
+        lembarSkalaBatang.hidden = !l.skalaBatang;
+        layoutJudul.value = l.judul;
+        layoutSubjudul.value = l.subjudul;
+        layoutUtara.checked = l.utara;
+        layoutLegenda.checked = l.legenda;
+        layoutSkalaBatang.checked = l.skalaBatang;
+        perbaruiSkalaBatang();
+    }
+
+    function terapkanSimbolGaris() {
+        Object.keys(setelan.garis).forEach((nama) => {
+            if (!grup[nama]) return;
+            const gaya = gayaGaris(nama);
+            grup[nama].eachLayer((l) => { if (l.setStyle) l.setStyle(gaya); });
+        });
+        gambarLegenda();
+    }
+
+    function perbaruiSimbolInput() {
+        document.querySelectorAll('#simbolGaris .baris-simbol').forEach((baris) => {
+            const g = setelan.garis[baris.dataset.lapis];
+            if (!g) return;
+            baris.querySelector('[data-warna]').value = g.warna;
+            baris.querySelector('[data-tebal]').value = g.tebal;
+            baris.querySelector('[data-tebal-nilai]').textContent = g.tebal.toFixed(1).replace('.', ',');
+            baris.querySelector('[data-pekat]').value = g.pekat;
+            baris.querySelector('[data-pekat-nilai]').textContent = g.pekat + '%';
+        });
+    }
+
     function aturModeTampilan(mode) {
         modeTampilan = mode === 'layout' ? 'layout' : 'data';
         const layout = modeTampilan === 'layout';
@@ -680,14 +930,16 @@ $naskah = <<<'JS'
         modeData.setAttribute('aria-pressed', String(!layout));
         modeLayout.setAttribute('aria-pressed', String(layout));
         modeInfo.textContent = layout
-            ? 'Mode perancangan tata letak: sunting tampilan lalu ekspor PDF.'
+            ? 'Mode perancangan tata letak: sunting elemen lembar lalu ekspor PDF, PNG, atau JPG.'
             : 'Mode pengolahan data spasial.';
         eksporPeta.hidden = !layout;
+        layoutAlat.hidden = !layout;
         lembarPeta.hidden = !layout;
         if (layout) {
             if (ukurAktif) aturUkur(false);
             if (koordinatAktif) aturKoordinat(false);
             perbaruiSkalaLembar();
+            perbaruiSkalaBatang();
             salinLegenda();
         }
         window.setTimeout(() => peta.invalidateSize(), 60);
@@ -1105,11 +1357,18 @@ $naskah = <<<'JS'
             + (features.length > 400 ? '<p class="petunjuk">Hanya 400 pertama yang didaftarkan.</p>' : '');
     }
 
+    function teksLabel(p) {
+        if (setelan.labelIsi === 'kode') return p.kode;
+        if (setelan.labelIsi === 'luas') return p.luas ? Sip.angka(p.luas) + ' m²' : p.kode;
+        return p.pemegang || p.kode;
+    }
+
     function pasangLabel() {
         if (setelan.label && fiturTampil().length > BATAS_LABEL) {
             setelan.label = false;
             simpanSetelan();
             document.getElementById('labelBidang').checked = false;
+            document.getElementById('labelIsi').disabled = true;
             Sip.pesan('Label bidang dimatikan karena tampilan memuat lebih dari '
                 + Sip.angka(BATAS_LABEL) + ' bidang. Persempit saringan untuk memakainya.', 'info');
         }
@@ -1117,7 +1376,7 @@ $naskah = <<<'JS'
             if (v.tipe !== 'tanah') return;
             v.lapisan.unbindTooltip();
             if (setelan.label) {
-                v.lapisan.bindTooltip(v.fitur.properties.pemegang || v.fitur.properties.kode, {
+                v.lapisan.bindTooltip(teksLabel(v.fitur.properties), {
                     permanent: true, direction: 'center', className: 'label-bidang', opacity: 1
                 });
                 v.lapisan.openTooltip();
@@ -1259,7 +1518,7 @@ $naskah = <<<'JS'
     }
 
     function gayaBlok(p) {
-        return { color: '#14603a', weight: 2, opacity: .95, fillOpacity: 0 };
+        return gayaGaris('blok');
     }
 
     async function muatBlok() {
@@ -1292,7 +1551,7 @@ $naskah = <<<'JS'
         (data.features || []).forEach((f) => {
             L.geoJSON(f, {
                 pane: 'pane-batas',
-                style: { color: '#1f4e79', weight: 2.4, dashArray: '8 5', fillOpacity: 0 },
+                style: gayaGaris('batas'),
                 interactive: false
             }).addTo(grup.batas);
         });
@@ -1333,7 +1592,7 @@ $naskah = <<<'JS'
             renderer: kanvasJalan,
             pane: 'pane-jalan',
             interactive: false,
-            style: { color: '#0f766e', weight: 1.1, opacity: .85 }
+            style: gayaGaris('jalan')
         }).addTo(grup.jalan);
     }
 
@@ -1366,7 +1625,7 @@ $naskah = <<<'JS'
             renderer: kanvasSelokan,
             pane: 'pane-selokan',
             interactive: false,
-            style: { color: '#0ea5e9', weight: 1.4, opacity: .95 }
+            style: gayaGaris('selokan')
         }).addTo(grup.selokan);
     }
 
@@ -1385,7 +1644,7 @@ $naskah = <<<'JS'
             renderer: kanvasSaluran,
             pane: 'pane-saluran',
             interactive: false,
-            style: { color: '#0369a1', weight: 1.7, opacity: .95 }
+            style: gayaGaris('saluran')
         }).addTo(grup.saluran);
     }
 
@@ -1409,7 +1668,7 @@ $naskah = <<<'JS'
             renderer: kanvasTepiSaluran,
             pane: 'pane-tepi-saluran',
             interactive: false,
-            style: { color: '#0c4a6e', weight: 1.2, opacity: .9 }
+            style: gayaGaris('tepiSaluran')
         }).addTo(grup.tepiSaluran);
     }
 
@@ -1423,7 +1682,7 @@ $naskah = <<<'JS'
             renderer: kanvasSungai,
             pane: 'pane-sungai',
             interactive: false,
-            style: { color: '#1d4ed8', weight: 2, dashArray: '9 5', opacity: .95 }
+            style: gayaGaris('sungai')
         }).addTo(grup.sungai);
     }
 
@@ -1464,6 +1723,9 @@ $naskah = <<<'JS'
         document.getElementById('nilaiKepekatan').textContent = setelan.kepekatan + '%';
         document.getElementById('labelBidang').checked = setelan.label;
         document.getElementById('labelBlok').checked = setelan.labelBlok;
+        const pilihanLabel = document.getElementById('labelIsi');
+        pilihanLabel.value = setelan.labelIsi;
+        pilihanLabel.disabled = !setelan.label;
         const kotakBidang = document.getElementById('tampilBidang');
         if (kotakBidang) kotakBidang.checked = setelan.bidang;
         const kotakLain = document.getElementById('tampilLain');
@@ -1493,6 +1755,9 @@ $naskah = <<<'JS'
         aktifkan('sungai', setelan.sungai);
         aktifkan('blok', setelan.blok);
         perbaruiZoom();
+        perbaruiSimbolInput();
+        terapkanSimbolGaris();
+        terapkanLayout();
         if (kotakLaporan && setelan.laporan && !grup.laporan.getLayers().length) {
             muatLaporan().catch((err) => Sip.pesan(err.message, 'gagal'));
         }
@@ -1682,12 +1947,177 @@ $naskah = <<<'JS'
         }
         setelan.label = e.target.checked;
         simpanSetelan();
+        document.getElementById('labelIsi').disabled = !setelan.label;
         pasangLabel();
     });
     document.getElementById('labelBlok').addEventListener('change', (e) => {
         setelan.labelBlok = e.target.checked;
         simpanSetelan();
         perbaruiZoom();
+    });
+    document.getElementById('labelIsi').addEventListener('change', (e) => {
+        setelan.labelIsi = e.target.value;
+        simpanSetelan();
+        pasangLabel();
+    });
+
+    const simbolGaris = document.getElementById('simbolGaris');
+    let rafSimbol = 0;
+    function terapkanBarisSimbol(baris) {
+        const g = setelan.garis[baris.dataset.lapis];
+        if (!g) return;
+        const tebal = Number(baris.querySelector('[data-tebal]').value);
+        const pekat = Number(baris.querySelector('[data-pekat]').value);
+        g.warna = baris.querySelector('[data-warna]').value;
+        g.tebal = tebal;
+        g.pekat = pekat;
+        baris.querySelector('[data-tebal-nilai]').textContent = tebal.toFixed(1).replace('.', ',');
+        baris.querySelector('[data-pekat-nilai]').textContent = pekat + '%';
+        if (!rafSimbol) {
+            rafSimbol = requestAnimationFrame(() => { rafSimbol = 0; terapkanSimbolGaris(); });
+        }
+    }
+    simbolGaris.addEventListener('input', (e) => {
+        const baris = e.target.closest('.baris-simbol');
+        if (baris) terapkanBarisSimbol(baris);
+    });
+    simbolGaris.addEventListener('change', simpanSetelan);
+
+    layoutJudul.addEventListener('input', () => {
+        setelan.layout.judul = layoutJudul.value;
+        lembarJudulIsi.textContent = layoutJudul.value.trim() || JUDUL_BAWAAN;
+    });
+    layoutJudul.addEventListener('change', simpanSetelan);
+    layoutSubjudul.addEventListener('input', () => {
+        setelan.layout.subjudul = layoutSubjudul.value;
+        lembarSubjudul.textContent = layoutSubjudul.value.trim() || SUBJUDUL_BAWAAN;
+    });
+    layoutSubjudul.addEventListener('change', simpanSetelan);
+    [[layoutUtara, 'utara'], [layoutLegenda, 'legenda'], [layoutSkalaBatang, 'skalaBatang']].forEach((pasangan) => {
+        pasangan[0].addEventListener('change', () => {
+            setelan.layout[pasangan[1]] = pasangan[0].checked;
+            simpanSetelan();
+            terapkanLayout();
+        });
+    });
+
+    function namaBerkas(ekstensi) {
+        const d = new Date();
+        const dua = (n) => String(n).padStart(2, '0');
+        return 'peta-gedong-' + d.getFullYear() + dua(d.getMonth() + 1) + dua(d.getDate())
+            + '-' + dua(d.getHours()) + dua(d.getMinutes()) + '.' + ekstensi;
+    }
+
+    function unduhBlob(blob, nama) {
+        const url = URL.createObjectURL(blob);
+        const tautan = document.createElement('a');
+        tautan.href = url;
+        tautan.download = nama;
+        document.body.appendChild(tautan);
+        tautan.click();
+        tautan.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 1500);
+    }
+
+    function kanvasKeBlob(kanvas, jenis, mutu) {
+        return new Promise((selesai, gagal) => {
+            kanvas.toBlob((blob) => {
+                if (blob) selesai(blob);
+                else gagal(new Error('kanvas kosong'));
+            }, jenis, mutu);
+        });
+    }
+
+    // Lembar di rasternya ulang dengan html2canvas supaya peta dasar, label,
+    // legenda, dan blok judul ikut terekam seperti yang tampil di layar.
+    async function eksporGambar(jenis) {
+        if (typeof window.html2canvas !== 'function') {
+            Sip.pesan('Pustaka ekspor gambar belum termuat; muat ulang halaman.', 'gagal');
+            return;
+        }
+        if (modeTampilan !== 'layout') aturModeTampilan('layout');
+        eksporPng.disabled = true;
+        eksporJpg.disabled = true;
+        salinLegenda();
+        perbaruiSkalaLembar();
+        perbaruiSkalaBatang();
+        try {
+            // Satu bingkai jeda agar ubin yang baru tergambar ikut terekam.
+            await new Promise((selesai) => window.setTimeout(selesai, 150));
+            const wadah = document.getElementById('wadahPeta');
+            const kanvas = await window.html2canvas(wadah, {
+                backgroundColor: '#ffffff',
+                scale: 2,
+                useCORS: true,
+                imageTimeout: 15000,
+                logging: false,
+                width: wadah.clientWidth,
+                height: wadah.clientHeight,
+                windowWidth: document.documentElement.clientWidth,
+                windowHeight: document.documentElement.clientHeight,
+                scrollX: 0,
+                scrollY: 0
+            });
+            const jpeg = jenis === 'jpeg';
+            const blob = await kanvasKeBlob(kanvas, jpeg ? 'image/jpeg' : 'image/png', jpeg ? 0.92 : undefined);
+            unduhBlob(blob, namaBerkas(jpeg ? 'jpg' : 'png'));
+            Sip.pesan('Lembar peta diekspor sebagai ' + (jpeg ? 'JPG' : 'PNG') + '.');
+        } catch (err) {
+            Sip.pesan('Ekspor gambar gagal: ' + (err && err.message ? err.message : 'tidak diketahui'), 'gagal');
+        } finally {
+            eksporPng.disabled = false;
+            eksporJpg.disabled = false;
+        }
+    }
+
+    eksporPng.addEventListener('click', () => eksporGambar('png'));
+    eksporJpg.addEventListener('click', () => eksporGambar('jpeg'));
+
+    function susunProyek() {
+        const pusat = peta.getCenter();
+        return {
+            aplikasi: 'SIPETADES',
+            jenis: 'proyek-peta',
+            versi: 1,
+            dibuat: new Date().toISOString(),
+            tampilan: {
+                lat: Number(pusat.lat.toFixed(6)),
+                lon: Number(pusat.lng.toFixed(6)),
+                zoom: peta.getZoom()
+            },
+            setelan: setelan
+        };
+    }
+
+    unduhProyek.addEventListener('click', () => {
+        const isi = JSON.stringify(susunProyek(), null, 2);
+        unduhBlob(new Blob([isi], { type: 'application/json' }), 'proyek-' + namaBerkas('json'));
+        Sip.pesan('Proyek peta diunduh: pengaturan, simbol, lembar, dan posisi pandangan.');
+    });
+
+    muatProyek.addEventListener('click', () => berkasProyek.click());
+
+    berkasProyek.addEventListener('change', async () => {
+        const berkas = berkasProyek.files && berkasProyek.files[0];
+        berkasProyek.value = '';
+        if (!berkas) return;
+        try {
+            const isi = JSON.parse(await berkas.text());
+            if (!isi || isi.jenis !== 'proyek-peta' || typeof isi.setelan !== 'object') {
+                throw new Error('Berkas bukan proyek peta SIPETADES.');
+            }
+            setelan = rapikanSetelan(isi.setelan);
+            simpanSetelan();
+            terapkanSetelan();
+            if (isi.tampilan && typeof isi.tampilan.lat === 'number' && typeof isi.tampilan.lon === 'number') {
+                peta.setView([isi.tampilan.lat, isi.tampilan.lon], isi.tampilan.zoom || SIP.peta.zoom);
+                sudahMemusat = true;
+            }
+            muatBidang(true).catch(gagalMuat);
+            Sip.pesan('Proyek peta dimuat dari berkas.');
+        } catch (err) {
+            Sip.pesan(err.message || 'Berkas proyek tidak bisa dibaca.', 'gagal');
+        }
     });
 
     document.getElementById('simpanTampilan').addEventListener('click', () => {
@@ -1792,7 +2222,7 @@ $naskah = <<<'JS'
     }
 
     document.getElementById('aturUlangPengaturan').addEventListener('click', () => {
-        setelan = Object.assign({}, BAWAAN);
+        setelan = rapikanSetelan({});
         simpanSetelan();
         terapkanSetelan();
         sudahMemusat = false;
@@ -1828,6 +2258,7 @@ $naskah = <<<'JS'
     peta.on('zoomend', perbaruiZoom);
     peta.on('moveend', () => {
         perbaruiSkalaLembar();
+        perbaruiSkalaBatang();
         perbaruiPusatKoordinat();
         if (riwayatSegeraUlang) {
             riwayatSegeraUlang = false;
@@ -1841,6 +2272,7 @@ $naskah = <<<'JS'
     eksporPeta.addEventListener('click', () => {
         salinLegenda();
         perbaruiSkalaLembar();
+        perbaruiSkalaBatang();
         window.setTimeout(() => window.print(), 120);
     });
     modeUkur.addEventListener('click', () => aturUkur(!ukurAktif));
@@ -1938,4 +2370,6 @@ $naskah = <<<'JS'
 </script>
 JS;
 
-sip_footer(['leaflet' => true, 'kaki' => $naskah]);
+$naskahH2c = '<script src="' . e(sip_base_url()) . '/assets/js/html2canvas.min.js'
+    . e(sip_versi_aset('assets/js/html2canvas.min.js')) . '"></script>' . "\n";
+sip_footer(['leaflet' => true, 'kaki' => $naskahH2c . $naskah]);

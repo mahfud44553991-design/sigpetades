@@ -9468,6 +9468,96 @@ kedua tombol. 0 pesan konsol; 0 karakter CJK pada tiga berkas yang disunting
 (`peta-lama.php` 3.124 baris, +719/−1; `digitasi.php` 1.493 baris, +83;
 `assets/js/turf.min.js` berkas baru 563.590 B).
 
+### 3.135 Layout & ekspor peta di Peta Bidang: Simbol garis, elemen lembar, PDF/PNG/JPG, proyek JSON (23 Nov 2026)
+
+**Permintaan.** Peta Bidang diminta mendapat tiga kelompok kemampuan ala
+ArcMap. Pertama **Symbology & Labels**: mengatur warna, ketebalan garis,
+simbol kategori, dan label teks pada fitur peta. Kedua **Insert (elemen
+layout)**: menambahkan Title, North Arrow, Scale Bar/Text, dan Legend saat
+berada di Layout View. Ketiga **Save & Export Map**: menyimpan proyek
+sebagai dokumen peta atau mengekspor hasil akhir ke PDF, PNG, atau JPG.
+
+**Pendekatan.** Semua alat dipasang di `peta.php` tanpa API baru dan tanpa
+menulis basis data. Warna, tebal, dan kepekatan garis disimpan di setelan
+peramban yang sudah ada (`sip.peta.pengaturan.v2`), sehingga ikut tersimpan
+di preset basis data dan di berkas proyek. Ekspor gambar memakai pustaka
+**html2canvas 1.4.1** (lisensi MIT, 198.689 B, sha256
+`e87e550794322e574a1fda0c1549a3c70dae5a93d9113417a429016838eab8cb`) yang
+disalin ke `assets/js/html2canvas.min.js`; tidak ada CDN dan tidak ada
+permintaan jaringan tambahan selain ubin peta yang sudah dimuat.
+
+**Symbology & labels.** Kartu **Tampilan peta** mendapat tabel
+`#simbolGaris` berisi tujuh baris lapis garis: Batas blok, Batas desa, Jalan,
+Selokan, Saluran, Tepi saluran, dan Sungai. Tiap baris berisi pemilih warna
+(`#rrggbb`), penggeser tebal 0,4–4 px (langkah 0,1), dan penggeser kepekatan
+10–100% (langkah 5). Bawaan: batas blok `#14603a`/2/95, batas desa
+`#1f4e79`/2,4/100 putus `8 5`, jalan `#0f766e`/1,1/85, selokan
+`#0ea5e9`/1,4/95, saluran `#0369a1`/1,7/95, tepi saluran `#0c4a6e`/1,2/90,
+sungai `#1d4ed8`/2/95 putus `9 5`. Nilai yang tidak sah dikembalikan ke
+bawaan oleh `rapikanGaris` (warna wajib heksadesimal enam angka, tebal
+0,4–4, kepekatan 10–100). Perubahan langsung mengubah gaya lapis aktif lewat
+`setStyle`, dan legenda peta menampilkan garis contoh dengan tinggi, warna,
+serta pola putus yang sama (`butirGaris`). Lapis bidang mengikuti baris
+batas blok. Pilihan isi label (`#labelIsi`: pemegang, kode, luas) hanya
+aktif bila centang **Label bidang** menyala; teks label mengikuti pilihan
+itu (`teksLabel`).
+
+**Insert (elemen lembar).** Saat mode **Layout View** menyala, bilah
+**Lembar** muncul di atas peta dengan isian Judul (80 aksara) dan Subjudul
+(140 aksara) serta tiga centang: Arah utara, Legenda, dan Skala batang.
+Kotak judul di lembar peta memakai nilai itu; subjudul bawaan menyebut nama
+desa. Skala batang dihitung ulang setiap peta digeser atau diperbesar
+(`perbaruiSkalaBatang`): angka bulat 1/2/5×10ⁿ yang panjangnya paling dekat
+110 px, digambar empat ruas berselang-seling dengan label 0, tengah, dan
+ujung; teks skala di kotak judul ikut berubah (uji 1:2.200 pada zoom 18,
+1:600 setelah diperbesar). Legenda lembar tetap memakai butir yang sama
+dengan legenda peta. Elemen hanya tampil di Layout View dan disembunyikan di
+Data View serta saat dicetak bila centangnya dimatikan.
+
+**Save & export.** Tombol **PNG** dan **JPG** merasterkan seluruh wadah peta
+(`#wadahPeta`: ubin peta dasar, bidang, garis, label, legenda, kotak judul,
+skala batang, arah utara) dengan `scale: 2`, latar putih, dan `useCORS:
+true`. Ubin OpenStreetMap diuji pada zoom 18 dan lolos CORS sehingga kanvas
+tidak ternoda. Selama ekspor kedua tombol dinonaktifkan; kegagalan
+ditampilkan lewat `Sip.pesan`, bukan galat konsol. Nama berkas
+`peta-gedong-YYYYMMDD-HHMM.png` atau `.jpg` (JPG mutu 0,92). Tombol **PDF**
+membuka dialog cetak peramban; pilih *Simpan sebagai PDF* dengan ukuran A4
+lanskap memakai aturan cetak §3.130. Dokumen **.mxd** ArcGIS tidak bisa
+dibuat peramban, jadi proyek disimpan sebagai JSON: **Unduh proyek
+(.json)** menghasilkan `proyek-peta-gedong-YYYYMMDD-HHMM.json` berisi
+`aplikasi: SIPETADES`, `jenis: proyek-peta`, `versi: 1`, `dibuat`, `tampilan`
+(lat, lon, zoom), dan `setelan` (seluruh pengaturan termasuk `garis` dan
+`layout`). **Muat proyek** membuka pemilih berkas, menolak berkas yang
+`jenis`-nya bukan `proyek-peta`, lalu merapikan setelan, menerapkannya,
+memulihkan pandangan, dan memuat ulang bidang.
+
+**ArcToolbox.** Navigasi kiri `digitasi.php` mendapat kelompok **Layout**
+berisi satu butir "Layout & ekspor peta" dengan jumlah 3, dan bagian baru
+`#layout-ekspor` berisi tiga kartu (Symbology & labels, Insert (elemen
+lembar), Save & export map) dengan tautan **Buka Layout View** menuju
+`peta.php?tampilan=layout`. Catatan penutup menegaskan tidak ada data desa
+yang diubah.
+
+**Pemeriksaan.** `php -l` bersih pada kedua halaman. Blok JS `peta.php`
+(1.877 baris) lolos `--check`. Di peramban (lebar dalam 861 px, salinan
+halaman dengan sesi login): Data View memuat 4.326 bidang dan 12 ubin;
+ekspor PNG menghasilkan 1.540×1.108 px/917.278 B dan JPG 1.540×1.108
+px/285.611 B, masing-masing sekitar 10,6 dan 11,4 detik; hasil PNG diperiksa
+mata dan memuat ubin, bidang, garis, legenda, kotak judul, skala batang,
+serta arah utara. Skala batang terukur empat ruas 21 px dengan label
+0/25 m/50 m pada zoom 18. Proyek JSON terukur 1.574 B; setelah judul dan
+warna jalan diubah, memuat berkas itu memulihkan judul, warna `#ff0000`,
+dan pandangan dalam 0,25 detik, lalu bidang termuat ulang (4.326 path).
+Bilah Lembar tidak meluber pada lebar 260, 320, dan 440 px; tabel simbol
+sempat meluber 2 px pada baris Batas desa ("2,4"/"100%") setelah kolom
+dipadatkan, lalu kolom dirapikan sehingga terukur 242/242 px pada kartu
+280 px (batas minimum bilah samping) dan 772/772 px pada kartu 808 px.
+Setelan peramban dipulihkan ke keadaan semula setelah uji; 0 pesan konsol.
+0 karakter CJK pada empat berkas yang disunting (`peta.php` 2.375 baris,
++458/−24; `digitasi.php` 1.562 baris, +69; `assets/css/app.css` 966 baris,
++50; README ditambah satu bagian), ditambah satu berkas baru
+`assets/js/html2canvas.min.js`.
+
 ---
 
 ## 4. Berkas SPPT dari Excel

@@ -705,6 +705,15 @@ sip_header('ArcToolbox', 'digitasi');
                 </a>
             </li>
         </ol>
+        <h2 class="toolbox-nav-pisah">Layout</h2>
+        <ol>
+            <li>
+                <a href="#layout-ekspor">
+                    <span>Layout &amp; ekspor peta</span>
+                    <b>3</b>
+                </a>
+            </li>
+        </ol>
         <h2 class="toolbox-nav-pisah">Peta</h2>
         <ol>
             <li>
@@ -1029,6 +1038,66 @@ sip_header('ArcToolbox', 'digitasi');
             <p class="toolbox-katalog-catatan">Select by Attribute sepadan dengan kartu <strong>Saring peta</strong>
                 di samping peta (kata kunci, blok, hak, status), yang menyaring bidang sebelum tabel dibaca.
                 Add Data untuk SHP, raster, atau basemap baru belum tersedia di Peta Bidang.</p>
+        </section>
+
+        <section class="kartu toolbox-bagian toolbox-layout" id="layout-ekspor">
+            <header class="kepala-kartu">
+                <div>
+                    <h2>Layout &amp; ekspor peta</h2>
+                    <p>Tiga kelompok kerja di halaman Peta Bidang: simbol dan label fitur, elemen
+                        lembar pada Layout View, lalu simpan proyek dan ekspor gambar. Tidak ada
+                        data desa yang diubah.</p>
+                </div>
+                <a class="toolbox-arah" href="<?= e(sip_url('peta.php', ['tampilan' => 'layout'])) ?>">Buka Layout View &rarr;</a>
+            </header>
+            <div class="toolbox-mode">
+                <article class="toolbox-mode-kartu">
+                    <header>
+                        <span class="toolbox-mode-lencana">Simbol</span>
+                        <h3>Symbology &amp; labels</h3>
+                    </header>
+                    <p>Kartu <strong>Tampilan peta</strong> mengatur warna, tebal garis, dan kepekatan
+                        untuk tujuh lapis garis: batas blok, batas desa, jalan, selokan, saluran,
+                        tepi saluran, dan sungai.</p>
+                    <ul>
+                        <li>Contoh garis di legenda ikut berubah warna, tebal, dan pola putusnya.</li>
+                        <li>Isi label bidang bisa dipilih: nama pemegang, kode bidang, atau luas.</li>
+                        <li>Warna isian bidang tetap mengikuti pilihan <em>Warnai bidang menurut</em>.</li>
+                        <li>Tersimpan di peramban ini dan ikut ke preset database serta berkas proyek.</li>
+                    </ul>
+                </article>
+                <article class="toolbox-mode-kartu">
+                    <header>
+                        <span class="toolbox-mode-lencana toolbox-mode-lencana-garis">Layout</span>
+                        <h3>Insert (elemen lembar)</h3>
+                    </header>
+                    <p>Bilah <strong>Lembar</strong> muncul di atas peta saat Layout View menyala.</p>
+                    <ul>
+                        <li>Judul dan subjudul bisa disunting; kosongkan isinya untuk kembali ke teks bawaan.</li>
+                        <li>Arah utara, legenda, dan skala batang bisa dinyalakan atau dimatikan.</li>
+                        <li>Skala batang membagi empat petak dan memilih jarak bulat terdekat; skala teks
+                            di blok judul ikut berubah saat peta digeser atau diperbesar.</li>
+                    </ul>
+                </article>
+                <article class="toolbox-mode-kartu">
+                    <header>
+                        <span class="toolbox-mode-lencana toolbox-mode-lencana-garis">Ekspor</span>
+                        <h3>Save &amp; export map</h3>
+                    </header>
+                    <p>Lembar bisa diekspor sebagai <strong>PDF</strong> lewat dialog cetak peramban
+                        (A4 lanskap), <strong>PNG</strong>, atau <strong>JPG</strong> berukuran dua kali layar.</p>
+                    <ul>
+                        <li><strong>Unduh proyek (.json)</strong> menyimpan pengaturan, simbol, lembar, dan
+                            posisi pandangan; <strong>Muat proyek</strong> memulihkannya dari berkas.</li>
+                        <li>Dokumen <code>.mxd</code> milik ArcGIS tidak bisa dibuat peramban; JSON adalah
+                            penggantinya dan bisa dipindah antarperamban.</li>
+                        <li>Ekspor PNG/JPG memakai pustaka lokal html2canvas; peta dasar ikut bila server
+                            ubin mengizinkan CORS.</li>
+                    </ul>
+                </article>
+            </div>
+            <p class="toolbox-katalog-catatan">Semua tindakan di sini hanya mengubah tampilan dan berkas
+                unduhan. Status bidang, geometri, dan tabel basis data tidak ditulis.</p>
         </section>
 
         <section class="kartu toolbox-bagian toolbox-analisis" id="analisis-spasial">

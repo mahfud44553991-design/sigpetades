@@ -458,6 +458,55 @@ body.tampilan-layout .kartu-peta .kepala-kartu { display: none; }
 .lembar-judul dd { margin: 0; }
 .lembar-jumlah { margin-top: 4px !important; font-size: 8.5px; color: #5b6a60; }
 
+/* Skala batang lembar Layout View (peta.php) */
+.lembar-skala-batang {
+    position: absolute; top: 10px; left: 12px;
+    padding: 3px 6px 4px; border: 1px solid #2f3a33; border-radius: 3px;
+    background: rgba(255, 255, 255, .95);
+}
+.lembar-skala-batang[hidden],
+.lembar-utara[hidden],
+.lembar-legenda[hidden] { display: none !important; }
+.skala-batang-garis { display: flex; height: 7px; border: 1px solid #1c2b22; }
+.skala-batang-garis span { display: block; height: 100%; }
+.skala-batang-teks {
+    display: flex; justify-content: space-between; gap: 10px;
+    margin-top: 2px; font-size: 8px; color: #1c2b22;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Panel lembar Layout View: judul, elemen, ekspor (peta.php) */
+.peta-layout-alat {
+    display: flex; flex-direction: column; gap: 6px;
+    margin: -4px 0 12px; padding: 8px 10px;
+    border: 1px solid #c9d1c8; border-radius: 10px; background: #f8faf8;
+}
+.peta-layout-alat[hidden] { display: none !important; }
+.layout-baris { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.layout-lapangan {
+    display: flex; flex-direction: column; gap: 2px;
+    font-size: 10.5px; font-weight: 700; color: #4e5e57;
+}
+.layout-lapangan input { height: 30px; width: 190px; font-size: 12px; }
+.layout-catatan { margin-left: auto; font-size: 10.5px; color: var(--redup); }
+
+/* Simbol garis per lapis (peta.php) */
+.tabel-simbol { display: flex; flex-direction: column; gap: 3px; }
+.baris-simbol {
+    display: grid; grid-template-columns: minmax(44px, 1fr) 26px 42px 24px 42px 28px;
+    align-items: center; gap: 4px;
+}
+.baris-simbol > span { font-size: 10.5px; font-weight: 600; line-height: 1.15; color: #4e5e57; }
+.baris-simbol input[type="color"] {
+    width: 26px; height: 20px; padding: 0; border: 1px solid var(--garis);
+    border-radius: 5px; background: none; cursor: pointer;
+}
+.baris-simbol input[type="range"] {
+    width: 100%; height: 18px; padding: 0; border: 0; background: none;
+    accent-color: var(--hijau);
+}
+.baris-simbol output { font-size: 10px; color: var(--redup); font-variant-numeric: tabular-nums; }
+
 @media print {
     @page { size: A4 landscape; margin: 9mm; }
     body.tampilan-layout { background: #fff !important; }
@@ -466,6 +515,7 @@ body.tampilan-layout .kartu-peta .kepala-kartu { display: none; }
     body.tampilan-layout .kepala-halaman,
     body.tampilan-layout .seru-wadah,
     body.tampilan-layout .peta-mode,
+    body.tampilan-layout .peta-layout-alat,
     body.tampilan-layout .peta-nav,
     body.tampilan-layout .lapisan-peta,
     body.tampilan-layout .legenda-peta,
