@@ -9121,6 +9121,70 @@ tidak ada gulir mendatar; klik tautan "Katalog berkas" mendarat tepat 86 px di
 atas judul kartu. Tangkapan layar statis diperiksa di 1440 px, 500 px, dan
 daftar 33 berkas lapis DXF dalam keadaan terbuka.
 
+### 3.130 Data View & Layout View di Peta Bidang (22 Nov 2026)
+
+**Permintaan.** "tambahkan juga Data View & Layout View: Beralih antara mode
+pengolahan data spasial dan mode perancangan tata letak peta sebelum diekspor".
+Alih-alih dua halaman baru, kedua mode dipasang langsung di `peta.php` karena
+perancangan tata letak butuh peta hidup dan tombol ekspor; ArcToolbox
+(`digitasi.php`) mendapat bagian "Tampilan" yang menjelaskan kedua mode dan
+menautkan keduanya.
+
+**Data View.** Mode bawaan, sama seperti sebelumnya: peta interaktif penuh,
+pil lapisan, saringan, daftar bidang, dan legenda hidup. Tidak ada perilaku
+lama yang diubah.
+
+**Layout View.** Badan halaman mendapat kelas `tampilan-layout`. Pil lapisan,
+legenda hidup, panel saringan, daftar bidang, kepala kartu, dan kontrol zoom
+disembunyikan; geser dan perbesar peta tetap jalan. Di atas peta muncul lembar
+A4 lanskap berbingkai dengan bingkai peta persegi, panah utara di kanan atas,
+legenda di kiri bawah, dan blok judul di kanan bawah: "Pemerintah Desa
+Gedong" (dibaca dari `setelan()`), "PETA BIDANG TANAH", kecamatan dan
+kabupaten, lalu Skala, Tanggal, Sumber, serta jumlah bidang yang terbaca.
+Legenda lembar disalin dari legenda hidup setiap kali legenda digambar ulang,
+jadi isinya selalu sama dengan Data View. Skala batang bawaan Leaflet tetap
+tampil di kiri bawah.
+
+**Skala.** Penyebut dihitung dari `156543.03392 x cos(lintang) / 2^zoom` (meter
+per piksel), dikali 3.779,5276 piksel per meter pada 96 dpi, lalu dibulatkan ke
+ratusan terdekat dan ditampilkan sebagai "± 1 : N". Skala diperbarui setiap
+`moveend`; pada lintang Gedong (sekitar 7° LS) zoom 15 terbaca ± 1 : 17.900 dan
+zoom 18 ± 1 : 2.200.
+
+**Beralih.** Dua tombol `#modeData` dan `#modeLayout` (dengan `aria-pressed`)
+berada di bilah "Tampilan" di atas peta, disertai kalimat keterangan mode aktif.
+Mode juga bisa dibuka lewat alamat `peta.php?tampilan=layout`, sehingga tautan
+dari ArcToolbox langsung mendarat di Layout View. Mode tidak disimpan ke
+`localStorage`: kunci `sip.peta.pengaturan.v2` tetap hanya menyimpan titik
+pandang peta, agar membuka halaman selalu mulai dari Data View.
+
+**Ekspor.** Tombol "Ekspor PDF" hanya tampil di Layout View dan memanggil dialog
+cetak peramban. Gaya cetak memakai `@page { size: A4 landscape; margin: 9mm }`,
+peta setinggi 188 mm, dan hanya kartu peta yang tercetak (bilah atas, judul,
+sidebar, pil, legenda hidup, dan tombol mode disembunyikan). Pengguna memilih
+"Simpan sebagai PDF" di dialog cetak; tidak ada pustaka ekspor tambahan.
+
+**Responsif.** Di bawah 620 px keterangan mode disembunyikan, tinggi peta
+dalam Layout View dinaikkan ke 560 px, legenda lembar menjadi satu kolom di
+kiri atas (lebar maksimal 62 % atau 300 px, tinggi maksimal 44 %), blok judul
+di kanan bawah (lebar maksimal 70 % atau 320 px), dan panah utara pindah ke
+kanan atas agar tidak menutupi peta.
+
+**Tidak diubah.** Tidak ada API baru, tidak ada penulisan basis data, dan
+tidak ada berkas data yang diubah. Ekspor hanya membaca tampilan yang sudah ada
+di peramban. `peta.php` menjadi 1.405 baris (+97/−1), `digitasi.php` 1.192
+baris (+77), dan `assets/css/app.css` 813 baris (+109).
+
+**Pemeriksaan.** `php -l` bersih. Skrip sebaris 47.764 B diperiksa dengan
+`--check` (Electron sebagai Node) keluar 0. Di peramban dengan sesi login:
+0 pesan konsol, kedua tombol berganti dua arah, legenda lembar tersalin (3
+entri pada sesi uji), tombol ekspor hanya muncul di Layout View, skala berubah
+saat peta digeser, dan tidak ada gulir mendatar (846/861 px dan 485/500 px).
+PDF dari Chrome headless: 1 halaman, MediaBox 841,92 x 594,96 pt (A4 lanskap),
+UI tersembunyi, legenda/judul/panah utara/skala/atribusi tampil. ArcToolbox:
+16 id tanpa kembar, 14 anchor menunjuk id yang ada, 0 karakter CJK pada ketiga
+berkas.
+
 ---
 
 ## 4. Berkas SPPT dari Excel

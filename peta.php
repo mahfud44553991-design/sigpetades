@@ -100,8 +100,44 @@ sip_judul(
                 <?php endif; ?>
             </div>
 
-            <div class="peta-wadah">
+            <div class="peta-mode" role="group" aria-label="Mode tampilan peta">
+                <span class="peta-mode-label">Tampilan</span>
+                <button type="button" class="mode-tombol aktif" id="modeData" aria-pressed="true"
+                    title="Mode pengolahan data spasial: peta interaktif penuh dengan panel lapisan.">Data View</button>
+                <button type="button" class="mode-tombol" id="modeLayout" aria-pressed="false"
+                    title="Mode perancangan tata letak: bingkai lembar, judul, legenda, skala, dan arah utara untuk diekspor.">Layout View</button>
+                <span class="peta-mode-info" id="modeInfo">Mode pengolahan data spasial.</span>
+                <button type="button" class="tombol tombol-utama tombol-kecil" id="eksporPeta" hidden
+                    title="Buka dialog cetak peramban; pilih Simpan sebagai PDF, ukuran A4 lanskap.">Ekspor PDF</button>
+            </div>
+
+            <div class="peta-wadah" id="wadahPeta">
                 <div id="peta" aria-label="Peta bidang tanah Desa Gedong"></div>
+                <div class="lembar-peta" id="lembarPeta" hidden>
+                    <div class="lembar-utara" aria-hidden="true">
+                        <svg viewBox="0 0 40 52" width="34" height="44" role="presentation">
+                            <path d="M20 2 L34 44 L20 35 L6 44 Z" fill="#1c2b22"></path>
+                        </svg>
+                        <span>U</span>
+                    </div>
+                    <div class="lembar-legenda">
+                        <h3>Legenda</h3>
+                        <div id="lembarLegendaIsi"></div>
+                    </div>
+                    <div class="lembar-judul">
+                        <p class="lembar-eyebrow">Pemerintah Desa <?= e(setelan('nama_desa', 'Gedong')) ?></p>
+                        <h3>PETA BIDANG TANAH</h3>
+                        <p>Desa <?= e(setelan('nama_desa', 'Gedong')) ?>, Kecamatan
+                            <?= e(setelan('nama_kecamatan', 'Patean')) ?>, Kabupaten
+                            <?= e(setelan('nama_kabupaten', 'Kendal')) ?></p>
+                        <dl>
+                            <div><dt>Skala</dt><dd id="lembarSkala">&mdash;</dd></div>
+                            <div><dt>Tanggal</dt><dd><?= e(tanggal(date('Y-m-d'))) ?></dd></div>
+                            <div><dt>Sumber</dt><dd>Basis data SIPETADES; peta dasar OpenStreetMap</dd></div>
+                        </dl>
+                        <p class="lembar-jumlah" id="lembarJumlah"></p>
+                    </div>
+                </div>
             </div>
 
             <div class="legenda legenda-peta" id="legendaPeta"></div>
@@ -406,6 +442,15 @@ $naskah = <<<'JS'
     const info = document.getElementById('infoMuat');
     const hitung = document.getElementById('hitungTampil');
     const formSaring = document.getElementById('formSaring');
+    const modeData = document.getElementById('modeData');
+    const modeLayout = document.getElementById('modeLayout');
+    const modeInfo = document.getElementById('modeInfo');
+    const eksporPeta = document.getElementById('eksporPeta');
+    const lembarPeta = document.getElementById('lembarPeta');
+    const lembarLegendaIsi = document.getElementById('lembarLegendaIsi');
+    const lembarSkala = document.getElementById('lembarSkala');
+    const lembarJumlah = document.getElementById('lembarJumlah');
+    let modeTampilan = 'data';
     const dataLapisan = { tanah: null, lain: null };
     const filterLapisan = { tanah: null, lain: null };
     const tampil = new Map();
@@ -482,6 +527,44 @@ $naskah = <<<'JS'
             baris.push('<span><i class="contoh-garis-sungai"></i>Sumbu sungai</span>');
         }
         document.getElementById('legendaPeta').innerHTML = baris.join('');
+        if (modeTampilan === 'layout') salinLegenda();
+    }
+
+    // Data View: peta interaktif penuh. Layout View: lembar siap ekspor dengan
+    // judul, legenda, skala, arah utara; cetak lewat dialog peramban (A4 lanskap).
+    function salinLegenda() {
+        lembarLegendaIsi.innerHTML = document.getElementById('legendaPeta').innerHTML;
+        const jumlah = (hitung.textContent || '').trim();
+        lembarJumlah.textContent = jumlah && jumlah !== '0'
+            ? 'Bidang pada tampilan ini: ' + jumlah
+            : 'Bidang pada tampilan ini belum termuat.';
+    }
+
+    function perbaruiSkalaLembar() {
+        const titik = peta.getCenter();
+        const meterPiksel = 156543.03392 * Math.cos(titik.lat * Math.PI / 180) / Math.pow(2, peta.getZoom());
+        const penyebut = Math.max(100, Math.round(meterPiksel * 3779.5276 / 100) * 100);
+        lembarSkala.textContent = '± 1 : ' + Sip.angka(penyebut);
+    }
+
+    function aturModeTampilan(mode) {
+        modeTampilan = mode === 'layout' ? 'layout' : 'data';
+        const layout = modeTampilan === 'layout';
+        document.body.classList.toggle('tampilan-layout', layout);
+        modeData.classList.toggle('aktif', !layout);
+        modeLayout.classList.toggle('aktif', layout);
+        modeData.setAttribute('aria-pressed', String(!layout));
+        modeLayout.setAttribute('aria-pressed', String(layout));
+        modeInfo.textContent = layout
+            ? 'Mode perancangan tata letak: sunting tampilan lalu ekspor PDF.'
+            : 'Mode pengolahan data spasial.';
+        eksporPeta.hidden = !layout;
+        lembarPeta.hidden = !layout;
+        if (layout) {
+            perbaruiSkalaLembar();
+            salinLegenda();
+        }
+        window.setTimeout(() => peta.invalidateSize(), 60);
     }
 
     // L.LayerGroup tidak punya getBounds(), jadi batas dihitung dari lapisan anak.
@@ -1279,6 +1362,14 @@ $naskah = <<<'JS'
     });
 
     peta.on('zoomend', perbaruiZoom);
+    peta.on('moveend', perbaruiSkalaLembar);
+    modeData.addEventListener('click', () => aturModeTampilan('data'));
+    modeLayout.addEventListener('click', () => aturModeTampilan('layout'));
+    eksporPeta.addEventListener('click', () => {
+        salinLegenda();
+        perbaruiSkalaLembar();
+        window.setTimeout(() => window.print(), 120);
+    });
     window.addEventListener('resize', rapikanLabelBlok);
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(rapikanLabelBlok);
     L.control.scale({ imperial: false, position: 'bottomleft', maxWidth: 120 }).addTo(peta);
@@ -1288,6 +1379,11 @@ $naskah = <<<'JS'
         sudahMemusat = true;
     }
     terapkanSetelan();
+
+    perbaruiSkalaLembar();
+    if (new URLSearchParams(window.location.search).get('tampilan') === 'layout') {
+        aturModeTampilan('layout');
+    }
 
     aktifkan('batas', true);
     aktifkan('jalan', setelan.jalan);

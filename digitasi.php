@@ -696,6 +696,15 @@ sip_header('ArcToolbox', 'digitasi');
                 </a>
             </li>
         </ol>
+        <h2 class="toolbox-nav-pisah">Tampilan</h2>
+        <ol>
+            <li>
+                <a href="#tampilan-peta">
+                    <span>Data View &amp; Layout View</span>
+                    <b>2</b>
+                </a>
+            </li>
+        </ol>
         <h2 class="toolbox-nav-pisah">Kelompok alat</h2>
         <ol>
             <?php foreach ($katalog as $kunci => $bagian): ?>
@@ -747,6 +756,52 @@ sip_header('ArcToolbox', 'digitasi');
                     <?php endforeach; ?>
                 </div>
             <?php endforeach; ?>
+        </section>
+
+        <section class="kartu toolbox-bagian toolbox-tampilan" id="tampilan-peta">
+            <header class="kepala-kartu">
+                <div>
+                    <h2>Data View &amp; Layout View</h2>
+                    <p>Dua mode tampilan di halaman Peta Bidang: Data View untuk mengolah data spasial,
+                        Layout View untuk merancang tata letak peta sebelum diekspor.</p>
+                </div>
+            </header>
+            <div class="toolbox-mode">
+                <article class="toolbox-mode-kartu">
+                    <header>
+                        <span class="toolbox-mode-lencana">Data View</span>
+                        <h3>Mode pengolahan data</h3>
+                    </header>
+                    <p>Peta interaktif penuh: panel lapisan, penyaring, daftar bidang, dan legenda hidup
+                        tampil seperti biasa.</p>
+                    <ul>
+                        <li>Centang lapisan Bidang tanah, Batas blok, Jalan, Selokan, Saluran, Tepi saluran,
+                            Sungai, atau Titik laporan.</li>
+                        <li>Klik bidang untuk rincian; saring menurut blok, hak, atau kata kunci.</li>
+                        <li>Peta ini menampilkan data, bukan menggambar batas baru.</li>
+                    </ul>
+                    <a class="toolbox-arah" href="<?= e(sip_url('peta.php')) ?>">Buka Data View &rarr;</a>
+                </article>
+                <article class="toolbox-mode-kartu">
+                    <header>
+                        <span class="toolbox-mode-lencana toolbox-mode-lencana-garis">Layout View</span>
+                        <h3>Mode perancangan tata letak</h3>
+                    </header>
+                    <p>Peta dibingkai sebagai lembar A4 lanskap dengan blok judul, legenda, skala perkiraan,
+                        arah utara, tanggal, dan sumber data.</p>
+                    <ul>
+                        <li>Panel lapisan dan daftar bidang disembunyikan agar lembar bersih.</li>
+                        <li>Geser dan perbesar peta tetap bisa; skala di blok judul ikut berubah.</li>
+                        <li>Tombol <strong>Ekspor PDF</strong> membuka dialog cetak peramban: pilih
+                            <em>Simpan sebagai PDF</em>, ukuran A4 lanskap.</li>
+                    </ul>
+                    <a class="toolbox-arah" href="<?= e(sip_url('peta.php', ['tampilan' => 'layout'])) ?>">Buka Layout View &rarr;</a>
+                </article>
+            </div>
+            <p class="toolbox-katalog-catatan">Mode dipilih lewat tombol <strong>Data View</strong> dan
+                <strong>Layout View</strong> di atas peta, atau langsung dengan alamat
+                <code>peta.php?tampilan=layout</code>. Tidak ada data yang ditulis: tata letak hanya mengubah
+                cara peta ditampilkan dan dicetak.</p>
         </section>
 
         <section class="kartu toolbox-bagian toolbox-katalog" id="katalog-berkas">
@@ -1003,6 +1058,28 @@ sip_header('ArcToolbox', 'digitasi');
 .toolbox-katalog-jumlah { margin: 8px 0 0; }
 .toolbox-katalog-nol { opacity: .55; }
 .toolbox-katalog-catatan { margin: 9px 0 0; color: var(--redup); font-size: 11.5px; line-height: 1.6; }
+.toolbox-tampilan { margin-bottom: 18px; }
+.toolbox-mode { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 10px; }
+.toolbox-mode-kartu {
+    display: flex; flex-direction: column; gap: 8px;
+    padding: 14px 15px; border: 1px solid var(--garis); border-radius: 12px; background: #fbfcfb;
+}
+.toolbox-mode-kartu header { display: flex; align-items: center; gap: 8px; }
+.toolbox-mode-kartu h3 { margin: 0; font-size: 13.5px; }
+.toolbox-mode-lencana {
+    padding: 2px 9px; border-radius: 999px; background: var(--hijau-tua);
+    color: #fff; font-size: 10px; font-weight: 800; letter-spacing: .04em;
+}
+.toolbox-mode-lencana-garis {
+    background: #fff; color: var(--hijau-tua); border: 1px solid var(--hijau-tua);
+}
+.toolbox-mode-kartu p { margin: 0; color: #46564f; font-size: 12px; line-height: 1.6; }
+.toolbox-mode-kartu ul {
+    margin: 0; padding-left: 17px; color: #46564f;
+    font-size: 11.5px; line-height: 1.65;
+}
+.toolbox-mode-kartu .toolbox-arah { margin-top: auto; font-size: 12px; font-weight: 700; }
+@media (max-width: 760px) { .toolbox-mode { grid-template-columns: 1fr; } }
 .toolbox-katalog-catatan code,
 .toolbox-katalog-meta code {
     padding: 1px 5px; border-radius: 4px; background: #f4f7f5;
