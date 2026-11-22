@@ -11,7 +11,7 @@ sip_header('Penggabungan Bidang', 'digitasi', ['leaflet' => true]);
 
 <main class="konten">
     <h1>Penggabungan Bidang</h1>
-    <p class="petunjuk"><a href="digitasi.php">&larr; Kembali ke Panel Tools</a> | Pilih 2 atau lebih bidang yang berdekatan untuk digabungkan menjadi satu bidang baru.</p>
+    <p class="petunjuk"><a href="digitasi.php">&larr; Kembali ke ArcToolbox</a> | Pilih 2 atau lebih bidang yang berdekatan untuk digabungkan menjadi satu bidang baru.</p>
 
     <div class="kartu" style="margin-bottom:15px;">
         <h2 style="font-size:16px; margin-bottom:10px;">1. Cari dan Pilih Bidang</h2>

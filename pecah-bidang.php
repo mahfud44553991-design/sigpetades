@@ -11,7 +11,7 @@ sip_header('Pecah Bidang', 'digitasi', ['leaflet' => true]);
 
 <main class="konten">
     <h1>Pecah Bidang</h1>
-    <p class="petunjuk"><a href="digitasi.php">&larr; Kembali ke Panel Tools</a> | Pilih bidang yang akan dipecah, lalu gambar garis pemisah di atas peta.</p>
+    <p class="petunjuk"><a href="digitasi.php">&larr; Kembali ke ArcToolbox</a> | Pilih bidang yang akan dipecah, lalu gambar garis pemisah di atas peta.</p>
 
     <div class="kartu" style="margin-bottom:15px;">
         <h2 style="font-size:16px; margin-bottom:10px;">1. Pilih Bidang</h2>

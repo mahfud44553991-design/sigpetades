@@ -61,7 +61,7 @@ sip_header('Digitasi Obyek Baru', 'digitasi', ['leaflet' => true]);
 
 <main class="konten">
     <h1>Digitasi Obyek Baru</h1>
-    <p class="petunjuk"><a href="digitasi.php">← Kembali ke Panel Tools</a> | Pilih bidang referensi, unggah gambar peta, atur batas koordinat, klik untuk membuat polygon, lalu simpan sebagai bidang baru.</p>
+    <p class="petunjuk"><a href="digitasi.php">← Kembali ke ArcToolbox</a> | Pilih bidang referensi, unggah gambar peta, atur batas koordinat, klik untuk membuat polygon, lalu simpan sebagai bidang baru.</p>
 
     <?php if ($pesan): ?>
         <div class="pesan info"><?= htmlspecialchars($pesan) ?></div>

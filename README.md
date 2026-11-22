@@ -8924,6 +8924,83 @@ penghapusan satu cabang gaya dan satu butir legenda.
 
 ---
 
+### 3.127 Menu ArcToolbox: katalog alat (22 Nov 2026)
+
+**Permintaan.** "bisakah membuatkan menu ArcToolbox sesuai kebutuhan web ini".
+Dua pilihan yang disetujui: halaman Digitasi diubah menjadi hub ArcToolbox
+(tanpa halaman baru), dan tahap pertama hanya katalog alat yang sudah ada
+(tanpa operasi analisis baru, tanpa tulis basis data).
+
+**Isi halaman.** `digitasi.php` kini membangun katalog dari satu larik PHP,
+jadi angka di ringkasan, lencana kelompok, dan daftar isi selalu ikut berubah
+bila alat ditambah. Tiga kartu lama (Digitasi Obyek Baru, Pecah Bidang,
+Penggabungan Bidang) dan kotak Informasi diganti; ketiga alat itu tetap ada
+di kelompok "Digitasi bidang".
+
+| kelompok | web | CLI |
+|---|---:|---:|
+| Digitasi bidang | 4 | 0 |
+| Peta & penanda | 3 | 0 |
+| Lapis garis 020100 | 0 | 13 |
+| Jahit & rapikan garis | 0 | 8 |
+| Bidang & turunannya | 0 | 5 |
+| Blok peta | 0 | 2 |
+| Impor, konversi & ekspor | 0 | 3 |
+| Data & administrasi | 6 | 0 |
+| **jumlah** | **13** | **31** |
+
+Alat web ditampilkan sebagai kartu tertaut (Digitasi Obyek Baru, Pecah Bidang,
+Penggabungan Bidang, Daftar Bidang, Peta Bidang, Peta Induk, Peta Blok, e-SPPT,
+Buku C, Peralihan Hak, Laporan, Pengaturan, Akun). Alat CLI ditampilkan dengan
+nama, keterangan, dan satu baris perintah yang diambil dari kepala berkas atau
+pembaca argumen alat itu sendiri.
+
+**Lencana peringatan.** Dua alat CLI menulis tanpa mode uji kering dan diberi
+lencana merah **Menulis langsung**: `garis-batas-020100.php` (menimpa seluruh
+berkas lapis turunan) dan `konversi-dxf-lapisan.php` (menimpa GeoJSON DXF).
+Enam alat diberi lencana kuning **Menulis basis data**: `bidang-dari-garis-tertutup.php`,
+`bidang-dari-batas-desa.php`, `polygonize-garis-terbuka.php`, `assign-dusun.php`,
+`rapikan-garis-blok.php`, dan `impor.php`. Alat lain memakai `--terapkan`
+sebagai satu-satunya jalan menulis.
+
+**Tidak didaftarkan.** Skrip sekali pakai dan pustaka tidak masuk katalog:
+`buat-geometri-blok*.php`, `convex-hull-cluster*.php`, `cek-geojson-asli.php`,
+`fit-transform-dxf.php`, `analisis-geometri-blok14-15.php`,
+`detail-geometri-blok14-15.php`, `rapikan-geometri-blok14-15*.php`,
+`gabungkan-geometri-blok10.php`, `rapikan-blok10.php`,
+`impor-ulang-blok14-15.php`, `impor-geometri-blok.php` (jalur berkas
+tertanam), `impor-bidang-hak-pakai.php`, `lib-*.php`, dan `server.php`.
+Alat yang sudah digantikan juga tidak didaftarkan: `tepi-sungai.php` dan
+`rapikan-tepi-sungai.php`, keduanya digantikan `tepi-sungai-dari-sumbu.php`.
+Keduanya tetap ada di `tools/` sebagai riwayat.
+
+**Menu dan tautan.** `app/layout.php` mengganti label menu "Digitasi" menjadi
+"ArcToolbox" (berkas dan kunci aktif `digitasi` tidak berubah, jadi sorotan
+menu di halaman digitasi tetap bekerja). Tautan kembali di `digitasi-baru.php`,
+`pecah-bidang.php`, dan `penggabungan-bidang.php` kini berbunyi "Kembali ke
+ArcToolbox".
+
+**Tidak diubah.** Tidak ada operasi analisis baru, tidak ada API baru, tidak
+ada penulisan basis data. Gaya memakai palet dan kelas yang sudah ada
+(`.kartu`, `.lencana`, `sip_judul`), ditambah kelas berawalan `toolbox-` yang
+dilingkup di halaman ini: daftar isi lengket di kiri, kartu per kelompok, baris
+alat, dan blok perintah. Di bawah 980 px tata letak menjadi satu kolom.
+
+**Pemeriksaan.** `php -l` bersih untuk `digitasi.php`, `app/layout.php`, dan
+tiga halaman digitasi. Halaman dirender lewat sesi CLI: 8 bagian, 44 baris alat
+(13 web + 31 CLI), 31 baris perintah, 0 tautan halaman hilang, 0 berkas alat
+hilang, semua anchor daftar isi menunjuk id yang ada, dan 0 karakter CJK.
+
+Di peramban dengan sesi login: halaman terbuka sebagai "ArcToolbox", menu
+menyorot "ArcToolbox", 6 permintaan aset 200, 0 pesan konsol. Klik daftar isi
+"Lapis garis 020100" mendarat tepat 86 px di atas judul bagian (1195 - 86 =
+1109), dan tautan kembali di `digitasi-baru.php` berbunyi "Kembali ke
+ArcToolbox". Tangkapan layar 1440 px memperlihatkan daftar isi lengket di kiri
+dan kartu kelompok di kanan; di 850 px tata letak menjadi satu kolom dengan
+daftar isi dua kolom di atas konten.
+
+---
+
 ## 4. Berkas SPPT dari Excel
 
 Importer CSV menerima kolom berikut (nama kolom dibersihkan dari spasi dan tanda
