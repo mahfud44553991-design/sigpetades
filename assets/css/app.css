@@ -252,6 +252,10 @@ input[readonly], input:disabled, select:disabled, textarea:disabled { background
     height: 2px; border-radius: 0; vertical-align: 2px;
     background: #0ea5e9;
 }
+.legenda i.contoh-garis-saluran {
+    height: 2px; border-radius: 0; vertical-align: 2px;
+    background: #0369a1;
+}
 .legenda i.contoh-garis-sungai {
     height: 2px; border-radius: 0; vertical-align: 2px;
     background: repeating-linear-gradient(90deg, #1d4ed8 0 5px, transparent 5px 9px);
@@ -330,6 +334,14 @@ input[readonly], input:disabled, select:disabled, textarea:disabled { background
     color: #087b83; font-size: 8.5px; font-weight: 700; white-space: nowrap;
 }
 #peta:not(.peta-dekat-sungai) .label-sungai { display: none; }
+.label-saluran { background: none; border: 0; pointer-events: none; }
+.label-saluran span {
+    position: absolute; left: 0; top: 0; transform: translate(-50%, -50%);
+    display: inline-block; padding: 1px 5px; border-radius: 3px;
+    font-size: 8.5px; font-weight: 700; letter-spacing: .2px; white-space: nowrap;
+    color: #075985; background: rgba(255, 255, 255, .72);
+    text-shadow: 0 0 3px rgba(255, 255, 255, .9);
+}
 .cad-label {
     background: transparent; border: 0;
     color: #172c28; font-size: 10px; font-weight: 700; white-space: nowrap;

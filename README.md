@@ -8508,6 +8508,41 @@ alur tetangga, jadi bawaan tetap 15 m/30°. Kalau sisa itu perlu menjadi tepi,
 langkahnya menambah sumbu (mis. menurunkan sumbu dari pasangan tepi), bukan
 melonggarkan koridor.
 
+### 3.118 Lapis Saluran: garis dan nama saluran di Peta Bidang (22 Nov 2026)
+
+**Permintaan.** "Tambahkan layer saluran pada lapisan peta." Di data desa,
+saluran adalah kelas yang sama dengan **Selokan**: `garis-selokan.geojson`
+memuat 689 garis yang semuanya berlabel SALURAN (542), IRIGASI (106), SALURAN
+IRIGASI (25), atau Saluran (16); tidak ada label SELOKAN tersendiri. Nama
+salurannya tersimpan terpisah di layer `BATAS PERAIRAN` (165 titik label:
+SALURAN 136, IRIGASI 11, SALURAN IRIGASI 9, Saluran 8, SLURAN 1).
+
+**Yang ditambahkan.** Di panel **Lapisan peta** Peta Bidang (`peta.php`) ada pil
+baru **Saluran** sesudah Selokan, tercentang bawaan. Pil ini menggambar ulang
+689 garis yang sama dengan warna lebih tua `#0369a1` (tebal 1,7, kanvas sendiri
+`pane-saluran` di atas selokan) **beserta 165 nama saluran** dari layer BATAS
+PERAIRAN. Pil Selokan tetap ada dan tidak berubah. Nama saluran itu kini tidak
+lagi digambar oleh pil Sungai (sebelumnya ikut terpasang di sana meskipun
+tersembunyi oleh CSS), jadi tiap nama muncul satu kali; pil Sungai menyisakan
+114 label sungai/kali.
+
+**Teknis.** Tidak ada API atau berkas baru: `lapisan=garis-selokan` dan
+`lapisan=sungai` dipakai bersama. Satu unduhan `garis-selokan` dan satu unduhan
+label perairan dipakai oleh pil Selokan, Saluran, dan Sungai lewat janji
+bersama, jadi menyalakan pil Saluran tidak menambah permintaan. Setelan
+tersimpan di `localStorage` kunci `sip.peta.pengaturan.v2` (`saluran`), ikut
+dalam tombol Atur ulang; legenda mendapat butir **Saluran & nama** dengan
+contoh garis `#0369a1`. Label memakai kelas `.label-saluran` (biru `#075985`,
+8,5 px, latar putih tipis) dan tampil pada semua tingkat zoom.
+
+**Pemeriksaan.** `php -l peta.php` bersih. Di browser: pil Saluran tercentang,
+165 elemen `.label-saluran` dan 114 `.label-sungai` terpasang, kanvas
+`pane-saluran` ada di atas `pane-selokan`, legenda memuat "Saluran & nama";
+permintaan `garis-selokan` dan `sungai` masing-masing sekali; melepas pil
+menghapus semua label saluran dan butir legenda, memasangnya kembali tanpa
+permintaan jaringan baru; 0 galat konsol. Peta Induk dan Peta Blok tidak
+diubah.
+
 ---
 
 ## 4. Berkas SPPT dari Excel

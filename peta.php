@@ -78,6 +78,10 @@ sip_judul(
                     <input type="checkbox" id="tampilSelokan" autocomplete="off" checked>
                     <i style="background:#0ea5e9"></i>Selokan
                 </label>
+                <label class="chip-lapisan" title="689 garis saluran/irigasi turunan 020100 (berkas yang sama dengan pil Selokan) beserta 165 nama saluran dari layer BATAS PERAIRAN">
+                    <input type="checkbox" id="tampilSaluran" autocomplete="off" checked>
+                    <i style="background:#0369a1"></i>Saluran
+                </label>
                 <label class="chip-lapisan">
                     <input type="checkbox" id="tampilSungai" autocomplete="off" checked>
                     <i style="background:#1e88e5"></i>Sungai
@@ -254,7 +258,7 @@ $naskah = <<<'JS'
     const BAWAAN = {
         dasar: 'jalan', warna: 'blok', kepekatan: 55, label: false, labelBlok: true,
         bidang: true, lain: false, blok: true, batas: true, laporan: false,
-        jalan: true, selokan: true, sungai: true, tampilan: null
+        jalan: true, selokan: true, saluran: true, sungai: true, tampilan: null
     };
     const MODE = ['blok', 'tipe', 'hak', 'pbb', 'status'];
     const BATAS_LABEL = 1500;
@@ -265,7 +269,7 @@ $naskah = <<<'JS'
         if (s.dasar !== 'jalan' && s.dasar !== 'satelit') s.dasar = BAWAAN.dasar;
         if (MODE.indexOf(s.warna) < 0) s.warna = BAWAAN.warna;
         s.kepekatan = Math.max(45, Math.min(80, Number(s.kepekatan) || 0));
-        ['label', 'labelBlok', 'bidang', 'blok', 'batas', 'laporan', 'jalan', 'selokan', 'sungai'].forEach((k) => { s[k] = !!s[k]; });
+        ['label', 'labelBlok', 'bidang', 'blok', 'batas', 'laporan', 'jalan', 'selokan', 'saluran', 'sungai'].forEach((k) => { s[k] = !!s[k]; });
         // Kunci peninggalan lapisan garis OSM yang sudah dihapus. Tanpa dibuang,
         // localStorage lama dan preset database ikut menyimpannya kembali.
         delete s.osmJalan;
@@ -292,8 +296,8 @@ $naskah = <<<'JS'
     peta.attributionControl.setPrefix('');
 
     // Panes menentukan urutan gambar tanpa bergantung urutan addLayer:
-    // batas desa paling bawah, lalu blok, jalan, sungai, selokan, obyek non-tanah, bidang tanah.
-    const PANES = { batas: 405, blok: 410, jalan: 412, selokan: 414, sungai: 413, lain: 415, tanah: 420, laporan: 430 };
+    // batas desa paling bawah, lalu blok, jalan, sungai, selokan, saluran, obyek non-tanah, bidang tanah.
+    const PANES = { batas: 405, blok: 410, jalan: 412, selokan: 414, sungai: 413, saluran: 416, lain: 415, tanah: 420, laporan: 430 };
     Object.keys(PANES).forEach((nama) => {
         const pane = peta.createPane('pane-' + nama);
         pane.style.zIndex = String(PANES[nama]);
@@ -301,18 +305,20 @@ $naskah = <<<'JS'
     peta.getPane('pane-batas').style.pointerEvents = 'none';
     peta.getPane('pane-jalan').style.pointerEvents = 'none';
     peta.getPane('pane-selokan').style.pointerEvents = 'none';
+    peta.getPane('pane-saluran').style.pointerEvents = 'none';
     peta.getPane('pane-laporan').style.pointerEvents = 'auto';
 
     const grup = {
         bidang: L.layerGroup(), lain: L.layerGroup(), blok: L.layerGroup(),
         batas: L.layerGroup(), laporan: L.layerGroup(),
-        jalan: L.layerGroup(), selokan: L.layerGroup(), sungai: L.layerGroup()
+        jalan: L.layerGroup(), selokan: L.layerGroup(), saluran: L.layerGroup(), sungai: L.layerGroup()
     };
 
     // 2.872 garis tepi jalan digambar di kanvas supaya pane jalan tidak menumpuk
     // ribuan elemen SVG; label jalannya tetap div di atas kanvas itu.
     const kanvasJalan = L.canvas({ pane: 'pane-jalan', padding: 0.4 });
     const kanvasSelokan = L.canvas({ pane: 'pane-selokan', padding: 0.4 });
+    const kanvasSaluran = L.canvas({ pane: 'pane-saluran', padding: 0.4 });
     const kanvasSungai = L.canvas({ pane: 'pane-sungai', padding: 0.4 });
 
     const dasar = {
@@ -457,6 +463,9 @@ $naskah = <<<'JS'
         }
         if (setelan.selokan) {
             baris.push('<span><i class="contoh-garis-selokan"></i>Garis selokan</span>');
+        }
+        if (setelan.saluran) {
+            baris.push('<span><i class="contoh-garis-saluran"></i>Saluran &amp; nama</span>');
         }
         if (setelan.sungai) {
             baris.push('<span><i class="contoh-garis-sungai"></i>Sumbu sungai</span>');
@@ -786,8 +795,27 @@ $naskah = <<<'JS'
         });
     }
 
+    // Pil Selokan dan Saluran memakai berkas yang sama; satu unduhan dipakai bersama.
+    let janjiBerkasSelokan = null;
+    function ambilBerkasSelokan() {
+        if (!janjiBerkasSelokan) {
+            janjiBerkasSelokan = Sip.api('api/bidang.php', { query: { lapisan: 'garis-selokan' } })
+                .catch((err) => { janjiBerkasSelokan = null; throw err; });
+        }
+        return janjiBerkasSelokan;
+    }
+
+    let janjiLabelPerairan = null;
+    function ambilLabelPerairan() {
+        if (!janjiLabelPerairan) {
+            janjiLabelPerairan = Sip.api('api/bidang.php', { query: { lapisan: 'sungai' } })
+                .catch((err) => { janjiLabelPerairan = null; throw err; });
+        }
+        return janjiLabelPerairan;
+    }
+
     async function muatSelokan() {
-        const data = await Sip.api('api/bidang.php', { query: { lapisan: 'garis-selokan' } });
+        const data = await ambilBerkasSelokan();
         grup.selokan.clearLayers();
         kanvasSelokan.addTo(peta);
         L.geoJSON(data, {
@@ -798,12 +826,43 @@ $naskah = <<<'JS'
         }).addTo(grup.selokan);
     }
 
+    // Saluran = garis selokan 020100 (semuanya berlabel SALURAN/IRIGASI) ditambah
+    // nama saluran dari layer BATAS PERAIRAN; nama yang sama tidak digambar lagi
+    // di pil Sungai (lihat muatSungai).
+    const POLA_SALURAN = /SALURAN|SLURAN|IRIGASI/i;
+
+    async function muatSaluran() {
+        const [garis, label] = await Promise.all([ambilBerkasSelokan(), ambilLabelPerairan()]);
+        grup.saluran.clearLayers();
+        kanvasSaluran.addTo(peta);
+        L.geoJSON(garis, {
+            renderer: kanvasSaluran,
+            pane: 'pane-saluran',
+            interactive: false,
+            style: { color: '#0369a1', weight: 1.7, opacity: .95 }
+        }).addTo(grup.saluran);
+        (label.features || []).forEach((f) => {
+            const p = f.properties;
+            if (!POLA_SALURAN.test(p.label || '')) return;
+            const koordinat = f.geometry.coordinates;
+            L.marker([Number(koordinat[1]), Number(koordinat[0])], {
+                icon: L.divIcon({
+                    className: 'label-saluran',
+                    html: '<span>' + Sip.esc(p.label) + '</span>',
+                    iconSize: [0, 0]
+                }),
+                pane: 'pane-saluran',
+                interactive: false, keyboard: false
+            }).addTo(grup.saluran);
+        });
+    }
+
     async function muatSungai() {
         const [garis, label] = await Promise.all([
             // Berkas turunan ini tidak ikut git; tanpa berkas, label tetap tampil.
             Sip.api('api/bidang.php', { query: { lapisan: 'garis-sungai' } })
                 .catch(() => ({ features: [] })),
-            Sip.api('api/bidang.php', { query: { lapisan: 'sungai' } })
+            ambilLabelPerairan()
         ]);
         grup.sungai.clearLayers();
         kanvasSungai.addTo(peta);
@@ -815,6 +874,7 @@ $naskah = <<<'JS'
         }).addTo(grup.sungai);
         (label.features || []).forEach((f) => {
             const p = f.properties;
+            if (POLA_SALURAN.test(p.label || '')) return;
             const koordinat = f.geometry.coordinates;
             L.marker([Number(koordinat[1]), Number(koordinat[0])], {
                 icon: L.divIcon({
@@ -877,6 +937,8 @@ $naskah = <<<'JS'
         if (kotakJalan) kotakJalan.checked = setelan.jalan;
         const kotakSelokan = document.getElementById('tampilSelokan');
         if (kotakSelokan) kotakSelokan.checked = setelan.selokan;
+        const kotakSaluran = document.getElementById('tampilSaluran');
+        if (kotakSaluran) kotakSaluran.checked = setelan.saluran;
         const kotakSungai = document.getElementById('tampilSungai');
         if (kotakSungai) kotakSungai.checked = setelan.sungai;
 
@@ -885,6 +947,7 @@ $naskah = <<<'JS'
         aktifkan('laporan', setelan.laporan);
         aktifkan('jalan', setelan.jalan);
         aktifkan('selokan', setelan.selokan);
+        aktifkan('saluran', setelan.saluran);
         aktifkan('sungai', setelan.sungai);
         aktifkan('blok', setelan.blok);
         perbaruiZoom();
@@ -896,6 +959,9 @@ $naskah = <<<'JS'
         }
         if (kotakSelokan && setelan.selokan && !grup.selokan.getLayers().length) {
             muatSelokan().catch((err) => Sip.pesan(err.message, 'gagal'));
+        }
+        if (kotakSaluran && setelan.saluran && !grup.saluran.getLayers().length) {
+            muatSaluran().catch((err) => Sip.pesan(err.message, 'gagal'));
         }
         if (kotakSungai && setelan.sungai && !grup.sungai.getLayers().length) {
             muatSungai().catch((err) => Sip.pesan(err.message, 'gagal'));
@@ -996,6 +1062,19 @@ $naskah = <<<'JS'
             aktifkan('selokan', setelan.selokan);
             if (setelan.selokan && !grup.selokan.getLayers().length) {
                 muatSelokan().catch((err) => Sip.pesan(err.message, 'gagal'));
+            }
+            gambarLegenda();
+        });
+    }
+
+    const kotakSaluran = document.getElementById('tampilSaluran');
+    if (kotakSaluran) {
+        kotakSaluran.addEventListener('change', (e) => {
+            setelan.saluran = e.target.checked;
+            simpanSetelan();
+            aktifkan('saluran', setelan.saluran);
+            if (setelan.saluran && !grup.saluran.getLayers().length) {
+                muatSaluran().catch((err) => Sip.pesan(err.message, 'gagal'));
             }
             gambarLegenda();
         });
@@ -1202,10 +1281,12 @@ $naskah = <<<'JS'
     aktifkan('batas', true);
     aktifkan('jalan', setelan.jalan);
     aktifkan('selokan', setelan.selokan);
+    aktifkan('saluran', setelan.saluran);
     aktifkan('sungai', setelan.sungai);
     muatBatas().catch((err) => console.warn('Batas gagal dimuat:', err));
     if (setelan.jalan) muatJalan().catch((err) => console.warn('Jalan gagal dimuat:', err));
     if (setelan.selokan) muatSelokan().catch((err) => console.warn('Selokan gagal dimuat:', err));
+    if (setelan.saluran) muatSaluran().catch((err) => console.warn('Saluran gagal dimuat:', err));
     if (setelan.sungai) muatSungai().catch((err) => console.warn('Sungai gagal dimuat:', err));
     muatBidang().catch(gagalMuat);
 })();
