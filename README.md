@@ -8543,6 +8543,57 @@ menghapus semua label saluran dan butir legenda, memasangnya kembali tanpa
 permintaan jaringan baru; 0 galat konsol. Peta Induk dan Peta Blok tidak
 diubah.
 
+### 3.119 Tepi saluran berpasangan dari tebing nyata 020100 (22 Nov 2026)
+
+**Permintaan.** "Buatkan garis tepi semua saluran." Bahan `garis-selokan.geojson`
+hanya memuat satu garis per saluran (689 baris/50.798,5 m) sehingga tidak jelas
+apakah garis itu tebing atau sumbu. Karena itu dibuat lapis turunan baru, tanpa
+mengubah lapis Saluran yang tersaji.
+
+**Pilihan yang disetujui.** "Tepi nyata berpasangan": tiap garis saluran disalin
+apa adanya sebagai tebing acuan; tebing lawan diklaim dari garis nyata
+`020100.geojson` yang sejajar di seberang; saluran tanpa pasangan nyata tetap
+satu tebing; tidak ada geometri offset karangan. Ukuran pendahulu: 114 dari 689
+saluran sudah punya dua baris di `garis-selokan` sendiri, 445 punya garis
+sejajar dalam 8 m di 020100, dan 244 tidak punya.
+
+**Alat dan aturan.** `tools/tepi-saluran.php`. Tiap segmen kandidat 020100
+diproyeksikan ke garis saluran terdekat lalu diterima bila jaraknya 0,4-4,0 m
+(`--lebar`), beda arahnya <= 25 derajat (`--sudut`), posisinya tetap di satu sisi
+(kiri/kanan), jarak sepanjang saluran tidak mundur lebih dari 1 m (`--geser`),
+dan koridornya tidak menyentuh poligon bidang hidup (tabel `bidang`, status
+selain `dihapus`; 4.329 cincin WGS84 dipetakan ke meter DXF). Rentetan per
+(saluran, sisi) ditutup pada celah <= 1 m, lekuk silang diri dibuang, potongan
+< 1 m dibuang. Semua verteks keluaran adalah verteks asli bahan, bukan titik
+proyeksi. Opsi lain: `--lebar-min`, `--min`, `--tanpa-persil`, `--keluar`,
+`--rinci`, `--terapkan` (tanpa `--terapkan` hanya uji kering).
+
+**Hasil terpasang.** `files/sig-pertanahan-gedong-lokal/data/dxf-layers/garis-tepi-saluran.geojson`
+memuat **1.061 fitur = 689 acuan (50.798,5 m) + 372 pasangan (8.253,5 m)**,
+total 59.052,0 m. Sebanyak **101 dari 689 saluran berpasangan** (10 di antaranya
+dapat pasangan di kedua sisi), 588 tetap satu tebing karena tidak ada garis nyata
+lawan dalam 4 m. Ruas pasangan: 146 kiri (3.655,6 m) + 226 kanan (4.597,8 m),
+berisi 1.014 titik; lebar koridor median 2,2 m (ukur mandiri per segmen: median
+1,9 m, 0,46-4,00 m). Koridor 4 m memuat 11.806,2 m bahan; terpakai 8.253,4 m
+(69,9%), sisanya ditolak karena sudut 1.267,1 m, persil 1.305,8 m, dan pindah
+sisi 976,4 m. Pemeriksaan rapi: cincin 0, silang diri 0, sisi berbalik 0, segmen
+menyimpang 0; 3,5 m potongan pendek dibuang.
+
+**Pemeriksaan.** Skrip bebas `_lama/scratch/verifikasi-tepi-saluran.php`
+menyatakan 0 pasangan memakai verteks bukan bahan, 0 jarak di luar 0,4-4,0 m,
+0 sudut di atas 25 derajat, 0 sisi salah, 0 cincin/silang, 0 acuan berbeda dari
+`garis-selokan`, dan 101 saluran berpasangan. Jendela 160 m di
+SELOKAN-020100-0278 dan 140 m di SELOKAN-020100-0472 diperiksa secara visual:
+tebing lawan mengikuti garis nyata di seberang saluran, bukan garis karangan.
+
+**Sifat data.** Ruas pasangan berupa potongan (rata-rata 3,68 ruas per saluran
+berpasangan), bukan satu garis menerus, karena tebing 020100 terputus di persil;
+lapis ini tidak menutup penuh 588 saluran satu tebing. Berkas ini **belum
+disajikan** — tidak ada pil di peta dan tidak ada API. Metadata kunci
+`GARIS TEPI SALURAN` sudah ditulis di `metadata.json`; lapis Saluran dan
+Selokan yang tersaji tidak diubah. Cadangan sebelum menulis:
+`_lama/cadangan-garis-tepi-saluran-20261122-133534/`.
+
 ---
 
 ## 4. Berkas SPPT dari Excel
