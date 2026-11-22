@@ -8999,6 +8999,58 @@ ArcToolbox". Tangkapan layar 1440 px memperlihatkan daftar isi lengket di kiri
 dan kartu kelompok di kanan; di 850 px tata letak menjadi satu kolom dengan
 daftar isi dua kolom di atas konten.
 
+### 3.128 ArcToolbox: Table of Contents (Layers) (22 Nov 2026)
+
+**Permintaan.** "tambahkan juga menu Table of Contents (TOC) / Layers".
+Bagian baru di `digitasi.php` mendaftar lapis yang tampil di tiga peta, dengan
+warna legenda, kode lapis DXF, jumlah fitur, dan asal angkanya.
+
+**Isi.** Satu kartu "Table of Contents (Layers)" berisi tiga peta dan 39 baris
+lapis (Peta Bidang 9, Peta Induk 26, Peta Blok 4), dikelompokkan seperti panel
+lapis masing-masing peta: Bidang kadastrum, Bidang berhak, Garis turunan,
+Turunan sumbu jalan, Lainnya, Obyek manual, Belum terpetakan, Label teks.
+Navigasi kiri mendapat blok "Table of Contents" di atas daftar kelompok, dengan
+tautan ke ketiga peta dan hitungan barisnya. Tiap judul peta punya tautan
+"Buka peta".
+
+**Sumber angka.** Angka dihitung saat halaman dibuka, bukan ditulis tetap:
+
+- Basis data: jumlah bidang aktif dan tanah (kueri yang sama dengan Peta
+  Bidang), jumlah blok, blok perkiraan, bidang bersumber `garis-manual`, dan
+  laporan. Baris Titik laporan hanya muncul bila pengguna berhak mengelola.
+- `metadata.json` DXF: `features` dan `types.polygon`/`types.line` per kunci
+  lapis (020100, BIDANG HM, HM, CALON BIDANG, label teks, dan lainnya).
+- Berkas GeoJSON: `garis-jalan-tepi.geojson` 1.907, `garis-selokan.geojson`
+  689, `garis-saluran-dari-jalan.geojson` 33 (Saluran = 689 + 33 = 722),
+  `garis-tepi-saluran.geojson` 850, `garis-sungai-jahit.geojson` 27,
+  `batas-jalan.geojson` 626, `batas-perairan.geojson` 279, ditambah berkas
+  manual sumbu, batas desa, sungai, dan titik obyek bila ada. Berkas yang
+  tidak ada ditampilkan sebagai "—", bukan 0.
+
+Nilai yang terbaca 22 Nov: Bidang tanah 4.326, Obyek non-tanah 0, blok 24,
+laporan 0; Peta Induk 2.626 poligon dan 13.681 garis 020100, Bidang HM 1.496,
+Sumbu jalan 1.828 (1.535 bahan + 293 garis manual), Titik obyek "—" (berkas
+penanda belum ada), Bidang manual 2, Calon bidang 737; Peta Blok 24 blok ukur,
+0 blok perkiraan, 626 label jalan, 279 label perairan.
+
+**Tata letak.** TOC berada di kolom isi, di atas kartu kelompok, sehingga
+daftar navigasi kiri tetap lengket sejak awal. Daftar lapis memakai kolom
+`auto-fill` minimal 240 px (empat kolom di 1440 px, satu kolom di ponsel).
+Agar baris perintah CLI yang panjang tidak lagi melebarkan halaman, kolom grid
+diberi `minmax(0, 1fr)` dan `min-width: 0`; di lebar 500 px `scrollWidth`
+turun dari 537 px menjadi 485 px.
+
+**Tidak diubah.** Tidak ada API baru, tidak ada penulisan basis data, dan tidak
+ada perubahan pada ketiga halaman peta. Angka TOC mengikuti data hidup; bila
+lapis berubah, angkanya ikut berubah tanpa menyunting halaman.
+
+**Pemeriksaan.** `php -l` bersih. Render sesi CLI: 39 baris lapis, 13 subkelompok,
+4 anchor TOC (toc-lapisan, toc-bidang, toc-induk, toc-blok), 12 tautan anchor
+seluruhnya menunjuk id yang ada, 0 pesan PHP, 0 karakter CJK, 0 id kembar.
+Di peramban dengan sesi login, 0 pesan konsol; klik "Peta Induk" mendarat tepat
+86 px di atas judulnya (scroll-margin). Tangkapan layar diperiksa di 1440 px,
+861 px, dan 500 px (lebar minimum Chrome headless).
+
 ---
 
 ## 4. Berkas SPPT dari Excel

@@ -251,6 +251,223 @@ foreach ($katalog as $bagian) {
     }
 }
 
+$kelola = boleh_kelola();
+$berkasLapis = __DIR__ . '/files/sig-pertanahan-gedong-lokal/data/dxf-layers/';
+$meta = is_file($berkasLapis . 'metadata.json')
+    ? json_decode((string) file_get_contents($berkasLapis . 'metadata.json'), true)
+    : null;
+$jumlahLapis = static fn (string $kunci): int => (int) ($meta['layers'][$kunci]['features'] ?? 0);
+$jumlahTipe = static fn (string $kunci, string $tipe): int
+    => (int) ($meta['layers'][$kunci]['types'][$tipe] ?? 0);
+$hitungFitur = static function (string $berkas) use ($berkasLapis): ?int {
+    if (!is_file($berkasLapis . $berkas)) {
+        return null;
+    }
+    $isi = json_decode((string) file_get_contents($berkasLapis . $berkas), true);
+    return is_array($isi['features'] ?? null) ? count($isi['features']) : null;
+};
+
+$ringkas = db_one(
+    "SELECT COUNT(*) AS total,
+            COALESCE(SUM(tipe = 'tanah'), 0) AS tanah
+     FROM bidang WHERE status NOT IN ('dihapus', 'duplikat')"
+) ?? ['total' => 0, 'tanah' => 0];
+$jumlahBlok = (int) db_value('SELECT COUNT(*) FROM blok');
+$jumlahBlokPerkiraan = (int) db_value('SELECT COUNT(*) FROM blok WHERE batas_perkiraan = 1');
+$jumlahBidangManual = (int) db_value(
+    "SELECT COUNT(*) FROM bidang WHERE sumber = 'garis-manual' AND status <> 'dihapus'"
+);
+$jumlahLaporan = $kelola ? (int) db_value('SELECT COUNT(*) FROM laporan') : null;
+
+$jumlahJalan = $hitungFitur('garis-jalan-tepi.geojson');
+$jumlahSelokan = $hitungFitur('garis-selokan.geojson');
+$jumlahSaluranDariJalan = $hitungFitur('garis-saluran-dari-jalan.geojson');
+$jumlahTepiSaluran = $hitungFitur('garis-tepi-saluran.geojson');
+$jumlahSumbuSungai = $hitungFitur('garis-sungai-jahit.geojson');
+$jumlahSungaiManual = $hitungFitur('garis-sungai-manual.geojson') ?? 0;
+$jumlahSumbuManual = $hitungFitur('garis-sumbu-manual.geojson') ?? 0;
+$jumlahBatasManual = $hitungFitur('garis-luar-desa-manual.geojson') ?? 0;
+$jumlahTitikObyek = $hitungFitur('titik-obyek-manual.geojson');
+$jumlahSaluran = ($jumlahSelokan === null || $jumlahSaluranDariJalan === null)
+    ? null
+    : $jumlahSelokan + $jumlahSaluranDariJalan;
+
+$toc = [
+    'bidang' => [
+        'judul' => 'Peta Bidang',
+        'tautan' => 'peta.php',
+        'ringkas' => 'Peta kadastrum desa dengan basemap dan pengukuran.',
+        'kelompok' => array_values(array_filter([
+            [
+                'judul' => 'Bidang kadastrum',
+                'lapis' => [
+                    ['nama' => 'Bidang tanah', 'warna' => '#1f9d4d',
+                        'jumlah' => (int) $ringkas['tanah'], 'ket' => 'tabel bidang, status aktif'],
+                    ['nama' => 'Obyek non-tanah', 'warna' => '#8a7a66',
+                        'jumlah' => (int) ($ringkas['total'] - $ringkas['tanah']), 'ket' => 'tipe selain tanah'],
+                    ['nama' => 'Batas blok', 'warna' => '#14603a',
+                        'jumlah' => $jumlahBlok, 'ket' => 'tabel blok'],
+                ],
+            ],
+            [
+                'judul' => 'Garis turunan',
+                'lapis' => [
+                    ['nama' => 'Jalan', 'warna' => '#0f766e',
+                        'jumlah' => $jumlahJalan, 'ket' => 'garis tepi dari semua sumbu jalan'],
+                    ['nama' => 'Selokan', 'warna' => '#0ea5e9',
+                        'jumlah' => $jumlahSelokan, 'ket' => 'turunan 020100'],
+                    ['nama' => 'Saluran', 'warna' => '#0369a1',
+                        'jumlah' => $jumlahSaluran, 'ket' => 'selokan + 33 garis Jalan yang menjadi tebing'],
+                    ['nama' => 'Tepi saluran', 'warna' => '#0c4a6e',
+                        'jumlah' => $jumlahTepiSaluran, 'ket' => '689 acuan + 161 tebing lawan 020100'],
+                    ['nama' => 'Sungai', 'warna' => '#1e88e5',
+                        'jumlah' => $jumlahSumbuSungai, 'ket' => 'sumbu sungai hasil jahit'],
+                ],
+            ],
+            $kelola ? [
+                'judul' => 'Laporan warga',
+                'lapis' => [
+                    ['nama' => 'Titik laporan', 'warna' => '#b42318',
+                        'jumlah' => $jumlahLaporan, 'ket' => 'tabel laporan'],
+                ],
+            ] : null,
+        ])),
+    ],
+    'induk' => [
+        'judul' => 'Peta Induk',
+        'tautan' => 'peta-lama.php',
+        'ringkas' => 'Penampil layer DXF arsip lama; koordinat lokal hasil pengukuran.',
+        'kelompok' => [
+            [
+                'judul' => 'Bidang kadastrum',
+                'lapis' => [
+                    ['nama' => 'Bidang', 'kode' => '020100',
+                        'jumlah' => $jumlahTipe('020100', 'polygon'), 'ket' => 'poligon 020100'],
+                    ['nama' => 'Garis bidang', 'kode' => '020100',
+                        'jumlah' => $jumlahTipe('020100', 'line'), 'ket' => 'garis 020100, termasuk cincin'],
+                    ['nama' => 'Blok ukur', 'kode' => 'BATAS BLOK',
+                        'jumlah' => $jumlahBlok, 'ket' => 'batas ukur dari tabel blok'],
+                    ['nama' => 'Blok mentah', 'kode' => 'BATAS BLOK',
+                        'jumlah' => $jumlahLapis('BATAS BLOK'), 'ket' => 'ruas DXF mentah'],
+                    ['nama' => 'Label perairan', 'kode' => 'BATAS PERAIRAN',
+                        'jumlah' => $jumlahLapis('BATAS PERAIRAN'), 'ket' => 'teks label'],
+                    ['nama' => 'Label nama', 'kode' => 'tn_nama',
+                        'jumlah' => $jumlahLapis('tn_nama'), 'ket' => 'teks nama'],
+                    ['nama' => 'Lain-lain', 'kode' => 'lb_lai',
+                        'jumlah' => $jumlahLapis('lb_lai'), 'ket' => 'teks lain'],
+                ],
+            ],
+            [
+                'judul' => 'Bidang berhak',
+                'lapis' => [
+                    ['nama' => 'Bidang HM', 'kode' => 'BIDANG HM',
+                        'jumlah' => $jumlahLapis('BIDANG HM'), 'ket' => 'poligon hak milik'],
+                    ['nama' => 'Titik tengah HM', 'kode' => 'TITIK TENGAH',
+                        'jumlah' => $jumlahLapis('TITIK TENGAH BIDANG HM'), 'ket' => 'satu titik per bidang'],
+                    ['nama' => 'Garis HM', 'kode' => 'HM',
+                        'jumlah' => $jumlahTipe('HM', 'line'), 'ket' => 'hanya garis terbuka'],
+                    ['nama' => 'Optimalisasi HM', 'kode' => 'OPTIMALISASI HM',
+                        'jumlah' => $jumlahLapis('OPTIMALISASI HM'), 'ket' => 'garis optimalisasi'],
+                ],
+            ],
+            [
+                'judul' => 'Garis turunan',
+                'lapis' => [
+                    ['nama' => 'Jalan', 'kode' => 'GARIS JALAN TEPI',
+                        'jumlah' => $jumlahJalan, 'ket' => 'garis tepi dari semua sumbu'],
+                    ['nama' => 'Selokan', 'kode' => 'GARIS SELOKAN',
+                        'jumlah' => $jumlahSelokan, 'ket' => 'turunan 020100'],
+                    ['nama' => 'Tepi sungai', 'kode' => 'TEPI SUNGAI',
+                        'jumlah' => $jumlahLapis('GARIS TEPI SUNGAI DARI SUMBU'), 'ket' => 'tepi nyata per segmen sumbu'],
+                    ['nama' => 'Sumbu sungai', 'kode' => 'SUMBU SUNGAI',
+                        'jumlah' => ($jumlahSumbuSungai ?? 0) + $jumlahSungaiManual, 'ket' => 'polilin hasil jahit'],
+                    ['nama' => 'Tanpa label', 'kode' => 'GARIS LAIN',
+                        'jumlah' => $jumlahLapis('GARIS LAIN 020100'), 'ket' => 'garis 020100 tanpa kelas'],
+                ],
+            ],
+            [
+                'judul' => 'Turunan sumbu jalan',
+                'lapis' => [
+                    ['nama' => 'Sumbu jalan', 'kode' => 'SUMBU JALAN',
+                        'jumlah' => $jumlahLapis('GARIS JALAN SUMBU DARI LABEL') + $jumlahSumbuManual,
+                        'ket' => 'sumbu bahan; yang digambar lebih sedikit setelah dirapikan'],
+                ],
+            ],
+            [
+                'judul' => 'Lainnya',
+                'lapis' => [
+                    ['nama' => 'Garis luar desa', 'kode' => '010500',
+                        'jumlah' => $jumlahLapis('010500') + $jumlahBatasManual, 'ket' => 'cincin batas desa'],
+                    ['nama' => 'Sisa 020400', 'kode' => '020400',
+                        'jumlah' => $jumlahLapis('020400'), 'ket' => 'arti belum diketahui'],
+                ],
+            ],
+            [
+                'judul' => 'Obyek manual',
+                'lapis' => [
+                    ['nama' => 'Titik obyek', 'kode' => 'GEOJSON',
+                        'jumlah' => $jumlahTitikObyek, 'ket' => 'titik obyek dari alat penanda'],
+                    ['nama' => 'Bidang manual', 'kode' => 'TABEL BIDANG',
+                        'jumlah' => $jumlahBidangManual, 'ket' => 'sumber garis-manual'],
+                ],
+            ],
+            [
+                'judul' => 'Belum terpetakan',
+                'lapis' => [
+                    ['nama' => 'Calon bidang', 'kode' => 'CALON BIDANG',
+                        'jumlah' => $jumlahLapis('CALON BIDANG'), 'ket' => 'garis 020100 hampir tertutup'],
+                ],
+            ],
+            [
+                'judul' => 'Label teks',
+                'lapis' => [
+                    ['nama' => 'Label NIB', 'kode' => 'NIB HM',
+                        'jumlah' => $jumlahLapis('NIB HM'), 'ket' => 'teks NIB'],
+                    ['nama' => 'Label batas desa', 'kode' => 'BATAS DESA',
+                        'jumlah' => $jumlahLapis('BATAS DESA'), 'ket' => 'teks batas desa'],
+                    ['nama' => 'Label blok', 'kode' => 'BLOK',
+                        'jumlah' => $jumlahLapis('BLOK'), 'ket' => 'teks nomor blok'],
+                    ['nama' => 'Label jalan', 'kode' => 'BATAS JALAN',
+                        'jumlah' => $jumlahLapis('BATAS JALAN'), 'ket' => 'teks nama jalan'],
+                ],
+            ],
+        ],
+    ],
+    'blok' => [
+        'judul' => 'Peta Blok',
+        'tautan' => 'peta-blok.php',
+        'ringkas' => 'Peta khusus batas blok beserta jalan dan perairan.',
+        'kelompok' => [
+            [
+                'judul' => 'Batas blok',
+                'lapis' => [
+                    ['nama' => 'Blok ukur', 'warna' => '#14603a',
+                        'jumlah' => $jumlahBlok, 'ket' => 'batas ukur tersedia'],
+                    ['nama' => 'Blok perkiraan', 'warna' => '#a06a12',
+                        'jumlah' => $jumlahBlokPerkiraan, 'ket' => 'batas perkiraan'],
+                ],
+            ],
+            [
+                'judul' => 'Garis label',
+                'lapis' => [
+                    ['nama' => 'Jalan', 'warna' => '#8b7b68',
+                        'jumlah' => $hitungFitur('batas-jalan.geojson'), 'ket' => 'label BATAS JALAN'],
+                    ['nama' => 'Sungai & saluran', 'warna' => '#087b83',
+                        'jumlah' => $hitungFitur('batas-perairan.geojson'), 'ket' => 'label BATAS PERAIRAN'],
+                ],
+            ],
+        ],
+    ],
+];
+
+$hitungLapisToc = static function (array $peta): int {
+    $n = 0;
+    foreach ($peta['kelompok'] as $kelompok) {
+        $n += count($kelompok['lapis']);
+    }
+    return $n;
+};
+
 sip_header('ArcToolbox', 'digitasi');
 ?>
 
@@ -264,7 +481,19 @@ sip_header('ArcToolbox', 'digitasi');
 
 <div class="toolbox-tata-letak">
     <nav class="kartu toolbox-nav" aria-label="Kelompok alat">
-        <h2>Kelompok</h2>
+        <h2>Table of Contents</h2>
+        <ol class="toolbox-nav-toc">
+            <li><a href="#toc-lapisan"><span>Semua lapis</span><b><?= e(angka($hitungLapisToc($toc['bidang']) + $hitungLapisToc($toc['induk']) + $hitungLapisToc($toc['blok']))) ?></b></a></li>
+            <?php foreach ($toc as $kunci => $peta): ?>
+                <li>
+                    <a href="#toc-<?= e($kunci) ?>">
+                        <span><?= e($peta['judul']) ?></span>
+                        <b><?= e(angka($hitungLapisToc($peta))) ?></b>
+                    </a>
+                </li>
+            <?php endforeach; ?>
+        </ol>
+        <h2 class="toolbox-nav-pisah">Kelompok alat</h2>
         <ol>
             <?php foreach ($katalog as $kunci => $bagian): ?>
                 <li>
@@ -278,6 +507,45 @@ sip_header('ArcToolbox', 'digitasi');
     </nav>
 
     <div>
+        <section class="kartu toolbox-bagian toolbox-toc" id="toc-lapisan">
+            <header class="kepala-kartu">
+                <div>
+                    <h2>Table of Contents (Layers)</h2>
+                    <p>Lapis yang tampil di tiap peta. Angka dihitung dari metadata DXF, berkas GeoJSON,
+                        dan basis data saat halaman ini dibuka.</p>
+                </div>
+            </header>
+            <?php foreach ($toc as $kunci => $peta): ?>
+                <div class="toolbox-toc-peta" id="toc-<?= e($kunci) ?>">
+                    <header>
+                        <div>
+                            <h3><?= e($peta['judul']) ?></h3>
+                            <p><?= e($peta['ringkas']) ?></p>
+                        </div>
+                        <a class="toolbox-arah" href="<?= e(sip_url($peta['tautan'])) ?>">Buka peta &rarr;</a>
+                    </header>
+                    <?php foreach ($peta['kelompok'] as $kelompok): ?>
+                        <div class="toolbox-toc-kelompok">
+                            <h4><?= e($kelompok['judul']) ?></h4>
+                            <ul class="toolbox-toc-daftar">
+                                <?php foreach ($kelompok['lapis'] as $lapis): ?>
+                                    <li>
+                                        <i class="toolbox-warna<?= isset($lapis['warna']) ? '' : ' toolbox-warna-kosong' ?>"
+                                            <?= isset($lapis['warna']) ? 'style="background:' . e($lapis['warna']) . '"' : '' ?>></i>
+                                        <span class="toolbox-toc-nama"><?= e($lapis['nama']) ?>
+                                            <?php if (isset($lapis['kode'])): ?><code class="toolbox-kode"><?= e($lapis['kode']) ?></code><?php endif; ?>
+                                        </span>
+                                        <b class="toolbox-toc-jumlah"><?= $lapis['jumlah'] === null ? '&mdash;' : e(angka((int) $lapis['jumlah'])) ?></b>
+                                        <span class="toolbox-toc-ket"><?= e($lapis['ket']) ?></span>
+                                    </li>
+                                <?php endforeach; ?>
+                            </ul>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            <?php endforeach; ?>
+        </section>
+
         <?php foreach ($katalog as $kunci => $bagian): ?>
             <section class="kartu toolbox-bagian" id="alat-<?= e($kunci) ?>">
                 <header class="kepala-kartu">
@@ -339,11 +607,16 @@ sip_header('ArcToolbox', 'digitasi');
 }
 .toolbox-ringkas strong { color: var(--tinta); font-size: 13px; }
 .toolbox-tata-letak { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 18px; align-items: start; }
-.toolbox-nav { position: sticky; top: 86px; padding: 14px; }
+.toolbox-tata-letak > * { min-width: 0; }
+.toolbox-nav {
+    position: sticky; top: 86px; padding: 14px;
+    max-height: calc(100vh - 104px); overflow-y: auto;
+}
 .toolbox-nav h2 {
     margin: 0 0 9px; color: var(--redup); font-size: 10.5px; font-weight: 800;
     text-transform: uppercase; letter-spacing: .8px;
 }
+.toolbox-nav-pisah { margin-top: 16px !important; }
 .toolbox-nav ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
 .toolbox-nav a {
     display: flex; align-items: center; justify-content: space-between; gap: 8px;
@@ -352,11 +625,49 @@ sip_header('ArcToolbox', 'digitasi');
 }
 .toolbox-nav a:hover { background: var(--hijau-muda); color: var(--hijau-tua); }
 .toolbox-nav b { color: var(--redup); font-size: 10.5px; }
+.toolbox-toc { margin-bottom: 18px; }
+.toolbox-toc-peta { padding: 14px 0 2px; border-top: 1px solid var(--garis); scroll-margin-top: 86px; }
+.toolbox-toc-peta:first-of-type { border-top: 0; padding-top: 2px; }
+.toolbox-toc-peta > header {
+    display: flex; flex-wrap: wrap; align-items: baseline;
+    justify-content: space-between; gap: 8px;
+}
+.toolbox-toc-peta > header a { text-decoration: none; }
+.toolbox-toc-peta h3 { margin: 0; color: var(--tinta); font-size: 14px; }
+.toolbox-toc-peta header p { margin: 2px 0 0; color: var(--redup); font-size: 11.5px; }
+.toolbox-toc-kelompok { margin-top: 11px; }
+.toolbox-toc-kelompok h4 {
+    margin: 0 0 4px; color: var(--redup); font-size: 10.5px; font-weight: 800;
+    text-transform: uppercase; letter-spacing: .7px;
+}
+.toolbox-toc-daftar {
+    list-style: none; margin: 0; padding: 0;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 3px 16px;
+}
+.toolbox-toc-daftar li {
+    display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; gap: 2px 7px;
+    align-items: center; padding: 5px 0; border-bottom: 1px dashed var(--garis);
+}
+.toolbox-warna {
+    width: 10px; height: 10px; border-radius: 3px;
+    border: 1px solid rgba(0, 0, 0, .15); align-self: center;
+}
+.toolbox-warna-kosong { background: transparent; border: 1px dashed var(--garis); }
+.toolbox-toc-nama { color: var(--tinta); font-size: 12px; font-weight: 600; }
+.toolbox-kode {
+    padding: 1px 4px; border-radius: 4px; background: #f4f7f5; color: #5b6b64;
+    font: 600 9.5px ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+.toolbox-toc-jumlah {
+    color: var(--tinta); font-size: 11.5px; font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+.toolbox-toc-ket { grid-column: 2 / -1; color: var(--redup); font-size: 10.5px; line-height: 1.45; }
 .toolbox-bagian { scroll-margin-top: 86px; }
 .toolbox-bagian > .kepala-kartu { margin-bottom: 4px; }
-.toolbox-daftar { display: grid; gap: 6px; margin-top: 10px; }
+.toolbox-daftar { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; margin-top: 10px; }
 .toolbox-alat {
-    display: block; padding: 10px 12px; border: 1px solid var(--garis);
+    display: block; min-width: 0; padding: 10px 12px; border: 1px solid var(--garis);
     border-radius: 10px; color: inherit; text-decoration: none;
 }
 a.toolbox-alat:hover { border-color: var(--hijau-garis); background: #fbfdfb; }
@@ -377,8 +688,9 @@ a.toolbox-alat:hover { border-color: var(--hijau-garis); background: #fbfdfb; }
 }
 @media (max-width: 980px) {
     .toolbox-tata-letak { grid-template-columns: 1fr; }
-    .toolbox-nav { position: static; }
+    .toolbox-nav { position: static; max-height: none; }
     .toolbox-nav ol { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .toolbox-nav ol.toolbox-nav-toc { grid-template-columns: 1fr; }
 }
 @media (max-width: 620px) {
     .toolbox-nav ol { grid-template-columns: 1fr; }
