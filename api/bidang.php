@@ -380,7 +380,7 @@ try {
                 'geometry' => $geometry,
                 'properties' => [
                     'id' => (int) $bl['id'],
-                    'kode' => 'BLOK ' . str_pad((string) $bl['nomor'], 2, '0', STR_PAD_LEFT),
+                    'kode' => blok_tiga_digit((string) $bl['kode']),
                     'nomor' => $bl['nomor'] === null ? null : (int) $bl['nomor'],
                     'batas_tersedia' => (int) $bl['batas_tersedia'] === 1,
                     'batas_perkiraan' => (int) $bl['batas_perkiraan'] === 1,
@@ -458,7 +458,7 @@ try {
                     'nomor_daftar' => $b['nomor_daftar'],
                     'luas' => $b['luas_m2'] === null ? null : (float) $b['luas_m2'],
                     'status' => $b['status'],
-                    'blok' => $b['blok'],
+                    'blok' => $b['blok'] === null ? null : blok_tiga_digit($b['blok']),
                     'blok_kandidat' => $b['blok'] === null ? ($kandidat[(int) $b['id']] ?? null) : null,
                     'dusun' => $b['dusun'],
                     'penggunaan' => $b['penggunaan'],

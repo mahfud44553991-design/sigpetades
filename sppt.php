@@ -71,6 +71,9 @@ if (get_str('ekspor') === 'csv') {
         'Luas bangunan', 'NJOP PBB', 'Pajak ditetapkan', 'Terbayar', 'Sisa', 'Status', 'Tanggal bayar',
         'Bidang tertaut'], ';');
     foreach ($baris as $b) {
+        if ($b['blok'] !== null && $b['blok'] !== '') {
+            $b['blok'] = blok_tiga_digit((string) $b['blok']);
+        }
         fputcsv($keluaran, array_values($b), ';');
     }
     fclose($keluaran);
@@ -214,7 +217,7 @@ if ($nopMinta !== '') {
                         <dt class="label-blok">Blok peta</dt>
                         <dd>
                             <?php if ($objek['blok'] !== null): ?>
-                                <a href="<?= e(sip_url('bidang.php', ['blok' => $objek['blok_id']])) ?>"><?= e($objek['blok']) ?></a>
+                                <a href="<?= e(sip_url('bidang.php', ['blok' => $objek['blok_id']])) ?>"><?= e(blok_tiga_digit($objek['blok'])) ?></a>
                                 <span class="kecil redup">(dibaca dari digit 12-14 NOP)</span>
                             <?php else: ?>
                                 <span class="redup">kode blok NOP tidak dikenali</span>
@@ -472,7 +475,7 @@ sip_judul('e-SPPT / PBB', 'Ketetapan PBB tahun ' . $tahun,
                 <select id="p-blok" name="blok">
                     <option value="">Semua blok</option>
                     <?php foreach ($daftarBlok as $b): ?>
-                        <option value="<?= e($b['id']) ?>" <?= $query['blok'] === (string) $b['id'] ? 'selected' : '' ?>><?= e($b['kode']) ?></option>
+                        <option value="<?= e($b['id']) ?>" <?= $query['blok'] === (string) $b['id'] ? 'selected' : '' ?>><?= e(blok_tiga_digit($b['kode'])) ?></option>
                     <?php endforeach; ?>
                 </select>
             </div>
@@ -519,7 +522,7 @@ sip_judul('e-SPPT / PBB', 'Ketetapan PBB tahun ' . $tahun,
                             <div class="kecil redup"><?= e(perpanjang((string) ($s['alamat_op'] ?: ''), 44)) ?></div>
                         </td>
                         <td><?= e($s['dusun'] ?: '—') ?></td>
-                        <td class="nobreak"><?= e($s['blok'] ?: '—') ?></td>
+                        <td class="nobreak"><?= e($s['blok'] ? blok_tiga_digit($s['blok']) : '—') ?></td>
                         <td>
                             <?php if ($s['bidang_id'] !== null): ?>
                                 <a href="<?= e(sip_url('bidang.php', ['id' => (int) $s['bidang_id']])) ?>"><?= e($s['bidang_kode']) ?></a>

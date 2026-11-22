@@ -341,7 +341,7 @@ if ($idMinta !== null) {
                         <dt class="label-blok">Luas</dt><dd><?= e(angka((float) $bidang['luas_m2'], 2)) ?> m&sup2;</dd>
                     </div>
                     <div>
-                        <dt class="label-blok">Blok</dt><dd><?= e($bidang['blok'] ?: '—') ?></dd>
+                        <dt class="label-blok">Blok</dt><dd><?= e($bidang['blok'] ? blok_tiga_digit($bidang['blok']) : '—') ?></dd>
                         <dt class="label-blok">Penggunaan</dt><dd><?= e($bidang['penggunaan'] ?: '—') ?></dd>
                         <dt class="label-blok">Dibuat</dt><dd><?= e(tanggal($bidang['dibuat_pada'])) ?></dd>
                         <dt class="label-blok">Diubah</dt><dd><?= e(tanggal($bidang['diubah_pada'], true)) ?></dd>
@@ -551,7 +551,7 @@ if ($idMinta !== null) {
                                 <select id="f-blok" name="blok_id">
                                     <option value="">Belum ada blok</option>
                                     <?php foreach ($daftarBlok as $b): ?>
-                                        <option value="<?= e($b['id']) ?>" <?= (int) $bidang['blok_id'] === (int) $b['id'] ? 'selected' : '' ?>><?= e($b['kode']) ?></option>
+                                        <option value="<?= e($b['id']) ?>" <?= (int) $bidang['blok_id'] === (int) $b['id'] ? 'selected' : '' ?>><?= e(blok_tiga_digit($b['kode'])) ?></option>
                                     <?php endforeach; ?>
                                 </select>
                             </div>
@@ -823,6 +823,9 @@ if (get_str('ekspor') === 'csv') {
     ], ';');
     $kolomTeks = [0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 19, 20, 21];
     while ($baris !== false && ($row = $baris->fetch(PDO::FETCH_NUM)) !== false) {
+        if ($row[3] !== null && $row[3] !== '') {
+            $row[3] = blok_tiga_digit((string) $row[3]);
+        }
         foreach ($kolomTeks as $index) {
             if (is_string($row[$index]) && preg_match('/^\s*[=+\-@\t\r]/', $row[$index])) {
                 $row[$index] = "'" . $row[$index];
@@ -869,7 +872,7 @@ sip_judul('Bidang tanah', 'Daftar bidang hasil digitasi',
                 <select id="s-blok" name="blok">
                     <option value="">Semua blok</option>
                     <?php foreach ($daftarBlok as $b): ?>
-                        <option value="<?= e($b['kode']) ?>" <?= $query['blok'] === $b['kode'] ? 'selected' : '' ?>><?= e($b['kode']) ?></option>
+                        <option value="<?= e($b['kode']) ?>" <?= $query['blok'] === $b['kode'] ? 'selected' : '' ?>><?= e(blok_tiga_digit($b['kode'])) ?></option>
                     <?php endforeach; ?>
                 </select>
             </div>
@@ -977,7 +980,7 @@ sip_judul('Bidang tanah', 'Daftar bidang hasil digitasi',
                                 <span class="lencana lencana-merah">Belum ada</span>
                             <?php endif; ?>
                         </td>
-                        <td><?= e($b['blok'] ?: '—') ?></td>
+                        <td><?= e($b['blok'] ? blok_tiga_digit($b['blok']) : '—') ?></td>
                         <td><?= e($b['dusun'] ?: '—') ?></td>
                         <td class="angka"><?= e(angka((float) $b['luas_m2'], 2)) ?></td>
                         <td class="nobreak"><?= e($b['nop'] ?: '—') ?></td>

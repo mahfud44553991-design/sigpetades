@@ -140,7 +140,7 @@ sip_judul(
                             aria-label="Pilih blok perkiraan untuk difokuskan">
                         <option value="">Pilih blok perkiraan</option>
                         <?php foreach ($blokPerkiraan as $bl): ?>
-                            <option value="<?= e((string) $bl['nomor']) ?>"><?= e($bl['kode']) ?></option>
+                            <option value="<?= e((string) $bl['nomor']) ?>"><?= e(blok_tiga_digit($bl['kode'])) ?></option>
                         <?php endforeach; ?>
                     </select>
                     <button class="tombol tombol-kecil" type="button" id="fokusBlokPerkiraanBtn">Fokus blok</button>
@@ -2184,8 +2184,9 @@ $naskah = <<<'JS'
 
         const data = await Sip.api('api/bidang.php', { query: { lapisan: 'blok' } });
         const fitur = (data.features || []).find((f) => Number(f.properties.nomor) === nomor);
+        const teksNomor = String(nomor).padStart(3, '0');
         if (!fitur || !fitur.geometry) {
-            throw new Error('Geometri BLOK ' + nomor + ' tidak ditemukan.');
+            throw new Error('Geometri BLOK ' + teksNomor + ' tidak ditemukan.');
         }
 
         const transformasi = JSON.parse(pemilih.dataset.transformasi);
@@ -2213,7 +2214,7 @@ $naskah = <<<'JS'
             coordinates: tambahKoordinat(fitur.geometry.coordinates)
         };
         if (!bounds.isValid()) {
-            throw new Error('Batas koordinat BLOK ' + nomor + ' tidak dapat dihitung.');
+            throw new Error('Batas koordinat BLOK ' + teksNomor + ' tidak dapat dihitung.');
         }
 
         sorotanBlok.clearLayers();
@@ -2222,7 +2223,7 @@ $naskah = <<<'JS'
         }).addTo(sorotanBlok);
         peta.fitBounds(bounds.pad(.12), { maxZoom: 1 });
         document.getElementById('infoLama').textContent =
-            'Peta difokuskan ke BLOK ' + nomor + '. Garis acuan tetap perlu dicocokkan secara visual.';
+            'Peta difokuskan ke BLOK ' + teksNomor + '. Garis acuan tetap perlu dicocokkan secara visual.';
     }
 
     document.getElementById('pusatkanLama').addEventListener('click', pusatkan);

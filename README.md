@@ -9560,6 +9560,39 @@ Setelan peramban dipulihkan ke keadaan semula setelah uji; 0 pesan konsol.
 
 ---
 
+### 3.136 Label blok tiga digit di seluruh tampilan (23 Nov 2026)
+
+Kode blok kini dibaca pengguna sebagai tiga digit ("BLOK 2" tampil
+"BLOK 002", "BLOK 26" tampil "BLOK 026"). Nilai di tabel `blok` tidak
+diubah: `kode` dan `nama` tetap "BLOK 2".."BLOK 26", dan nilai formulir,
+parameter `blok=BLOK 2`, serta pembanding alat CLI tetap memakai kode
+asli. Pemformatan hanya di lapisan tampilan lewat `blok_tiga_digit()`
+(`app/helpers.php`): pola "BLOK <angka>" dirapatkan menjadi tiga digit,
+teks lain (mis. "Tanpa blok") dibiarkan.
+
+Tempat yang ikut berubah: pilihan saring Blok dan legenda per blok di
+`peta.php`, label serta tooltip lapis blok dan properti `blok` GeoJSON
+(`api/bidang.php`), popup dan tabel atribut, kolom Blok di `bidang.php`
+(detail, formulir, saring, tabel, CSV), `sppt.php` (detail, saring,
+tabel, CSV), pilihan blok perkiraan dan pesan fokus `peta-lama.php`,
+kandidat blok di popup peta, serta `blok_nama`/`label` pada
+`api/cari_bidang.php` dan `api/cari_bidang_terdekat.php` dan
+catatan/respons `api/penanda-bidang.php`.
+
+**Pemeriksaan.** `php -l` bersih pada sembilan berkas PHP. Bantuan diuji:
+"BLOK 2" menjadi "BLOK 002", "BLOK 26" menjadi "BLOK 026", "BLOK 002"
+tetap, "Tanpa blok" tetap. `api/bidang.php?lapisan=blok` mengembalikan
+24 fitur "BLOK 002".."BLOK 026"; saringan lama `blok=BLOK 2` tetap
+menemukan bidang (100 baris, batas muat bawaan) dengan properti `blok`
+"BLOK 002". Di peramban: 24 label blok, legenda per blok ("BLOK 002
+320", dan seterusnya), dan 4.326 baris tabel atribut memakai tiga digit;
+pilihan saring bernilai `BLOK 2` dengan teks `BLOK 002`. CSV `bidang.php`
+dan `sppt.php` memuat "BLOK 003"/"BLOK 012". 0 pesan konsol; setelan
+peramban dipulihkan setelah uji. 0 karakter CJK pada sembilan berkas PHP
+dan README.
+
+---
+
 ## 4. Berkas SPPT dari Excel
 
 Importer CSV menerima kolom berikut (nama kolom dibersihkan dari spasi dan tanda

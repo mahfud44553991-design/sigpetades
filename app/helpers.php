@@ -203,6 +203,18 @@ function nomor_blok_dari_nop(?string $nop): ?int
     return intdiv($kode, 10);
 }
 
+/** Label blok untuk dibaca pengguna: "BLOK 2" -> "BLOK 002". Nilai tersimpan
+ * di tabel `blok` dan nilai formulir tetap memakai kode aslinya.
+ */
+function blok_tiga_digit(?string $kode): string
+{
+    $teks = trim((string) $kode);
+    if (preg_match('/^BLOK\s+(\d+)$/i', $teks, $cocok)) {
+        return 'BLOK ' . str_pad($cocok[1], 3, '0', STR_PAD_LEFT);
+    }
+    return $teks;
+}
+
 /** id baris `blok` tempat sebuah NOP berada, atau null bila kodenya kosong. */
 function blok_dari_nop(?string $nop): ?int
 {

@@ -299,7 +299,7 @@ sip_judul(
                             <option value="">Semua blok</option>
                             <option value="__tanpa">Tanpa blok</option>
                             <?php foreach ($blok as $b): ?>
-                                <option value="<?= e($b['kode']) ?>"><?= e($b['kode']) ?></option>
+                                <option value="<?= e($b['kode']) ?>"><?= e(blok_tiga_digit($b['kode'])) ?></option>
                             <?php endforeach; ?>
                         </select>
                     </div>
@@ -632,6 +632,10 @@ $naskah = <<<'JS'
     function nomorBlok(kode) {
         const cocok = String(kode || '').match(/(\d+)/);
         return cocok ? Number(cocok[1]) : 0;
+    }
+
+    function teksBlok(kode) {
+        return String(kode || '').replace(/^BLOK\s+(\d+)$/i, (_, nomor) => 'BLOK ' + nomor.padStart(3, '0'));
     }
 
     // Sudut emas menyebar 25 blok ke seluruh roda warna tanpa dua blok
@@ -1291,10 +1295,10 @@ $naskah = <<<'JS'
         if (!k) return '';
         const bagian = [];
         if (k.tepi && k.tepi.length) {
-            bagian.push('Tepi: ' + k.tepi.map((s) => Sip.esc(s)).join(', '));
+            bagian.push('Tepi: ' + k.tepi.map((s) => Sip.esc(teksBlok(s))).join(', '));
         }
         if (k.terdekat) {
-            bagian.push('Terdekat: ' + Sip.esc(k.terdekat.kode)
+            bagian.push('Terdekat: ' + Sip.esc(teksBlok(k.terdekat.kode))
                 + ' (' + Sip.angka(k.terdekat.jarak_m, 1) + ' m)');
         }
         return bagian.length ? '<p class="petunjuk">Blok kandidat — ' + bagian.join(' &middot; ') + '</p>' : '';

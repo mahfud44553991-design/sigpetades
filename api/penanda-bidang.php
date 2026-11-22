@@ -75,7 +75,7 @@ function catatanPenanda(string $jenis, string $handle, float $x, float $y, ?arra
         $x,
         $y,
         $asal,
-        $blok !== null ? '; blok ' . $blok['kode'] . ' dari titik pusat bidang' : ' dan penetapan blok'
+        $blok !== null ? '; blok ' . blok_tiga_digit($blok['kode']) . ' dari titik pusat bidang' : ' dan penetapan blok'
     );
 }
 
@@ -292,7 +292,7 @@ function catatanGabung(array $anggota, array $titik, ?array $blok): string
         'Dibuat dari %d penanda massal yang digabung pada layer peta induk 020100 (%s); perlu verifikasi%s.',
         count($anggota),
         implode(', ', $daftar),
-        $blok !== null ? '; blok ' . $blok['kode'] . ' dari titik pusat bidang' : ' dan penetapan blok'
+        $blok !== null ? '; blok ' . blok_tiga_digit($blok['kode']) . ' dari titik pusat bidang' : ' dan penetapan blok'
     );
 }
 
@@ -601,13 +601,17 @@ if ($aksi === 'simpan') {
         'handle' => $pratinjau['handle'],
         'penanda' => ['x' => $pratinjau['x'], 'y' => $pratinjau['y']],
         'luas_m2' => round((float) $pratinjau['luas'], 2),
-        'blok' => $blok['kode'] ?? null,
+        'blok' => $blok === null ? null : blok_tiga_digit($blok['kode']),
     ]);
 
     json_ok(
-        ['id' => $id, 'kode' => $pratinjau['kode'], 'blok' => $blok['kode'] ?? null],
+        [
+            'id' => $id,
+            'kode' => $pratinjau['kode'],
+            'blok' => $blok === null ? null : blok_tiga_digit($blok['kode'])
+        ],
         'Bidang baru disimpan sebagai perlu verifikasi'
-            . ($blok !== null ? ' di ' . $blok['kode'] : '') . '.'
+            . ($blok !== null ? ' di ' . blok_tiga_digit($blok['kode']) : '') . '.'
     );
 }
 

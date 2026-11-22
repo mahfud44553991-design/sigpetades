@@ -63,6 +63,7 @@ try {
     json_response([
         'sukses' => true,
         'data' => array_map(function($b) {
+            $blok = blok_tiga_digit($b['blok_nama'] ?? '');
             return [
                 'id' => $b['id'],
                 'kode' => $b['kode'],
@@ -71,13 +72,13 @@ try {
                 'status' => $b['status'],
                 'blok_id' => $b['blok_id'],
                 'dusun_id' => $b['dusun_id'],
-                'blok_nama' => $b['blok_nama'] ?? '',
+                'blok_nama' => $blok,
                 'dusun_nama' => $b['dusun_nama'] ?? '',
                 'pemegang_nama' => $b['pemegang_nama'] ?? '',
                 'jarak_meter' => round((float)$b['jarak_meter'], 2),
                 'label' => $b['kode'] . ' | ' . number_format((float)($b['luas_m2'] ?? 0)) . ' m² | ' . 
                           round((float)$b['jarak_meter'], 0) . 'm' .
-                          ($b['blok_nama'] ? ' | ' . $b['blok_nama'] : '') .
+                          ($blok !== '' ? ' | ' . $blok : '') .
                           ($b['pemegang_nama'] ? ' | ' . $b['pemegang_nama'] : '') .
                           ($b['status'] === 'aktif' ? '' : ' | ' . str_replace('_', ' ', $b['status']))
             ];
