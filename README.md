@@ -9708,6 +9708,93 @@ diisi.
 
 ---
 
+### 3.138 Enam jenis lembar Layout View di Peta Bidang (23 Nov 2026)
+
+**Permintaan.** Layout View diminta menyediakan pilihan jenis peta: Peta
+bidang Desa, Peta bidang per blok, Peta blok, Peta jalan, Peta sungai, dan
+Peta selokan/saluran.
+
+**Pendekatan.** Satu halaman, bukan enam halaman terpisah. Bilah **Lembar**
+di `peta.php` mendapat baris baru "Jenis peta" berisi select `#layoutJenis`
+dengan enam nilai. Tiap jenis punya presets di objek `LEMBAR_PRESET`
+(label, judul bawaan, dan delapan flag lapis dari `LAPIS_LEMBAR`: bidang,
+lain, blok, jalan, selokan, saluran, tepiSaluran, sungai). Memilih jenis
+menyalakan atau mematikan lapis, menulis judul bawaan, dan memusatkan peta
+ke batas lapis yang bersangkutan. Batas desa tidak punya chip dan tetap
+menyala di semua mode seperti sebelumnya. Tidak ada API baru dan tidak ada
+data desa yang diubah; seluruhnya di sisi peramban.
+
+| Jenis (`#layoutJenis`) | Lapis yang menyala | Judul bawaan | Pusat lembar |
+|---|---|---|---|
+| `bidang-desa` | bidang, blok | PETA BIDANG TANAH DESA | batas bidang yang termuat |
+| `bidang-blok` | bidang, blok | PETA BIDANG TANAH BLOK 0NN | garis luar blok terpilih |
+| `blok` | blok | PETA BLOK | seluruh blok |
+| `jalan` | jalan | PETA JALAN | seluruh garis jalan |
+| `sungai` | sungai | PETA SUNGAI | seluruh garis sungai |
+| `saluran` | selokan, saluran, tepi saluran | PETA SELOKAN & SALURAN | gabungan tiga lapis itu |
+
+**Peta bidang per blok.** Pilihan ini memakai satu lembar dengan pemilih
+blok, bukan satu lembar per blok. Setelah jenis `bidang-blok` dipilih,
+isian **Blok** `#layoutBlok` muncul (24 pilihan dari tabel `blok`, teks tiga
+digit) dan lembar dipusatkan ke garis luar blok itu; judulnya menyebut
+bloknya, misalnya `PETA BIDANG TANAH BLOK 002`. Lembar ini **menyaring**
+bidang: hanya bidang yang kode bloknya sama dengan blok terpilih yang
+digambar (`fiturSaringLembar`), dihitung di legenda dan kotak jumlah, lalu
+tetap berlaku saat Saring peta memuat ulang data. Mengganti blok atau
+mengganti jenis menggambar ulang lapis bidang tanpa memuat ulang API. Kode
+di tabel `blok` ("BLOK 2") dan kode bidang dari API ("BLOK 002") berbeda
+penulisan, jadi keduanya dinormalkan dengan `teksBlok()`; `muatBlok()` juga
+menyimpan `kodeBlok` pada tiap grup geometri supaya batas blok bisa dicari
+walau `L.geoJSON` membungkus fiturnya dalam grup. Saat keluar Layout,
+saringan blok dilepas dan seluruh bidang Data View digambar kembali.
+
+**Judul otomatis dan judul ketikan.** Mengganti jenis menulis ulang judul
+bawaan dan mengosongkan subjudul. Mengganti blok menulis ulang judul hanya
+bila judul sekarang masih berupa bawaan (`judulOtomatis`: sama dengan salah
+satu judul preset, atau berawalan judul preset ditambah spasi). Judul
+ketikan pengguna dibiarkan; uji "RENCANA PENATAAN BLOK 005" tetap utuh
+setelah blok diganti ke BLOK 6.
+
+**Data View tidak ikut berubah.** Saat masuk Layout View, flag lapis Data
+View dicadangkan (`ambilLapis`) dan dikembalikan saat keluar
+(`pulihkanLapisDataView`). Selama berada di Layout, `simpanSetelan()` tetap
+menulis flag Data View itu ke `sip.peta.pengaturan.v2`, jadi preset lembar
+hanya berlaku di layar dan tidak menggeser centang pengguna. Uji alur:
+Data View bawaan (bidang, blok, jalan, selokan, saluran, tepi saluran, dan
+sungai menyala) menuju Layout jenis saluran (hanya selokan, saluran, dan
+tepi saluran yang menyala), lalu keluar Layout; centang dan isi localStorage
+kembali utuh.
+
+**Legenda.** Butir legenda bidang dilewati bila kedua lapis bidang mati,
+supaya lembar garis tidak mencetak "Bidang tanah 0". Kotak jumlah di lembar
+menggantinya dengan kalimat seperti "Lembar peta jalan — bidang tanah tidak
+ditampilkan." Legenda hasil uji: Peta blok "Batas blok ukur, Batas desa";
+Peta jalan "Batas desa, Garis jalan"; Peta sungai "Batas desa, Sumbu
+sungai"; Peta selokan/saluran "Batas desa, Garis selokan, Saluran, Tepi
+saluran".
+
+**Pemeriksaan.** `php -l` bersih; blok JS `peta.php` (2.116 baris, 93.775
+bita) lolos `--check`; 0 karakter CJK pada `peta.php`, `app.css`, dan
+README. Jendela peramban saat uji dalam keadaan tersembunyi
+(`document.visibilityState` hidden, lebar isi 0), jadi pemusatan diperiksa
+dari argumen `fitBounds(..., { animate: false })`: bidang-desa
+(-7,10070..-7,06316 / 110,05366..110,08688), blok
+(-7,10025..-7,07256), jalan (-7,10107..-7,07388), sungai
+(-7,09984..-7,07593), saluran (-7,10106..-7,07638), bidang-blok BLOK 004
+(-7,07900..-7,07335 / 110,07551..110,08223) dan BLOK 005
+(-7,08211..-7,07616 / 110,07468..110,08635). Saringan blok diuji lewat
+`L.geoJSON` yang dibungkus: BLOK 002 menghasilkan 320 bidang (semua
+`BLOK 002`, legenda dan `#infoMuat` 320), BLOK 004 132 bidang, BLOK 021 333
+bidang; jenis bidang Desa kembali ke 4.326 bidang (24 blok + 1 tanpa blok).
+Keenam opsi tampil; isian Blok hanya tampil pada jenis `bidang-blok`; judul
+dan centang berubah sesuai presets; lembar garis mengisi `#infoMuat` dengan
+"Lembar peta jalan: bidang tanah tidak ditampilkan."; keluar Layout
+mengembalikan 4.326 bidang dan centang Data View; 0 pesan konsol. Pemilih
+diberi gaya yang sama dengan isian lain (`.layout-lapangan select`, tinggi
+30 px, lebar 190 px). Tidak ada perubahan basis data, API, atau berkas data.
+
+---
+
 ## 5. Menjalankan saat pengembangan tanpa Apache
 
 Server bawaan PHP mengabaikan `.htaccess`, jadi pakai router yang menutup folder

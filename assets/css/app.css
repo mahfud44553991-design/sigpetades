@@ -487,7 +487,8 @@ body.tampilan-layout .kartu-peta .kepala-kartu { display: none; }
     display: flex; flex-direction: column; gap: 2px;
     font-size: 10.5px; font-weight: 700; color: #4e5e57;
 }
-.layout-lapangan input { height: 30px; width: 190px; font-size: 12px; }
+.layout-lapangan input,
+.layout-lapangan select { height: 30px; width: 190px; font-size: 12px; }
 .layout-catatan { margin-left: auto; font-size: 10.5px; color: var(--redup); }
 
 /* Simbol garis per lapis (peta.php) */

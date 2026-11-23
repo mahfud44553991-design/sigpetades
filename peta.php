@@ -69,6 +69,27 @@ sip_judul(
 
             <div class="peta-layout-alat" id="layoutAlat" hidden>
                 <div class="layout-baris">
+                    <span class="peta-nav-label">Jenis peta</span>
+                    <label class="layout-lapangan" for="layoutJenis">Jenis lembar
+                        <select id="layoutJenis">
+                            <option value="bidang-desa">Peta bidang Desa</option>
+                            <option value="bidang-blok">Peta bidang per blok</option>
+                            <option value="blok">Peta blok</option>
+                            <option value="jalan">Peta jalan</option>
+                            <option value="sungai">Peta sungai</option>
+                            <option value="saluran">Peta selokan/saluran</option>
+                        </select>
+                    </label>
+                    <label class="layout-lapangan" for="layoutBlok" id="layoutBlokLapangan" hidden>Blok
+                        <select id="layoutBlok">
+                            <?php foreach ($blok as $b): ?>
+                                <option value="<?= e($b['kode']) ?>"><?= e(blok_tiga_digit($b['kode'])) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </label>
+                    <span class="layout-catatan">Jenis peta mengatur lapisan, judul, dan pusat lembar.</span>
+                </div>
+                <div class="layout-baris">
                     <span class="peta-nav-label">Lembar</span>
                     <label class="layout-lapangan" for="layoutJudul">Judul
                         <input type="text" id="layoutJudul" maxlength="80" autocomplete="off">
@@ -510,10 +531,49 @@ $naskah = <<<'JS'
         bidang: true, lain: false, blok: true, batas: true, laporan: false,
         jalan: true, selokan: true, saluran: true, tepiSaluran: true, sungai: true, tampilan: null,
         garis: GARIS_BAWAAN,
-        layout: { judul: '', subjudul: '', utara: true, legenda: true, skalaBatang: true }
+        layout: {
+            jenis: 'bidang-desa', blok: '', judul: '', subjudul: '',
+            utara: true, legenda: true, skalaBatang: true
+        }
     };
     const MODE = ['blok', 'tipe', 'hak', 'pbb', 'status'];
     const ISI_LABEL = ['pemegang', 'kode', 'luas'];
+    // Enam jenis lembar Layout View. Lapis menentukan chip yang dinyalakan;
+    // judul hanya dipakai saat jenis diganti, bukan setiap kali masuk Layout.
+    const JENIS_LEMBAR = ['bidang-desa', 'bidang-blok', 'blok', 'jalan', 'sungai', 'saluran'];
+    const LEMBAR_PRESET = {
+        'bidang-desa': {
+            label: 'Peta bidang Desa',
+            judul: 'PETA BIDANG TANAH DESA',
+            lapis: { bidang: true, lain: false, blok: true, jalan: false, selokan: false, saluran: false, tepiSaluran: false, sungai: false }
+        },
+        'bidang-blok': {
+            label: 'Peta bidang per blok',
+            judul: 'PETA BIDANG TANAH',
+            lapis: { bidang: true, lain: false, blok: true, jalan: false, selokan: false, saluran: false, tepiSaluran: false, sungai: false }
+        },
+        blok: {
+            label: 'Peta blok',
+            judul: 'PETA BLOK',
+            lapis: { bidang: false, lain: false, blok: true, jalan: false, selokan: false, saluran: false, tepiSaluran: false, sungai: false }
+        },
+        jalan: {
+            label: 'Peta jalan',
+            judul: 'PETA JALAN',
+            lapis: { bidang: false, lain: false, blok: false, jalan: true, selokan: false, saluran: false, tepiSaluran: false, sungai: false }
+        },
+        sungai: {
+            label: 'Peta sungai',
+            judul: 'PETA SUNGAI',
+            lapis: { bidang: false, lain: false, blok: false, jalan: false, selokan: false, saluran: false, tepiSaluran: false, sungai: true }
+        },
+        saluran: {
+            label: 'Peta selokan/saluran',
+            judul: 'PETA SELOKAN & SALURAN',
+            lapis: { bidang: false, lain: false, blok: false, jalan: false, selokan: true, saluran: true, tepiSaluran: true, sungai: false }
+        }
+    };
+    const LAPIS_LEMBAR = ['bidang', 'lain', 'blok', 'jalan', 'selokan', 'saluran', 'tepiSaluran', 'sungai'];
     const BATAS_LABEL = 1500;
     const ZOOM_LABEL = 14;
 
@@ -534,6 +594,8 @@ $naskah = <<<'JS'
     function rapikanLayout(isi) {
         const l = isi && typeof isi === 'object' ? isi : {};
         return {
+            jenis: JENIS_LEMBAR.indexOf(l.jenis) >= 0 ? l.jenis : 'bidang-desa',
+            blok: typeof l.blok === 'string' ? l.blok.slice(0, 40) : '',
             judul: typeof l.judul === 'string' ? l.judul.slice(0, 80) : '',
             subjudul: typeof l.subjudul === 'string' ? l.subjudul.slice(0, 140) : '',
             utara: l.utara !== false,
@@ -570,7 +632,14 @@ $naskah = <<<'JS'
     let setelan = bacaSetelan();
 
     function simpanSetelan() {
-        try { localStorage.setItem(KUNCI, JSON.stringify(setelan)); } catch (e) { /* mode privat */ }
+        try {
+            // Selama Layout View, yang tersimpan tetap pilihan lapis Data View;
+            // preset lembar hanya berlaku sementara di layar.
+            const isi = modeTampilan === 'layout' && lapisSebelumLembar
+                ? Object.assign({}, setelan, lapisSebelumLembar)
+                : setelan;
+            localStorage.setItem(KUNCI, JSON.stringify(isi));
+        } catch (e) { /* mode privat */ }
     }
 
     const peta = L.map('peta').setView([SIP.peta.lat, SIP.peta.lon], SIP.peta.zoom);
@@ -712,6 +781,9 @@ $naskah = <<<'JS'
     const skalaBatangGaris = document.getElementById('skalaBatangGaris');
     const skalaBatangTeks = document.getElementById('skalaBatangTeks');
     const layoutAlat = document.getElementById('layoutAlat');
+    const layoutJenis = document.getElementById('layoutJenis');
+    const layoutBlok = document.getElementById('layoutBlok');
+    const layoutBlokLapangan = document.getElementById('layoutBlokLapangan');
     const layoutJudul = document.getElementById('layoutJudul');
     const layoutSubjudul = document.getElementById('layoutSubjudul');
     const layoutUtara = document.getElementById('layoutUtara');
@@ -756,16 +828,28 @@ $naskah = <<<'JS'
     const atributBersihkan = document.getElementById('atributBersihkan');
     const atributTutup = document.getElementById('atributTutup');
     let modeTampilan = 'data';
+    let siapAwal = false;
+    let lapisSebelumLembar = null;
+    let penyegaranLembar = 0;
+    // Teks blok "BLOK 0NN" yang menyaring lembar per blok; null = tanpa saringan.
+    let blokLembar = null;
     const dataLapisan = { tanah: null, lain: null };
     const filterLapisan = { tanah: null, lain: null };
     const tampil = new Map();
     let terpotong = false;
     let sudahMemusat = false;
 
+    // Lembar "Peta bidang per blok" hanya menggambar bidang milik blok yang
+    // dipilih; kode blok bidang ("BLOK 2") disamakan dengan teks pilihan.
+    function fiturSaringLembar(fitur) {
+        if (!blokLembar) return fitur;
+        return fitur.filter((f) => teksBlok(f.properties.blok) === blokLembar);
+    }
+
     function fiturTampil() {
         const hasil = [];
-        if (setelan.bidang && dataLapisan.tanah) hasil.push.apply(hasil, dataLapisan.tanah);
-        if (setelan.lain && dataLapisan.lain) hasil.push.apply(hasil, dataLapisan.lain);
+        if (setelan.bidang && dataLapisan.tanah) hasil.push.apply(hasil, fiturSaringLembar(dataLapisan.tanah));
+        if (setelan.lain && dataLapisan.lain) hasil.push.apply(hasil, fiturSaringLembar(dataLapisan.lain));
         return hasil;
     }
 
@@ -787,37 +871,41 @@ $naskah = <<<'JS'
         };
         const baris = [];
 
-        if (setelan.warna === 'blok') {
-            const perBlok = new Map();
-            fitur.forEach((f) => {
-                const kode = f.properties.blok || 'Tanpa blok';
-                perBlok.set(kode, (perBlok.get(kode) || 0) + 1);
-            });
-            Array.from(perBlok.keys())
-                .sort((a, b) => nomorBlok(a) - nomorBlok(b))
-                .forEach((kode) => {
-                    baris.push(butir(kode === 'Tanpa blok' ? WARNA.abu : warnaBlok(kode), kode, perBlok.get(kode)));
+        // Lembar garis (jalan/sungai/saluran) tidak memuat bidang tanah, jadi
+        // butir legenda bidang dilewati agar tidak tercetak angka nol.
+        if (setelan.bidang || setelan.lain) {
+            if (setelan.warna === 'blok') {
+                const perBlok = new Map();
+                fitur.forEach((f) => {
+                    const kode = f.properties.blok || 'Tanpa blok';
+                    perBlok.set(kode, (perBlok.get(kode) || 0) + 1);
                 });
-        } else if (setelan.warna === 'tipe') {
-            baris.push(butir(WARNA.hijau, 'Bidang tanah', hitungDengan((p) => p.tipe === 'tanah')));
-        } else if (setelan.warna === 'pbb') {
-            baris.push(butir(WARNA.hijau, 'PBB lunas', hitungDengan((p) => p.pbb === 'Lunas')));
-            baris.push(butir(WARNA.kuning, 'PBB sebagian', hitungDengan((p) => p.pbb === 'Sebagian')));
-            baris.push(butir(WARNA.merah, 'PBB belum bayar', hitungDengan((p) => p.pbb === 'Belum Bayar')));
-            baris.push(butir(WARNA.abu, 'Tanpa SPPT', hitungDengan((p) => !p.pbb)));
-            if (!fitur.some((f) => f.properties.pbb)) {
-                baris.push('<span class="legenda-catatan">Belum ada NOP yang tertaut ke bidang; rekap PBB ada di halaman e-SPPT.</span>');
+                Array.from(perBlok.keys())
+                    .sort((a, b) => nomorBlok(a) - nomorBlok(b))
+                    .forEach((kode) => {
+                        baris.push(butir(kode === 'Tanpa blok' ? WARNA.abu : warnaBlok(kode), kode, perBlok.get(kode)));
+                    });
+            } else if (setelan.warna === 'tipe') {
+                baris.push(butir(WARNA.hijau, 'Bidang tanah', hitungDengan((p) => p.tipe === 'tanah')));
+            } else if (setelan.warna === 'pbb') {
+                baris.push(butir(WARNA.hijau, 'PBB lunas', hitungDengan((p) => p.pbb === 'Lunas')));
+                baris.push(butir(WARNA.kuning, 'PBB sebagian', hitungDengan((p) => p.pbb === 'Sebagian')));
+                baris.push(butir(WARNA.merah, 'PBB belum bayar', hitungDengan((p) => p.pbb === 'Belum Bayar')));
+                baris.push(butir(WARNA.abu, 'Tanpa SPPT', hitungDengan((p) => !p.pbb)));
+                if (!fitur.some((f) => f.properties.pbb)) {
+                    baris.push('<span class="legenda-catatan">Belum ada NOP yang tertaut ke bidang; rekap PBB ada di halaman e-SPPT.</span>');
+                }
+            } else if (setelan.warna === 'status') {
+                baris.push(butir(WARNA.hijau, 'Aktif', hitungDengan((p) => p.status === 'aktif')));
+                baris.push(butir(WARNA.kuning, 'Perlu verifikasi', hitungDengan((p) => p.status === 'perlu_verifikasi')));
+                baris.push(butir(WARNA.gelap, 'Duplikat', hitungDengan((p) => p.status === 'duplikat')));
+                baris.push(butir(WARNA.abu, 'Lainnya', hitungDengan((p) => ['aktif', 'perlu_verifikasi', 'duplikat'].indexOf(p.status) < 0)));
+            } else {
+                baris.push(butir(WARNA.hijau, 'Hak Milik', hitungDengan((p) => p.hak_kode === 'HM')));
+                baris.push(butir(WARNA.biru, 'Hak Pakai / HGB / HGU', hitungDengan((p) => ['HP', 'HGB', 'HGU'].indexOf(p.hak_kode) >= 0)));
+                baris.push(butir(WARNA.coklat, 'Milik desa / Buku C', hitungDengan((p) => ['KDH', 'BCD'].indexOf(p.hak_kode) >= 0)));
+                baris.push(butir(WARNA.abu, 'Belum tercatat', hitungDengan((p) => !p.hak_kode || ['HM', 'HP', 'HGB', 'HGU', 'KDH', 'BCD'].indexOf(p.hak_kode) < 0)));
             }
-        } else if (setelan.warna === 'status') {
-            baris.push(butir(WARNA.hijau, 'Aktif', hitungDengan((p) => p.status === 'aktif')));
-            baris.push(butir(WARNA.kuning, 'Perlu verifikasi', hitungDengan((p) => p.status === 'perlu_verifikasi')));
-            baris.push(butir(WARNA.gelap, 'Duplikat', hitungDengan((p) => p.status === 'duplikat')));
-            baris.push(butir(WARNA.abu, 'Lainnya', hitungDengan((p) => ['aktif', 'perlu_verifikasi', 'duplikat'].indexOf(p.status) < 0)));
-        } else {
-            baris.push(butir(WARNA.hijau, 'Hak Milik', hitungDengan((p) => p.hak_kode === 'HM')));
-            baris.push(butir(WARNA.biru, 'Hak Pakai / HGB / HGU', hitungDengan((p) => ['HP', 'HGB', 'HGU'].indexOf(p.hak_kode) >= 0)));
-            baris.push(butir(WARNA.coklat, 'Milik desa / Buku C', hitungDengan((p) => ['KDH', 'BCD'].indexOf(p.hak_kode) >= 0)));
-            baris.push(butir(WARNA.abu, 'Belum tercatat', hitungDengan((p) => !p.hak_kode || ['HM', 'HP', 'HGB', 'HGU', 'KDH', 'BCD'].indexOf(p.hak_kode) < 0)));
         }
 
         if (setelan.blok) {
@@ -849,6 +937,12 @@ $naskah = <<<'JS'
     // judul, legenda, skala, arah utara; cetak lewat dialog peramban (A4 lanskap).
     function salinLegenda() {
         lembarLegendaIsi.innerHTML = document.getElementById('legendaPeta').innerHTML;
+        if (!setelan.bidang && !setelan.lain) {
+            const preset = LEMBAR_PRESET[setelan.layout.jenis] || LEMBAR_PRESET['bidang-desa'];
+            lembarJumlah.textContent = 'Lembar ' + preset.label.toLowerCase()
+                + ' — bidang tanah tidak ditampilkan.';
+            return;
+        }
         const jumlah = (hitung.textContent || '').trim();
         lembarJumlah.textContent = jumlah && jumlah !== '0'
             ? 'Bidang pada tampilan ini: ' + jumlah
@@ -896,6 +990,10 @@ $naskah = <<<'JS'
         lembarUtara.hidden = !l.utara;
         lembarLegenda.hidden = !l.legenda;
         lembarSkalaBatang.hidden = !l.skalaBatang;
+        layoutJenis.value = l.jenis;
+        if (l.blok) layoutBlok.value = l.blok;
+        if (!layoutBlok.value && layoutBlok.options.length) layoutBlok.selectedIndex = 0;
+        layoutBlokLapangan.hidden = l.jenis !== 'bidang-blok';
         layoutJudul.value = l.judul;
         layoutSubjudul.value = l.subjudul;
         layoutUtara.checked = l.utara;
@@ -926,7 +1024,9 @@ $naskah = <<<'JS'
     }
 
     function aturModeTampilan(mode) {
-        modeTampilan = mode === 'layout' ? 'layout' : 'data';
+        const baru = mode === 'layout' ? 'layout' : 'data';
+        const keluarLembar = modeTampilan === 'layout' && baru === 'data';
+        modeTampilan = baru;
         const layout = modeTampilan === 'layout';
         document.body.classList.toggle('tampilan-layout', layout);
         modeData.classList.toggle('aktif', !layout);
@@ -942,11 +1042,147 @@ $naskah = <<<'JS'
         if (layout) {
             if (ukurAktif) aturUkur(false);
             if (koordinatAktif) aturKoordinat(false);
+            if (!lapisSebelumLembar) lapisSebelumLembar = ambilLapis();
+            if (siapAwal) terapkanJenisLembar(true, !setelan.layout.judul);
             perbaruiSkalaLembar();
             perbaruiSkalaBatang();
             salinLegenda();
+        } else if (keluarLembar) {
+            pulihkanLapisDataView();
         }
         window.setTimeout(() => peta.invalidateSize(), 60);
+    }
+
+    function ambilLapis() {
+        const hasil = {};
+        LAPIS_LEMBAR.forEach((k) => { hasil[k] = !!setelan[k]; });
+        return hasil;
+    }
+
+    // Lembar "per blok" memakai garis luar blok terpilih sebagai bingkai peta.
+    // Kode di tabel blok ("BLOK 2") dan di GeoJSON blok ("BLOK 002") berbeda
+    // penulisan, jadi keduanya dinormalkan dengan teksBlok().
+    function batasBlokKode(kode) {
+        const cari = teksBlok(kode);
+        const b = L.latLngBounds([]);
+        grup.blok.eachLayer((l) => {
+            const kodeLapis = l.kodeBlok
+                || (l.feature && l.feature.properties ? l.feature.properties.kode : '');
+            if (teksBlok(kodeLapis) === cari && l.getBounds) b.extend(l.getBounds());
+        });
+        return b;
+    }
+
+    // Judul yang masih berupa bawaan presets boleh ditimpa saat jenis/blok
+    // berganti; judul ketikan pengguna dibiarkan.
+    function judulOtomatis(teks) {
+        const t = String(teks || '').trim();
+        if (!t) return true;
+        return Object.keys(LEMBAR_PRESET).some((k) => {
+            const judul = LEMBAR_PRESET[k].judul;
+            return t === judul || t.indexOf(judul + ' ') === 0;
+        });
+    }
+
+    function judulJenisLembar(jenis) {
+        const preset = LEMBAR_PRESET[jenis] || LEMBAR_PRESET['bidang-desa'];
+        if (jenis !== 'bidang-blok') return preset.judul;
+        const opt = layoutBlok.options[layoutBlok.selectedIndex];
+        const teks = opt ? opt.textContent.trim() : '';
+        return teks ? preset.judul + ' ' + teks : preset.judul;
+    }
+
+    function pusatkanJenisLembar(jenis) {
+        let b = L.latLngBounds([]);
+        if (jenis === 'bidang-blok') {
+            b = batasBlokKode(setelan.layout.blok);
+            if (!b.isValid()) b = batasTampil();
+            if (!b.isValid()) b = batasGrup(grup.blok);
+        } else if (jenis === 'bidang-desa') {
+            b = batasTampil();
+        } else if (jenis === 'blok') {
+            b = batasGrup(grup.blok);
+        } else if (jenis === 'jalan') {
+            b = batasGrup(grup.jalan);
+        } else if (jenis === 'sungai') {
+            b = batasGrup(grup.sungai);
+        } else if (jenis === 'saluran') {
+            ['selokan', 'saluran', 'tepiSaluran'].forEach((k) => b.extend(batasGrup(grup[k])));
+        }
+        if (!b.isValid()) b = batasTampil();
+        if (b.isValid()) peta.fitBounds(b.pad(jenis === 'bidang-blok' ? .1 : .05), { animate: false });
+    }
+
+    // Jenis peta hanya berlaku selama Layout View. Lapis Data View dicadangkan
+    // saat masuk dan dikembalikan saat keluar.
+    async function terapkanJenisLembar(pusatkan = true, tulisJudul = false) {
+        const jenis = setelan.layout.jenis;
+        const preset = LEMBAR_PRESET[jenis] || LEMBAR_PRESET['bidang-desa'];
+        const tanda = ++penyegaranLembar;
+        const bidangSebelum = !!setelan.bidang || !!setelan.lain;
+        LAPIS_LEMBAR.forEach((k) => { setelan[k] = !!preset.lapis[k]; });
+        if (jenis === 'bidang-blok' && layoutBlok.value) setelan.layout.blok = layoutBlok.value;
+        const bidangBerubah = bidangSebelum !== (!!setelan.bidang || !!setelan.lain);
+        // Lembar per blok hanya menggambar bidang milik blok yang dipilih.
+        const blokBaru = jenis === 'bidang-blok' && setelan.layout.blok
+            ? teksBlok(setelan.layout.blok) : null;
+        const blokBerubah = blokBaru !== blokLembar;
+        blokLembar = blokBaru;
+        if (tulisJudul) {
+            setelan.layout.judul = judulJenisLembar(jenis);
+            setelan.layout.subjudul = '';
+        }
+        simpanSetelan();
+
+        const tugas = [];
+        if (setelan.blok && !grup.blok.getLayers().length) tugas.push(muatBlok());
+        if (setelan.jalan && !grup.jalan.getLayers().length) tugas.push(muatJalan());
+        if (setelan.selokan && !grup.selokan.getLayers().length) tugas.push(muatSelokan());
+        if (setelan.saluran && !grup.saluran.getLayers().length) tugas.push(muatSaluran());
+        if (setelan.tepiSaluran && !grup.tepiSaluran.getLayers().length) tugas.push(muatTepiSaluran());
+        if (setelan.sungai && !grup.sungai.getLayers().length) tugas.push(muatSungai());
+        await Promise.all(tugas.map((t) => t.catch((err) => Sip.pesan(err.message, 'gagal'))));
+        if (tanda !== penyegaranLembar) return;
+
+        let muatUlang = false;
+        if (setelan.bidang && !dataLapisan.tanah) {
+            muatUlang = true;
+            await muatBidang(false).catch(gagalMuat);
+            if (tanda !== penyegaranLembar) return;
+        }
+        if ((blokBerubah || bidangBerubah) && !muatUlang) {
+            if (setelan.bidang && dataLapisan.tanah) gambarLapisan('tanah');
+            if (setelan.lain && dataLapisan.lain) gambarLapisan('lain');
+            segarkanTanpaMuat();
+            if (!setelan.bidang && !setelan.lain) {
+                info.textContent = 'Lembar ' + preset.label.toLowerCase()
+                    + ': bidang tanah tidak ditampilkan.';
+            }
+        }
+        terapkanSetelan();
+        aktifkan('bidang', setelan.bidang);
+        aktifkan('lain', false);
+        gambarLegenda();
+        if (pusatkan) pusatkanJenisLembar(jenis);
+    }
+
+    function pulihkanLapisDataView() {
+        if (!lapisSebelumLembar) return;
+        const f = lapisSebelumLembar;
+        lapisSebelumLembar = null;
+        const adaSaring = blokLembar !== null;
+        blokLembar = null;
+        LAPIS_LEMBAR.forEach((k) => { setelan[k] = !!f[k]; });
+        simpanSetelan();
+        terapkanSetelan();
+        aktifkan('bidang', setelan.bidang);
+        aktifkan('lain', setelan.lain);
+        if (adaSaring) {
+            if (dataLapisan.tanah) gambarLapisan('tanah');
+            if (dataLapisan.lain) gambarLapisan('lain');
+            segarkanTanpaMuat();
+        }
+        if (setelan.bidang && !dataLapisan.tanah) muatBidang(false).catch(gagalMuat);
     }
 
     // Alat ukur: klak-klik menambah titik, Escape atau Tutup mengakhiri.
@@ -1437,7 +1673,7 @@ $naskah = <<<'JS'
 
     function gambarLapisan(tipe) {
         kosongkanLapisan(tipe);
-        const fitur = dataLapisan[tipe] || [];
+        const fitur = fiturSaringLembar(dataLapisan[tipe] || []);
         if (!fitur.length) return;
         const kunci = tipe === 'tanah' ? 'bidang' : 'lain';
         L.geoJSON({ type: 'FeatureCollection', features: fitur }, {
@@ -1534,6 +1770,7 @@ $naskah = <<<'JS'
         grup.blok.clearLayers();
         (data.features || []).forEach((f) => {
             const geometri = L.geoJSON(f, { pane: 'pane-blok' });
+            geometri.kodeBlok = f.properties.kode;
             if (!f.properties.batas_perkiraan) {
                 geometri.setStyle(gayaBlok(f.properties));
                 geometri.bindTooltip(f.properties.kode + ' — batas ukur', { sticky: true })
@@ -2001,6 +2238,19 @@ $naskah = <<<'JS'
         lembarSubjudul.textContent = layoutSubjudul.value.trim() || SUBJUDUL_BAWAAN;
     });
     layoutSubjudul.addEventListener('change', simpanSetelan);
+    layoutJenis.addEventListener('change', () => {
+        setelan.layout.jenis = layoutJenis.value;
+        layoutBlokLapangan.hidden = setelan.layout.jenis !== 'bidang-blok';
+        simpanSetelan();
+        terapkanJenisLembar(true, true);
+    });
+    layoutBlok.addEventListener('change', () => {
+        setelan.layout.blok = layoutBlok.value;
+        simpanSetelan();
+        if (setelan.layout.jenis === 'bidang-blok') {
+            terapkanJenisLembar(true, judulOtomatis(setelan.layout.judul));
+        }
+    });
     [[layoutUtara, 'utara'], [layoutLegenda, 'legenda'], [layoutSkalaBatang, 'skalaBatang']].forEach((pasangan) => {
         pasangan[0].addEventListener('change', () => {
             setelan.layout[pasangan[1]] = pasangan[0].checked;
@@ -2373,7 +2623,10 @@ $naskah = <<<'JS'
     if (setelan.saluran) muatSaluran().catch((err) => console.warn('Saluran gagal dimuat:', err));
     if (setelan.tepiSaluran) muatTepiSaluran().catch((err) => console.warn('Tepi saluran gagal dimuat:', err));
     if (setelan.sungai) muatSungai().catch((err) => console.warn('Sungai gagal dimuat:', err));
-    muatBidang().catch(gagalMuat);
+    muatBidang().catch(gagalMuat).then(() => {
+        siapAwal = true;
+        if (modeTampilan === 'layout') terapkanJenisLembar(true, !setelan.layout.judul);
+    });
 })();
 </script>
 JS;
