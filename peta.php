@@ -107,7 +107,7 @@ sip_judul(
                 <button type="button" class="nav-tombol aktif" id="navGeser" aria-pressed="true"
                     title="Geser peta dengan menarik. Matikan bila klik tidak boleh menggeser peta.">Pan</button>
                 <button type="button" class="nav-tombol" id="navPenuh"
-                    title="Tampilkan seluruh data yang termuat di peta">Full Extent</button>
+                    title="Tampilkan seluruh data yang termuat di peta">Pusatkan</button>
                 <button type="button" class="nav-tombol" id="navSebelum" disabled
                     title="Kembali ke tampilan peta sebelumnya">&larr; Sebelum</button>
                 <button type="button" class="nav-tombol" id="navSesudah" disabled

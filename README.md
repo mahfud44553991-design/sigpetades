@@ -9309,12 +9309,12 @@ dikerjakan lebih dulu **navigasi dan atribut**; Add Data ditunda karena SHP
 dan raster membutuhkan pustaka baru dan basemap sudah punya pemilih sendiri.
 
 **Isi peta.** Bilah **Navigasi** muncul di bawah bilah Tampilan pada
-`peta.php`, berisi delapan tombol: Zoom In, Zoom Out, Pan, Full Extent,
+`peta.php`, berisi delapan tombol: Zoom In, Zoom Out, Pan, Pusatkan,
 Sebelum, Sesudah, Pilih, dan Tabel atribut. Tombol memakai bentuk pil yang
 sama dengan bilah Tampilan; Pan menyala secara bawaan.
 
 **Riwayat pandangan.** Setiap `moveend` mencatat pusat dan tingkat zoom, jadi
-zoom, geser, pemusatan ke bidang, dan Full Extent semuanya masuk riwayat.
+zoom, geser, pemusatan ke bidang, dan Pusatkan semuanya masuk riwayat.
 Catatan yang sama tidak ditulis dua kali, dan melangkah dengan Sebelum/Sesudah
 tidak menambah catatan baru. Riwayat menyimpan 60 pandangan terakhir; setelah
 melangkah mundur, pandangan baru memotong cabang maju. Tombol nonaktif bila
@@ -9325,7 +9325,8 @@ bidang menjadikan pandangannya titik awal, bukan tujuan tombol Sebelum. Bila
 pandangan tersimpan sudah ada, peta dipasang tanpa animasi supaya pandangan itu
 tercatat sekali, bukan dua kali (pusat lama lalu pusat baru).
 
-**Full Extent.** Batas dihitung dari geometri yang sedang tampil. Bila bidang
+**Pusatkan.** Tombol ini dulu berlabel Full Extent (diganti 23 Nov 2026).
+Batas dihitung dari geometri yang sedang tampil. Bila bidang
 belum termuat, batas blok dan lapis garis yang aktif dipakai sebagai cadangan;
 bila tidak ada apa pun, peta kembali ke pusat bawaan desa. Perpindahan memakai
 animasi halus tanpa memuat ulang data.
@@ -9351,7 +9352,7 @@ tampil, **Bersihkan pilihan** melepasnya, dan **Tutup** menyembunyikan kartu.
 Tabel tidak dapat disunting; isinya mengikuti Saring peta yang sudah ada.
 
 **ArcToolbox.** Navigasi kiri mendapat dua butir di kelompok Peta: "Navigasi
-peta" berisi 5 (Zoom In, Zoom Out, Pan, Full Extent, Previous/Next Extent) dan
+peta" berisi 5 (Zoom In, Zoom Out, Pan, Pusatkan, Previous/Next Extent) dan
 "Seleksi & tabel atribut" berisi 2. Dua bagian baru: `#navigasi-peta` dengan
 empat kartu dan `#seleksi-atribut` dengan dua kartu. Catatan bagian menyebut
 bahwa Select by Attribute sepadan dengan kartu Saring peta, dan Add Data untuk
@@ -9365,9 +9366,9 @@ tidak ada berkas data yang diubah. `peta.php` menjadi 1.941 baris (+298),
 (1.527 baris) lolos `--check`. Di peramban dengan sesi login (lebar 861 px):
 8 tombol navigasi, Sebelum dan Sesudah nonaktif saat halaman selesai dimuat;
 Zoom Out mengubah skala 1 : 35.800 menjadi 1 : 71.700, Sebelum kembali ke
-35.800, Sesudah maju lagi ke 71.700; Full Extent memindahkan pusat peta;
-Pan melepas dan memasang `tanpa-geser`; klik bidang dalam mode Pilih
-menghasilkan "Pilih · 1", 0 popup; tabel menampilkan 4.326 bidang dan 500
+35.800, Sesudah maju lagi ke 71.700; Pusatkan (dulu Full Extent) memindahkan
+pusat peta; Pan melepas dan memasang `tanpa-geser`; klik bidang dalam mode
+Pilih menghasilkan "Pilih · 1", 0 popup; tabel menampilkan 4.326 bidang dan 500
 baris pertama; centang, Pilih semua (500), dan Bersihkan bekerja; saringan
 POLINDES menyusutkan tabel menjadi 1 bidang/1 baris dan membersihkan pilihan;
 klik baris memindahkan pusat dari -7,08193, 110,07027 ke -7,08654, 110,07504.
@@ -9379,6 +9380,16 @@ memperlihatkan bilah Navigasi melipat dua baris dan tabel bergulir sendiri
 tanpa menimpa catatan kaki). Pemeriksaan statis 500 px: 0 galat skrip.
 ArcToolbox: 18 anchor navigasi, 0 menunjuk id yang hilang, 20 id unik,
 0 karakter CJK pada ketiga berkas.
+
+**Ralat label (23 Nov 2026).** Atas permintaan, label tombol **Full Extent**
+diganti **Pusatkan** pada bilah Navigasi `peta.php` (`#navPenuh`) dan pada
+lencana kartu ArcToolbox `digitasi.php` (`#navigasi-peta`); judul kartu tetap
+"Seluruh data". Perilaku tidak berubah: tetap memusatkan peta ke seluruh
+geometri yang termuat. `php -l` bersih pada kedua halaman, 0 karakter CJK pada
+ketiga berkas, dan 0 pesan konsol. Di peramban tombol berbunyi "Pusatkan";
+kliknya memanggil pemusatan ke batas seluruh data desa (pusat -7,08193,
+110,07027, sama dengan pemeriksaan 22 Nov), dan lencana kartu ArcToolbox pun
+berbunyi "Pusatkan" dengan judul "Seluruh data" tetap.
 
 ---
 

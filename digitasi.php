@@ -965,7 +965,7 @@ sip_header('ArcToolbox', 'digitasi');
                 </article>
                 <article class="toolbox-mode-kartu">
                     <header>
-                        <span class="toolbox-mode-lencana">Full Extent</span>
+                        <span class="toolbox-mode-lencana">Pusatkan</span>
                         <h3>Seluruh data</h3>
                     </header>
                     <p>Memperkecil dan memusatkan peta sampai semua bidang pada saringan ini masuk layar.
