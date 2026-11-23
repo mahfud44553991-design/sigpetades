@@ -65,6 +65,11 @@ declare(strict_types=1);
  *       Bidang yang digambar lewat alat "Garis manual" (lapis Bidang). Datanya
  *       baris tabel bidang bersumber 'garis-manual' yang belum dihapus, bukan
  *       berkas GeoJSON, lalu dikonversi balik ke meter DXF untuk kanvas ini.
+ *   GET api/peta-lama.php?lapisan=dusun
+ *       Batas 10 dusun (dusun-2015-optimal.geojson): digitasi raster KKN 2015
+ *       (README §3.140) yang tepinya digeser ke jaringan DXF (README §3.141).
+ *       Berkasnya tersimpan WGS84, jadi di sini dikonversi balik ke meter DXF
+ *       supaya cocok dengan kanvas Peta Induk. Status usulan.
  *
  * Nama berkas dibatasi daftar putih di bawah, jadi parameter tidak pernah
  * dipakai menyusun path secara bebas. Folder files/ sendiri ditolak Apache;
@@ -102,6 +107,7 @@ const LAPISAN_PETA_LAMA = [
     'garis-lain'     => 'garis-lain.geojson',
     'titik-obyek'    => 'titik-obyek-manual.geojson',
     'bidang-manual'  => 'bidang-manual.geojson',
+    'dusun'          => 'dusun-2015-optimal.geojson',
 ];
 
 // Lapis yang berkasnya belum tentu ada: dua lapis terisi dari alat di Peta
@@ -219,6 +225,43 @@ if ($lapisan === 'bidang-manual') {
                 'sumber' => 'garis-manual',
                 'lapis' => 'bidang',
             ],
+        ];
+    }
+
+    json_response(['type' => 'FeatureCollection', 'features' => $fitur]);
+}
+
+if ($lapisan === 'dusun') {
+    require_once __DIR__ . '/../tools/lib-impor.php';
+    $berkasDusun = __DIR__ . '/../files/sig-pertanahan-gedong-lokal/data/dxf-layers/'
+        . LAPISAN_PETA_LAMA['dusun'];
+    if (!is_file($berkasDusun)) {
+        json_error('Berkas lapisan dusun tidak ditemukan.', 404);
+    }
+    $dataDusun = json_decode((string) file_get_contents($berkasDusun), true);
+    if (!is_array($dataDusun) || ($dataDusun['type'] ?? '') !== 'FeatureCollection'
+        || !is_array($dataDusun['features'] ?? null)) {
+        json_error('Berkas lapisan dusun tidak dapat dibaca.', 500);
+    }
+    $ubahKoordinat = static function (array $koordinat) use (&$ubahKoordinat): array {
+        if (count($koordinat) >= 2 && is_numeric($koordinat[0]) && is_numeric($koordinat[1])) {
+            [$x, $y] = wgs84KeDxf((float) $koordinat[0], (float) $koordinat[1]);
+            return [round($x, 3), round($y, 3)];
+        }
+        return array_map($ubahKoordinat, $koordinat);
+    };
+    $fitur = [];
+    foreach ($dataDusun['features'] as $f) {
+        if (!is_array($f) || !isset($f['geometry']['type'], $f['geometry']['coordinates'])) {
+            continue;
+        }
+        $fitur[] = [
+            'type' => 'Feature',
+            'geometry' => [
+                'type' => (string) $f['geometry']['type'],
+                'coordinates' => $ubahKoordinat((array) $f['geometry']['coordinates']),
+            ],
+            'properties' => is_array($f['properties'] ?? null) ? $f['properties'] : [],
         ];
     }
 

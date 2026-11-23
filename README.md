@@ -9850,6 +9850,307 @@ hanya `peta.php` (+70/−27) dan README.
 
 ---
 
+### 3.140 Batas dusun 2015 dari raster PETA DESA.docx (23 Nov 2026)
+
+**Permintaan.** Digitasi batas sepuluh dusun dari peta raster 2015 di
+`C:/Users/User/Downloads/PETA DESA.docx` (11 lembar peta KKN UNNES 2015:
+10 peta dusun 1:2.500–1:5.000 + 1 citra desa 1:10.000), sebagai usulan
+sebelum data batas dusun ditegakkan. Basis data tidak diubah.
+
+**Kalibrasi tiap lembar.** Bingkai peta dideteksi dari deret gelap terpanjang
+(baris >= 0,75 lebar, kolom >= 0,60 tinggi); label grid UTM dibaca dari pita
+atas (baris `atas-20..atas-1`) dan pita sisi kiri `kiri-24..kiri-2`, dengan
+cadangan sisi kanan `kanan+2..kanan+22`. Dari pusat label berlaku bujur
+10,5 px di kiri garis grid dan lintang 11 px di bawah garis grid; skala
+per lembar diturunkan dari beda pusat label (sx = (E2−E1)/(x2−x1),
+sy = (N1−N2)/(y2−y1)). Hasil:
+
+| Dusun | Skala | x0 px | E0 (m) | m/px x | y0 px | N (m) | m/px y |
+|---|---|---|---|---|---|---|---|
+| GEDONG | 1:3.000 | 194 | 397.200 | 0,913764 | 520,5 | 9.217.200 | 0,913764 |
+| WATES | 1:3.000 | 247,5 | 396.000 | 0,913242 | 340 | 9.216.000 | 0,913242 |
+| ROWOGANDU | 1:2.500 | 149,5 | 396.000 | 0,760818 | 312,5 | 9.216.200 | 0,761542 |
+| NGRANDU | 1:3.000 | 69 | 396.400 | 0,917958 | 342,5 | 9.216.400 | 0,913242 |
+| DAKAH | 1:4.000 | 317,5 | 397.200 | 1,218274 | 498,5 | 9.216.400 | 1,212121 |
+| KANDANG | 1:3.000 | 287,5 | 398.000 | 0,913242 | 348,5 | 9.217.200 | 0,914286 |
+| TEMPURAN | 1:5.000 | 132,5 | 397.200 | 1,52236 | 472,5 | 9.218.400 | 1,520913 |
+| KALIPURU | 1:5.000 | 124,5 | 396.000 | 1,52236 | 300,5 | 9.218.800 | 1,52236 |
+| KREYO | 1:3.000 | 276 | 396.800 | 0,913764 | 409,5 | 9.217.200 | 0,913242 |
+| SABRANG | 1:4.000 | 281,5 | 396.000 | 1,218274 | 414,5 | 9.217.200 | 1,218274 |
+
+Kalibrasi diuji terhadap label biru bujur/lintang yang tercetak di bingkai
+atas: hitungan UTM cocok dalam ~2 m untuk GEDONG, KALIPURU, TEMPURAN, dan
+ROWOGANDU (mis. ROWOGANDU berlabel 110°3'28"E dan 110°3'36"E, berjarak 8"
+= ~245 m pada skala 0,761 m/px). Selisih ~48 m yang sempat terlihat berasal
+dari konvergensi meridian (bujur UTM bergeser ~48,5 m per 23,5 km ke utara
+di 110°), bukan kesalahan titik kontrol. Lembar `image12.jpeg` (1:10.000)
+hanya dipakai sebagai gambaran umum; label sisinya terlalu kecil untuk
+dibaca otomatis, jadi tidak didigitasi.
+
+**Cara digitasi.** ROI tiap lembar: kiri 48 px, kanan w−48, atas 187,
+bawah h−471. Dusun dipisahkan dari latar putih lewat mask kroma
+(maks−min >= 18), dibuka/ditutup (erosi 1, dilasi 1, dilasi 2, erosi 2),
+diambil komponen terbesar 8-terhubung, lubang diisi dari tepi ROI, lalu
+tepi piksel dirangkai (kunci bilangan bulat `$y*$w+$x`), disederhanakan
+Douglas-Peucker 1,5 px, dan diproyeksikan UTM 49S → WGS84. Kesepuluh cincin
+ditutup, orientasinya diseragamkan berlawanan jarum jam, koordinat
+dibulatkan 8 desimal; pemeriksaan memotong diri per cincin memberi 0.
+
+**Hasil per dusun** (luas dari `ST_Area` di UTM, irisan dengan 010500):
+
+| Dusun | Titik | Luas m² | Dalam desa | Luar desa m² |
+|---|---|---|---|---|
+| GEDONG | 413 | 500.810,9 | 100,00% | 0 |
+| WATES | 303 | 267.999,1 | 90,85% | 24.516,4 |
+| ROWOGANDU | 227 | 488.088,8 | 97,99% | 9.817,1 |
+| NGRANDU | 321 | 346.146,1 | 100,00% | 0 |
+| DAKAH | 649 | 807.060,1 | 98,91% | 8.816,9 |
+| KANDANG | 368 | 417.510,8 | 90,72% | 38.747,9 |
+| TEMPURAN | 268 | 1.022.477,5 | 95,24% | 48.693,8 |
+| KALIPURU | 195 | 1.706.094,7 | 80,64% | 330.238,8 |
+| KREYO | 201 | 319.614,1 | 100,00% | 0 |
+| SABRANG | 312 | 1.056.938,1 | 88,03% | 126.514,4 |
+
+Kesepuluh cincin bersambung dengan tumpang tindih tepi kecil: jumlah luas
+6.932.740,2 m²
+(102,79% dari luas 010500 6.744.346,2 m² karena tumpang tindih tepi),
+gabungan 6.927.503,0 m² (692,75 ha). Dari gabungan itu 6.340.342,5 m²
+(91,52%) berada di dalam batas desa, sedangkan 404.003,7 m² (40,40 ha)
+batas desa tidak tertutup dan 587.345,3 m² (58,73 ha) cincin dusun berada
+di luar 010500. Potongan terbesar yang tidak tertutup 285.452,5 m² di
+sekitar E 397.745 / N 921.815 (pita utara); selisih ini dilaporkan, tidak
+dipotong, karena batas 2015 dan 010500 memang berbeda di sisi utara, timur,
+dan selatan. Tumpang tindih antarlebar hanya 10 pasang, 105,7–1.526,3 m²
+(total 5.118,5 m²; terbesar ROWOGANDU–NGRANDU 1.526,3 m²) — bukti tepi
+lembar yang berbatasan saling cocok.
+
+**Penugasan bidang dan blok (draf).** Dari 4.326 bidang `aktif`/
+`perlu_verifikasi`, 4.177 pusatnya di dalam tepat satu dusun, 2 di zona
+tumpang tindih (diberi dusun yang lebih dulu pada urutan pemeriksaan,
+NGRANDU), dan 147 di luar semua cincin sehingga dipasang ke dusun terdekat
+(median 30,6 m, maks 205,9 m dari tepi; 27 bidang <=5 m, 34 bidang 5–25 m,
+86 bidang >25 m; SABRANG 76, TEMPURAN 41). Cacah per dusun: DAKAH 645,
+SABRANG 603, ROWOGANDU 511, KALIPURU 477, TEMPURAN 458, GEDONG 376,
+KANDANG 341, NGRANDU 325, KREYO 302, WATES 288. Kedua puluh empat blok
+diberi dusun dari pusatnya. Saat ini hanya 5 bidang ber-`dusun_id` (2
+KALIPURU, 3 TEMPURAN; satu di antaranya berstatus dihapus) dan seluruh blok
+masih NULL; empat bidang hidup di antaranya sudah sama dengan nilai draf,
+jadi draf tidak bertabrakan dengan nilai lama.
+
+**Berkas.** Lapis `files/sig-pertanahan-gedong-lokal/data/dxf-layers/
+dusun-2015.geojson` (FeatureCollection `dusun-2015`, 10 fitur, 451.340 B;
+properti nama, dusun_id, luas_m2, luas_ha, titik, sumber, peta_2015,
+skala_cetak, kalibrasi, metode, silang), ringkasan `dusun-2015-ringkas.json`,
+metadata tervalidasi `dusun-2015-meta.json`; pratinjau
+`_lama/scratch/raster-dusun/gabung-dusun.png` dan 10 `dusun-<nama>-debug.png`;
+draf SQL `_lama/scratch/raster-dusun/draf-dusun-bidang.sql` (4.326 UPDATE
+bidang) dan `draf-dusun.sql` (24 UPDATE blok). Pipeline di
+`_lama/scratch/raster-dusun/`: `baca-label.php`, `kalibrasi.php`,
+`ekstrak-mask.php`, `periksa-dusun.php`, `sisa-desa.php`, `gambar-gabung.php`,
+`tetapkan-dusun.php`, `bangun-lapis-dusun.php`, `tulis-meta.php`, `utm.php`
+(semua baca-saja; draf SQL tidak dieksekusi).
+
+**Pemeriksaan.** `php -l` bersih pada kesepuluh skrip; mask/vektor diperiksa
+lewat debug PNG tiap lembar; tumpang tindih, cakupan, dan penugasan dihitung
+ulang di MySQL (UTM 49S) dan PHP; pratinjau gabungan digambar dengan GD.
+Catatan: peta KKN 2015 bukan produk resmi dan berumur sepuluh tahun, peta
+menulis KREO sedangkan tabel dusun memakai KREYO, dan lapis ini berstatus
+usulan. **Belum disajikan**: belum ada pil peta maupun API, dan penulisan
+`dusun_id` menunggu perintah **jalankan**.
+
+### 3.141 Garis dusun 2015 dirapikan ke Peta DXF (23 Nov 2026)
+
+**Permintaan.** "optimalisasikan garis peta dusun dengan Peta DXF Desa
+Gedong": mencocokkan kesepuluh cincin dusun hasil digitasi raster 2015
+(§3.140) ke jaringan garis `MASTER.dxf`, supaya tepi yang di peta 2015
+sebenarnya mengikuti persil, jalan, sungai, atau batas blok tidak lagi
+bergerigi mengikuti piksel. Tidak ada data basis data yang diubah.
+
+**Dasar pemilihan acuan.** Lima lapis DXF dipakai serentak: `020100`
+(tepi persil), `garis-jalan-tepi`, `garis-sungai-jahit`, `batas-blok`,
+dan `010500` (batas desa). Uji jarak sebelumnya menunjukkan tepi 2015
+paling dekat ke tepi persil (median 3,44 m), sedangkan ke batas desa
+010500 mediannya 10,16 m; jadi penggeseran diarahkan ke persil/garis
+internal, bukan mengganti bentuk dengan batas desa. Pada 17.049 titik
+hasil pendensifikasi (46.112 m tepi) 56,8% sudah berjarak <=8 m dan
+sejajar dengan garis DXF (44,6% <=5 m); bagian yang memenuhi syarat itu per
+dusun 22,1–73,5%.
+
+**Parameter.** Densifikasi 2 m; titik digeser ke garis DXF terdekat yang
+sejajar (jarak <=6 m, sudut <=30 derajat) hanya bila ruasnya menerus
+>=12 m dan jarak rata-rata titik di ruas itu <=3 m; transisi geser
+(taper) 6 m di ujung ruas; simpang susun mikro dibuang (pertahankan loop
+berluas lebih besar); penyederhanaan Douglas-Peucker 0,75 m dengan ujung
+tetap di titik awal cincin dan titik terjauh; sesudah proyeksi WGS84
+cincin dirapikan dan deselfing ulang (epsilon 1e-9 derajat). Ruas yang
+jarak rata-ratanya >3 m ditolak utuh agar tidak muncul loncatan tangga
+setengah ruas.
+
+**Hasil per dusun** (luas dari `ST_Area` di UTM 49S; Layak = panjang tepi
+dalam ruas diterima; geser = perpindahan titik yang benar-benar digeser):
+
+| Dusun | Titik awal → akhir | Luas m² (2015 → kini) | Selisih m² | Dalam desa | Layak | Geser rata |
+|---|---|---|---|---|---|---|
+| GEDONG | 413 → 456 | 500.810,9 → 501.029,3 | +218,4 | 100,00% | 38,65% | 1,73 m |
+| WATES | 303 → 323 | 267.999,1 → 267.730,2 | −268,9 | 90,90% | 21,04% | 1,71 m |
+| ROWOGANDU | 227 → 273 | 488.088,8 → 487.917,2 | −171,6 | 98,01% | 39,58% | 1,73 m |
+| NGRANDU | 321 → 367 | 346.146,1 → 345.952,7 | −193,4 | 100,00% | 39,57% | 1,53 m |
+| DAKAH | 649 → 770 | 807.060,1 → 808.655,9 | +1.595,8 | 98,92% | 38,17% | 1,60 m |
+| KANDANG | 368 → 397 | 417.510,8 → 417.486,6 | −24,2 | 90,73% | 28,61% | 1,75 m |
+| TEMPURAN | 268 → 292 | 1.022.477,5 → 1.022.675,4 | +197,9 | 95,24% | 20,79% | 2,04 m |
+| KALIPURU | 195 → 216 | 1.706.094,7 → 1.706.096,7 | +2,0 | 80,64% | 9,49% | 1,86 m |
+| KREYO | 201 → 237 | 319.614,1 → 320.026,2 | +412,1 | 100,00% | 42,80% | 1,43 m |
+| SABRANG | 312 → 453 | 1.056.938,1 → 1.056.732,0 | −206,1 | 88,03% | 37,04% | 1,86 m |
+
+Gabungan: titik 3.257 → 3.784 (setelah densifikasi 24.683 titik), 272
+ruas diterima (14.164,7 m), 143 ruas ditolak karena jarak rata-ratanya
+>3 m, 7.224 titik digeser dengan rata-rata 1,43–2,04 m dan maksimum
+<=5,99 m, 16 simpul loop mikro dibuang di tahap UTM (ditambah 1 di NGRANDU
+sesudah pembulatan WGS84), sisa perpotongan diri 0 pada kesepuluh cincin
+(di UTM maupun sesudah pembulatan WGS84). Panjang ruas
+di luar zona taper menurut sumber garis: `020100` 10.939,1 m, sungai
+1.683,2 m, batas blok 702,4 m, batas desa 335,2 m; tidak ada ruas
+`garis-jalan-tepi` yang lolos syarat sejajar.
+
+**Perbandingan dengan lapis mentah §3.140.** Gabungan 6.927.503,0 →
+6.928.870,6 m² (dalam desa 6.340.342,5 → 6.342.105,4 m²); bagian desa
+yang tidak tertutup 404.003,7 → 402.239,4 m²; jumlah luas kesepuluh
+cincin 6.932.740,2 → 6.934.302,2 m² (selisih total +1.562,0 m²). Tumpang
+tindih tetap 10 pasang, 5.118,5 → 5.222,8 m² (terbesar ROWOGANDU–NGRANDU
+1.740,3 m²; terkecil NGRANDU–DAKAH 120,6 m²). Penugasan 4.326 bidang
+`aktif`/`perlu_verifikasi`: 4.177/2/147 → 4.178/2/146 (satu bidang yang
+dulu di luar semua cincin kini masuk satu dusun), tidak ada bidang yang
+berpindah dusun, cacah per dusun sama dengan §3.140 (DAKAH 645, SABRANG
+603, ROWOGANDU 511, KALIPURU 477, TEMPURAN 458, GEDONG 376, KANDANG 341,
+NGRANDU 325, KREYO 302, WATES 288); 146 bidang di luar cincin berjarak
+median 30,4 m (min 0,1 m, maks 205,9 m).
+
+**Berkas.** Lapis `files/sig-pertanahan-gedong-lokal/data/dxf-layers/
+dusun-2015-optimal.geojson` (FeatureCollection `dusun-2015-optimal`,
+10 fitur, 533.042 B; properti nama, dusun_id, luas_m2, luas_ha, titik,
+selisih_m2, kalibrasi, optimalisasi, sumber, peta_2015, skala_cetak,
+metode, silang), ringkasan `dusun-2015-optimal-ringkas.json`, metadata
+tervalidasi `dusun-2015-optimal-meta.json` (memuat blok `perbandingan_awal`
+dan `per_dusun`), statistik mentah `_lama/scratch/opt-dusun/optimalkan.json`.
+Pratinjau `_lama/scratch/opt-dusun/perbandingan.png` (seluruh desa:
+bidang abu-abu, cincin 2015 gelap, cincin optimal hitam, batas desa merah)
+dan empat potongan skala 2,4: `potong-gedong-timur.png`,
+`potong-gedong-tengah.png`, `potong-wates-selatan.png`,
+`potong-dakah-barat.png`. Pipeline di `_lama/scratch/opt-dusun/`:
+`kelayakan.php` (ukur jarak dan kesejajaran), `optimalkan.php` (snapping,
+deselfing, DP, proyeksi WGS84, geometri per dusun di UTM + WGS84),
+`nilai.php` (luas/irisan MySQL UTM, penugasan bidang, pratinjau, meta),
+`periksa.php` (validasi akhir lapis), `potong.php` (potongan zoom) — semua
+baca-saja. Lapis mentah `dusun-2015.geojson` tidak diubah.
+
+**Pemeriksaan.** `php -l` bersih pada kelima skrip; luas, irisan, dan
+penugasan dihitung ulang di MySQL (UTM 49S) lalu diulang di PHP; tiap
+cincin diperiksa tertutup, berlawanan jarum jam (luas >0), tanpa titik
+kembar, dan tanpa perpotongan diri (0 pada semua dusun), koordinat WGS84
+berada dalam 110,0557–110,0846 BT / −7,0991..−7,0654 LS, dan selisih luas
+ringkas terhadap meta 0 m². Pratinjau gabungan dan empat potongan
+diperiksa dengan mata: sisa gerigi yang tampak hampir semuanya adalah
+bentuk persil DXF yang memang bertangga, bukan sisa loncatan snapping
+(geser maksimum di bawah 6 m).
+
+**Catatan.** KALIPURU paling sedikit memakai garis DXF (9,49% tepi; 86%
+sisanya tetap bentuk raster 2015) dan 19,36% cincinnya di luar batas desa
+010500; batas 2015 juga masih berbeda dengan 010500 di sisi utara, timur,
+dan selatan, jadi selisih 402.239,4 m² dilaporkan dan tidak dipotong.
+Peta KKN 2015 bukan produk resmi; lapis optimal tetap berstatus usulan.
+Draf SQL penugasan (§3.140) tidak dibuat ulang untuk versi optimal;
+penugasan versi ini ditulis langsung ke DB lewat alat di §3.143. Garisnya
+tampil di Peta Induk sebagai pil Dusun sejak §3.142.
+
+### 3.142 Batas dusun disajikan di Peta Induk (23 Nov 2026)
+
+**Permintaan.** "buatkan garis layer peta dusun di peta induk": menampilkan
+batas 10 dusun versi optimal (§3.141) sebagai lapis ber-pil di halaman
+Peta Induk (`peta-lama.php`), tanpa menulis tabel `dusun` maupun
+`bidang.dusun_id`.
+
+**API.** `api/peta-lama.php?lapisan=dusun` masuk daftar putih
+`LAPISAN_PETA_LAMA` dan menyajikan `dusun-2015-optimal.geojson`. Berkas
+itu tersimpan WGS84, sedangkan kanvas Peta Induk memakai meter DXF lokal,
+jadi tiap koordinat dikonversi balik dengan `wgs84KeDxf()` dari
+`tools/lib-impor.php` (dibulatkan 3 desimal, seperti `bidang-manual` dan
+`batas-blok`) lalu dikirim sebagai FeatureCollection. Properti lapis
+(nama, dusun_id, luas_m2, luas_ha, titik, kalibrasi, optimalisasi,
+selisih_m2, dan seterusnya) diteruskan apa adanya. Bila berkasnya tidak
+ada, API menjawab 404.
+
+**Tampilan.** Pil **Dusun (10)** ada di kelompok "Lainnya", tepat setelah
+Garis luar desa, dan tercentang secara bawaan (ikut dimuat lebih dulu).
+`title` pil menyebut sumber raster KKN 2015, penyelarasan ke garis DXF,
+berkasnya, README §3.141, dan status usulan. Gayanya garis putus-putus
+`#be123c` tebal 2,4 px (pola 12–7) dengan isi `#fb7185` 5%; legenda
+bertambah satu butir "Batas dusun". Lapis ini juga didaftarkan di
+`LAPIS_ANALISIS` dan `LAPIS_POLIGON` sehingga bisa dipakai alat Clip,
+Buffer, Intersect/Union, dan Dissolve di kartu Analisis spasial. Paragraf
+petunjuk bawaan diperbarui: "batas dusun" masuk daftar lapis yang dimuat
+lebih dulu.
+
+**Pemeriksaan.** `php -l` bersih pada kedua berkas. Di peramban (sesi
+masuk) API menjawab 200 dengan 10 fitur; kotak batas koordinat DXF hasil
+konversi x 261.386,6–264.576,1 / y 715.025,5–718.745,3, masih di dalam
+rentang MASTER.dxf. Grup lapis di peta berisi 10 fitur dengan opsi
+`#be123c` / 2,4 px / `12 7` / isi 5%, dan setelah `moveend` terhitung
+7.150 piksel merah di kanvas. Teks pil "Dusun (10)" dan legenda "Batas
+dusun" cocok; tidak ada galat konsol.
+
+**Catatan.** Lapis ini batas usulan, bukan produk resmi; peta terbit masih
+memakai bentuk raster yang sudah dirapikan, bukan batas desa 010500
+(selisih 402.239,4 m² di §3.141 tetap dilaporkan, tidak dipotong).
+Tabel `dusun` memang sudah ada (10 baris), tetapi `bidang.dusun_id` masih
+menunggu perintah **jalankan** sampai §3.143; halaman Peta Bidang
+(`peta.php`) tidak ikut diubah.
+
+---
+
+### 3.143 dusun_id ditulis ke tabel bidang dan blok (23 Nov 2026)
+
+**Permintaan.** "jalankan tulis dusun_id ke DB": menulis hasil penugasan
+lapis dusun optimal (§3.141) ke `bidang.dusun_id` dan `blok.dusun_id`.
+
+**Alat.** `_lama/scratch/opt-dusun/tulis-dusun-id.php` (CLI, baca-saja
+tanpa `--terapkan`). Penugasan dihitung ulang dengan cara yang sama
+seperti `nilai.php` §3.141: titik pusat `ST_Centroid` bidang dalam WGS84,
+uji ray-cast terhadap 10 cincin, saringan kotak batas, urutan periksa
+tetap (GEDONG, WATES, ROWOGANDU, NGRANDU, DAKAH, KANDANG, TEMPURAN,
+KALIPURU, KREYO, SABRANG) sehingga titik di zona tumpang jatuh ke dusun
+pertama, lalu bidang di luar semua cincin diberi dusun dengan tepi
+terdekat. Blok diperlakukan sama dari titik pusatnya. `--terapkan`
+membuat cadangan lebih dulu, lalu menulis lewat `db_transaksi()` dengan
+UPDATE berkelompok `WHERE id IN (...)`.
+
+**Uji kering.** 4.326 bidang hidup: 4.178 di dalam tepat satu dusun, 2 di
+zona tumpang, 146 di luar semua cincin (jarak ke tepi min 0,1 m, median
+30,4 m, maks 205,9 m). Cacah per dusun sama dengan §3.141; 24 blok
+semuanya dapat dusun; 5 baris lama (4 bidang hidup + 1 bidang `dihapus`)
+tidak berbeda dengan hasil hitung, jadi tidak ada yang ditimpa berbeda.
+
+**Penulisan.** Cadangan
+`_lama/cadangan-dusun-20261123/sebelum-dusun-20261123-135302.sql` (479 B)
+berisi 5 UPDATE pemulihan untuk baris yang sebelumnya sudah ber-`dusun_id`;
+baris lain sebelumnya NULL. Hasil: 4.322 bidang berubah dan 24 blok
+berubah, sisa `dusun_id` NULL 0 bidang hidup dan 0 blok.
+
+**Pemeriksaan.** `SELECT dusun.nama, COUNT(bidang.id)` memberi DAKAH 645,
+SABRANG 603, ROWOGANDU 511, KALIPURU 477, TEMPURAN 458, GEDONG 376,
+KANDANG 341, NGRANDU 325, KREYO 302, WATES 288 (jumlah 4.326). Hidup =
+3.319 `aktif` + 1.007 `perlu_verifikasi`; semua ber-`dusun_id` non-NULL.
+13 baris `dihapus` tidak disentuh (12 masih NULL, 1 tetap seperti
+sebelumnya), dan 5 baris yang sudah ber-`dusun_id` tetap pada nilai
+lamanya. Semua nilai menunjuk `dusun.id` yang ada (FK aktif).
+
+**Catatan.** Penugasan mengikuti cincin usulan apa adanya: 146 bidang
+terdekat tetap di luar cincin (median 30,4 m), 2 bidang di zona tumpang
+masuk NGRANDU karena urutan periksa, dan KALIPURU tetap paling sedikit
+memakai garis DXF (§3.141). `dusun` pada `objek_pajak`, `buku_c`, dan
+`peralihan` tidak diisi oleh alat ini.
+
+---
+
 ## 5. Menjalankan saat pengembangan tanpa Apache
 
 Server bawaan PHP mengabaikan `.htaccess`, jadi pakai router yang menutup folder

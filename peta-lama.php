@@ -85,6 +85,13 @@ if (is_file($berkasGarisJalan)) {
     $jumlahGarisJalan = is_array($isiGarisJalan['features'] ?? null) ? count($isiGarisJalan['features']) : 0;
 }
 
+$berkasDusun = __DIR__ . '/files/sig-pertanahan-gedong-lokal/data/dxf-layers/dusun-2015-optimal.geojson';
+$jumlahDusun = 0;
+if (is_file($berkasDusun)) {
+    $isiDusun = json_decode((string) file_get_contents($berkasDusun), true);
+    $jumlahDusun = is_array($isiDusun['features'] ?? null) ? count($isiDusun['features']) : 0;
+}
+
 $berkasSumbuManual = __DIR__ . '/files/sig-pertanahan-gedong-lokal/data/dxf-layers/garis-sumbu-manual.geojson';
 $jumlahSumbuManual = 0;
 if (is_file($berkasSumbuManual)) {
@@ -186,6 +193,7 @@ sip_judul(
                 <span><i style="background:#d97706"></i>Calon bidang</span>
                 <span><i style="background:#7e22ce"></i>Hasil analisis spasial</span>
                 <span><i style="background:#64748b"></i>Label NIB &amp; batas</span>
+                <span><i style="background:#be123c"></i>Batas dusun</span>
             </div>
             <p class="petunjuk" id="infoLama">Menyiapkan layer…</p>
         </section>
@@ -496,6 +504,9 @@ sip_judul(
                     <input type="checkbox" data-lapisan="010500">
                     Garis luar desa (<b id="jumlahGarisLuarDesa"
                         data-turunan="<?= (int) $jumlah('010500') ?>"><?= e(angka($jumlah('010500') + $jumlahBatasManual)) ?></b>)</label>
+                <label class="cek" title="Batas 10 dusun: digitasi raster KKN 2015 yang tepinya digeser ke garis DXF (dusun-2015-optimal.geojson, README §3.141); status usulan, bukan produk resmi">
+                    <input type="checkbox" data-lapisan="dusun" checked>
+                    Dusun (<?= e(angka($jumlahDusun)) ?>)</label>
                 <label class="cek" title="Layer DXF 020400, artinya belum diketahui">
                     <input type="checkbox" data-lapisan="020400">
                     Sisa 020400 (<?= e(angka($jumlah('020400'))) ?>)</label>
@@ -525,8 +536,9 @@ sip_judul(
                     <input type="checkbox" data-lapisan="batas-jalan">
                     Label jalan (<?= e(angka($jumlah('BATAS JALAN'))) ?>)</label>
             </div>
-            <p class="petunjuk">Bidang kadastrum, kedua lapis turunan Jalan, Selokan, Sungai, sumbu sungai, calon bidang,
-                titik obyek, dan bidang manual dimuat lebih dulu; sisanya mati secara bawaan agar peta tetap ringan.</p>
+            <p class="petunjuk">Bidang kadastrum, kedua lapis turunan Jalan, Selokan, Sungai, sumbu sungai,
+                batas dusun, calon bidang, titik obyek, dan bidang manual dimuat lebih dulu; sisanya mati
+                secara bawaan agar peta tetap ringan.</p>
             <p class="petunjuk">Calon bidang adalah garis 020100 yang ujungnya hampir bertemu
                 (celah ≤ 1 unit, luas ≥ 20 unit²) dan belum tertutup sebagai bidang. Yang bentuknya
                 sama dengan poligon tertutup dilewati (<?= e(angka((int) ($meta['layers']['CALON BIDANG']['duplicates_skipped'] ?? 0))) ?> duplikat),
@@ -828,6 +840,10 @@ $naskah = <<<'JS'
         if (nama === 'garis-jalan-sumbu') return () => ({ color: '#9d174d', weight: 2.2, opacity: .95 });
         if (nama === 'bidang-manual') return () => ({
             color: '#b45309', weight: 1.8, opacity: .95, fillColor: '#f59e0b', fillOpacity: .22
+        });
+        if (nama === 'dusun') return () => ({
+            color: '#be123c', weight: 2.4, opacity: .95, dashArray: '12 7',
+            fillColor: '#fb7185', fillOpacity: .05
         });
         if (nama === '010500') return () => ({ color: '#64748b', weight: 1, opacity: .8 });
         if (nama === '020400') return () => ({ color: '#475569', weight: 1, opacity: .85 });
@@ -2441,11 +2457,11 @@ $naskah = <<<'JS'
         'bidang-hm', 'titik-tengah-bidang-hm', 'hm', 'optimalisasi-hm', 'lb-lai',
         'garis-jalan', 'garis-jalan-sumbu', 'garis-selokan', 'garis-tepi-sungai',
         'garis-sungai', 'garis-lain', '010500', '020400', 'titik-obyek',
-        'bidang-manual', 'calon-bidang'
+        'bidang-manual', 'calon-bidang', 'dusun'
     ];
     const LAPIS_POLIGON = [
         '020100-bidang', 'batas-blok', 'bidang-hm', '010500', '020400',
-        'calon-bidang', 'bidang-manual'
+        'calon-bidang', 'bidang-manual', 'dusun'
     ];
 
     const elAnalisis = {
