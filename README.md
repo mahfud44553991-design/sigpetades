@@ -9163,6 +9163,9 @@ cetak peramban. Gaya cetak memakai `@page { size: A4 landscape; margin: 9mm }`,
 peta setinggi 188 mm, dan hanya kartu peta yang tercetak (bilah atas, judul,
 sidebar, pil, legenda hidup, dan tombol mode disembunyikan). Pengguna memilih
 "Simpan sebagai PDF" di dialog cetak; tidak ada pustaka ekspor tambahan.
+Sejak §3.139 tombol PDF tidak lagi memakai aturan cetak ini: yang dicetak
+adalah tangkapan html2canvas lembar, bukan tata letak ulang. Aturan
+`@media print` tetap berlaku bila pengguna menekan Ctrl+P pada halaman peta.
 
 **Responsif.** Di bawah 620 px keterangan mode disembunyikan, tinggi peta
 dalam Layout View dinaikkan ke 560 px, legenda lembar menjadi satu kolom di
@@ -9532,8 +9535,8 @@ true`. Ubin OpenStreetMap diuji pada zoom 18 dan lolos CORS sehingga kanvas
 tidak ternoda. Selama ekspor kedua tombol dinonaktifkan; kegagalan
 ditampilkan lewat `Sip.pesan`, bukan galat konsol. Nama berkas
 `peta-gedong-YYYYMMDD-HHMM.png` atau `.jpg` (JPG mutu 0,92). Tombol **PDF**
-membuka dialog cetak peramban; pilih *Simpan sebagai PDF* dengan ukuran A4
-lanskap memakai aturan cetak §3.130. Dokumen **.mxd** ArcGIS tidak bisa
+mencetak tangkapan html2canvas yang sama sebagai satu gambar A4 lanskap
+(§3.139). Dokumen **.mxd** ArcGIS tidak bisa
 dibuat peramban, jadi proyek disimpan sebagai JSON: **Unduh proyek
 (.json)** menghasilkan `proyek-peta-gedong-YYYYMMDD-HHMM.json` berisi
 `aplikasi: SIPETADES`, `jenis: proyek-peta`, `versi: 1`, `dibuat`, `tampilan`
@@ -9792,6 +9795,58 @@ dan centang berubah sesuai presets; lembar garis mengisi `#infoMuat` dengan
 mengembalikan 4.326 bidang dan centang Data View; 0 pesan konsol. Pemilih
 diberi gaya yang sama dengan isian lain (`.layout-lapangan select`, tinggi
 30 px, lebar 190 px). Tidak ada perubahan basis data, API, atau berkas data.
+
+---
+
+### 3.139 Cetak PDF mengikuti tangkapan layar Layout View (23 Nov 2026)
+
+**Permintaan.** Hasil cetak PDF harus sama dengan yang terlihat di Layout
+View, bukan tata letak cetak yang disusun ulang. Sebelumnya tombol **PDF**
+memanggil `window.print()` pada halaman peta sehingga `@media print` (§3.130)
+memakai margin 9 mm, peta setinggi 188 mm, dan menyembunyikan bilah atas;
+hasilnya tidak identik dengan lembar di layar.
+
+**Pendekatan.** Tombol **PDF** kini mencetak tangkapan html2canvas yang sama
+dengan ekspor PNG. Fungsi `rekamLembar` menyeragamkan perekaman `#wadahPeta`
+(ubin peta, bidang, garis, label, legenda, kotak judul, skala batang, arah
+utara) dengan `scale: 2`, latar putih, `useCORS: true`, dan jeda 150 ms agar
+ubin yang baru tergambar ikut terekam; `eksporGambar` (PNG/JPG) dan
+`eksporPdf` sama-sama memakainya. `eksporPdf` membuka jendela kosong
+**sebelum** menunggu tangkapan supaya tidak diblokir peramban, mematikan
+ketiga tombol ekspor, menyalin legenda dan memperbarui kedua skala, lalu
+`cetakTangkapan` menulis dokumen berisi satu gambar saja: `@page { size: A4
+landscape; margin: 0; }`, `body` 297 mm × 210 mm dengan isi di tengah dan
+`overflow: hidden`, serta `img { max-width: 100%; max-height: 100% }`
+sehingga gambar muat penuh (contain) tanpa dipotong atau gepeng. Judul
+dokumen diambil dari kotak judul lembar. Setelah gambar termuat, jendela
+difokuskan dan `window.print()` dipanggil 60 ms kemudian; pengguna memilih
+*Simpan sebagai PDF*. Jendela yang diblokir, pustaka yang belum termuat, dan
+kegagalan tangkapan masing-masing diberi `Sip.pesan`; ketiga tombol
+dipulihkan di blok `finally`. Judul tombol (`title`) diperbarui menjadi
+"Cetak lembar seperti tampilan Layout View (tangkapan layar, A4 lanskap);
+pilih Simpan sebagai PDF.", dan pemanggil lama `window.print()` pada tombol
+dihapus.
+Aturan `@media print` §3.130 tidak dihapus karena masih dipakai Ctrl+P.
+
+**Pemeriksaan.** `php -l` bersih; blok JS `peta.php` (2.159 baris, 96.069
+bita) lolos `--check`; 0 karakter Han pada `peta.php` dan blok JS; `git diff
+--check` bersih. Di peramban dengan sesi login (jendela tersembunyi):
+`window.open` diganti tiruan, lalu tombol **PDF** ditekan dari Layout jenis
+`bidang-blok` BLOK 021 (333 bidang). Dokumen tertulis 1.327.764 aksara,
+memuat `@page { size: A4 landscape; margin: 0; }`, `data:image/png`, dan
+`window.print()` di `onload`; judul dokumen "PETA BIDANG TANAH BLOK 021".
+Data URL didekode menjadi PNG sah 1.540 × 1.108 px (wadah 770 × 554 px pada
+`scale: 2`); rasionya 1,39, lebih ramping dari A4 lanskap (1,41), jadi gambar
+dibatasi tinggi dan menyisakan sekitar 2,5 mm putih di kiri-kanan. Ketiga
+tombol nonaktif selama tangkapan dan pulih sesudahnya. Memanggil tombol dari
+Data View lebih dulu memindahkan halaman ke Layout (tombolnya memang
+tersembunyi di Data View). PNG dan JPG tetap menghasilkan blob `image/png`
+dan `image/jpeg` bernama `peta-gedong-20261123-1148.png`/`.jpg`. 0 galat
+konsol; lima peringatan `willReadFrequently` berasal dari html2canvas
+(peringatan performa, bukan galat). Dialog cetak sendiri tidak bisa dilihat di jendela
+tersembunyi, jadi keberhasilannya diperiksa dari isi dokumen dan pemanggilan
+cetak di `onload`. Tidak ada perubahan basis data, API, atau berkas data;
+hanya `peta.php` (+70/−27) dan README.
 
 ---
 

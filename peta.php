@@ -108,7 +108,7 @@ sip_judul(
                     <button type="button" class="tombol tombol-kecil" id="eksporJpg"
                         title="Simpan lembar peta sebagai gambar JPG (2x ukuran layar).">JPG</button>
                     <button type="button" class="tombol tombol-utama tombol-kecil" id="eksporPeta"
-                        title="Buka dialog cetak peramban; pilih Simpan sebagai PDF, ukuran A4 lanskap.">PDF</button>
+                        title="Cetak lembar seperti tampilan Layout View (tangkapan layar, A4 lanskap); pilih Simpan sebagai PDF.">PDF</button>
                     <button type="button" class="tombol tombol-kecil" id="unduhProyek"
                         title="Unduh pengaturan peta dan posisi pandangan sebagai berkas proyek JSON.">Unduh proyek (.json)</button>
                     <button type="button" class="tombol tombol-kecil" id="muatProyek"
@@ -2288,34 +2288,54 @@ $naskah = <<<'JS'
 
     // Lembar di rasternya ulang dengan html2canvas supaya peta dasar, label,
     // legenda, dan blok judul ikut terekam seperti yang tampil di layar.
+    async function rekamLembar() {
+        // Satu bingkai jeda agar ubin yang baru tergambar ikut terekam.
+        await new Promise((selesai) => window.setTimeout(selesai, 150));
+        const wadah = document.getElementById('wadahPeta');
+        return window.html2canvas(wadah, {
+            backgroundColor: '#ffffff',
+            scale: 2,
+            useCORS: true,
+            imageTimeout: 15000,
+            logging: false,
+            width: wadah.clientWidth,
+            height: wadah.clientHeight,
+            windowWidth: document.documentElement.clientWidth,
+            windowHeight: document.documentElement.clientHeight,
+            scrollX: 0,
+            scrollY: 0
+        });
+    }
+
+    // PDF mencetak tangkapan html2canvas yang sama dengan PNG, bukan tata letak
+    // cetak halaman. Hasilnya identik dengan lembar yang terlihat di Layout View.
+    function cetakTangkapan(jendela, gambar, judul) {
+        jendela.document.write('<!DOCTYPE html><html lang="id"><head><meta charset="utf-8">'
+            + '<title>' + Sip.esc(judul) + '</title>'
+            + '<style>'
+            + '@page { size: A4 landscape; margin: 0; }'
+            + 'html, body { margin: 0; padding: 0; background: #fff; }'
+            + 'body { display: flex; align-items: center; justify-content: center;'
+            + ' width: 297mm; height: 210mm; overflow: hidden; }'
+            + 'img { display: block; max-width: 100%; max-height: 100%; }'
+            + '</style></head><body><img src="' + gambar + '" alt="Lembar peta"'
+            + ' onload="setTimeout(function () { window.focus(); window.print(); }, 60)">'
+            + '</body></html>');
+        jendela.document.close();
+    }
+
     async function eksporGambar(jenis) {
         if (typeof window.html2canvas !== 'function') {
             Sip.pesan('Pustaka ekspor gambar belum termuat; muat ulang halaman.', 'gagal');
             return;
         }
         if (modeTampilan !== 'layout') aturModeTampilan('layout');
-        eksporPng.disabled = true;
-        eksporJpg.disabled = true;
+        eksporPng.disabled = eksporJpg.disabled = eksporPeta.disabled = true;
         salinLegenda();
         perbaruiSkalaLembar();
         perbaruiSkalaBatang();
         try {
-            // Satu bingkai jeda agar ubin yang baru tergambar ikut terekam.
-            await new Promise((selesai) => window.setTimeout(selesai, 150));
-            const wadah = document.getElementById('wadahPeta');
-            const kanvas = await window.html2canvas(wadah, {
-                backgroundColor: '#ffffff',
-                scale: 2,
-                useCORS: true,
-                imageTimeout: 15000,
-                logging: false,
-                width: wadah.clientWidth,
-                height: wadah.clientHeight,
-                windowWidth: document.documentElement.clientWidth,
-                windowHeight: document.documentElement.clientHeight,
-                scrollX: 0,
-                scrollY: 0
-            });
+            const kanvas = await rekamLembar();
             const jpeg = jenis === 'jpeg';
             const blob = await kanvasKeBlob(kanvas, jpeg ? 'image/jpeg' : 'image/png', jpeg ? 0.92 : undefined);
             unduhBlob(blob, namaBerkas(jpeg ? 'jpg' : 'png'));
@@ -2323,8 +2343,36 @@ $naskah = <<<'JS'
         } catch (err) {
             Sip.pesan('Ekspor gambar gagal: ' + (err && err.message ? err.message : 'tidak diketahui'), 'gagal');
         } finally {
-            eksporPng.disabled = false;
-            eksporJpg.disabled = false;
+            eksporPng.disabled = eksporJpg.disabled = eksporPeta.disabled = false;
+        }
+    }
+
+    async function eksporPdf() {
+        if (typeof window.html2canvas !== 'function') {
+            Sip.pesan('Pustaka ekspor gambar belum termuat; muat ulang halaman.', 'gagal');
+            return;
+        }
+        if (modeTampilan !== 'layout') aturModeTampilan('layout');
+        // Jendela dibuka sebelum menunggu tangkapan supaya tidak diblokir peramban.
+        const jendela = window.open('', '_blank');
+        if (!jendela) {
+            Sip.pesan('Jendela cetak diblokir peramban; izinkan jendela baru lalu tekan PDF lagi.', 'gagal');
+            return;
+        }
+        eksporPng.disabled = eksporJpg.disabled = eksporPeta.disabled = true;
+        salinLegenda();
+        perbaruiSkalaLembar();
+        perbaruiSkalaBatang();
+        try {
+            const kanvas = await rekamLembar();
+            cetakTangkapan(jendela, kanvas.toDataURL('image/png'),
+                (lembarJudulIsi.textContent || 'Lembar peta').trim());
+            Sip.pesan('Dialog cetak dibuka; pilih Simpan sebagai PDF, ukuran A4 lanskap.');
+        } catch (err) {
+            try { jendela.close(); } catch (abaikan) { /* jendela sudah tertutup */ }
+            Sip.pesan('Ekspor PDF gagal: ' + (err && err.message ? err.message : 'tidak diketahui'), 'gagal');
+        } finally {
+            eksporPng.disabled = eksporJpg.disabled = eksporPeta.disabled = false;
         }
     }
 
@@ -2527,12 +2575,7 @@ $naskah = <<<'JS'
     });
     modeData.addEventListener('click', () => aturModeTampilan('data'));
     modeLayout.addEventListener('click', () => aturModeTampilan('layout'));
-    eksporPeta.addEventListener('click', () => {
-        salinLegenda();
-        perbaruiSkalaLembar();
-        perbaruiSkalaBatang();
-        window.setTimeout(() => window.print(), 120);
-    });
+    eksporPeta.addEventListener('click', () => eksporPdf());
     modeUkur.addEventListener('click', () => aturUkur(!ukurAktif));
     ukurJarak.addEventListener('click', () => aturJenisUkur('jarak'));
     ukurLuas.addEventListener('click', () => aturJenisUkur('luas'));
