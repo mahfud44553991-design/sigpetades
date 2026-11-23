@@ -446,12 +446,14 @@ try {
             if (!is_array($geometry)) {
                 continue;
             }
+            $kodeStandar = kode_bidang_standar((int) $b['id']);
             $fitur[] = [
                 'type' => 'Feature',
                 'geometry' => $geometry,
                 'properties' => [
                     'id' => (int) $b['id'],
-                    'kode' => $b['kode'],
+                    'kode' => $kodeStandar !== '' ? $kodeStandar : $b['kode'],
+                    'kode_internal' => $b['kode'],
                     'tipe' => $b['tipe'],
                     'nib' => $b['nib'],
                     'nis' => $b['nis'],

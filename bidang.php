@@ -303,12 +303,14 @@ if ($idMinta !== null) {
     $statusKelas = STATUS_BIDANG[$bidang['status']][1] ?? 'lencana-abu';
     $daftarBlok = db_all('SELECT id, kode FROM blok ORDER BY kode');
     $adaGeometri = is_array($bidang['geojson']);
+    $kodeStandar = kode_bidang_standar((int) $bidang['id']);
+    $judulKode = $kodeStandar !== '' ? $kodeStandar : (string) $bidang['kode'];
     $calonNop = $bolehUbah
         ? calon_nop_bidang((int) ($bidang['blok_id'] ?? 0), $hak['pemegang_nama'] ?? null)
         : [];
 
-    sip_header('Bidang ' . $bidang['kode'], 'bidang', ['leaflet' => $adaGeometri]);
-    sip_judul('Bidang tanah', $bidang['kode'], 'Detail satu bidang hasil digitasi, lengkap dengan hak, PBB, dan riwayatnya.');
+    sip_header('Bidang ' . $judulKode, 'bidang', ['leaflet' => $adaGeometri]);
+    sip_judul('Bidang tanah', $judulKode, 'Detail satu bidang hasil digitasi, lengkap dengan hak, PBB, dan riwayatnya.');
     ?>
 
 <div class="grid grid-2">
@@ -333,6 +335,8 @@ if ($idMinta !== null) {
             <dl class="aturan">
                 <div class="baris-form">
                     <div>
+                        <dt class="label-blok">Kode bidang</dt><dd class="nobreak"><strong><?= e($kodeStandar ?: '—') ?></strong></dd>
+                        <dt class="label-blok">Kode internal</dt><dd><?= e($bidang['kode']) ?></dd>
                         <dt class="label-blok">NIB peta</dt><dd><?= e($bidang['nib'] ?: '—') ?></dd>
                         <dt class="label-blok">Nomor daftar 080201</dt><dd><?= e($bidang['nomor_daftar'] ?: '—') ?></dd>
                         <dt class="label-blok">NIS alas hak</dt><dd><?= e($bidang['nis'] ?: '—') ?></dd>
@@ -795,7 +799,7 @@ if (get_str('ekspor') === 'csv') {
         ) o ON o.bidang_id = b.id';
     $jumlahEkspor = (int) db_value('SELECT COUNT(DISTINCT b.id) ' . $joinEkspor . ' ' . $where, $param);
     $baris = db_query(
-        'SELECT b.kode, b.tipe, b.status, bl.kode AS blok, du.nama AS dusun,
+        'SELECT b.id, b.kode, b.tipe, b.status, bl.kode AS blok, du.nama AS dusun,
                 jp.nama AS penggunaan, b.luas_m2, b.nib, b.nis, b.nomor_daftar,
                 jh.kode AS jenis_hak, h.pemegang_nama, h.no_sertifikat, h.no_hak_pakai,
                 o.nama_wp, o.nop,
@@ -816,15 +820,19 @@ if (get_str('ekspor') === 'csv') {
     $keluaran = fopen('php://output', 'wb');
     fwrite($keluaran, "\xEF\xBB\xBF");
     fputcsv($keluaran, [
-        'Kode', 'Tipe', 'Status', 'Blok', 'Dusun', 'Penggunaan', 'Luas m2',
+        'Kode bidang', 'Kode internal', 'Tipe', 'Status', 'Blok', 'Dusun', 'Penggunaan', 'Luas m2',
         'NIB', 'NIS', 'Nomor daftar 080201', 'Jenis hak', 'Pemegang',
         'Nomor sertifikat', 'Nomor hak pakai', 'Wajib pajak', 'NOP', 'Status PBB',
         'Lintang', 'Bujur', 'Sumber data', 'Catatan', 'Geometri WKT',
     ], ';');
-    $kolomTeks = [0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 19, 20, 21];
+    $kolomTeks = [0, 1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 20, 21, 22];
     while ($baris !== false && ($row = $baris->fetch(PDO::FETCH_NUM)) !== false) {
-        if ($row[3] !== null && $row[3] !== '') {
-            $row[3] = blok_tiga_digit((string) $row[3]);
+        $idBidang = (int) $row[0];
+        array_splice($row, 0, 1);
+        $kodeStandar = kode_bidang_standar($idBidang);
+        array_unshift($row, $kodeStandar !== '' ? $kodeStandar : (string) $row[0]);
+        if ($row[4] !== null && $row[4] !== '') {
+            $row[4] = blok_tiga_digit((string) $row[4]);
         }
         foreach ($kolomTeks as $index) {
             if (is_string($row[$index]) && preg_match('/^\s*[=+\-@\t\r]/', $row[$index])) {
@@ -849,7 +857,7 @@ $jumlahTanah = $pengguna['peran'] === PERAN_SUPER
 
 sip_header('Bidang tanah', 'bidang');
 sip_judul('Bidang tanah', 'Daftar bidang hasil digitasi',
-    'Pencarian mencakup kode bidang, NIB peta, nama pemegang hak, nama wajib pajak, dan NOP.');
+    'Pencarian mencakup kode bidang standar (mis. 3324042008-002-0005), kode internal, NIB peta, nama pemegang hak, nama wajib pajak, dan NOP.');
 ?>
 
 <section class="kartu">
@@ -962,10 +970,12 @@ sip_judul('Bidang tanah', 'Daftar bidang hasil digitasi',
                     <tr><td colspan="9" class="kosong"><strong>Tidak ada bidang yang cocok.</strong>Ubah kata kunci atau bersihkan saringan.</td></tr>
                 <?php endif; ?>
                 <?php foreach ($daftar['items'] as $b):
-                    $statusKelas = STATUS_BIDANG[$b['status']][1] ?? 'lencana-abu'; ?>
+                    $statusKelas = STATUS_BIDANG[$b['status']][1] ?? 'lencana-abu';
+                    $kodeStandar = kode_bidang_standar((int) $b['id']); ?>
                     <tr>
                         <td class="nobreak">
-                            <a class="tebal" href="<?= e(sip_url('bidang.php', ['id' => $b['id']])) ?>"><?= e($b['kode']) ?></a>
+                            <a class="tebal" href="<?= e(sip_url('bidang.php', ['id' => $b['id']])) ?>"><?= e($kodeStandar !== '' ? $kodeStandar : $b['kode']) ?></a>
+                            <?php if ($kodeStandar !== ''): ?><div class="kecil redup"><?= e($b['kode']) ?></div><?php endif; ?>
                             <?php if ($b['nib'] !== null): ?><div class="kecil redup"><?= e($b['nib']) ?></div><?php endif; ?>
                             <?php if ($b['nis'] !== null): ?><div class="kecil redup">NIS <?= e($b['nis']) ?></div><?php endif; ?>
                         </td>

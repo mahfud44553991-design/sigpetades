@@ -215,6 +215,82 @@ function blok_tiga_digit(?string $kode): string
     return $teks;
 }
 
+/** Kode Desa Gedong menurut Kemendagri (33.24.04.2008), bukan kode wilayah NOP. */
+const KODE_DESA = '3324042008';
+
+/** Tinggi satu baris pembacaan nomor urut (±50 m lintang). */
+const BARIS_URUT_LAT = 0.00045;
+
+/**
+ * Nomor urut bidang di dalam bloknya, dibaca baris demi baris: baris paling
+ * utara dulu, tiap baris dari barat ke timur, lalu baris berikutnya ke selatan.
+ * Baris ditentukan dari selisih lintang terhadap bidang paling utara blok
+ * (setinggi BARIS_URUT_LAT); dalam satu baris urut bujur menaik, lalu kode.
+ * Bidang 'dihapus'/'duplikat' tidak ikut dihitung. Hasil
+ * di-cache selama satu permintaan.
+ *
+ * @return array<int, array{blok: int, urut: int}> id bidang => nomor blok & urut
+ */
+function urut_bidang_per_blok(): array
+{
+    static $peta = null;
+    if ($peta !== null) {
+        return $peta;
+    }
+    $peta = [];
+    $baris = db_all(
+        "SELECT id, nomor
+           FROM (
+               SELECT b.id, bl.nomor, b.pusat_lon, b.kode,
+                      FLOOR((MAX(b.pusat_lat) OVER (PARTITION BY b.blok_id) - b.pusat_lat)
+                            / " . BARIS_URUT_LAT . ") AS baris_ke
+                 FROM bidang b
+                 JOIN blok bl ON bl.id = b.blok_id
+                WHERE b.status NOT IN ('dihapus', 'duplikat')
+           ) t
+          ORDER BY nomor, baris_ke, pusat_lon, kode"
+    );
+    $urut = [];
+    foreach ($baris as $b) {
+        $blok = (int) $b['nomor'];
+        $urut[$blok] = ($urut[$blok] ?? 0) + 1;
+        $peta[(int) $b['id']] = ['blok' => $blok, 'urut' => $urut[$blok]];
+    }
+    return $peta;
+}
+
+/**
+ * Kode bidang standar "kode desa-kode blok-nomor urut", mis. 3324042008-002-0005.
+ * Kosong bila bidang belum punya blok atau berstatus dihapus/duplikat.
+ */
+function kode_bidang_standar(int $idBidang): string
+{
+    $p = urut_bidang_per_blok()[$idBidang] ?? null;
+    if ($p === null) {
+        return '';
+    }
+    return KODE_DESA
+        . '-' . str_pad((string) $p['blok'], 3, '0', STR_PAD_LEFT)
+        . '-' . str_pad((string) $p['urut'], 4, '0', STR_PAD_LEFT);
+}
+
+/** id bidang dari kode standar lengkap, atau null bila teksnya bukan kode itu. */
+function id_dari_kode_standar(?string $kode): ?int
+{
+    $teks = trim((string) $kode);
+    if (!preg_match('/^' . preg_quote(KODE_DESA, '/') . '-(\d{3})-(\d{4})$/', $teks, $c)) {
+        return null;
+    }
+    $blok = (int) $c[1];
+    $urut = (int) $c[2];
+    foreach (urut_bidang_per_blok() as $id => $p) {
+        if ($p['blok'] === $blok && $p['urut'] === $urut) {
+            return $id;
+        }
+    }
+    return null;
+}
+
 /** id baris `blok` tempat sebuah NOP berada, atau null bila kodenya kosong. */
 function blok_dari_nop(?string $nop): ?int
 {

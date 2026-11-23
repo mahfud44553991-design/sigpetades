@@ -9593,6 +9593,78 @@ dan README.
 
 ---
 
+### 3.137 Kode bidang standar: kode desa + blok + urut baris dari barat laut (23 Nov 2026)
+
+Setiap bidang tanah kini punya kode baku berformat
+`3324042008-BLOK3-URUT4`, mis. `3324042008-002-0005`: nomor kode desa
+menurut Kemendagri (33.24.04.2008), kode blok tiga digit, lalu nomor
+urut empat digit di dalam blok itu. Nomor dibaca baris demi baris: baris
+paling utara dulu, dan di dalam satu baris nomor maju dari barat ke timur
+(`pusat_lon` menaik); habis satu baris, nomor lanjut ke baris berikutnya
+di selatan. Baris dihitung dari selisih lintang terhadap bidang paling
+utara blok dengan tinggi `BARIS_URUT_LAT` = 0,00045 derajat (±50 m);
+pemutus seri kode internal. Jadi `0001` jatuh di
+ujung barat baris paling utara. Bidang berstatus `dihapus` dan `duplikat`
+tidak ikut dinomori. Bidang tanpa blok tidak punya kode standar dan tetap
+memakai kode internalnya.
+
+Angka `3324042008` adalah kode desa Kemendagri, bukan awalan NOP
+(`setelan.kode_wilayah_nop` = `3324040008`); keduanya sengaja dibedakan
+lewat konstanta `KODE_DESA` di `app/helpers.php`.
+
+Kode ini **hanya dihitung di lapisan tampilan**, tidak ada kolom atau
+baris database yang berubah. Tiga pembantu di `app/helpers.php`:
+
+- `urut_bidang_per_blok()` — satu kueri baca untuk semua bidang hidup
+  ber-blok, diurutkan sesuai aturan di atas lalu diberi nomor 1..n per
+  blok; hasilnya di-cache statis per permintaan.
+- `kode_bidang_standar(int $id)` — menyusun `KODE_DESA-` + blok tiga
+  digit + urut empat digit, kosong bila bidang tanpa blok.
+- `id_dari_kode_standar(?string $kode)` — kebalikannya, dipakai pencarian
+  supaya kode standar utuh langsung menjadi `b.id = ?`.
+
+Karena nomor diturunkan dari data saat halaman dibuka, kode bisa bergeser
+bila ada bidang baru di blok yang sama (susunan baris berubah) atau
+bila status bidang menjadi `dihapus`/`duplikat`. Kode internal
+(`DXF-...`, `MANUAL-B...`) tetap tersimpan dan tetap ditampilkan sebagai
+"Kode internal" supaya rujukan lama tidak hilang.
+
+**Tempat yang memakai kode standar.** `bidang.php`: judul halaman dan
+detail memakai kode standar, baris "Kode bidang" diikuti "Kode internal",
+teks tautan daftar memakai kode standar dengan kode internal kecil di
+bawahnya, bantuan pencarian, dan CSV dua kolom pertama ("Kode bidang",
+"Kode internal"). `api/bidang.php`: properti `kode` (standar, jatuh ke
+kode internal bila tanpa blok) + `kode_internal` baru, dan `kode_standar`
+pada daftar ringkas; saringan `cari` menerima kode standar utuh.
+`api/cari_bidang.php` dan `api/cari_bidang_terdekat.php`: `kode` standar +
+`kode_internal`, label hasil memakai kode standar. `peta.php`: contoh
+pencarian, daftar bidang, popup (baris "Kode internal" bila berbeda), dan
+tabel atribut (kode internal kecil). `sppt.php`: kolom serta CSV "Bidang
+tertaut"; `buku-c.php`, `laporan.php`, `peralihan.php`: teks tautan bidang.
+
+**Pemeriksaan.** 4.326 bidang hidup; 4.275 ber-blok di 24 blok mendapat
+kode standar (4.275 kode unik, 0 bentrok, bolak-balik kode ke id 0 salah)
+dan 51 bidang tanpa blok memakai kode internal. BLOK 002 berisi 320 bidang
+(`0001`..`0320`): `0001` = `DXF-020100-2932` (bujur 110,0639772 / lintang
+-7,0745291, ujung barat baris utara), lalu `0002` `DXF-020100-2917`,
+`0003` `DXF-020100-G00641`, `0004` `HM-0005`, `0005`
+`DXF-020100-0453` (1.012,00 m², perlu verifikasi), `0010`
+`DXF-020100-G00642`; jadi contoh pengguna `3324042008-002-0005` kini
+menunjuk id 11801 `DXF-020100-0453`. Di peramban `peta.php`: pencarian
+kode standar menyaring menjadi "1 tanah · 0 obyek", daftar samping
+"3324042008-002-0005 / Jenis hak tidak tercatat / 1.012 m²", popup
+memuat kode standar dan baris "Kode internal DXF-020100-0453", tabel
+atribut memuat kode kecil yang sama, 0 galat JS (hanya ubin OSM 400 di
+zoom 20). Halaman detail `bidang.php?id=11801` menampilkan
+`3324042008-002-0005` beserta "Kode internal DXF-020100-0453". CSV
+`bidang.php` berkolom 23 dengan dua kolom kode; ekspor BLOK 2 = 390
+baris; baris ke-2 `3324042008-002-0005;DXF-020100-0453;...`. CSV
+`sppt.php` 3.794 baris, kolom "Bidang tertaut" terisi 176 = tepat jumlah
+SPPT tertaut bidang di database. `php -l` bersih pada 11 berkas PHP;
+0 karakter CJK pada berkas yang diubah.
+
+---
+
 ## 4. Berkas SPPT dari Excel
 
 Importer CSV menerima kolom berikut (nama kolom dibersihkan dari spasi dan tanda

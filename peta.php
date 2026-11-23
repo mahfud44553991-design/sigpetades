@@ -290,7 +290,7 @@ sip_judul(
             <form id="formSaring">
                 <div class="lapangan">
                     <label for="cari">Cari pemegang, kode bidang, atau NOP</label>
-                    <input id="cari" name="cari" type="search" placeholder="mis. SUMARNI atau HM-0001">
+                    <input id="cari" name="cari" type="search" placeholder="mis. SUMARNI atau 3324042008-002-0005">
                 </div>
                 <div class="baris-form">
                     <div class="lapangan">
@@ -1248,7 +1248,10 @@ $naskah = <<<'JS'
                     + '<td class="tengah"><input type="checkbox" data-atribut="' + p.id + '"'
                     + (terpilih.has(p.id) ? ' checked' : '') + ' aria-label="Pilih '
                     + Sip.esc(p.kode) + '"></td>'
-                    + '<td><strong>' + Sip.esc(p.kode) + '</strong></td>'
+                    + '<td><strong>' + Sip.esc(p.kode) + '</strong>'
+                    + (p.kode_internal && p.kode_internal !== p.kode
+                        ? '<div class="kecil redup">' + Sip.esc(p.kode_internal) + '</div>' : '')
+                    + '</td>'
                     + '<td>' + Sip.esc(p.blok || '—') + '</td>'
                     + '<td>' + Sip.esc(p.hak_nama || p.hak_kode || '—') + '</td>'
                     + '<td>' + Sip.esc(ringkas(p.pemegang || '—')) + '</td>'
@@ -1324,6 +1327,7 @@ $naskah = <<<'JS'
         tambah('Nomor daftar 080201', p.nomor_daftar);
         tambah('Blok', p.blok || '—');
         tambah('Dusun', p.dusun || '—');
+        if (p.kode_internal && p.kode_internal !== p.kode) tambah('Kode internal', p.kode_internal);
         if (p.nop) {
             tambah('NOP', p.nop);
             tambah('Status PBB', p.pbb || 'tanpa SPPT');

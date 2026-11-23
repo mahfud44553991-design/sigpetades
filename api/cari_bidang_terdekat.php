@@ -64,9 +64,12 @@ try {
         'sukses' => true,
         'data' => array_map(function($b) {
             $blok = blok_tiga_digit($b['blok_nama'] ?? '');
+            $kodeStandar = kode_bidang_standar((int) $b['id']);
+            $kodeLabel = $kodeStandar !== '' ? $kodeStandar : $b['kode'];
             return [
                 'id' => $b['id'],
-                'kode' => $b['kode'],
+                'kode' => $kodeLabel,
+                'kode_internal' => $b['kode'],
                 'nib' => $b['nib'],
                 'luas_m2' => (float)($b['luas_m2'] ?? 0),
                 'status' => $b['status'],
@@ -76,7 +79,7 @@ try {
                 'dusun_nama' => $b['dusun_nama'] ?? '',
                 'pemegang_nama' => $b['pemegang_nama'] ?? '',
                 'jarak_meter' => round((float)$b['jarak_meter'], 2),
-                'label' => $b['kode'] . ' | ' . number_format((float)($b['luas_m2'] ?? 0)) . ' m² | ' . 
+                'label' => $kodeLabel . ' | ' . number_format((float)($b['luas_m2'] ?? 0)) . ' m² | ' . 
                           round((float)$b['jarak_meter'], 0) . 'm' .
                           ($blok !== '' ? ' | ' . $blok : '') .
                           ($b['pemegang_nama'] ? ' | ' . $b['pemegang_nama'] : '') .

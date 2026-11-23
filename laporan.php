@@ -162,7 +162,7 @@ if ($idMinta !== null) {
                             <dt class="label-blok">Bidang</dt>
                             <dd>
                                 <?php if ($l['bidang_id'] !== null): ?>
-                                    <a href="<?= e(sip_url('bidang.php', ['id' => $l['bidang_id']])) ?>"><?= e($l['bidang_kode']) ?></a>
+                                    <a href="<?= e(sip_url('bidang.php', ['id' => $l['bidang_id']])) ?>"><?= e(kode_bidang_standar((int) $l['bidang_id']) ?: $l['bidang_kode']) ?></a>
                                 <?php else: ?><span class="redup">tidak ditautkan</span><?php endif; ?>
                             </dd>
                             <dt class="label-blok">NOP</dt><dd class="nobreak"><?= e($l['nop'] ?: '—') ?></dd>
@@ -416,7 +416,7 @@ sip_judul('Pelaporan', 'Laporan masyarakat dan sengketa tanah',
                         <td><?= e(perpanjang((string) $b['keterangan'], 60)) ?></td>
                         <td>
                             <?php if ($b['bidang_id'] !== null): ?>
-                                <a href="<?= e(sip_url('bidang.php', ['id' => $b['bidang_id']])) ?>"><?= e($b['bidang_kode']) ?></a>
+                                <a href="<?= e(sip_url('bidang.php', ['id' => $b['bidang_id']])) ?>"><?= e(kode_bidang_standar((int) $b['bidang_id']) ?: $b['bidang_kode']) ?></a>
                             <?php else: ?><span class="redup">—</span><?php endif; ?>
                         </td>
                         <td class="nobreak"><?= e(tanggal($b['tanggal_lapor'])) ?></td>

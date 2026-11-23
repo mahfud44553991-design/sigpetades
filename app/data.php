@@ -246,10 +246,17 @@ function bidang_filter(array $q): array
         $param[] = (string) $q['hak'];
     }
     if (!empty($q['cari'])) {
-        $kondisi[] = '(b.kode LIKE ? OR b.nib LIKE ? OR b.nis LIKE ? OR b.nomor_daftar LIKE ?
-                      OR h.pemegang_nama LIKE ? OR o.nama_wp LIKE ? OR o.nop LIKE ?)';
-        $kata = '%' . str_replace(['%', '_'], ['\%', '\_'], (string) $q['cari']) . '%';
-        array_push($param, $kata, $kata, $kata, $kata, $kata, $kata, $kata);
+        $teksCari = trim((string) $q['cari']);
+        $idStandar = id_dari_kode_standar($teksCari);
+        if ($idStandar !== null) {
+            $kondisi[] = 'b.id = ?';
+            $param[] = $idStandar;
+        } else {
+            $kondisi[] = '(b.kode LIKE ? OR b.nib LIKE ? OR b.nis LIKE ? OR b.nomor_daftar LIKE ?
+                          OR h.pemegang_nama LIKE ? OR o.nama_wp LIKE ? OR o.nop LIKE ?)';
+            $kata = '%' . str_replace(['%', '_'], ['\%', '\_'], $teksCari) . '%';
+            array_push($param, $kata, $kata, $kata, $kata, $kata, $kata, $kata);
+        }
     }
     if (!empty($q['punyaNop'])) {
         $kondisi[] = 'o.nop IS NOT NULL';
@@ -276,6 +283,11 @@ function daftar_bidang(array $q, int $halaman, int $perHalaman): array
          ORDER BY b.kode LIMIT {$perHalaman} OFFSET {$mulai}",
         $param
     );
+
+    foreach ($items as &$item) {
+        $item['kode_standar'] = kode_bidang_standar((int) $item['id']);
+    }
+    unset($item);
 
     return ['total' => $total, 'items' => $items];
 }
@@ -365,6 +377,7 @@ function detail_bidang(int $idBidang): ?array
     }
     $geo = json_decode((string) $utama['geojson'], true);
     $utama['geojson'] = is_array($geo) ? $geo : null;
+    $utama['kode_standar'] = kode_bidang_standar($idBidang);
 
     $utama['hak'] = db_all(
         'SELECT h.id, h.jenis_hak_id, h.no_sertifikat, h.no_hak_pakai, h.pemegang_nama,

@@ -173,7 +173,7 @@ if ($idMinta !== null) {
                         <dt class="label-blok">Bidang tertaut</dt>
                         <dd>
                             <?php if ($c['bidang_id'] !== null): ?>
-                                <a href="<?= e(sip_url('bidang.php', ['id' => $c['bidang_id']])) ?>"><?= e($c['bidang_kode']) ?></a>
+                                <a href="<?= e(sip_url('bidang.php', ['id' => $c['bidang_id']])) ?>"><?= e(kode_bidang_standar((int) $c['bidang_id']) ?: $c['bidang_kode']) ?></a>
                             <?php else: ?><span class="redup">belum ditautkan</span><?php endif; ?>
                         </dd>
                     </div>
@@ -270,7 +270,7 @@ if ($idMinta !== null) {
                     <?php endif; ?>
                     <?php foreach ($c['hak'] as $h): ?>
                         <tr>
-                            <td><a href="<?= e(sip_url('bidang.php', ['id' => $h['bidang_id']])) ?>"><?= e($h['bidang_kode']) ?></a></td>
+                            <td><a href="<?= e(sip_url('bidang.php', ['id' => $h['bidang_id']])) ?>"><?= e(kode_bidang_standar((int) $h['bidang_id']) ?: $h['bidang_kode']) ?></a></td>
                             <td><?= e($h['hak_nama']) ?></td>
                             <td><?= e($h['no_sertifikat'] ?: '—') ?></td>
                             <td><?= e(perpanjang((string) ($h['pemegang_nama'] ?: '—'), 30)) ?></td>
@@ -428,7 +428,7 @@ sip_judul('Buku C Desa', 'Indeks buku C',
                         <td><?= e($b['dusun'] ?: '—') ?></td>
                         <td>
                             <?php if ($b['bidang_id'] !== null): ?>
-                                <a href="<?= e(sip_url('bidang.php', ['id' => $b['bidang_id']])) ?>"><?= e($b['bidang_kode']) ?></a>
+                                <a href="<?= e(sip_url('bidang.php', ['id' => $b['bidang_id']])) ?>"><?= e(kode_bidang_standar((int) $b['bidang_id']) ?: $b['bidang_kode']) ?></a>
                             <?php else: ?><span class="redup">—</span><?php endif; ?>
                         </td>
                         <td class="angka"><?= e($b['luas_m2'] === null ? '—' : angka((float) $b['luas_m2'], 2)) ?></td>

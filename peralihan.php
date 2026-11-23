@@ -200,7 +200,7 @@ if ($idMinta !== null) {
                     <span class="redup">Bidang</span>
                     <span class="rapek-kanan">
                         <?php if ($p['bidang_id'] !== null): ?>
-                            <a class="tebal" href="<?= e(sip_url('bidang.php', ['id' => $p['bidang_id']])) ?>"><?= e($p['bidang_kode']) ?></a>
+                            <a class="tebal" href="<?= e(sip_url('bidang.php', ['id' => $p['bidang_id']])) ?>"><?= e(kode_bidang_standar((int) $p['bidang_id']) ?: $p['bidang_kode']) ?></a>
                         <?php else: ?>— belum ditautkan<?php endif; ?>
                     </span>
                 </li>
@@ -433,7 +433,7 @@ sip_judul('Peralihan hak', 'Mutasi hak atas tanah',
                         <td><?= e(perpanjang((string) $b['pihak_kedua'], 24)) ?></td>
                         <td>
                             <?php if ($b['bidang_id'] !== null): ?>
-                                <a href="<?= e(sip_url('bidang.php', ['id' => $b['bidang_id']])) ?>"><?= e($b['bidang_kode']) ?></a>
+                                <a href="<?= e(sip_url('bidang.php', ['id' => $b['bidang_id']])) ?>"><?= e(kode_bidang_standar((int) $b['bidang_id']) ?: $b['bidang_kode']) ?></a>
                             <?php else: ?><span class="redup"><?= e($b['nop'] ? 'via NOP' : '—') ?></span><?php endif; ?>
                         </td>
                         <td class="nobreak"><?= e(tanggal($b['tanggal'])) ?></td>

@@ -47,7 +47,7 @@ if (get_str('ekspor') === 'csv') {
     $baris = db_all(
         "SELECT s.nop, o.nama_wp, o.alamat_op, du.nama AS dusun, bl.kode AS blok, s.tahun_pajak,
                 o.luas_bumi_m2, o.luas_bng_m2, s.njop_pbb, s.pajak_ditetapkan, s.terbayar,
-                s.sisa, s.status_bayar, s.tanggal_bayar, b.kode AS bidang
+                s.sisa, s.status_bayar, s.tanggal_bayar, b.id AS bidang_id, b.kode AS bidang
          FROM sppt s
          JOIN objek_pajak o ON o.nop = s.nop
          LEFT JOIN dusun du ON du.id = o.dusun_id
@@ -74,6 +74,11 @@ if (get_str('ekspor') === 'csv') {
         if ($b['blok'] !== null && $b['blok'] !== '') {
             $b['blok'] = blok_tiga_digit((string) $b['blok']);
         }
+        $kodeStandar = $b['bidang_id'] === null ? '' : kode_bidang_standar((int) $b['bidang_id']);
+        if ($kodeStandar !== '') {
+            $b['bidang'] = $kodeStandar;
+        }
+        unset($b['bidang_id']);
         fputcsv($keluaran, array_values($b), ';');
     }
     fclose($keluaran);
@@ -231,7 +236,7 @@ if ($nopMinta !== '') {
                         <dt class="label-blok">Bidang tertaut</dt>
                         <dd>
                             <?php if ($objek['bidang_id'] !== null): ?>
-                                <a href="<?= e(sip_url('bidang.php', ['id' => $objek['bidang_id']])) ?>"><?= e($objek['bidang_kode']) ?></a>
+                                <a href="<?= e(sip_url('bidang.php', ['id' => $objek['bidang_id']])) ?>"><?= e(kode_bidang_standar((int) $objek['bidang_id']) ?: $objek['bidang_kode']) ?></a>
                             <?php else: ?>
                                 <span class="redup">belum ditautkan</span>
                                 <?php if ($bolehUbah): ?>
@@ -525,7 +530,7 @@ sip_judul('e-SPPT / PBB', 'Ketetapan PBB tahun ' . $tahun,
                         <td class="nobreak"><?= e($s['blok'] ? blok_tiga_digit($s['blok']) : '—') ?></td>
                         <td>
                             <?php if ($s['bidang_id'] !== null): ?>
-                                <a href="<?= e(sip_url('bidang.php', ['id' => (int) $s['bidang_id']])) ?>"><?= e($s['bidang_kode']) ?></a>
+                                <a href="<?= e(sip_url('bidang.php', ['id' => (int) $s['bidang_id']])) ?>"><?= e(kode_bidang_standar((int) $s['bidang_id']) ?: $s['bidang_kode']) ?></a>
                             <?php else: ?>
                                 <span class="redup">—</span>
                             <?php endif; ?>
