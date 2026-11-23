@@ -10149,6 +10149,90 @@ masuk NGRANDU karena urutan periksa, dan KALIPURU tetap paling sedikit
 memakai garis DXF (§3.141). `dusun` pada `objek_pajak`, `buku_c`, dan
 `peralihan` tidak diisi oleh alat ini.
 
+### 3.144 Garis dusun digeser lagi ke garis luar tiap blok (23 Nov 2026)
+
+**Permintaan.** "optimalisasikan garis Dusun (10) dengan garis luar masing
+masing blok". Pengukuran menunjukkan garis luar 24 blok hampir sama dengan
+`020100`, jadi menambahkannya ke jaringan snapping §3.141 (toleransi 6 m)
+tidak mengubah apa pun; pilihan yang diambil: **geser tepi yang berjarak
+6–12 m dari garis luar blok**, sampai 12 m, biarpun blok tetap terbelah
+bila batas dusun mengikuti jalan di dalam blok. Tidak ada data basis data
+yang diubah.
+
+**Pengukuran dasar.** Garis luar 24 blok (tabel `blok`, WGS84 → UTM 49S;
+3.404 segmen, 3.456 titik) berjarak ke `020100`: median 0,00 m, p90
+0,03 m, p95 0,12 m, maks 10,62 m; 98,0% titik <=1 m dan 99,9% <=6 m. Sisa
+tepi dusun (§3.141) yang berada di luar jaringan lama, per pita 2 m:
+6–8 m 1.142 m (ruas menerus terpanjang 58 m), 8–10 m 996 m (28 m),
+10–12 m 1.002 m (54 m), 12–15 m 1.258 m, lebih jauh 20.614 m. Simulasi
+ruas khusus blok (toleransi 10 m, ruas >=12 m) per jarak rata-rata ruas:
+<=3 m 97 ruas/5.425 m, <=4 m 49/4.184, <=5 m 42/2.176, <=6 m 30/1.127,
+>6 m 39/1.027.
+
+**Aturan dua tahap.** (1) Kandidat baku tidak berubah: jaringan DXF dan
+`010500`, jarak <=6 m, sudut <=30 derajat, ruas menerus >=12 m, jarak
+rata <=3 m, taper 6 m. (2) Hanya titik yang tidak mendapat kandidat baku
+dicoba ke garis luar blok sampai 12 m; ruas khusus blok diterima bila
+menerus >=12 m dan jarak rata-ratanya <=8 m (menampung pita geser 6–12 m
+yang dipilih). Kandidat baku dihitung lebih dulu supaya ruas blok tidak
+menelan atau memperpanjang ruas baku; percobaan satu tahap sempat
+menurunkan GEDONG 38,6% → 33,2% dan NGRANDU 39,6% → 36,8%.
+`optimalkan.php` kini membaca 24 garis luar blok dari DB
+(`TOLERANSI_BLOK = 12`, `RATA_MAKS_BLOK = 8`) dan mengatribusikan ruas ke
+sumber `blokdb`.
+
+**Hasil per dusun** (Layak = panjang tepi dalam ruas diterima; geser =
+perpindahan titik yang benar-benar digeser; luas dari `ST_Area` UTM 49S):
+
+| Dusun | Titik §3.141 → kini | Luas m² (§3.141 → kini) | Selisih m² | Layak §3.141 → kini | Geser rata | Geser maks |
+|---|---|---|---|---|---|---|
+| GEDONG | 456 → 459 | 501.029,3 → 501.080,3 | +51,0 | 38,65% → 39,0% | 1,75 m | 7,56 m |
+| WATES | 323 → 327 | 267.730,2 → 267.610,0 | −120,2 | 21,04% → 21,7% | 1,83 m | 7,91 m |
+| ROWOGANDU | 273 → 272 | 487.917,2 → 487.912,9 | −4,3 | 39,58% → 39,6% | 1,73 m | 5,85 m |
+| NGRANDU | 367 → 365 | 345.952,7 → 345.938,8 | −13,9 | 39,57% → 39,6% | 1,53 m | 5,75 m |
+| DAKAH | 770 → 776 | 808.655,9 → 809.005,6 | +349,7 | 38,17% → 40,0% | 1,81 m | 11,98 m |
+| KANDANG | 397 → 411 | 417.486,6 → 417.287,8 | −198,8 | 28,61% → 30,3% | 1,96 m | 8,83 m |
+| TEMPURAN | 292 → 296 | 1.022.675,4 → 1.022.671,8 | −3,6 | 20,79% → 21,7% | 2,19 m | 8,21 m |
+| KALIPURU | 216 → 220 | 1.706.096,7 → 1.706.177,8 | +81,1 | 9,49% → 9,9% | 1,97 m | 7,62 m |
+| KREYO | 237 → 237 | 320.026,2 → 320.026,2 | 0,0 | 42,80% → 42,8% | 1,43 m | 5,74 m |
+| SABRANG | 453 → 456 | 1.056.732,0 → 1.056.862,8 | +130,8 | 37,04% → 37,5% | 1,90 m | 7,99 m |
+
+Angka `titik` adalah verteks cincin terbuka; berkas GeoJSON menutup cincin
+dengan mengulang titik pertama (3.828 koordinat, 3.818 verteks unik).
+Ruas khusus blok yang baru terbentuk 14 ruas/331 m (GEDONG 1/13 m, WATES
+1/22, DAKAH 4/130, KANDANG 3/62, TEMPURAN 2/52, KALIPURU 2/26, SABRANG
+1/26); ROWOGANDU, NGRANDU, dan KREYO tidak mendapat ruas baru. Garis blok
+juga memenangkan pemilihan garis terdekat di dalam ruas baku, sehingga
+atribusi sumber bergeser (mis. ROWOGANDU `blokdb` 415,6 m, DAKAH 878,5 m,
+SABRANG 610,5 m). Tujuh dusun membaik, tiga tetap; 0 perpotongan diri di
+UTM maupun WGS84.
+
+**Penerapan.** Cadangan
+`_lama/cadangan-dusun-20261123/blokdb-20261123-141627/` (24 berkas: lapis,
+ringkas, meta, 10 cincin UTM, 10 cincin WGS84). Luas kesepuluh cincin
+6.934.302,2 → 6.934.574,0 m² (selisih total terhadap raster 2015 +1.562,0
+→ +1.833,8 m²). Gabungan 6.928.870,6 → 6.929.166,7 m² (dalam desa
+6.342.105,4 → 6.342.624,1 m²); bagian desa tak tertutup 402.239,4 →
+401.720,6 m²; tumpang tindih 10 pasang, 5.222,8 → 5.199,9 m².
+
+**Penugasan.** 4.326 bidang hidup: 4.178 di dalam tepat satu dusun, 2 di
+zona tumpang, 146 di luar semua cincin (median 30,4 m); cacah per dusun
+sama dengan §3.143. Uji kering `tulis-dusun-id.php` memberi 0 bidang dan
+0 blok berubah, jadi `dusun_id` di DB tidak ditulis ulang dan tidak perlu
+`jalankan` baru.
+
+**Penyajian.** Berkas yang disajikan §3.142 tidak berubah nama atau
+skema, hanya isinya; `api/peta-lama.php?lapisan=dusun` tetap 200 dengan
+10 fitur (diperiksa dari sesi Peta Induk: GEDONG 460 koordinat). Tidak ada
+perubahan UI.
+
+**Catatan.** 22 dari 24 blok tetap terbelah garis dusun (1.026.660,2 m²
+di luar dusun yang ditugaskan; BLOK 7 hanya 31,47% di GEDONG) karena
+batas dusun 2015 mengikuti jalan di dalam blok; aturan ini hanya menggeser
+tepi yang berjarak 6–12 m dari garis luar blok, tidak memindahkan blok.
+KALIPURU tetap paling sedikit memakai garis (80,64% dalam desa). Batas
+2015 tetap usulan, bukan produk resmi. Peta menulis KREO, tabel KREYO.
+
 ---
 
 ## 5. Menjalankan saat pengembangan tanpa Apache

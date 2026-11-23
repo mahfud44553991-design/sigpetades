@@ -8,19 +8,21 @@
         }
     },
     "metadata": {
-        "judul": "Batas 10 dusun Desa Gedong: digitasi raster 2015 dirapikan ke jaringan DXF",
+        "judul": "Batas 10 dusun Desa Gedong: digitasi raster 2015 dirapikan ke jaringan DXF dan garis luar blok",
         "sumber_dokumen": "C:/Users/User/Downloads/PETA DESA.docx (11 lembar peta KKN UNNES 2015)",
-        "dasar_optimalisasi": "MASTER.dxf Desa Gedong: 020100 (tepi persil), garis-jalan-tepi, garis-sungai-jahit, batas-blok, 010500",
+        "dasar_optimalisasi": "MASTER.dxf Desa Gedong: 020100 (tepi persil), garis-jalan-tepi, garis-sungai-jahit, batas-blok, 010500; ditambah garis luar 24 blok dari tabel blok (WGS84)",
         "parameter": {
             "toleransi_m": 6,
             "rata_maks_m": 3,
+            "toleransi_blok_m": 12,
+            "rata_maks_blok_m": 8,
             "sudut_maks_derajat": 30,
             "ruas_min_m": 12,
             "taper_m": 6,
             "sederhana_m": 0.75,
             "padat_m": 2
         },
-        "metode": "densifikasi 2 m; titik yang berjarak <=6 m dan sejajar (<=30 derajat) dengan garis DXF digeser ke garis itu bila bagian menerus >=12 m dan jarak rata-ratanya <=3 m; transisi taper 6 m; Douglas-Peucker 0,75 m",
+        "metode": "densifikasi 2 m; titik yang berjarak <=6 m (garis luar blok <=12 m) dan sejajar (<=30 derajat) dengan garis DXF atau garis luar blok digeser ke garis itu bila bagian menerus >=12 m dan jarak rata-ratanya <=3 m (ruas khusus garis luar blok <=8 m); transisi taper 6 m; Douglas-Peucker 0,75 m",
         "sistem_koordinat": "WGS84 (EPSG:4326); perhitungan meter di UTM 49S",
         "dibuat": "2026-11-23",
         "status": "usulan; belum ditulis ke basis data"
@@ -31,9 +33,9 @@
             "properties": {
                 "nama": "GEDONG",
                 "dusun_id": 4,
-                "luas_m2": 501029.3,
-                "luas_ha": 50.1,
-                "titik": 456,
+                "luas_m2": 501080.3,
+                "luas_ha": 50.11,
+                "titik": 459,
                 "sumber": "PETA DESA.docx / word/media/image6.jpeg",
                 "peta_2015": "PETA ADMINISTRASI DUSUN GEDONG",
                 "skala_cetak": "1:3.000",
@@ -45,33 +47,36 @@
                     "y0utm": 9217200,
                     "meter_per_px_y": 0.913764
                 },
-                "metode": "digitasi raster 2015 + snapping ke jaringan DXF (020100, jalan, sungai, blok, 010500): run >=12 m, jarak rata <=3 m, taper 6 m, DP 0,75 m",
+                "metode": "digitasi raster 2015 + snapping ke jaringan DXF (020100, jalan, sungai, blok, 010500) dan garis luar 24 blok (tabel blok, toleransi 12 m): run >=12 m, jarak rata <=3 m (khusus blok <=8 m), taper 6 m, DP 0,75 m",
                 "optimalisasi": {
                     "titik_awal": 413,
                     "titik_padat": 2151,
-                    "titik_akhir": 456,
-                    "run_diterima": 37,
-                    "run_ditolak_jauh": 14,
-                    "panjang_layak_m": 1502.7,
-                    "layak_pct": 38.65,
-                    "digeser": 770,
-                    "rata_geser_m": 1.73,
-                    "maks_geser_m": 5.67,
+                    "titik_akhir": 459,
+                    "run_diterima": 38,
+                    "run_diterima_blok": 1,
+                    "panjang_blok_m": 13.4,
+                    "run_ditolak_jauh": 16,
+                    "panjang_layak_m": 1516.1,
+                    "layak_pct": 38.99,
+                    "digeser": 776,
+                    "rata_geser_m": 1.75,
+                    "maks_geser_m": 7.56,
                     "sumber_ruas_m": {
-                        "020100": 1055.6,
-                        "blok": 262.6,
+                        "020100": 911.8,
+                        "blok": 259.6,
+                        "blokdb": 158.3,
                         "sungai": 117
                     },
                     "silang": 0,
                     "silang_padat": 3,
                     "simpul_loop_dibuang": 3,
                     "fallback": false,
-                    "luas_utm_m2": 501029.2,
+                    "luas_utm_m2": 501080.2,
                     "silang_wgs": 0,
                     "loop_wgs_dibuang": 0
                 },
                 "silang": 0,
-                "selisih_m2": 218.4
+                "selisih_m2": 269.4
             },
             "geometry": {
                 "type": "Polygon",
@@ -86,7 +91,7 @@
                             -7.08741171
                         ],
                         [
-                            110.07435041,
+                            110.0743504,
                             -7.08730145
                         ],
                         [
@@ -370,8 +375,8 @@
                             -7.08558102
                         ],
                         [
-                            110.07670365,
-                            -7.0854032
+                            110.07670328,
+                            -7.08540304
                         ],
                         [
                             110.07668289,
@@ -710,7 +715,7 @@
                             -7.08112791
                         ],
                         [
-                            110.07599538,
+                            110.07599539,
                             -7.0811955
                         ],
                         [
@@ -1466,8 +1471,12 @@
                             -7.08395739
                         ],
                         [
-                            110.07078831,
-                            -7.08399352
+                            110.07078273,
+                            -7.08398278
+                        ],
+                        [
+                            110.07078852,
+                            -7.08399339
                         ],
                         [
                             110.07078495,
@@ -1794,10 +1803,6 @@
                             -7.0876321
                         ],
                         [
-                            110.07335958,
-                            -7.08773615
-                        ],
-                        [
                             110.07338447,
                             -7.08775642
                         ],
@@ -1862,6 +1867,18 @@
                             -7.08781792
                         ],
                         [
+                            110.07379443,
+                            -7.08786613
+                        ],
+                        [
+                            110.07381105,
+                            -7.08786572
+                        ],
+                        [
+                            110.0738599,
+                            -7.08778198
+                        ],
+                        [
                             110.07387646,
                             -7.08777685
                         ],
@@ -1886,8 +1903,8 @@
                             -7.08783513
                         ],
                         [
-                            110.07411855,
-                            -7.0878017
+                            110.07413034,
+                            -7.08778896
                         ],
                         [
                             110.0741572,
@@ -1914,9 +1931,9 @@
             "properties": {
                 "nama": "WATES",
                 "dusun_id": 9,
-                "luas_m2": 267730.2,
-                "luas_ha": 26.77,
-                "titik": 323,
+                "luas_m2": 267610,
+                "luas_ha": 26.76,
+                "titik": 327,
                 "sumber": "PETA DESA.docx / word/media/image2.jpeg",
                 "peta_2015": "PETA ADMINISTRASI DUSUN WATES",
                 "skala_cetak": "1:3.000",
@@ -1928,20 +1945,23 @@
                     "y0utm": 9216000,
                     "meter_per_px_y": 0.913242
                 },
-                "metode": "digitasi raster 2015 + snapping ke jaringan DXF (020100, jalan, sungai, blok, 010500): run >=12 m, jarak rata <=3 m, taper 6 m, DP 0,75 m",
+                "metode": "digitasi raster 2015 + snapping ke jaringan DXF (020100, jalan, sungai, blok, 010500) dan garis luar 24 blok (tabel blok, toleransi 12 m): run >=12 m, jarak rata <=3 m (khusus blok <=8 m), taper 6 m, DP 0,75 m",
                 "optimalisasi": {
                     "titik_awal": 303,
                     "titik_padat": 1841,
-                    "titik_akhir": 323,
-                    "run_diterima": 14,
-                    "run_ditolak_jauh": 9,
-                    "panjang_layak_m": 709.5,
-                    "layak_pct": 21.04,
-                    "digeser": 365,
-                    "rata_geser_m": 1.71,
-                    "maks_geser_m": 5.63,
+                    "titik_akhir": 327,
+                    "run_diterima": 15,
+                    "run_diterima_blok": 1,
+                    "panjang_blok_m": 22.4,
+                    "run_ditolak_jauh": 10,
+                    "panjang_layak_m": 731.9,
+                    "layak_pct": 21.7,
+                    "digeser": 376,
+                    "rata_geser_m": 1.83,
+                    "maks_geser_m": 7.91,
                     "sumber_ruas_m": {
-                        "020100": 560.6,
+                        "020100": 509.7,
+                        "blokdb": 71.4,
                         "desa": 68.2,
                         "sungai": 52.5,
                         "blok": 1.9
@@ -1950,12 +1970,12 @@
                     "silang_padat": 0,
                     "simpul_loop_dibuang": 0,
                     "fallback": false,
-                    "luas_utm_m2": 267730.2,
+                    "luas_utm_m2": 267610,
                     "silang_wgs": 0,
                     "loop_wgs_dibuang": 0
                 },
                 "silang": 0,
-                "selisih_m2": -268.9
+                "selisih_m2": -389.1
             },
             "geometry": {
                 "type": "Polygon",
@@ -2642,8 +2662,8 @@
                             -7.09766528
                         ],
                         [
-                            110.06680645,
-                            -7.097608
+                            110.06680646,
+                            -7.09760818
                         ],
                         [
                             110.06690589,
@@ -2734,8 +2754,8 @@
                             -7.09639397
                         ],
                         [
-                            110.0663717,
-                            -7.09641424
+                            110.06637157,
+                            -7.09641411
                         ],
                         [
                             110.06634774,
@@ -2758,8 +2778,24 @@
                             -7.09655841
                         ],
                         [
-                            110.06594683,
-                            -7.09659952
+                            110.06604259,
+                            -7.09656428
+                        ],
+                        [
+                            110.0660257,
+                            -7.0966345
+                        ],
+                        [
+                            110.0659912,
+                            -7.09665814
+                        ],
+                        [
+                            110.06592793,
+                            -7.09668065
+                        ],
+                        [
+                            110.0658624,
+                            -7.09665383
                         ],
                         [
                             110.06580612,
@@ -3266,9 +3302,9 @@
             "properties": {
                 "nama": "ROWOGANDU",
                 "dusun_id": 2,
-                "luas_m2": 487917.2,
+                "luas_m2": 487912.9,
                 "luas_ha": 48.79,
-                "titik": 273,
+                "titik": 272,
                 "sumber": "PETA DESA.docx / word/media/image3.jpeg",
                 "peta_2015": "PETA ADMINISTRASI DUSUN ROWOGANDU",
                 "skala_cetak": "1:2.500",
@@ -3280,42 +3316,44 @@
                     "y0utm": 9216200,
                     "meter_per_px_y": 0.761542
                 },
-                "metode": "digitasi raster 2015 + snapping ke jaringan DXF (020100, jalan, sungai, blok, 010500): run >=12 m, jarak rata <=3 m, taper 6 m, DP 0,75 m",
+                "metode": "digitasi raster 2015 + snapping ke jaringan DXF (020100, jalan, sungai, blok, 010500) dan garis luar 24 blok (tabel blok, toleransi 12 m): run >=12 m, jarak rata <=3 m (khusus blok <=8 m), taper 6 m, DP 0,75 m",
                 "optimalisasi": {
                     "titik_awal": 227,
                     "titik_padat": 1969,
-                    "titik_akhir": 273,
+                    "titik_akhir": 272,
                     "run_diterima": 16,
-                    "run_ditolak_jauh": 18,
+                    "run_diterima_blok": 0,
+                    "panjang_blok_m": 0,
+                    "run_ditolak_jauh": 20,
                     "panjang_layak_m": 1472.6,
                     "layak_pct": 39.58,
                     "digeser": 762,
                     "rata_geser_m": 1.73,
                     "maks_geser_m": 5.85,
                     "sumber_ruas_m": {
-                        "020100": 1091.1,
+                        "020100": 694.9,
+                        "blokdb": 415.6,
                         "sungai": 277.1,
-                        "desa": 54.3,
-                        "blok": 19.4
+                        "desa": 54.3
                     },
                     "silang": 0,
-                    "silang_padat": 3,
-                    "simpul_loop_dibuang": 2,
+                    "silang_padat": 1,
+                    "simpul_loop_dibuang": 1,
                     "fallback": false,
-                    "luas_utm_m2": 487917.2,
+                    "luas_utm_m2": 487913,
                     "silang_wgs": 0,
                     "loop_wgs_dibuang": 0
                 },
                 "silang": 0,
-                "selisih_m2": -171.6
+                "selisih_m2": -175.9
             },
             "geometry": {
                 "type": "Polygon",
                 "coordinates": [
                     [
                         [
-                            110.06481084,
-                            -7.09102071
+                            110.06481022,
+                            -7.09102043
                         ],
                         [
                             110.06475668,
@@ -3398,28 +3436,28 @@
                             -7.08952785
                         ],
                         [
-                            110.06296033,
-                            -7.08945748
+                            110.06296006,
+                            -7.08945796
                         ],
                         [
-                            110.06286942,
-                            -7.08940449
+                            110.06286909,
+                            -7.08940493
                         ],
                         [
-                            110.06261309,
-                            -7.08943379
+                            110.0626132,
+                            -7.08943404
                         ],
                         [
-                            110.06237855,
-                            -7.08954458
+                            110.06237866,
+                            -7.08954471
                         ],
                         [
-                            110.06218314,
-                            -7.08969152
+                            110.06218325,
+                            -7.08969166
                         ],
                         [
-                            110.06183526,
-                            -7.0900904
+                            110.06183532,
+                            -7.09009045
                         ],
                         [
                             110.06183069,
@@ -3439,7 +3477,7 @@
                         ],
                         [
                             110.06186838,
-                            -7.09026603
+                            -7.09026602
                         ],
                         [
                             110.06190027,
@@ -3470,8 +3508,8 @@
                             -7.09074953
                         ],
                         [
-                            110.06180223,
-                            -7.09070666
+                            110.06180234,
+                            -7.09070694
                         ],
                         [
                             110.06162327,
@@ -3583,7 +3621,7 @@
                         ],
                         [
                             110.06035379,
-                            -7.09056156
+                            -7.09056157
                         ],
                         [
                             110.06033811,
@@ -4114,8 +4152,8 @@
                             -7.09744971
                         ],
                         [
-                            110.06445038,
-                            -7.09734328
+                            110.06445037,
+                            -7.09734327
                         ],
                         [
                             110.06450727,
@@ -4131,23 +4169,19 @@
                         ],
                         [
                             110.06458294,
-                            -7.09721234
+                            -7.09721235
                         ],
                         [
-                            110.06462077,
-                            -7.09722843
+                            110.06461975,
+                            -7.09722881
                         ],
                         [
                             110.06470323,
                             -7.09716016
                         ],
                         [
-                            110.06477672,
-                            -7.09715376
-                        ],
-                        [
-                            110.06479251,
-                            -7.09713412
+                            110.06477712,
+                            -7.09714977
                         ],
                         [
                             110.06485447,
@@ -4362,8 +4396,8 @@
                             -7.0921932
                         ],
                         [
-                            110.06523323,
-                            -7.09216195
+                            110.06523278,
+                            -7.09216246
                         ],
                         [
                             110.06520493,
@@ -4386,28 +4420,28 @@
                             -7.09187433
                         ],
                         [
-                            110.06493325,
+                            110.06493324,
                             -7.09155333
                         ],
                         [
                             110.06481316,
-                            -7.09119695
+                            -7.09119694
                         ],
                         [
                             110.06480859,
                             -7.09117989
                         ],
                         [
-                            110.0648387,
-                            -7.09115686
+                            110.06483812,
+                            -7.09115693
                         ],
                         [
-                            110.06482705,
-                            -7.09105379
+                            110.06482648,
+                            -7.09105386
                         ],
                         [
-                            110.06481084,
-                            -7.09102071
+                            110.06481022,
+                            -7.09102043
                         ]
                     ]
                 ]
@@ -4418,9 +4452,9 @@
             "properties": {
                 "nama": "NGRANDU",
                 "dusun_id": 10,
-                "luas_m2": 345952.7,
-                "luas_ha": 34.6,
-                "titik": 367,
+                "luas_m2": 345938.8,
+                "luas_ha": 34.59,
+                "titik": 365,
                 "sumber": "PETA DESA.docx / word/media/image4.jpeg",
                 "peta_2015": "PETA ADMINISTRASI DUSUN NGRANDU",
                 "skala_cetak": "1:3.000",
@@ -4432,33 +4466,36 @@
                     "y0utm": 9216400,
                     "meter_per_px_y": 0.913242
                 },
-                "metode": "digitasi raster 2015 + snapping ke jaringan DXF (020100, jalan, sungai, blok, 010500): run >=12 m, jarak rata <=3 m, taper 6 m, DP 0,75 m",
+                "metode": "digitasi raster 2015 + snapping ke jaringan DXF (020100, jalan, sungai, blok, 010500) dan garis luar 24 blok (tabel blok, toleransi 12 m): run >=12 m, jarak rata <=3 m (khusus blok <=8 m), taper 6 m, DP 0,75 m",
                 "optimalisasi": {
                     "titik_awal": 321,
                     "titik_padat": 1784,
-                    "titik_akhir": 367,
+                    "titik_akhir": 365,
                     "run_diterima": 25,
-                    "run_ditolak_jauh": 9,
+                    "run_diterima_blok": 0,
+                    "panjang_blok_m": 0,
+                    "run_ditolak_jauh": 14,
                     "panjang_layak_m": 1292.4,
                     "layak_pct": 39.57,
                     "digeser": 660,
                     "rata_geser_m": 1.53,
                     "maks_geser_m": 5.75,
                     "sumber_ruas_m": {
-                        "020100": 896.8,
+                        "020100": 577.7,
+                        "blokdb": 373.1,
                         "sungai": 273,
-                        "blok": 76.8
+                        "blok": 22.8
                     },
                     "silang": 0,
-                    "silang_padat": 5,
-                    "simpul_loop_dibuang": 3,
+                    "silang_padat": 3,
+                    "simpul_loop_dibuang": 2,
                     "fallback": false,
-                    "luas_utm_m2": 345952.8,
+                    "luas_utm_m2": 345938.9,
                     "silang_wgs": 0,
                     "loop_wgs_dibuang": 1
                 },
                 "silang": 0,
-                "selisih_m2": -193.4
+                "selisih_m2": -207.3
             },
             "geometry": {
                 "type": "Polygon",
@@ -4745,7 +4782,7 @@
                             -7.08879949
                         ],
                         [
-                            110.06673483,
+                            110.06673482,
                             -7.08873999
                         ],
                         [
@@ -4806,7 +4843,7 @@
                         ],
                         [
                             110.06485722,
-                            -7.08878716
+                            -7.08878715
                         ],
                         [
                             110.0648263,
@@ -4838,7 +4875,7 @@
                         ],
                         [
                             110.06448204,
-                            -7.08882018
+                            -7.08882019
                         ],
                         [
                             110.06443976,
@@ -4873,12 +4910,12 @@
                             -7.08988706
                         ],
                         [
-                            110.06467078,
-                            -7.08989689
+                            110.06467029,
+                            -7.089897
                         ],
                         [
-                            110.06471106,
-                            -7.09009862
+                            110.06471059,
+                            -7.09009871
                         ],
                         [
                             110.06470507,
@@ -4889,24 +4926,24 @@
                             -7.0901583
                         ],
                         [
-                            110.06474783,
-                            -7.09039672
+                            110.06474773,
+                            -7.09039658
                         ],
                         [
                             110.06471157,
                             -7.09041282
                         ],
                         [
-                            110.06472531,
-                            -7.09059923
+                            110.06472254,
+                            -7.09056394
                         ],
                         [
-                            110.06476426,
-                            -7.09061428
+                            110.0647607,
+                            -7.09057883
                         ],
                         [
-                            110.06477338,
-                            -7.09073689
+                            110.06477322,
+                            -7.090737
                         ],
                         [
                             110.06474244,
@@ -4917,16 +4954,8 @@
                             -7.09096912
                         ],
                         [
-                            110.06481105,
-                            -7.09102219
-                        ],
-                        [
-                            110.06480914,
-                            -7.09100835
-                        ],
-                        [
-                            110.06481105,
-                            -7.09102219
+                            110.06481051,
+                            -7.09102254
                         ],
                         [
                             110.06477662,
@@ -5557,8 +5586,8 @@
                             -7.09472873
                         ],
                         [
-                            110.06771178,
-                            -7.09471267
+                            110.0677118,
+                            -7.09471259
                         ],
                         [
                             110.06772131,
@@ -5569,12 +5598,12 @@
                             -7.09462574
                         ],
                         [
-                            110.06779965,
-                            -7.09462739
+                            110.06779848,
+                            -7.0946266
                         ],
                         [
-                            110.06784275,
-                            -7.09457782
+                            110.06784256,
+                            -7.09457768
                         ],
                         [
                             110.06783676,
@@ -5941,9 +5970,9 @@
             "properties": {
                 "nama": "DAKAH",
                 "dusun_id": 1,
-                "luas_m2": 808655.9,
-                "luas_ha": 80.87,
-                "titik": 770,
+                "luas_m2": 809005.6,
+                "luas_ha": 80.9,
+                "titik": 776,
                 "sumber": "PETA DESA.docx / word/media/image5.jpeg",
                 "peta_2015": "PETA ADMINISTRASI DUSUN DAKAH",
                 "skala_cetak": "1:4.000",
@@ -5955,34 +5984,37 @@
                     "y0utm": 9216400,
                     "meter_per_px_y": 1.212121
                 },
-                "metode": "digitasi raster 2015 + snapping ke jaringan DXF (020100, jalan, sungai, blok, 010500): run >=12 m, jarak rata <=3 m, taper 6 m, DP 0,75 m",
+                "metode": "digitasi raster 2015 + snapping ke jaringan DXF (020100, jalan, sungai, blok, 010500) dan garis luar 24 blok (tabel blok, toleransi 12 m): run >=12 m, jarak rata <=3 m (khusus blok <=8 m), taper 6 m, DP 0,75 m",
                 "optimalisasi": {
                     "titik_awal": 649,
                     "titik_padat": 3947,
-                    "titik_akhir": 770,
-                    "run_diterima": 63,
-                    "run_ditolak_jauh": 19,
-                    "panjang_layak_m": 2759.3,
-                    "layak_pct": 38.17,
-                    "digeser": 1403,
-                    "rata_geser_m": 1.6,
-                    "maks_geser_m": 5.86,
+                    "titik_akhir": 776,
+                    "run_diterima": 67,
+                    "run_diterima_blok": 4,
+                    "panjang_blok_m": 130.1,
+                    "run_ditolak_jauh": 23,
+                    "panjang_layak_m": 2889.3,
+                    "layak_pct": 39.97,
+                    "digeser": 1466,
+                    "rata_geser_m": 1.81,
+                    "maks_geser_m": 11.98,
                     "sumber_ruas_m": {
-                        "020100": 1819.3,
+                        "020100": 1176.9,
+                        "blokdb": 878.5,
                         "sungai": 488.7,
-                        "blok": 205.3,
-                        "desa": 129.5
+                        "blok": 161.2,
+                        "desa": 59.7
                     },
                     "silang": 0,
-                    "silang_padat": 3,
-                    "simpul_loop_dibuang": 3,
+                    "silang_padat": 10,
+                    "simpul_loop_dibuang": 6,
                     "fallback": false,
-                    "luas_utm_m2": 808655.8,
+                    "luas_utm_m2": 809005.4,
                     "silang_wgs": 0,
                     "loop_wgs_dibuang": 0
                 },
                 "silang": 0,
-                "selisih_m2": 1595.8
+                "selisih_m2": 1945.5
             },
             "geometry": {
                 "type": "Polygon",
@@ -6017,20 +6049,36 @@
                             -7.090683
                         ],
                         [
-                            110.07905288,
-                            -7.09067854
+                            110.0787856,
+                            -7.09068226
+                        ],
+                        [
+                            110.07882813,
+                            -7.09074712
+                        ],
+                        [
+                            110.07896279,
+                            -7.09075963
+                        ],
+                        [
+                            110.07900844,
+                            -7.09074969
+                        ],
+                        [
+                            110.07903506,
+                            -7.09067879
                         ],
                         [
                             110.07912572,
-                            -7.09070649
+                            -7.09070648
                         ],
                         [
                             110.07926796,
-                            -7.09069883
+                            -7.09069882
                         ],
                         [
                             110.07942626,
-                            -7.09067129
+                            -7.0906713
                         ],
                         [
                             110.07951053,
@@ -6393,7 +6441,7 @@
                             -7.08854262
                         ],
                         [
-                            110.07751657,
+                            110.07751656,
                             -7.08853298
                         ],
                         [
@@ -6406,7 +6454,7 @@
                         ],
                         [
                             110.07758721,
-                            -7.08844358
+                            -7.08844359
                         ],
                         [
                             110.07759393,
@@ -6582,7 +6630,7 @@
                         ],
                         [
                             110.07663366,
-                            -7.08773896
+                            -7.08773895
                         ],
                         [
                             110.07652084,
@@ -6622,7 +6670,7 @@
                         ],
                         [
                             110.07577482,
-                            -7.08716251
+                            -7.0871625
                         ],
                         [
                             110.07573954,
@@ -7090,7 +7138,7 @@
                         ],
                         [
                             110.07056104,
-                            -7.08905243
+                            -7.08905242
                         ],
                         [
                             110.07050652,
@@ -8133,11 +8181,11 @@
                             -7.0958416
                         ],
                         [
-                            110.06657382,
+                            110.06657381,
                             -7.09592376
                         ],
                         [
-                            110.06656722,
+                            110.06656721,
                             -7.09595614
                         ],
                         [
@@ -8149,12 +8197,20 @@
                             -7.09603047
                         ],
                         [
-                            110.06646608,
-                            -7.0961182
+                            110.06652362,
+                            -7.09610735
                         ],
                         [
-                            110.06644396,
-                            -7.0961291
+                            110.06651089,
+                            -7.09621651
+                        ],
+                        [
+                            110.06649186,
+                            -7.09622911
+                        ],
+                        [
+                            110.06645893,
+                            -7.09628856
                         ],
                         [
                             110.06646559,
@@ -8241,12 +8297,16 @@
                             -7.09746799
                         ],
                         [
-                            110.06779879,
-                            -7.09711852
+                            110.06757587,
+                            -7.0972323
                         ],
                         [
-                            110.06803058,
-                            -7.09703134
+                            110.06764745,
+                            -7.09725776
+                        ],
+                        [
+                            110.06800501,
+                            -7.09710813
                         ],
                         [
                             110.06803062,
@@ -8661,20 +8721,16 @@
                             -7.09414059
                         ],
                         [
-                            110.07529434,
-                            -7.09428305
-                        ],
-                        [
                             110.07528321,
                             -7.09437076
                         ],
                         [
-                            110.0750956,
-                            -7.09441425
+                            110.07526615,
+                            -7.09437471
                         ],
                         [
-                            110.07509554,
-                            -7.09444718
+                            110.0752474,
+                            -7.09441065
                         ],
                         [
                             110.07529412,
@@ -9081,9 +9137,9 @@
             "properties": {
                 "nama": "KANDANG",
                 "dusun_id": 6,
-                "luas_m2": 417486.6,
-                "luas_ha": 41.75,
-                "titik": 397,
+                "luas_m2": 417287.8,
+                "luas_ha": 41.73,
+                "titik": 411,
                 "sumber": "PETA DESA.docx / word/media/image7.jpeg",
                 "peta_2015": "PETA ADMINISTRASI DUSUN KANDANG",
                 "skala_cetak": "1:3.000",
@@ -9095,33 +9151,36 @@
                     "y0utm": 9217200,
                     "meter_per_px_y": 0.914286
                 },
-                "metode": "digitasi raster 2015 + snapping ke jaringan DXF (020100, jalan, sungai, blok, 010500): run >=12 m, jarak rata <=3 m, taper 6 m, DP 0,75 m",
+                "metode": "digitasi raster 2015 + snapping ke jaringan DXF (020100, jalan, sungai, blok, 010500) dan garis luar 24 blok (tabel blok, toleransi 12 m): run >=12 m, jarak rata <=3 m (khusus blok <=8 m), taper 6 m, DP 0,75 m",
                 "optimalisasi": {
                     "titik_awal": 368,
                     "titik_padat": 2077,
-                    "titik_akhir": 397,
-                    "run_diterima": 24,
-                    "run_ditolak_jauh": 17,
-                    "panjang_layak_m": 1079.1,
-                    "layak_pct": 28.61,
-                    "digeser": 552,
-                    "rata_geser_m": 1.75,
-                    "maks_geser_m": 5.99,
+                    "titik_akhir": 411,
+                    "run_diterima": 27,
+                    "run_diterima_blok": 3,
+                    "panjang_blok_m": 62.2,
+                    "run_ditolak_jauh": 20,
+                    "panjang_layak_m": 1141.3,
+                    "layak_pct": 30.26,
+                    "digeser": 582,
+                    "rata_geser_m": 1.96,
+                    "maks_geser_m": 8.83,
                     "sumber_ruas_m": {
-                        "020100": 973.8,
+                        "020100": 628.8,
+                        "blokdb": 401.6,
                         "sungai": 58.1,
                         "blok": 3.2
                     },
                     "silang": 0,
-                    "silang_padat": 8,
+                    "silang_padat": 6,
                     "simpul_loop_dibuang": 2,
                     "fallback": false,
-                    "luas_utm_m2": 417486.7,
+                    "luas_utm_m2": 417287.9,
                     "silang_wgs": 0,
                     "loop_wgs_dibuang": 0
                 },
                 "silang": 0,
-                "selisih_m2": -24.2
+                "selisih_m2": -223
             },
             "geometry": {
                 "type": "Polygon",
@@ -9137,7 +9196,7 @@
                         ],
                         [
                             110.08143342,
-                            -7.08151869
+                            -7.0815187
                         ],
                         [
                             110.08138642,
@@ -9304,7 +9363,7 @@
                             -7.08234124
                         ],
                         [
-                            110.07889168,
+                            110.07889169,
                             -7.08238964
                         ],
                         [
@@ -9628,6 +9687,26 @@
                             -7.08475159
                         ],
                         [
+                            110.07676482,
+                            -7.08478729
+                        ],
+                        [
+                            110.07683032,
+                            -7.08481724
+                        ],
+                        [
+                            110.07684343,
+                            -7.08484915
+                        ],
+                        [
+                            110.07684588,
+                            -7.08496964
+                        ],
+                        [
+                            110.07678703,
+                            -7.08501934
+                        ],
+                        [
                             110.07679386,
                             -7.08509074
                         ],
@@ -9664,8 +9743,8 @@
                             -7.0852973
                         ],
                         [
-                            110.07672506,
-                            -7.08536452
+                            110.07671823,
+                            -7.08537915
                         ],
                         [
                             110.07655756,
@@ -10088,7 +10167,7 @@
                             -7.08943115
                         ],
                         [
-                            110.07988261,
+                            110.07988262,
                             -7.08940651
                         ],
                         [
@@ -10324,8 +10403,32 @@
                             -7.0868267
                         ],
                         [
-                            110.08075935,
-                            -7.0868352
+                            110.08069876,
+                            -7.08682953
+                        ],
+                        [
+                            110.08067757,
+                            -7.08682181
+                        ],
+                        [
+                            110.08077022,
+                            -7.08675825
+                        ],
+                        [
+                            110.08071748,
+                            -7.0868833
+                        ],
+                        [
+                            110.08075563,
+                            -7.08691644
+                        ],
+                        [
+                            110.08077094,
+                            -7.08692451
+                        ],
+                        [
+                            110.08084277,
+                            -7.08691894
                         ],
                         [
                             110.08086661,
@@ -10353,7 +10456,7 @@
                         ],
                         [
                             110.08122197,
-                            -7.08710034
+                            -7.08710035
                         ],
                         [
                             110.0812218,
@@ -10600,8 +10703,20 @@
                             -7.08567942
                         ],
                         [
-                            110.08176219,
-                            -7.08565458
+                            110.08179353,
+                            -7.08557191
+                        ],
+                        [
+                            110.08180842,
+                            -7.08556271
+                        ],
+                        [
+                            110.08184196,
+                            -7.08555976
+                        ],
+                        [
+                            110.08190376,
+                            -7.08560276
                         ],
                         [
                             110.08191949,
@@ -10705,7 +10820,7 @@
                         ],
                         [
                             110.08158291,
-                            -7.08156714
+                            -7.08156715
                         ],
                         [
                             110.08153049,
@@ -10728,9 +10843,9 @@
             "properties": {
                 "nama": "TEMPURAN",
                 "dusun_id": 7,
-                "luas_m2": 1022675.4,
+                "luas_m2": 1022671.8,
                 "luas_ha": 102.27,
-                "titik": 292,
+                "titik": 296,
                 "sumber": "PETA DESA.docx / word/media/image8.jpeg",
                 "peta_2015": "PETA ADMINISTRASI DUSUN TEMPURAN",
                 "skala_cetak": "1:5.000",
@@ -10742,32 +10857,35 @@
                     "y0utm": 9218400,
                     "meter_per_px_y": 1.520913
                 },
-                "metode": "digitasi raster 2015 + snapping ke jaringan DXF (020100, jalan, sungai, blok, 010500): run >=12 m, jarak rata <=3 m, taper 6 m, DP 0,75 m",
+                "metode": "digitasi raster 2015 + snapping ke jaringan DXF (020100, jalan, sungai, blok, 010500) dan garis luar 24 blok (tabel blok, toleransi 12 m): run >=12 m, jarak rata <=3 m (khusus blok <=8 m), taper 6 m, DP 0,75 m",
                 "optimalisasi": {
                     "titik_awal": 268,
                     "titik_padat": 2872,
-                    "titik_akhir": 292,
-                    "run_diterima": 22,
-                    "run_ditolak_jauh": 19,
-                    "panjang_layak_m": 1138.9,
-                    "layak_pct": 20.79,
-                    "digeser": 573,
-                    "rata_geser_m": 2.04,
-                    "maks_geser_m": 5.63,
+                    "titik_akhir": 296,
+                    "run_diterima": 24,
+                    "run_diterima_blok": 2,
+                    "panjang_blok_m": 51.8,
+                    "run_ditolak_jauh": 23,
+                    "panjang_layak_m": 1190.7,
+                    "layak_pct": 21.73,
+                    "digeser": 598,
+                    "rata_geser_m": 2.19,
+                    "maks_geser_m": 8.21,
                     "sumber_ruas_m": {
-                        "020100": 1089,
-                        "desa": 8.9
+                        "020100": 911.8,
+                        "blokdb": 232.6,
+                        "desa": 1.5
                     },
                     "silang": 0,
                     "silang_padat": 3,
                     "simpul_loop_dibuang": 2,
                     "fallback": false,
-                    "luas_utm_m2": 1022675.5,
+                    "luas_utm_m2": 1022671.8,
                     "silang_wgs": 0,
                     "loop_wgs_dibuang": 0
                 },
                 "silang": 0,
-                "selisih_m2": 197.9
+                "selisih_m2": 194.3
             },
             "geometry": {
                 "type": "Polygon",
@@ -10886,8 +11004,24 @@
                             -7.07797117
                         ],
                         [
-                            110.08271177,
-                            -7.07788353
+                            110.08277928,
+                            -7.07795865
+                        ],
+                        [
+                            110.08270823,
+                            -7.07796907
+                        ],
+                        [
+                            110.08269234,
+                            -7.07796252
+                        ],
+                        [
+                            110.08261156,
+                            -7.07789821
+                        ],
+                        [
+                            110.08260336,
+                            -7.07782308
                         ],
                         [
                             110.08258787,
@@ -11322,12 +11456,12 @@
                             -7.07765084
                         ],
                         [
-                            110.07157562,
+                            110.07157563,
                             -7.07790596
                         ],
                         [
-                            110.07165087,
-                            -7.07802951
+                            110.07165086,
+                            -7.07802952
                         ],
                         [
                             110.07165608,
@@ -11814,8 +11948,8 @@
                             -7.08279197
                         ],
                         [
-                            110.07870784,
-                            -7.0827739
+                            110.07870783,
+                            -7.08277389
                         ],
                         [
                             110.07869911,
@@ -11834,11 +11968,11 @@
                             -7.08279815
                         ],
                         [
-                            110.07877096,
+                            110.07877097,
                             -7.08274381
                         ],
                         [
-                            110.07888288,
+                            110.07888289,
                             -7.08240613
                         ],
                         [
@@ -11926,16 +12060,16 @@
                             -7.08138867
                         ],
                         [
-                            110.0813677,
-                            -7.08144371
+                            110.08140593,
+                            -7.08151023
                         ],
                         [
-                            110.08158815,
-                            -7.08149923
+                            110.08153559,
+                            -7.08154777
                         ],
                         [
-                            110.08161172,
-                            -7.08152284
+                            110.08159994,
+                            -7.08151104
                         ],
                         [
                             110.08163916,
@@ -11954,9 +12088,9 @@
             "properties": {
                 "nama": "KALIPURU",
                 "dusun_id": 3,
-                "luas_m2": 1706096.7,
-                "luas_ha": 170.61,
-                "titik": 216,
+                "luas_m2": 1706177.8,
+                "luas_ha": 170.62,
+                "titik": 220,
                 "sumber": "PETA DESA.docx / word/media/image9.jpeg",
                 "peta_2015": "PETA ADMINISTRASI DUSUN KALIPURU",
                 "skala_cetak": "1:5.000",
@@ -11968,32 +12102,35 @@
                     "y0utm": 9218800,
                     "meter_per_px_y": 1.52236
                 },
-                "metode": "digitasi raster 2015 + snapping ke jaringan DXF (020100, jalan, sungai, blok, 010500): run >=12 m, jarak rata <=3 m, taper 6 m, DP 0,75 m",
+                "metode": "digitasi raster 2015 + snapping ke jaringan DXF (020100, jalan, sungai, blok, 010500) dan garis luar 24 blok (tabel blok, toleransi 12 m): run >=12 m, jarak rata <=3 m (khusus blok <=8 m), taper 6 m, DP 0,75 m",
                 "optimalisasi": {
                     "titik_awal": 195,
                     "titik_padat": 3134,
-                    "titik_akhir": 216,
-                    "run_diterima": 12,
-                    "run_ditolak_jauh": 9,
-                    "panjang_layak_m": 577.5,
-                    "layak_pct": 9.49,
-                    "digeser": 287,
-                    "rata_geser_m": 1.86,
-                    "maks_geser_m": 5.14,
+                    "titik_akhir": 220,
+                    "run_diterima": 14,
+                    "run_diterima_blok": 2,
+                    "panjang_blok_m": 26.1,
+                    "run_ditolak_jauh": 13,
+                    "panjang_layak_m": 603.6,
+                    "layak_pct": 9.92,
+                    "digeser": 299,
+                    "rata_geser_m": 1.97,
+                    "maks_geser_m": 7.62,
                     "sumber_ruas_m": {
-                        "020100": 523.1,
+                        "020100": 444.2,
+                        "blokdb": 101.2,
                         "desa": 31.2
                     },
                     "silang": 0,
                     "silang_padat": 0,
                     "simpul_loop_dibuang": 0,
                     "fallback": false,
-                    "luas_utm_m2": 1706096.9,
+                    "luas_utm_m2": 1706177.9,
                     "silang_wgs": 0,
                     "loop_wgs_dibuang": 0
                 },
                 "silang": 0,
-                "selisih_m2": 2
+                "selisih_m2": 83.1
             },
             "geometry": {
                 "type": "Polygon",
@@ -12312,8 +12449,8 @@
                             -7.08101523
                         ],
                         [
-                            110.06820378,
-                            -7.08067744
+                            110.06820384,
+                            -7.08067754
                         ],
                         [
                             110.06825751,
@@ -12329,7 +12466,7 @@
                         ],
                         [
                             110.06847947,
-                            -7.08049114
+                            -7.08049115
                         ],
                         [
                             110.06851346,
@@ -12568,20 +12705,36 @@
                             -7.07821661
                         ],
                         [
-                            110.07165332,
-                            -7.07814778
+                            110.07164133,
+                            -7.07809422
                         ],
                         [
-                            110.07158464,
-                            -7.07803748
+                            110.07164993,
+                            -7.07803942
+                        ],
+                        [
+                            110.07163183,
+                            -7.07804477
                         ],
                         [
                             110.07154329,
                             -7.07802365
                         ],
                         [
-                            110.07151584,
-                            -7.07794092
+                            110.071584,
+                            -7.07793538
+                        ],
+                        [
+                            110.07157588,
+                            -7.07792249
+                        ],
+                        [
+                            110.07155585,
+                            -7.07792826
+                        ],
+                        [
+                            110.07151842,
+                            -7.07790588
                         ],
                         [
                             110.07154423,
@@ -12890,28 +13043,31 @@
                     "y0utm": 9217200,
                     "meter_per_px_y": 0.913242
                 },
-                "metode": "digitasi raster 2015 + snapping ke jaringan DXF (020100, jalan, sungai, blok, 010500): run >=12 m, jarak rata <=3 m, taper 6 m, DP 0,75 m",
+                "metode": "digitasi raster 2015 + snapping ke jaringan DXF (020100, jalan, sungai, blok, 010500) dan garis luar 24 blok (tabel blok, toleransi 12 m): run >=12 m, jarak rata <=3 m (khusus blok <=8 m), taper 6 m, DP 0,75 m",
                 "optimalisasi": {
                     "titik_awal": 201,
                     "titik_padat": 1727,
                     "titik_akhir": 237,
                     "run_diterima": 19,
-                    "run_ditolak_jauh": 16,
+                    "run_diterima_blok": 0,
+                    "panjang_blok_m": 0,
+                    "run_ditolak_jauh": 23,
                     "panjang_layak_m": 1394.7,
                     "layak_pct": 42.8,
                     "digeser": 716,
                     "rata_geser_m": 1.43,
                     "maks_geser_m": 5.74,
                     "sumber_ruas_m": {
-                        "020100": 1197.1,
+                        "020100": 1069.7,
+                        "blokdb": 137.2,
                         "sungai": 82.6,
-                        "blok": 79.4
+                        "blok": 69.6
                     },
                     "silang": 0,
                     "silang_padat": 0,
                     "simpul_loop_dibuang": 0,
                     "fallback": false,
-                    "luas_utm_m2": 320026.3,
+                    "luas_utm_m2": 320026.2,
                     "silang_wgs": 0,
                     "loop_wgs_dibuang": 0
                 },
@@ -12932,12 +13088,12 @@
                             -7.08049149
                         ],
                         [
-                            110.06852219,
-                            -7.08046695
+                            110.06852218,
+                            -7.08046696
                         ],
                         [
                             110.06850579,
-                            -7.08047335
+                            -7.08047336
                         ],
                         [
                             110.06769736,
@@ -13676,7 +13832,7 @@
                             -7.0831089
                         ],
                         [
-                            110.07027461,
+                            110.0702746,
                             -7.08309362
                         ],
                         [
@@ -13860,7 +14016,7 @@
                             -7.08090085
                         ],
                         [
-                            110.06884295,
+                            110.06884294,
                             -7.08086618
                         ],
                         [
@@ -13884,9 +14040,9 @@
             "properties": {
                 "nama": "SABRANG",
                 "dusun_id": 5,
-                "luas_m2": 1056732,
-                "luas_ha": 105.67,
-                "titik": 453,
+                "luas_m2": 1056862.8,
+                "luas_ha": 105.69,
+                "titik": 456,
                 "sumber": "PETA DESA.docx / word/media/image11.jpeg",
                 "peta_2015": "PETA ADMINISTRASI DUSUN SABRANG",
                 "skala_cetak": "1:4.000",
@@ -13898,42 +14054,45 @@
                     "y0utm": 9217200,
                     "meter_per_px_y": 1.218274
                 },
-                "metode": "digitasi raster 2015 + snapping ke jaringan DXF (020100, jalan, sungai, blok, 010500): run >=12 m, jarak rata <=3 m, taper 6 m, DP 0,75 m",
+                "metode": "digitasi raster 2015 + snapping ke jaringan DXF (020100, jalan, sungai, blok, 010500) dan garis luar 24 blok (tabel blok, toleransi 12 m): run >=12 m, jarak rata <=3 m (khusus blok <=8 m), taper 6 m, DP 0,75 m",
                 "optimalisasi": {
                     "titik_awal": 312,
                     "titik_padat": 3181,
-                    "titik_akhir": 453,
-                    "run_diterima": 40,
-                    "run_ditolak_jauh": 13,
-                    "panjang_layak_m": 2238,
-                    "layak_pct": 37.04,
-                    "digeser": 1136,
-                    "rata_geser_m": 1.86,
-                    "maks_geser_m": 5.99,
+                    "titik_akhir": 456,
+                    "run_diterima": 41,
+                    "run_diterima_blok": 1,
+                    "panjang_blok_m": 26.2,
+                    "run_ditolak_jauh": 24,
+                    "panjang_layak_m": 2264.2,
+                    "layak_pct": 37.47,
+                    "digeser": 1149,
+                    "rata_geser_m": 1.9,
+                    "maks_geser_m": 7.99,
                     "sumber_ruas_m": {
-                        "020100": 1732.7,
-                        "sungai": 334.2,
-                        "blok": 53.8,
-                        "desa": 43.1
+                        "020100": 1197.1,
+                        "blokdb": 610.5,
+                        "sungai": 332.2,
+                        "desa": 43.1,
+                        "blok": 5.3
                     },
                     "silang": 0,
                     "silang_padat": 1,
                     "simpul_loop_dibuang": 1,
                     "fallback": false,
-                    "luas_utm_m2": 1056732,
+                    "luas_utm_m2": 1056862.9,
                     "silang_wgs": 0,
                     "loop_wgs_dibuang": 0
                 },
                 "silang": 0,
-                "selisih_m2": -206.1
+                "selisih_m2": -75.3
             },
             "geometry": {
                 "type": "Polygon",
                 "coordinates": [
                     [
                         [
-                            110.0591517,
-                            -7.09055667
+                            110.05916046,
+                            -7.09056772
                         ],
                         [
                             110.05920782,
@@ -14232,8 +14391,8 @@
                             -7.09057712
                         ],
                         [
-                            110.06129514,
-                            -7.09060906
+                            110.06129476,
+                            -7.09060957
                         ],
                         [
                             110.06129249,
@@ -14248,12 +14407,12 @@
                             -7.09076129
                         ],
                         [
-                            110.06178697,
-                            -7.09071268
+                            110.06180267,
+                            -7.09070709
                         ],
                         [
-                            110.0618222,
-                            -7.09075576
+                            110.06183514,
+                            -7.09074355
                         ],
                         [
                             110.06186608,
@@ -14304,32 +14463,32 @@
                             -7.09012218
                         ],
                         [
-                            110.06186317,
-                            -7.09006034
+                            110.06186323,
+                            -7.09006039
                         ],
                         [
-                            110.0621827,
-                            -7.08969185
+                            110.06218281,
+                            -7.08969199
                         ],
                         [
-                            110.06239144,
-                            -7.08953563
+                            110.06239156,
+                            -7.08953589
                         ],
                         [
-                            110.06256033,
-                            -7.08945803
+                            110.06256045,
+                            -7.08945828
                         ],
                         [
                             110.0625939,
                             -7.08950183
                         ],
                         [
-                            110.06258501,
-                            -7.08944669
+                            110.06258512,
+                            -7.08944694
                         ],
                         [
-                            110.06261864,
-                            -7.08943167
+                            110.06261868,
+                            -7.08943208
                         ],
                         [
                             110.062696,
@@ -14352,16 +14511,16 @@
                             -7.08943197
                         ],
                         [
-                            110.06281787,
-                            -7.08941101
+                            110.06281791,
+                            -7.08941139
                         ],
                         [
-                            110.06286902,
-                            -7.08940453
+                            110.06286907,
+                            -7.08940493
                         ],
                         [
-                            110.0629735,
-                            -7.08946516
+                            110.06297322,
+                            -7.08946563
                         ],
                         [
                             110.06294874,
@@ -14516,12 +14675,12 @@
                             -7.08980329
                         ],
                         [
-                            110.06464561,
-                            -7.08978055
+                            110.06464524,
+                            -7.08978064
                         ],
                         [
-                            110.06462679,
-                            -7.08968128
+                            110.06462645,
+                            -7.08968136
                         ],
                         [
                             110.06458101,
@@ -14532,12 +14691,12 @@
                             -7.08940254
                         ],
                         [
-                            110.06456457,
-                            -7.08937631
+                            110.06456445,
+                            -7.08937636
                         ],
                         [
                             110.06452894,
-                            -7.08920165
+                            -7.08920166
                         ],
                         [
                             110.06446182,
@@ -14581,7 +14740,7 @@
                         ],
                         [
                             110.06484037,
-                            -7.08880645
+                            -7.08880644
                         ],
                         [
                             110.06485792,
@@ -14693,7 +14852,7 @@
                         ],
                         [
                             110.06700923,
-                            -7.08871956
+                            -7.08871957
                         ],
                         [
                             110.06713457,
@@ -14741,7 +14900,7 @@
                         ],
                         [
                             110.06759503,
-                            -7.08831109
+                            -7.0883111
                         ],
                         [
                             110.06766051,
@@ -14752,7 +14911,7 @@
                             -7.08846757
                         ],
                         [
-                            110.06780515,
+                            110.06780514,
                             -7.08849615
                         ],
                         [
@@ -14769,7 +14928,7 @@
                         ],
                         [
                             110.06794796,
-                            -7.08866055
+                            -7.08866056
                         ],
                         [
                             110.06797678,
@@ -14785,7 +14944,7 @@
                         ],
                         [
                             110.06833873,
-                            -7.08868772
+                            -7.08868771
                         ],
                         [
                             110.0684514,
@@ -15448,8 +15607,20 @@
                             -7.08604914
                         ],
                         [
-                            110.05675722,
-                            -7.08611537
+                            110.05670014,
+                            -7.08613825
+                        ],
+                        [
+                            110.05679247,
+                            -7.08620751
+                        ],
+                        [
+                            110.05680905,
+                            -7.08621253
+                        ],
+                        [
+                            110.05689604,
+                            -7.08617516
                         ],
                         [
                             110.05691146,
@@ -15744,8 +15915,8 @@
                             -7.09049202
                         ],
                         [
-                            110.0591517,
-                            -7.09055667
+                            110.05916046,
+                            -7.09056772
                         ]
                     ]
                 ]
